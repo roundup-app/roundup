@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect } from "vitest";
 import { agent, info, mode, workstream } from "../../testing/nodes";
 import { copy as windowCopy } from "../../window/copy";
 import { createMove } from "../MovePicker";
-import { chooseAction, chooseFooter, exitedTerminal, itemOf, mountRail, rowNames, rowOf } from "../railFixture";
+import { copy } from "../copy";
+import { chooseAction, chooseFooter, exitedTerminal, itemOf, mountRail, resumeRow, rowNames, rowOf } from "../railFixture";
 
 /** U5991a: the Rail actions, one row each, shared by the render test and the frame-budget test. */
 
@@ -24,7 +25,7 @@ export type Action = { name: string; mount: () => Promise<Mounted>; method: "rai
 
 const resumable = (id: string) => agent(id, "done", "done", { can_resume: true });
 
-const menuLabels = (app: Mounted["app"]) => (app.shownMenus.at(-1)?.items ?? []).filter(item => item.enabled).map(item => item.label);
+const rowIcon = (name: string, label: string) => within(rowOf(name)).queryByRole("button", { name: label });
 
 let level: string | null = null;
 
@@ -103,16 +104,16 @@ export const actions: Action[] = [
     method: "agent.stop",
     fire: async ({ app }) => { fireEvent.contextMenu(rowOf("a")); await app.pickMenu("Stop"); },
     // The row now offers Resume, not Stop.
-    shown: ({ app }) => { fireEvent.contextMenu(rowOf("a")); expect(menuLabels(app)).toContain("Resume"); expect(menuLabels(app)).not.toContain("Stop"); },
+    shown: () => { expect(rowIcon("a", copy.restart)).not.toBeNull(); expect(rowIcon("a", copy.stop)).toBeNull(); },
     call: { id: "a" },
   },
   {
     name: "resume",
     mount: () => mountRail([resumable("a")], [exitedTerminal("a", 0)]),
     method: "agent.resume",
-    fire: async ({ app }) => { fireEvent.contextMenu(rowOf("a")); await app.pickMenu("Resume"); },
-    shown: ({ app }) => { fireEvent.contextMenu(rowOf("a")); expect(menuLabels(app)).toContain("Stop"); expect(menuLabels(app)).not.toContain("Resume"); },
-    call: { id: "a" },
+    fire: () => resumeRow("a"),
+    shown: () => { expect(rowIcon("a", copy.stop)).not.toBeNull(); expect(rowIcon("a", copy.restart)).toBeNull(); },
+    call: { id: "a", mode: "normal" },
   },
   {
     name: "reorder",

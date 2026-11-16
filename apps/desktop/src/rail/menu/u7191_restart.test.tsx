@@ -1,6 +1,6 @@
 import { batch } from "solid-js";
 import { copy } from "../copy";
-import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { agent, door, mode } from "../../testing/nodes";
@@ -103,4 +103,43 @@ it("u7191c_the_row_shows_the_restart_failure", async () => {
   await waitFor(() => expect(rail.commandFailure.message()).toContain("a has no saved conversation"));
   open("a");
   expect(app.menuLabels()).toContain(copy.restart);
+});
+
+it("u7191a_an_exited_restart_with_a_lost_reply_retries_the_same_request", async () => {
+  const { app, rail } = await mountRail([agent("a", "done", "stopped", { can_resume: true, has_conversation: true })], [exitedTerminal("a", 0)]);
+  const lost = new RpcError(-32004, "the Daemon may have run the call");
+  app.handlers["agent.resume"] = () => {
+    app.handlers["rail.tree"] = () => { throw new RpcError(-32000, "down"); };
+
+    throw lost;
+  };
+
+  open("a");
+  await app.pickMenu(copy.restart);
+  await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+  await rail.settled();
+  open("a");
+  await app.pickMenu(copy.restart);
+
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }, { id: "a", mode: "normal" }]));
+});
+
+it("u7191a_restarting_an_exited_row_selects_it", async () => {
+  const { app, rail } = await mountRail([agent("a", "done", "stopped", { can_resume: true, has_conversation: true }), agent("b", "idle", "ready")], [exitedTerminal("a", 0)]);
+  app.handlers["agent.resume"] = () => agent("a", "idle", "ready", { has_conversation: true });
+
+  expect(rail.selected()).not.toBe("a");
+  open("a");
+  await app.pickMenu(copy.restart);
+
+  await waitFor(() => expect(rail.selected()).toBe("a"));
+});
+
+it("u7191a_the_exited_row_icon_is_labelled_restart", async () => {
+  const { app } = await mountRail([agent("a", "done", "stopped", { can_resume: true, has_conversation: true })], [exitedTerminal("a", 0)]);
+  app.handlers["agent.resume"] = () => agent("a", "idle", "ready", { has_conversation: true });
+
+  fireEvent.click(within(rowOf("a")).getByRole("button", { name: copy.restart }));
+
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]));
 });

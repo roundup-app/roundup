@@ -38,6 +38,7 @@ export const copy = {
   storageIncompatible: (folder: string) => `Saved work is incompatible with this app. Delete it to start fresh: ${folder}`,
   you: "You",
   dotted: (first: string, second: string) => `${first} · ${second}`,
+  plus: (count: number) => `+${count}`,
   dottedAfter: (value: string) => ` · ${value}`,
   move: "Move",
   comment: "Comment",
