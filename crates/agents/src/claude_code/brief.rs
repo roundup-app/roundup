@@ -281,6 +281,10 @@ const TOOLS: &[(&str, &str)] = &[
         "start a child Agent in a folder of this Project, with an `order` (a `title` of at most six words, the one-sentence ask, the done condition, the limits), a `role` (`job` or `consult`) and a `prompt` (the working detail); it becomes your child",
     ),
     (
+        "agent_handoff",
+        "hand the build to a Job in your place: order, Pad name; you end once it runs; only if asked",
+    ),
+    (
         "agent_run",
         "run a command in a Terminal of your own; the answer holds its terminal_id",
     ),

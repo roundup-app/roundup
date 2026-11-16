@@ -63,6 +63,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Workstream state (`WorkstreamState`, `RailNode.workstream_state`; apart from the Door's own Status Kind) | same | — |
 | Group (`NodeKind::Group`, `GroupParams`, `rail.group`, `Rail::group`) | same | — |
 | Mode (`agent.createMode`, `agent.setModePrompt`, `agent.restartMode`, `RailNode.mode_prompt`, `CreateModeParams`, `ModePromptParams`, `ModeRestartParams`) | same | — |
+| Handoff (`agent.handoff`, `agent_handoff`, `HandoffParams`, `/handoff`, `Daemon::handoff`, `Agents::start_handoff`, `Agents::end_caller`) | Hand off | — |
 | Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
 | Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
@@ -278,7 +279,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Machine (`Machine`, `machine.list`, `machine.add`, `project.setMachine`, a Project's, Agent's or Terminal's `machine`, a Machine's `reachable`) | same | — |
+| Machine (`Machine`, `machine.list`, `machine.add`, `machine.remove`, `project.setMachine`, a Project's, Agent's or Terminal's `machine`, a Machine's `reachable`) | same | — |
 | Exec (`herdr::Conn::exec`, `worktree::Machines`) | same | — |
 | Bridge (`Bridges`, `bridge::Link`) | same | tunnel |
 | Spool (`rup`'s `spool`, `~/.rupq/spool`) | same | — |

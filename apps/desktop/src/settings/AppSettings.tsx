@@ -2,7 +2,7 @@ import fuzzysort from "fuzzysort";
 import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, untrack, type JSX } from "solid-js";
 import type { App, AppSettingsPage } from "../app/seam";
 import { useUpdates } from "../state/updates";
-import { copy, stateLabel } from "./copy";
+import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
@@ -16,8 +16,10 @@ import * as v from "valibot";
 import { draftStorage } from "../state/storage";
 import { createSettingsView, type SettingsViewState } from "../state/settingsView";
 import { setByFile } from "./configFile";
-import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
+import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
+import { AlertSettings } from "./AlertSettings";
 import { ResetWarnings } from "./ResetWarnings";
+import { MachinesSettings } from "./MachinesSettings";
 import { settingsEntries } from "./entries";
 import { UpdateRow } from "./UpdateRow";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
@@ -355,6 +357,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
           <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
           <Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger>
+          <Tabs.Trigger value="Machines">{copy.settingsMachines}</Tabs.Trigger>
           <Tabs.Trigger value="Updates">{copy.settingsUpdates}</Tabs.Trigger>
         </Tabs.List>
         </Show>
@@ -388,6 +391,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </section>
         {controls.focusMarkers()}
       </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Machines"><SettingsGroup hideHeading name={copy.settingsMachines}><MachinesSettings app={props.app} project={props.project} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
       <Tabs.Content value="Updates"><SettingsGroup name={copy.settingsUpdates}>
         <Show when={updates.facts()?.roundup}>{controls.updateRoundup()}</Show>
@@ -396,10 +400,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Show when={updates.facts()?.roundup}><p class="settings-hint settings-footnote">{copy.updatesFootnote}</p></Show>
       </Tabs.Content>
       <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
-        <For each={alertStates}>{state => <div class="settings-alert-row" role="group" aria-label={stateLabel(state)}>
-          <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}
-            onCheckedChange={checked => save({ stateAlerts: { ...appSettings().stateAlerts, [state]: { ...appSettings().stateAlerts[state], [choice]: checked } } })}>{`${stateLabel(state)} ${copy.choiceLabels[choice]}`}</Switch>}</For>
-        </div>}</For><ResetWarnings onFailure={setFailure} />
+        <AlertSettings save={save} /><ResetWarnings onFailure={setFailure} />
       </SettingsGroup></Tabs.Content>
       </Show>
       <ReservedLine message={failure()} dismiss={() => setFailure(null)} />

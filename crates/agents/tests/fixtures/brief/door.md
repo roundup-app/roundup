@@ -90,6 +90,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `project_start`: start an Agent, Workstream or Mode in a target Project through the App; return its canonical path, kind and row id.
 - `project_rename`: ask the App to give this Project another name; the answer means asked, not done.
 - `agent_spawn`: delegate a whole job to a named child with an order and working prompt.
+- `agent_handoff`: hand the build to a Job in your place: order, Pad name; you end once it runs; only if asked.
 - `terminal_screen`: read a Terminal's screen as it is now, as plain text, with the `offset` to read from next.
 - `terminal_read`: read new Terminal output from your last offset.
 - `terminal_search`: search a Terminal's output for a regular expression and get only the matching lines with their offsets.
