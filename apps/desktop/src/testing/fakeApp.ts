@@ -7,7 +7,7 @@ import { OWN_CONTRACT } from "../app/contractMatch";
 import * as v from "valibot";
 import { RpcError, appSettingsPageSchema } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, EditorChoice, UpdateFacts, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
+import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, EditorChoice, UpdateFacts, UpdateProgress, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -103,6 +103,9 @@ export type FakeApp = AppSeam & {
   /** U7208d: what `updates` answers; `emitUpdates` replaces it and tells every `onUpdatesChanged` listener, as a look does. */
   updateFacts: UpdateFacts;
   emitUpdates(facts: UpdateFacts): void;
+  /** U7208b, U7208c: while set, `install_update` and `update_core` stay pending until it resolves. `emitUpdateProgress` tells every `onUpdateProgress` listener. */
+  updateGate: Promise<void> | null;
+  emitUpdateProgress(progress: UpdateProgress): void;
   /** U7208b, U7208c: the `install_update` and `update_core` calls so far, and what each rejects with while set. A core update that succeeds moves the ready version into `core.version`. */
   updateInstalls: number;
   updateInstallFailure: RpcError | null;
@@ -158,6 +161,7 @@ export const createFakeApp = (): FakeApp => {
   const alertClicks = new Set<(agent: string) => void>();
   const exitListeners = new Set<(exit: DaemonExited) => void>();
   const updateListeners = new Set<(facts: UpdateFacts) => void>();
+  const progressListeners = new Set<(progress: UpdateProgress) => void>();
   const exited = new Set<string>();
   const dropListeners = new Set<(drop: FileDrop) => void>();
   let open: Project[] = [];
@@ -221,6 +225,8 @@ export const createFakeApp = (): FakeApp => {
     editorFailure: null,
     updateFacts: { roundup: null, core: null },
     updateInstalls: 0,
+    updateGate: null,
+    emitUpdateProgress: (progress) => { for (const listener of progressListeners) listener(progress); },
     updateInstallFailure: null,
     coreUpdates: 0,
     coreUpdateFailure: null,
@@ -480,11 +486,13 @@ export const createFakeApp = (): FakeApp => {
     updates: async () => app.updateFacts,
     installUpdate: async () => {
       app.updateInstalls += 1;
+      await app.updateGate;
 
       if (app.updateInstallFailure) throw app.updateInstallFailure;
     },
     updateCore: async () => {
       app.coreUpdates += 1;
+      await app.updateGate;
 
       if (app.coreUpdateFailure) throw app.coreUpdateFailure;
 
@@ -493,6 +501,11 @@ export const createFakeApp = (): FakeApp => {
       if (core?.ready) app.updateFacts = { ...app.updateFacts, core: { version: core.ready, ready: null } };
 
       return app.updateFacts;
+    },
+    onUpdateProgress: (listener) => {
+      progressListeners.add(listener);
+
+      return () => progressListeners.delete(listener);
     },
     onUpdatesChanged: (listener) => {
       updateListeners.add(listener);

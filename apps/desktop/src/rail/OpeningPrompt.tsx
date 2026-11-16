@@ -1,4 +1,5 @@
 import type { RailNode } from "@contracts/agent/RailNode";
+import { BusyButton } from "../ui/BusyButton";
 import { createMemo, createSignal, createEffect, Show } from "solid-js";
 import * as v from "valibot";
 import { applying } from "../app/pending";
@@ -92,7 +93,7 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
       <Show when={draft() && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.modePromptConflict} /></Show>
       <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void (restartFailed() ? restart() : save()) }} />
       <div class="app-dialog-actions">
-        <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restart}</button>
+        <BusyButton kind="quiet" class="word" busyLabel={copy.restarting} busy={restarting()} onClick={restart}>{copy.restart}</BusyButton>
         <Dialog.CloseTrigger data-button="quiet" class="word">{copy.close}</Dialog.CloseTrigger>
       </div>
   </Dialog.Content></Dialog.Root>;

@@ -144,6 +144,7 @@ export const copy = {
   addTerminalMenu: sharedCopy.terminal,
   copyLink: sharedCopy.copyLink,
   restart: "Restart",
+  restarting: "Restarting…",
   startYolo: "Start YOLO",
   handOff: "Hand off",
   startNormal: "Start normal",

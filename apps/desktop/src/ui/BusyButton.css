@@ -1,0 +1,24 @@
+/* U170 Busy: the indeterminate mark beside a busy label. It turns only while the button is busy, so it stops when the work ends. */
+.busy-mark {
+  display: inline-block;
+  box-sizing: border-box;
+  width: var(--space-3);
+  height: var(--space-3);
+  margin-right: var(--space-1);
+  vertical-align: middle;
+  border: 1px solid currentcolor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: busy-turn 900ms linear infinite;
+}
+
+@keyframes busy-turn { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .busy-mark { animation: none; border-top-color: currentcolor; }
+}
+
+/* Both labels share one cell, so the button keeps its width whichever shows. */
+button[data-busy-button] { display: inline-grid; }
+.busy-idle, .busy-work { grid-area: 1 / 1; }
+.busy-idle[data-shown="false"], .busy-work[data-shown="false"] { visibility: hidden; }

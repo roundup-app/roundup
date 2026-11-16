@@ -1,4 +1,5 @@
 import { createSignal, Show } from "solid-js";
+import { BusyButton } from "../ui/BusyButton";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
 import { Switch } from "../ui/Switch";
@@ -88,7 +89,7 @@ export const SkillSetting = (props: { app: App }) => {
         </>}</Show>
       </div>
       <Show when={list().some(i => i.state === "outdated")}>
-        <button class="word" data-button="quiet" type="button" disabled={busy()} onClick={() => void run("skill.setup")}>{copy.update}</button>
+        <BusyButton kind="quiet" class="word" busyLabel={copy.updating} busy={busy()} onClick={() => run("skill.setup")}>{copy.update}</BusyButton>
       </Show>
     </div>
   </>}</Show>;

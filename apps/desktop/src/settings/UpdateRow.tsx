@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import { BusyButton } from "../ui/BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { Program, Updates } from "../state/updates";
 import { copy } from "./copy";
@@ -45,15 +46,24 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
       <span class="settings-field-caption">{caption()}</span>
       <span class="settings-hint">{state()}</span>
       <Show when={row()?.ready}>
-        <button
+        <BusyButton
           class="settings-update-button"
-          data-button="quiet"
-          type="button"
-          disabled={props.updates.running(props.program)}
-          onClick={() => void props.updates.update(props.program)}
+          kind="quiet"
+          busyLabel={copy.updating}
+          busy={props.updates.running(props.program)}
+          onClick={() => props.updates.update(props.program)}
         >
           {own().button}
-        </button>
+        </BusyButton>
+        <Show when={props.program === "roundup" && props.updates.progress()}>
+          {(progress) => (
+            <span class="settings-hint" role="status">
+              {progress().stage === "installing"
+                ? copy.updateInstalling
+                : copy.updateDownloading(progress().downloaded, progress().total)}
+            </span>
+          )}
+        </Show>
       </Show>
       <ReservedLine
         message={props.updates.failure(props.program)}
