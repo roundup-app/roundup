@@ -127,7 +127,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App seam | same | — |
 | App Settings | same | — |
 | File drop | same | — |
-| Feedback report (`feedback.send`, `feedback.retry`) | Feedback | — |
+| Feedback report (`feedback.send`, `feedback.check`) | Send feedback… | — |
 | Window bar | same | — |
 | Project tab | same | — |
 | Tab mark | same | — |

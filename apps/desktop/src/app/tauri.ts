@@ -203,6 +203,7 @@ export const createTauriApp = (): App => {
       await command("fork_recolour", { path, colour });
     },
     onForkSheet: (listener) => subscribe(() => listen("open-fork-sheet", listener)),
+    onFeedback: (listener) => subscribe(() => listen("open-feedback", listener)),
     onAppSettings: (listener) => subscribe(() => listen("open-app-settings", event => listener(v.parse(appSettingsPageSchema, event.payload) ?? null))),
     onDaemonExited: (listener) =>
       subscribe(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),

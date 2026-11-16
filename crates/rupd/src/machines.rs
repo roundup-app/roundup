@@ -62,6 +62,11 @@ impl Core {
 }
 
 impl Core {
+    /// U7210e: the version herdr-core's `hello` named, when a core answers.
+    pub(crate) async fn version(&self) -> Option<String> {
+        Some(self.open().await.ok()?.hello.version.clone())
+    }
+
     /// The open connection while it stays open, else a new one, which is kept once armed.
     async fn open(&self) -> herdr::Result<Arc<herdr::Conn>> {
         let mut kept = self.2.conn.lock().await;
@@ -396,6 +401,18 @@ mod tests {
         ask(&daemon, LIST).await;
         ticks(5).await;
         assert_eq!(starts.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn u7210e_check_reads_the_herdr_core_version() {
+        let (core, _) = fake_core();
+        let hello: Value = serde_json::from_str(HELLO).unwrap();
+        assert_eq!(
+            core.version().await.as_deref(),
+            hello["result"]["version"].as_str()
+        );
+        let missing = Core::new(|| Box::pin(async { Err(herdr::Error::Missing) }));
+        assert_eq!(missing.version().await, None);
     }
 
     #[tokio::test]

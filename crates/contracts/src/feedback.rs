@@ -1,43 +1,45 @@
-//! FB3 to FB5 (`scenarios/feedback-report.md`): a Feedback report the Daemon posts through the
-//! owner's `gh`, or keeps.
+//! U7210c to U7210e (`scenarios/send-feedback.md`): Send feedback… files an Issue through the
+//! owner's `gh`; the dialog asks first whether `gh` can.
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-/// FB4: the owner's line, the shot and the App's facts. The Daemon adds its own facts (FB3).
+/// U7210c: the owner's text, the shot and the versions line as the dialog showed them.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SendParams {
-    /// The report's key: a repeated Send with it returns the first result.
-    pub id: String,
     pub text: String,
-    /// The PNG, base64; absent when the owner dropped it or the capture failed.
+    /// The PNG, base64; absent when the owner turned it off or the capture failed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = String)]
     pub shot: Option<String>,
-    /// The App's facts as the form showed them.
-    pub facts: String,
-    /// FB6: the Feedback Issue's URL.
-    pub target: String,
-    /// The id of the Rail node the owner had selected.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub selected: Option<String>,
+    /// The versions line: roundup, herdr-core and macOS.
+    pub versions: String,
 }
 
-/// FB5: post a kept report again; `target` replaces the saved one when the owner changed it.
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct RetryParams {
-    pub id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub target: Option<String>,
-}
-
+/// U7210c: the Issue `gh` filed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(tag = "state", rename_all = "lowercase")]
-pub enum Sent {
-    /// The comment's URL.
-    Posted { url: String },
-    /// The report is saved in `dir`; `cause` is one line.
-    Kept { dir: String, cause: String },
+pub struct Filed {
+    pub number: u32,
+    pub url: String,
+}
+
+/// U7210e: whether the owner's `gh` can file an Issue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum Gh {
+    Ready,
+    Missing,
+    SignedOut,
+}
+
+/// U7210d, U7210e: what the dialog needs before it offers Send.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct Check {
+    pub gh: Gh,
+    /// `gh` is 2.103 or newer, so `gh issue create --attach` exists.
+    pub attach: bool,
+    /// herdr-core's version from its `hello`; absent when no core answered.
+    #[serde(rename = "herdrCore", default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub herdr_core: Option<String>,
 }

@@ -547,3 +547,38 @@ fn u5501_native_alert_choices_keep_their_checked_state() {
         assert_eq!(entry.id().0, "alerts:quiet");
     }
 }
+
+#[test]
+fn u7210a_the_application_menu_holds_send_feedback_and_emits_open_feedback() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tauri::Listener;
+    use tauri::test::{mock_builder, mock_context, noop_assets};
+    let app = mock_builder()
+        .manage(ProjectMenu::default())
+        .menu(app_menu)
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let MenuItemKind::Submenu(application) = app.menu().unwrap().items().unwrap().remove(0) else {
+        panic!("application menu")
+    };
+    let feedback = plain(application.get("send-feedback").unwrap());
+    assert_eq!(feedback.text().unwrap(), "Send feedback…");
+    assert!(!feedback.is_enabled().unwrap());
+    select_project_menu(app.handle().clone(), Some("/A".into()), None).unwrap();
+    assert!(feedback.is_enabled().unwrap());
+    let opened = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&opened);
+    app.listen("open-feedback", move |_| {
+        seen.fetch_add(1, Ordering::SeqCst);
+    });
+    app_chosen(
+        app.handle(),
+        &MenuEvent {
+            id: "send-feedback".into(),
+        },
+    );
+    assert_eq!(opened.load(Ordering::SeqCst), 1);
+    select_project_menu(app.handle().clone(), None, None).unwrap();
+    assert!(!feedback.is_enabled().unwrap());
+}

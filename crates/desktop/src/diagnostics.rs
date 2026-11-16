@@ -2,12 +2,7 @@
 
 use tauri::{Runtime, plugin::TauriPlugin};
 
-/// When this run started: a log file untouched since is a past run's (FB8).
-pub(crate) static RUN_START: std::sync::LazyLock<std::time::SystemTime> =
-    std::sync::LazyLock::new(std::time::SystemTime::now);
-
 pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
-    std::sync::LazyLock::force(&RUN_START);
     tauri_plugin_log::Builder::new()
         .level(log::LevelFilter::Info)
         .filter(|metadata| metadata.target() == "roundup::shell")

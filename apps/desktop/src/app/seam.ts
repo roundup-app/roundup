@@ -235,11 +235,11 @@ export type ForkPick = { key: string; agents: "all" | "none" | string[] };
 
 export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
 
-/** FB2, FB3: the shot of the window and the App's own facts, as the `feedback_capture` command answers. */
+/** U7210b, U7210d: the shot of the window and the App's versions, as the `feedback_capture` command answers. */
 export const feedbackReportSchema = v.object({
   shot: v.nullable(v.string()),
   shot_error: v.nullable(v.string()),
-  facts: v.object({ version: v.string(), commit: v.string(), macos: v.string(), log: v.array(v.string()) }),
+  facts: v.object({ version: v.string(), commit: v.string(), macos: v.string() }),
 });
 
 export type FeedbackReport = v.InferOutput<typeof feedbackReportSchema>;
@@ -296,7 +296,7 @@ export type App = {
   dragWindow(): Promise<void>;
   /** Toggles native zoom of the current window; rejects as RpcError on failure. */
   zoomWindow(): Promise<void>;
-  /** FB2: takes the shot of the window as drawn now (base64 PNG, or none with its cause) and reads the App's facts. */
+  /** U7210d: takes the shot of the window as drawn now (base64 PNG, or none with its cause) and reads the App's facts. */
   feedbackCapture?(): Promise<FeedbackReport>;
   /** Opens a web link in the default browser, or an absolute path: a text file in the code editor `editor` (a bundle id; absent is `Automatic`, U6372b), any other in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget, editor?: string): Promise<void>;
@@ -336,6 +336,8 @@ export type App = {
   forkRecolour(path: string, colour: ForkColour): Promise<void>;
   /** FS5979a: the application menu's `Fork for development…`; no payload. */
   onForkSheet(listener: () => void): Unsubscribe;
+  /** U7210a: the application menu's `Send feedback…`; no payload. */
+  onFeedback(listener: () => void): Unsubscribe;
   /** Opens the app-wide center settings view, on the Updates page when the payload is "updates" (U7208f). */
   onAppSettings(listener: (page: AppSettingsPage | null) => void): Unsubscribe;
   onDaemonExited(listener: (exit: DaemonExited) => void): Unsubscribe;
