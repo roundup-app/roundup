@@ -8,7 +8,7 @@ Module: `crates/agents` and `crates/contracts` (U7186a, U7186b), `apps/desktop/s
 - **Shared checkout.** When the Agent edits the checkout of the default branch or a branch it shares, the group lists only the files the Agent edited that now differ from the default branch's head, uncommitted or committed. Asserted in `u7186a_the_shared_checkout_lists_only_files_the_agent_edited`.
 - **Merged is empty.** A branch merged into the default branch lists nothing, and an edited file equal to the default branch's head lists nothing; a reverted change is not listed. Asserted in `u7186a_a_merged_branch_and_a_reverted_file_list_nothing`.
 - **Several repositories.** An Agent that edited files in several repositories or on several branches returns one group for each, in sorted order. Asserted in `u7186a_several_repos_and_branches_return_one_group_each`.
-- **Default branch.** The default branch is the repository's own default (`origin/HEAD`, else `main`, else `master`), not a fixed name. Asserted in `u7186a_the_default_branch_is_the_repositorys_own`.
+- **Default branch.** The default branch is the repository's own default (`origin/HEAD`, else `main`, else `master`), not a fixed name. Asserted in `u7186a_the_default_branch_is_the_repository_default`.
 - **Read-only and failures.** Branches and files are the same after the call; a repository gone from disk is omitted from the groups and an Agent with no recorded edits returns `{groups: []}`. Asserted in `u7186a_changes_nothing_and_skips_a_missing_repo`.
 
 **U7186b `project.compareRefs` lists the endpoints and `agent.compareFile` compares any two.** Given a Project with a repository, then:

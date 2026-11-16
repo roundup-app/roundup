@@ -22,6 +22,7 @@ const TRAY: &str = "roundup-menu-bar";
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub(crate) enum Action {
     Agent { path: String, agent: String },
+    Terminal { path: String, terminal: String },
     Open,
 }
 
@@ -492,6 +493,21 @@ mod tests {
 
         tray.extend(gate.submit("closed again"));
         assert_eq!(tray, ["closed", "second while open", "closed again"]);
+    }
+
+    #[test]
+    fn u7189b_a_terminal_action_has_the_wire_form_the_webview_sends() {
+        let wire = r#"{"kind":"terminal","path":"/api","terminal":"7"}"#;
+        let action: Action = serde_json::from_str(wire).unwrap();
+
+        assert_eq!(
+            action,
+            Action::Terminal {
+                path: "/api".into(),
+                terminal: "7".into()
+            }
+        );
+        assert_eq!(serde_json::to_string(&action).unwrap(), wire);
     }
 
     #[test]

@@ -20,6 +20,7 @@ pub(crate) fn invoke_handler<R: Runtime>()
     let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
         launch::native_open,
         ask_removal,
+        ask_question,
         projects,
         recent_projects,
         claude_binary,
@@ -402,4 +403,69 @@ async fn ask_removal<R: Runtime>(
             .await
             .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))
     }
+}
+
+/// A native yes/no question; on macOS it carries AppKit's "Don't ask again" checkbox when `suppressible` names it.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeQuestion {
+    title: String,
+    message: String,
+    ok_label: String,
+    cancel_label: String,
+    #[cfg_attr(
+        not(target_vendor = "apple"),
+        expect(dead_code, reason = "only AppKit has the checkbox")
+    )]
+    suppressible: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct NativeAnswer {
+    accepted: bool,
+    suppressed: bool,
+}
+
+#[tauri::command]
+async fn ask_question<R: Runtime>(
+    app: AppHandle<R>,
+    question: NativeQuestion,
+) -> Result<NativeAnswer, RpcError> {
+    let (send, receive) = tokio::sync::oneshot::channel();
+    #[cfg(target_vendor = "apple")]
+    native::question_alert(
+        &app,
+        question.title,
+        question.message,
+        [question.ok_label, question.cancel_label],
+        question.suppressible,
+        move |accepted, suppressed| {
+            let _ = send.send(NativeAnswer {
+                accepted,
+                suppressed,
+            });
+        },
+    )
+    .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?;
+    #[cfg(not(target_vendor = "apple"))]
+    {
+        use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+        app.dialog()
+            .message(question.message)
+            .title(question.title)
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                question.ok_label,
+                question.cancel_label,
+            ))
+            .show(move |accepted| {
+                let _ = send.send(NativeAnswer {
+                    accepted,
+                    suppressed: false,
+                });
+            });
+    }
+    receive
+        .await
+        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))
 }

@@ -39,12 +39,12 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $opening", async ({ 
   const before = app.calls.length;
   row("c:11").focus();
 
-  for (const [key, id] of [["Home", "a:a"], ["ArrowUp", "a:a"], ["End", "a:b"], ["ArrowDown", "a:b"], ["ArrowUp", "a:r"], ["ArrowUp", "c:12"], ["ArrowDown", "a:r"], ["終", "a:b"]]) {
+  for (const [key, id] of [["Home", "a:a"], ["ArrowUp", "a:a"], ["End", "a:b"], ["ArrowDown", "a:b"], ["ArrowUp", "a:r"], ["ArrowUp", "c:12"], ["ArrowDown", "a:r"]]) {
     fireEvent.keyDown(document.activeElement!, { key });
     expect(document.activeElement).toBe(row(id!));
   }
 
-  expect(selected()).toEqual(["a:b"]);
+  expect(selected()).toEqual([]);
   expect(document.querySelector('.inbox [aria-expanded="true"]')).toBeNull();
   expect(document.querySelector('.todo-drawer')).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);

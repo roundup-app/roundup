@@ -617,3 +617,129 @@ async fn ai7152c_data_fork_refuses_a_name_or_colour_another_app_has_and_writes_n
     .await;
     assert_eq!(again["error"]["code"], rpc::code::INVALID_PARAMS, "{again}");
 }
+
+/// Make `key`'s `project.db` one `storage::connect` refuses: a newer `user_version` missing a table, or a column
+/// the migrations do not build.
+fn refuse(live: &Live, key: &str, newer: bool) {
+    let db = Connection::open(live.project(key).join("project.db")).unwrap();
+    db.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+    if newer {
+        // A newer build's database that lacks what this build needs.
+        db.execute_batch("DROP TABLE touches").unwrap();
+        db.pragma_update(None, "user_version", 9999).unwrap();
+    } else {
+        db.execute_batch("ALTER TABLE todos ADD COLUMN branch_only TEXT")
+            .unwrap();
+    }
+}
+
+fn folder_keys(root: &Path) -> Vec<String> {
+    let mut keys: Vec<String> = std::fs::read_dir(root.join("projects"))
+        .map(|dir| {
+            dir.flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    keys.sort();
+    keys
+}
+
+#[tokio::test]
+async fn fk7159a_a_refused_project_is_left_out_and_listed() {
+    let live = live();
+    let [open, other] = live.keys.clone();
+    // Two more Projects, each refused for its own cause.
+    let mut refused = Vec::new();
+    for (n, newer) in [(0, true), (1, false)] {
+        let key = format!("zz-refused-{n}");
+        let dir = live.project(&key);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::copy(
+            live.project(&open).join("project.db"),
+            dir.join("project.db"),
+        )
+        .unwrap();
+        std::fs::create_dir_all(dir.join("agents")).unwrap();
+        std::fs::write(dir.join("agents/1.settings.json"), "{}").unwrap();
+        refuse(&live, &key, newer);
+        refused.push(key);
+    }
+    let folder = live.fork_dir("refusal");
+    let reply = fork(&live, &folder, json!({})).await;
+    let result = &reply["result"];
+    assert!(result.is_object(), "{reply}");
+    let listed: Vec<&str> = result["refused"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["key"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        listed,
+        refused.iter().map(String::as_str).collect::<Vec<_>>()
+    );
+    for r in result["refused"].as_array().unwrap() {
+        assert!(!r["cause"].as_str().unwrap().is_empty(), "{r}");
+    }
+    let mut want = vec![open.clone(), other];
+    want.sort();
+    assert_eq!(folder_keys(&folder), want);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(folder.join("fork.json")).unwrap()).unwrap();
+    assert!(record["projects"].is_null(), "{record}");
+    assert_eq!(
+        count(
+            &folder.join("projects").join(&open).join("project.db"),
+            "todos"
+        ),
+        1
+    );
+}
+
+#[tokio::test]
+async fn fk7159a_every_project_refused_still_succeeds_and_a_read_error_still_fails() {
+    let live = live();
+    for key in live.keys.clone() {
+        refuse(&live, &key, true);
+    }
+    let folder = live.fork_dir("none");
+    let reply = fork(&live, &folder, json!({})).await;
+    assert_eq!(
+        reply["result"]["refused"].as_array().unwrap().len(),
+        2,
+        "{reply}"
+    );
+    assert_eq!(reply["result"]["projects"].as_array().unwrap().len(), 0);
+    assert!(folder_keys(&folder).is_empty());
+
+    let live = live_with_broken();
+    let folder = live.fork_dir("fails");
+    let reply = fork(&live, &folder, json!({})).await;
+    assert_eq!(reply["error"]["code"], code::INTERNAL, "{reply}");
+    assert!(!folder.exists());
+}
+
+fn live_with_broken() -> Live {
+    let live = live();
+    std::fs::write(live.project(&live.keys[1]).join("broken.db"), "not sqlite").unwrap();
+    live
+}
+
+#[tokio::test]
+async fn fk7159b_a_picked_refused_project_fails_the_call() {
+    let live = live();
+    let [open, bad] = live.keys.clone();
+    refuse(&live, &bad, true);
+    let folder = live.fork_dir("picked");
+    let reply = fork(&live, &folder, json!({"projects":[{"key":bad}]})).await;
+    let message = reply["error"]["message"].as_str().unwrap();
+    assert!(message.contains(&bad), "{reply}");
+    assert!(!folder.exists());
+    let reply = fork(&live, &folder, json!({"projects":[{"key":open}]})).await;
+    assert_eq!(
+        reply["result"]["refused"].as_array().unwrap().len(),
+        0,
+        "{reply}"
+    );
+}

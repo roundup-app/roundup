@@ -5,7 +5,7 @@ import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ask, open, save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
@@ -142,7 +142,7 @@ export const createTauriApp = (): App => {
     } : undefined,
     writeClipboardText: (text) => guarded(() => writeText(text)),
     askRemoval: question => parsedCommand(v.picklist(["this", "all", "cancel"]), "ask_removal", { question }),
-    ask: ({ message, ...options }) => guarded(() => ask(message, { ...options, kind: "warning" })),
+    ask: question => parsedCommand(v.object({ accepted: v.boolean(), suppressed: v.boolean() }), "ask_question", { question }),
     recentProjects: () => parsedCommand(v.array(v.string()), "recent_projects", {}),
     claudeBinary: () => parsedCommand(v.nullable(claudeBinarySchema), "claude_binary", {}),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
