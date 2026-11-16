@@ -130,12 +130,21 @@ async fn mc4_missing_refused_silent_return_coded_error() {
         .err()
         .unwrap();
     assert!(matches!(none, Error::Missing));
-    let mut sh = tokio::process::Command::new("sh");
-    sh.args(["-c", "exit 127"]);
-    assert!(matches!(
-        Conn::spawn(sh, T).await.err().unwrap(),
-        Error::Missing
-    ));
+    // Many at once, so some shells exit before hello is written and break the pipe: still Missing.
+    let mut shells = tokio::task::JoinSet::new();
+    for _ in 0..50 {
+        shells.spawn(async {
+            let mut sh = tokio::process::Command::new("sh");
+            sh.args(["-c", "exit 127"]);
+            Conn::spawn(sh, Duration::from_secs(10))
+                .await
+                .err()
+                .unwrap()
+        });
+    }
+    while let Some(err) = shells.join_next().await {
+        assert!(matches!(err.unwrap(), Error::Missing));
+    }
 
     let codes: Vec<_> = [&refused, &closed, &silent, &none]
         .iter()
