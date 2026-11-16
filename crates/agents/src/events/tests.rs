@@ -646,8 +646,8 @@ fn b3563c_receipts_of_one_transcript_reach_the_observer_in_the_order_they_were_r
     use std::sync::{Barrier, Mutex};
     let state = Arc::new(crate::events::InboxState::default());
     let reports = Arc::new(Mutex::new(Vec::new()));
-    let held = Arc::new(Barrier::new(2));
-    let (log, stall) = (Arc::clone(&reports), Arc::clone(&held));
+    let gate = Arc::new(Barrier::new(2));
+    let (log, stall) = (Arc::clone(&reports), Arc::clone(&gate));
     state
         .observer
         .set(Arc::new(move |_, ids| {
@@ -667,11 +667,11 @@ fn b3563c_receipts_of_one_transcript_reach_the_observer_in_the_order_they_were_r
             scope.spawn(move || state.scan_using("a", &payload, |_, at| (vec![id], at)))
         };
         scan(7);
-        held.wait();
+        gate.wait();
         scan(8);
-        // The second scan may not read, let alone report, while the first report is held.
+        // The second scan may not read, let alone report, while the first report stalls.
         std::thread::sleep(std::time::Duration::from_millis(200));
-        held.wait();
+        gate.wait();
     });
     assert_eq!(*reports.lock().unwrap(), [[7], [8]]);
 }
