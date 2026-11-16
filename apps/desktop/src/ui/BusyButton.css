@@ -6,8 +6,8 @@
   height: var(--space-3);
   margin-right: var(--space-1);
   vertical-align: middle;
-  border: 1px solid currentcolor;
-  border-top-color: transparent;
+  border: var(--hairline-width) solid var(--hairline);
+  border-top-color: currentcolor;
   border-radius: var(--radius-round);
   animation: busy-turn var(--duration-working) linear infinite;
 }
@@ -15,7 +15,7 @@
 @keyframes busy-turn { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .busy-mark { animation: none; border-top-color: currentcolor; }
+  .busy-mark { animation: none; }
 }
 
 /* Both labels share one cell, so the button keeps its width whichever shows. */

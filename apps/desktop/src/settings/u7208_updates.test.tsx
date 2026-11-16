@@ -147,7 +147,7 @@ it("u7208b_a_pending_install_shows_updating_and_its_progress_and_ignores_a_secon
   fireEvent.click(press);
   fireEvent.click(press);
   await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
-  expect(press.textContent).toContain(copy.updating);
+  expect(press.textContent).toContain(copy.machineUpdating);
   expect(app.updateInstalls).toBe(1);
 
   app.emitUpdateProgress({ downloaded: 12_000_000, total: 40_000_000, stage: "downloading" });
@@ -170,7 +170,7 @@ it("u7208c_a_pending_core_update_shows_updating_and_ignores_a_second_click", asy
   fireEvent.click(press);
   fireEvent.click(press);
   await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
-  expect(press.textContent).toContain(copy.updating);
+  expect(press.textContent).toContain(copy.machineUpdating);
   expect(app.coreUpdates).toBe(1);
 
   finish();

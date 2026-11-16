@@ -49,7 +49,7 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
         <BusyButton
           class="settings-update-button"
           kind="quiet"
-          busyLabel={copy.updating}
+          busyLabel={copy.machineUpdating}
           busy={props.updates.running(props.program)}
           onClick={() => props.updates.update(props.program)}
         >
