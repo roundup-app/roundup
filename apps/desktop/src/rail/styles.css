@@ -776,8 +776,8 @@
   inset-inline-end: var(--rail-edge);
   z-index: 1;
 }
-.rail-sortable:has(.rail-toggle) { --rail-first-head-end: calc(var(--rail-edge) + var(--space-5)); }
-.rail-section:first-child .section-head { padding-inline-end: var(--rail-first-head-end, var(--rail-edge)); }
+.rail-sortable:has(.rail-toggle) { --rail-toggle-room: var(--space-5); }
+.rail-section:first-child .section-head-row { margin-inline-end: var(--rail-toggle-room, 0); }
 .rail-tree [data-slot="tree-indicator"] {
   display: inline-flex;
   align-items: center;
