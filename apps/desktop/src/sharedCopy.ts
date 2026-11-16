@@ -200,7 +200,6 @@ export const copy = {
   copyLink: "Copy link",
   failed: (value1: CopyValue, value2: CopyValue) => `${value1} failed: ${value2}`,
   changedTodo: (value1: CopyValue) => `Changed Todo "${value1}"`,
-  moveItem: (name: string) => `Move ${name}`,
   blocks: "Blocks",
   me: "Me",
   modePrompt: word.firstPrompt,

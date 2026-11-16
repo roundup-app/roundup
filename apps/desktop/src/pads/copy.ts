@@ -69,7 +69,7 @@ export const copy = {
   invalidDiagram: "Invalid diagram",
   mermaid: (value1: CopyValue) => `Mermaid: ${value1}`,
   failed: sharedCopy.failed,
-  moveItem: sharedCopy.moveItem,
+  moveItem: (name: string) => `Move ${name}`,
   blocks: sharedCopy.blocks,
   resume: sharedCopy.resume,
 } as const;

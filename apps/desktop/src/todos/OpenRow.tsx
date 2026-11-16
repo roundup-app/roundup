@@ -1,7 +1,6 @@
 import { applied } from "../app/pending";
 import { Age } from "../shelf/Age";
 import { OpenButton } from "../ink/OpenButton";
-import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { NameField } from "../ui/Editable";
 import { type Accessor, createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
@@ -29,7 +28,6 @@ export type SortedRow = {
   frame: (el: HTMLElement | null) => void;
   /** The name button, retaining neighbour-move and selection focus. */
   button: (el: HTMLButtonElement | null) => void;
-  handle: (el: HTMLButtonElement | null) => void;
   /** Where a failed move shows. */
   fail: (show: (message: string | null) => void) => void;
   /** `⌥↑` and `⌥↓`. */
@@ -37,6 +35,19 @@ export type SortedRow = {
   step: (by: -1 | 1) => void;
   /** Whether a sibling sits in that direction; the arrow for a direction with none is hidden. */
   can: (by: -1 | 1) => boolean;
+};
+
+// U7276c: `⌥→` nests the row under the one above and `⌥←` takes it out, the calls Tab and ⇧Tab make.
+const nestKey = (event: KeyboardEvent, nest: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null } | undefined, report: (message: string | null) => void) => {
+  const out = event.key === "ArrowLeft";
+
+  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (!out && event.key !== "ArrowRight")) return false;
+  event.preventDefault();
+  const run = out ? nest?.out : nest?.in;
+
+  if (run && !event.repeat) void run().then(report);
+
+  return true;
 };
 
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
@@ -122,7 +133,6 @@ export const OpenRow = (props: {
     props.registerRow?.(props.todo.id, null);
     sorted?.frame(null);
     sorted?.button(null);
-    sorted?.handle(null);
   });
 
   const reportMove = (message: string | null) => { if (message === null) clearFailure(); else setMoveFailure(message); };
@@ -142,6 +152,7 @@ export const OpenRow = (props: {
           commit={async (text, _base, version) => { if (version === null) throw new Error(copy.originalUnverified); await applied(() => connected.app.rpc("todo.update", { id: props.todo.id, title: text, body: null, expected_change: Number(version) })); }}
           close={closeName} fail={message => { setFailedAction(copy.rename); setFailure(message); }} />}>
         <RowButton
+          dragSurface
           hang={false}
           keysSuspended={props.lifted === true}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
@@ -154,6 +165,8 @@ export const OpenRow = (props: {
           nest={props.nest ? (out) => (out ? props.nest?.out : props.nest?.in) ?? null : undefined}
           onNest={async (run) => reportMove(await run())}
           onKeyDown={(event) => {
+            if (nestKey(event, props.nest, reportMove)) return;
+
             props.onSelectionKey?.(props.todo, event);
 
             sorted?.key(event);
@@ -172,7 +185,6 @@ export const OpenRow = (props: {
         </span>
         <Age updatedAt={props.todo.updated_at} />
         <OpenButton name={props.todo.title} onOpen={() => props.onOpen(props.todo, "pointer")} />
-        <Show when={sorted} keyed>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} ref={el => order.handle(el ?? null)} />}</Show>
       </div>
   );
 

@@ -532,8 +532,8 @@ const d6 = (page: Page): Measure => {
 
     const missing = text ? [] : (declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color") ? [] : ["hover"]);
 
-    // U155: a Todo row can be dragged, so its cursor is `grab`.
-    const cursorOk = text || style.cursor === (el.hasAttribute("data-reorderable") ? "grab" : "pointer");
+    // U7276a: a row's cursor is the arrow at rest and `grabbing` only mid-drag, so a control keeps its pointer.
+    const cursorOk = text || style.cursor === "pointer";
 
     const faults = Object.fromEntries([
       ["height", height > 0 && height < 24 ? height : undefined],

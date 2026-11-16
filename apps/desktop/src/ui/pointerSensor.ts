@@ -34,4 +34,14 @@ class InterruptiblePointerSensor extends PointerSensor {
   }
 }
 
-export const pointerSensor = () => ({ ...PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }), plugin: InterruptiblePointerSensor });
+/** What acts on its own press: a press that starts on one never starts a row's drag. */
+const CONTROLS = ["input:not([disabled])", "select:not([disabled])", "textarea:not([disabled])", "button:not([disabled])", "a[href]", "[contenteditable]:not([contenteditable=false])", "[role=checkbox]", "[data-no-drag]"].join(", ");
+
+/** The row is the drag surface; a control inside it is not, unless it is the row's handle or its own title button (`data-drag-surface`), which drags as a Project tab does. */
+const onControl = (event: PointerEvent, source: Draggable) => {
+  const control = event.target instanceof Element ? event.target.closest(CONTROLS) : null;
+
+  return control !== null && control !== source.element && control !== source.handle && !control.matches("[data-drag-surface]");
+};
+
+export const pointerSensor = () => ({ ...PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })], preventActivation: onControl }), plugin: InterruptiblePointerSensor });

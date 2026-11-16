@@ -33,8 +33,7 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
 };
 
 const point = (selector: string) => page.call<Point>(`selector => {
-  const row = document.querySelector(selector);
-  const el = row.matches('.todo-row-button') ? row.closest('.todo-row').querySelector('.sortable-handle') : row;
+  const el = document.querySelector(selector);
   el.scrollIntoView({block: 'nearest'});
   const b = el.getBoundingClientRect();
   return {x: b.left + b.width / 2, y: b.top + b.height / 2};

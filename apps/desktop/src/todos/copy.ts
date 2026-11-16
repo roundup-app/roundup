@@ -78,7 +78,6 @@ export const copy = {
   changedTodo: sharedCopy.changedTodo,
   body: "Body",
   move: sharedCopy.move,
-  moveTodoRow: (id: number, title: string) => `Move #${id} ${title}`,
   homesFor: (value1: CopyValue) => `Homes for #${value1}`,
   reopenTodo: (value1: CopyValue) => `Reopen ${value1}`,
   completeTodo: (value1: CopyValue) => `Complete ${value1}`,

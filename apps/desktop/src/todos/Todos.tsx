@@ -278,7 +278,6 @@ export const Todos = (props: {
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
-  let nestGrip = false;
   let nestPermission = captureFocus();
 
   createEffect(() => open().map(todo => todo.blockers.join()), () => {
@@ -289,8 +288,7 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => (nestGrip ? rowButtonOf(id)?.closest(".todo-row")?.querySelector<HTMLElement>(".sortable-handle")
-        : rowButtonOf(id))?.focus({ preventScroll: true }));
+      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => rowButtonOf(id)?.focus({ preventScroll: true }));
     });
   });
 
@@ -301,7 +299,6 @@ export const Todos = (props: {
       const advance = captureAdvance(todo.id);
       nestPermission = captureFocus();
       nestFocus = advance ? null : todo.id;
-      nestGrip = false;
 
       const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
@@ -325,7 +322,6 @@ export const Todos = (props: {
       const blockers = plan.blockers;
       nestPermission = captureFocus();
       nestFocus = id;
-      nestGrip = true;
       const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
       if (message !== null) {
@@ -778,7 +774,7 @@ export const Todos = (props: {
 
         return <>
         <For each={group().items.filter(todo => pending().includes(todo))}>{todo => <ShelfRow class="todo-row todo-inset" data-todo={todo.id} data-pending="true" glyph={<span><KindGlyph kind="idle" /></span>} head={<div class="row-head"><span class="shelf-title">{todo.title}</span></div>} />}</For>
-        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
+        <Sortable.Root class="todo-list shelf-list" ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tree-step")) || 24; },
           inset: (element) => {
@@ -788,7 +784,6 @@ export const Todos = (props: {
           },
           nests: () => true,
           onMove: (move) => dropOf(tree(), group().items.filter(todo => !pending().includes(todo)), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
-          onPreview: () => undefined,
           // A drop lands as shown only if its plan changes something and the Todo then nests under the parent shown: a nest that makes a cycle, or one under another first blocker, does not.
           accepts: (move) => {
             const id = Number(move.id), parent = move.parent === null ? null : Number(move.parent);

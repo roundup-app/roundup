@@ -17,6 +17,9 @@ afterAll(async () => { await page?.close(); });
 
 type Point = { x: number; y: number };
 
+/** CDP's modifier bit for Alt. */
+const ALT = 1;
+
 const rows = '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button';
 
 const setup = async () => {
@@ -39,9 +42,10 @@ const setup = async () => {
 
 const ids = () => page.call<number[]>(`rows => [...document.querySelector('.shelf').querySelectorAll(rows)].map(b => Number(/#(\\d+)/.exec(b.getAttribute('aria-label'))[1]))`, rows);
 
+/** A point near the start of row `n`'s button, its drag surface (U7276a). */
 const centre = (n: number) => page.call<Point>(`(rows, n) => {
-  const b = document.querySelector('.shelf').querySelectorAll(rows)[n].closest(".todo-row").querySelector(".sortable-handle").getBoundingClientRect();
-  return {x: b.left + 1, y: b.top + b.height / 2};
+  const b = document.querySelector('.shelf').querySelectorAll(rows)[n].getBoundingClientRect();
+  return {x: b.left + 8, y: b.top + b.height / 2};
 }`, rows, n);
 
 type Call = { method: string; params: { id: number; before?: number; blockers?: number[] } };
@@ -79,25 +83,48 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await page.call<number>(`() => Number(document.activeElement.closest('[data-todo]')?.dataset.todo)`)).toBe(order[1]);
   });
 
-  it.each(["pointer", "keyboard"])("u3800c_a_%s_nest_returns_focus_to_the_moved_grip", async (input) => {
+  const focusedTodo = () => page.call<number | null>(`() => document.activeElement.matches('.todo-row-button') ? Number(document.activeElement.closest('[data-todo]').dataset.todo) : null`);
+
+  it("u3800c_a_pointer_nest_returns_focus_to_the_moved_row", async () => {
     await setup();
     const order = await ids();
-    const moved = order[1]!;
+    const second = await centre(1);
 
-    if (input === "pointer") {
-      const second = await centre(1);
-      await drag(second, { x: second.x + await treeStep(), y: second.y });
-    } else {
-      await page.call(`id => document.querySelector('[data-todo="' + id + '"] .sortable-handle').focus()`, moved);
-      await page.press(" ", "Space");
-      await page.until(`() => Boolean(document.querySelector('[data-dnd-placeholder]'))`);
-      await page.press("ArrowRight", "ArrowRight");
-      await page.press(" ", "Space");
-    }
-
+    await page.call(`rows => document.querySelectorAll(rows)[1].focus()`, rows);
+    await drag(second, { x: second.x + await treeStep(), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
-    expect(await page.call<number>(`() => document.activeElement.matches('.sortable-handle') ? Number(document.activeElement.closest('[data-todo]').dataset.todo) : null`)).toBe(moved);
+    expect(await focusedTodo()).toBe(order[1]);
+  });
+
+  // U7276c: ⌥→ makes a focused Todo the last child of the row above, ⌥← puts it just after its parent; one call each, and focus stays on the row.
+  it("u7276c_alt_right_nests_under_the_row_above", async () => {
+    await setup();
+    const order = await ids();
+
+    await page.call(`rows => document.querySelectorAll(rows)[1].focus()`, rows);
+    await page.press("ArrowRight", "ArrowRight", ALT);
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
+    await settled();
+    expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[1], blockers: [order[0]] } }]);
+    expect(await focusedTodo()).toBe(order[1]);
+  });
+
+  it("u7276c_alt_left_unnests_after_the_parent", async () => {
+    await setup();
+    const order = await ids();
+
+    await page.call(`async order => {
+      await window.__fake.app.rpc('todo.setBlockers', {id: order[1], blockers: [order[0]]});
+      window.__mark = window.__fake.app.calls.length;
+    }`, order);
+    await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
+    await page.call(`id => document.querySelector('.shelf [data-todo="' + id + '"] .todo-row-button').focus()`, order[1]!);
+    await page.press("ArrowLeft", "ArrowLeft", ALT);
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
+    await settled();
+    expect((await calls())[0]).toEqual({ method: "todo.setBlockers", params: { id: order[1], blockers: [] } });
+    expect(await focusedTodo()).toBe(order[1]);
   });
 
   it("u4710b_u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
@@ -200,7 +227,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     }
   }, 60_000);
 
-  it("u4710b_u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
+  it("u4710b_u3710_a_pointer_can_nest_two_levels", async () => {
     await setup();
     const order = await ids();
     await page.call(`async order => {
@@ -208,7 +235,6 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
       window.__mark = window.__fake.app.calls.length;
     }`, order);
     await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
-    // The grip can sit at the inline edge; the library still identifies this list.
     const edge = await centre(2);
     await drag(edge, { x: edge.x + 2 * await treeStep(), y: edge.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
@@ -216,7 +242,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[2], blockers: [order[1]] } }]);
   });
 
-  it("u3800e_one_drag_from_the_grips_far_end_nests_two_levels", async () => {
+  it("u3800e_one_drag_from_the_rows_far_end_nests_two_levels", async () => {
     await setup();
     const order = await ids();
     await page.call(`async order => {
@@ -225,12 +251,12 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     }`, order);
     await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
 
-    // U3800e: pressed at the grip's far end, the deeper levels share the room left before the window's edge.
+    // U3800e: pressed at the row button's far end, the deeper levels share the room left before the window's edge.
     const far = await page.call<{ from: Point; to: Point }>(`rows => {
-      const grip = document.querySelector('.shelf').querySelectorAll(rows)[2].closest(".todo-row").querySelector(".sortable-handle").getBoundingClientRect();
-      const y = grip.top + grip.height / 2;
+      const row = document.querySelector('.shelf').querySelectorAll(rows)[2].getBoundingClientRect();
+      const y = row.top + row.height / 2;
 
-      return { from: { x: grip.right - 1, y }, to: { x: innerWidth - 1, y } };
+      return { from: { x: row.right - 1, y }, to: { x: innerWidth - 1, y } };
     }`, rows);
 
     await drag(far.from, far.to);

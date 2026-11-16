@@ -44,7 +44,7 @@ it("u4547e_drag_reparents_the_chosen_agent_without_restarting", async () => {
     await lane.capture("U4547e", `before-${kind}`);
 
     const bounds = await lane.evaluate<{x:number;y:number;end:number}>(`(() => {
-      const a = document.querySelector('${row("agent-4")} .sortable-handle').getBoundingClientRect();
+      const a = document.querySelector('${row("agent-4")} .name').getBoundingClientRect();
       const b = document.querySelector('${row(parent)}').getBoundingClientRect();
       return {x:a.x+1,y:a.y+a.height/2,end:b.bottom+2};
     })()`);

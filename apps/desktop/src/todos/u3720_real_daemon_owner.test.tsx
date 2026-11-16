@@ -147,7 +147,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     })()`);
 
     const moved = made[4]!;
-    const from = await point(`.shelf [data-todo="${moved.id}"] .sortable-handle`);
+    const from = await point(`.shelf [data-todo="${moved.id}"] .todo-row-button`);
     const to = await point(`${group(agents[0]!.id)} .shelf-group-head`);
     await lane.browser("mouse", "move", String(from.x), String(from.y));
     await lane.browser("mouse", "down");
