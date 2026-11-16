@@ -28,6 +28,7 @@ export const labels = new Map([
 
 export const copy = {
   ageNow: "now",
+  ageSeconds: (value: number) => `${value}s`,
   workstream: word.workstream,
   feedback: "Feedback",
   defaultChoice: "Default",

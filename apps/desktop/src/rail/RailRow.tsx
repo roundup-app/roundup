@@ -218,7 +218,7 @@ export const RailRowView = (props: {
     const status = doorStatus();
     const cause = errorCause(status, connected.rail.dismissed(props.row.node));
 
-    return [LABELS[shown], cause ?? (statusLabel() !== LABELS[shown] ? statusLabel() : "")].filter(Boolean).join(copy.comma);
+    return [LABELS[shown], cause ?? (statusLabel().toLowerCase() !== LABELS[shown].toLowerCase() ? statusLabel() : "")].filter(Boolean).join(copy.comma);
   };
 
   let glyphFocus: Pick<TriggerProps, "onFocusIn" | "onFocusOut"> | undefined;

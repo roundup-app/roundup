@@ -18,11 +18,11 @@ export const Age = (props: { updatedAt: number }) => {
 export const railAge = (since: number, now: number): string => {
   const span = elapsed(since, now);
 
-  if (span.unit === "now") return copy.railAge.seconds(Math.floor(Math.max(0, now - since) / 1000));
+  if (span.unit === "now") return copy.age.seconds(Math.floor(Math.max(0, now - since) / 1000));
 
-  if (span.unit === "minutes") return copy.railAge.minutes(span.value);
+  if (span.unit === "minutes") return copy.age.minutes(span.value);
 
-  if (span.unit === "hours") return copy.railAge.hours(span.value);
+  if (span.unit === "hours") return copy.age.hours(span.value);
 
-  return copy.railAge.days(Math.floor(Math.max(0, now - since) / 86_400_000));
+  return copy.age.days(Math.floor(Math.max(0, now - since) / 86_400_000));
 };

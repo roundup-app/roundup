@@ -3,12 +3,12 @@ import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 export const copy = {
   age: {
     now: sharedCopy.ageNow,
+    seconds: sharedCopy.ageSeconds,
     minutes: (value: number) => `${value}m`,
     hours: (value: number) => `${value}h`,
     days: (value: number) => `${value}d`,
     weeks: (value: number) => `${value}w`,
   },
-  railAge: { seconds: (value: number) => `${value}s`, minutes: (value: number) => `${value}m`, hours: (value: number) => `${value}h`, days: (value: number) => `${value}d` },
   dismissFailure: sharedCopy.dismissFailure,
   draftStatus: sharedCopy.draftStatus,
   couldNotDelete: "Could not delete",
