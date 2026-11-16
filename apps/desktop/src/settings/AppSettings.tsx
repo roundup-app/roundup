@@ -367,10 +367,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Editor">{copy.settingsEditor}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsGeneral}</div>
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
-          <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
-          <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
-          <Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger>
-          <Tabs.Trigger value="Machines">{copy.settingsMachines}</Tabs.Trigger>
+          <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger><Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger><Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger><Tabs.Trigger value="Machines">{copy.settingsMachines}</Tabs.Trigger>
         </Tabs.List>
         </Show>
         </aside>
