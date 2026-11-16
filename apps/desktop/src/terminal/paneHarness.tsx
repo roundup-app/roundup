@@ -11,7 +11,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import type { ConnectedProject } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
 import { Pane } from "./Pane";
-import type { Emulator, EmulatorFactory, Size } from "./emulator";
+import type { Emulator, EmulatorFactory, Size, ViewRows } from "./emulator";
 import type { Printed } from "./links";
 
 type FakeEmulator = Emulator & {
@@ -34,6 +34,8 @@ type FakeEmulator = Emulator & {
   matches: boolean;
   /** Simulates the user scrolling the view, as a wheel or drag would. */
   scroll(atBottom: boolean): void;
+  /** Simulates a drawn frame with this row grid. */
+  draw(rows: ViewRows): void;
 };
 
 export const fakeEmulators = () => {
@@ -45,6 +47,8 @@ export const fakeEmulators = () => {
     let linkListener: (printed: Printed) => void = () => {};
 
     let scrollListener: () => void = () => {};
+
+    let rowsListener: (rows: ViewRows) => void = () => {};
 
     let bottom = true;
 
@@ -96,6 +100,9 @@ export const fakeEmulators = () => {
       onScroll: (next) => {
         scrollListener = next;
       },
+      onRows: (next) => {
+        rowsListener = next;
+      },
       show: (host, focus = true) => {
         emulator.host = host;
 
@@ -129,6 +136,7 @@ export const fakeEmulators = () => {
         bottom = atBottom;
         scrollListener();
       },
+      draw: (rows) => rowsListener(rows),
     };
 
     made.set(id, emulator);

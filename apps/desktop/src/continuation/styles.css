@@ -1,4 +1,4 @@
-/* U7211a: the Pane's top row holds the line; it sits in the reserved row like any failure line. */
+/* U7211a: the line floats over one Terminal row (Pane's `over`), on its own ground like any overlay line. */
 .reserved-line.resume-bar {
   padding-inline: var(--space-2);
 }

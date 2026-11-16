@@ -19,9 +19,9 @@ const lineOf = ({ resumed, failed }: Tally): string => {
 };
 
 /**
- * U7211a to U7211c: the one slim line in the top row every Pane reserves above its Terminal. It says so when the shown Project's
- * selected Agent has unfinished work the user has not dismissed, with Resume and Dismiss, and stays empty otherwise, so showing it
- * moves nothing (U3807), covers no output (U7192) and keeps the first PTY grid the fitted one (U4590). It never resumes by itself. `⌘K U` and the command
+ * U7211a to U7211c: the one slim line floating over one row of the Terminal (Pane's `over`). It says so when the shown Project's
+ * selected Agent has unfinished work the user has not dismissed, with Resume and Dismiss, and stays empty and hidden otherwise; showing it
+ * resizes nothing (U3807, U4590) and Pane keeps it off the cursor's row (U7192). It never resumes by itself. `⌘K U` and the command
  * list resume every Agent's, while one has some, and a Toast says how many resumed. When the read of unfinished work
  * fails the line says so instead, with a retry.
  */
@@ -59,6 +59,7 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
   return (
     <ReservedLine
       class="resume-bar"
+      overlay
       message={message()}
       status={visible() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
       dismiss={dismiss}
