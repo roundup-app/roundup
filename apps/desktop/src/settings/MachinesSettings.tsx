@@ -16,6 +16,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   const [listed, { mutate }] = createResource(calls, async project => await project.rpc("machine.list", null).catch((): Machine[] => []));
   const [host, setHost] = createSignal("");
   const [addFailure, setAddFailure] = createSignal<string | null>(null);
+  const [updating, setUpdating] = createSignal<ReadonlySet<string>>(new Set());
   const [rowFailure, setRowFailure] = createSignal<{ name: string; hint: string } | null>(null);
 
   const add = async () => {
@@ -36,7 +37,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   const remove = async (name: string) => {
     const project = calls();
 
-    if (project === null || !answerOf(await props.app.ask(copy.machineRemoveQuestion(name))).accepted) return;
+    if (project === null || updating().has(name) || !answerOf(await props.app.ask(copy.machineRemoveQuestion(name))).accepted) return;
 
     try {
       mutate(await project.rpc("machine.remove", { name }));
@@ -46,13 +47,36 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     }
   };
 
+  /** MC75: one CLI run at a time per row; a failure shows the CLI's last line and offers Update again. */
+  const update = async (name: string) => {
+    const project = calls();
+
+    if (project === null || updating().has(name)) return;
+
+    setUpdating(set => new Set(set).add(name));
+    setRowFailure(failure => failure?.name === name ? null : failure);
+
+    try {
+      mutate(await project.rpc("machine.update", { name }));
+    } catch (error) {
+      setRowFailure({ name, hint: (error instanceof Error ? error.message : String(error)).replace(/^update_failed: /, "") });
+    } finally {
+      setUpdating(set => { const next = new Set(set); next.delete(name);
+
+ return next; });
+    }
+  };
+
   return <>
     <ul class="settings-machines settings-rows" aria-label={copy.settingsMachines}>
       <li class="settings-machine"><span class="settings-machine-name">{copy.thisMac}</span></li>
       <For each={listed() ?? []}>{machine => <li class="settings-machine">
         <span class="settings-machine-name">{machine.name}</span>
         <span class="settings-machine-state" data-state={machine.reachable === false ? "offline" : "online"}>{machine.reachable === false ? copy.machineOffline : copy.machineOnline}</span>
-        <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
+        <Show when={machine.outdated === true}>
+          <button class="settings-machine-update" data-button="quiet" type="button" aria-label={copy.machineUpdateLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void update(machine.name)}>{updating().has(machine.name) ? copy.machineUpdating : copy.update}</button>
+        </Show>
+        <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
         <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{failure => <ReservedLine message={failure().hint} dismiss={() => setRowFailure(null)} />}</Show>
       </li>}</For>
     </ul>

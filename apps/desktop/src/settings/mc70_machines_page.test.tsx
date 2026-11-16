@@ -137,3 +137,59 @@ it("mc71_a_refused_rm_keeps_the_row_with_the_hint", async () => {
   expect(rows()).toHaveLength(1);
   expect(screen.queryByRole("alertdialog")).toBeNull();
 });
+
+const old: Machine = { name: "old", details: {}, reachable: true, outdated: true };
+
+it("mc75_update_shows_only_when_the_machine_is_older", async () => {
+  const list = await open(createFakeApp(), [old, { ...box, outdated: false }, box, dead]);
+  await within(list).findByRole("button", { name: "Remove old" });
+
+  expect(within(list).getAllByRole("button", { name: /^Update / }).map(button => button.getAttribute("aria-label"))).toEqual(["Update old"]);
+});
+
+it("mc75_update_runs_once_and_clears_on_success", async () => {
+  const app = createFakeApp();
+  const { promise, resolve } = Promise.withResolvers<Machine[]>();
+  const list = await open(app, [old]);
+  app.handlers["machine.update"] = () => promise;
+
+  const button = await within(list).findByRole("button", { name: "Update old" });
+  fireEvent.click(button);
+  fireEvent.click(button);
+  await within(list).findByText("Updating…");
+  expect(button.getAttribute("aria-disabled")).toBe("true");
+  resolve([{ ...old, outdated: false }]);
+  await waitFor(() => expect(within(list).queryByRole("button", { name: /^Update / })).toBeNull());
+  expect(app.calls.filter(call => call.method === "machine.update")).toHaveLength(1);
+});
+
+it("mc75_updates_track_each_row_on_its_own", async () => {
+  const app = createFakeApp();
+  const first = Promise.withResolvers<Machine[]>();
+  const other: Machine = { ...old, name: "other" };
+  const list = await open(app, [old, other]);
+  app.handlers["machine.update"] = () => first.promise;
+
+  const a = await within(list).findByRole("button", { name: "Update old" });
+  const b = within(list).getByRole("button", { name: "Update other" });
+  fireEvent.click(a);
+  fireEvent.click(b);
+  fireEvent.click(a);
+  expect(a.getAttribute("aria-disabled")).toBe("true");
+  expect(b.getAttribute("aria-disabled")).toBe("true");
+  expect(app.calls.filter(call => call.method === "machine.update")).toHaveLength(2);
+  first.resolve([old, other]);
+});
+
+it("mc75_a_failed_update_shows_the_line_and_offers_it_again", async () => {
+  const app = createFakeApp();
+  const list = await open(app, [old]);
+  app.handlers["machine.update"] = () => {
+    throw new RpcError(-32603, "update_failed: ssh: no route");
+  };
+
+  fireEvent.click(await within(list).findByRole("button", { name: "Update old" }));
+  await screen.findByText("ssh: no route");
+  expect(within(list).getByRole("button", { name: "Update old" }).hasAttribute("disabled")).toBe(false);
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
