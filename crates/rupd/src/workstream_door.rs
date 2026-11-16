@@ -66,7 +66,6 @@ for line in sys.stdin:
         modules: Default::default(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
-        specialists: Default::default(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         project_key: String::new(),

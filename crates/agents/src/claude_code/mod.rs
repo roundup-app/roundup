@@ -865,40 +865,5 @@ pub(super) fn is_uuid(id: &str) -> bool {
             .all(|(i, b)| matches!(i, 8 | 13 | 18 | 23) || b.is_ascii_hexdigit())
 }
 
-/// LC13: the last recorded usage is the live context, including both cache token counts.
-/// An absent path or usage gives no measurement; an unreadable named file is an error.
-pub fn context_tokens(payload: &Value) -> Result<Option<u64>, rpc::RpcError> {
-    use std::io::BufRead;
-    let Some(path) = inbox::transcript_of(payload) else {
-        return Ok(None);
-    };
-    let file = std::fs::File::open(path).map_err(rpc::RpcError::internal)?;
-    let mut last = None;
-    for line in std::io::BufReader::new(file).lines() {
-        let line = line.map_err(rpc::RpcError::internal)?;
-        // A trailing record may still be being written when the hook runs.
-        let Ok(record) = serde_json::from_str::<Value>(&line) else {
-            continue;
-        };
-        let usage = record
-            .get("usage")
-            .or_else(|| record.get("message").and_then(|m| m.get("usage")));
-        if let Some(usage) = usage.filter(|u| u.is_object()) {
-            last = Some(
-                [
-                    "input_tokens",
-                    "cache_read_input_tokens",
-                    "cache_creation_input_tokens",
-                ]
-                .into_iter()
-                .fold(0u64, |sum, key| {
-                    sum.saturating_add(usage[key].as_u64().unwrap_or(0))
-                }),
-            );
-        }
-    }
-    Ok(last)
-}
-
 #[cfg(test)]
 mod status_tests;
