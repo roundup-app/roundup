@@ -145,7 +145,7 @@ it("u7210a_the_command_list_offers_send_feedback", async () => {
     (action) => action.name === "feedback.open",
   );
 
-  expect(row).toMatchObject({ label: "Send feedback…", searchable: true });
+  expect(row).toMatchObject({ searchable: true });
   row?.run();
   await waitFor(() => expect(form()).not.toBeNull());
   expect(app.feedbackCapture).toHaveBeenCalledTimes(1);

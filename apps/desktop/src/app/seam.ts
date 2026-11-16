@@ -296,7 +296,7 @@ export type App = {
   dragWindow(): Promise<void>;
   /** Toggles native zoom of the current window; rejects as RpcError on failure. */
   zoomWindow(): Promise<void>;
-  /** FB2: takes the shot of the window as drawn now (base64 PNG, or none with its cause) and reads the App's facts. */
+  /** U7210d: takes the shot of the window as drawn now (base64 PNG, or none with its cause) and reads the App's facts. */
   feedbackCapture?(): Promise<FeedbackReport>;
   /** Opens a web link in the default browser, or an absolute path: a text file in the code editor `editor` (a bundle id; absent is `Automatic`, U6372b), any other in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget, editor?: string): Promise<void>;

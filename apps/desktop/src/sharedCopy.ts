@@ -30,7 +30,6 @@ export const copy = {
   ageNow: "now",
   ageSeconds: (value: number) => `${value}s`,
   workstream: word.workstream,
-  feedback: "Feedback",
   defaultChoice: "Default",
   padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,
   alerts: "Alerts",

@@ -406,7 +406,11 @@ mod tests {
     #[tokio::test]
     async fn u7210e_check_reads_the_herdr_core_version() {
         let (core, _) = fake_core();
-        assert_eq!(core.version().await.as_deref(), Some("0.1.20"));
+        let hello: Value = serde_json::from_str(HELLO).unwrap();
+        assert_eq!(
+            core.version().await.as_deref(),
+            hello["result"]["version"].as_str()
+        );
         let missing = Core::new(|| Box::pin(async { Err(herdr::Error::Missing) }));
         assert_eq!(missing.version().await, None);
     }
