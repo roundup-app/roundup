@@ -292,9 +292,9 @@ class Orders(unittest.TestCase):
                 self.assertEqual((row['state'], row['mode']), ('ready', mode))
 
     def test_l34_a_scenario_id_with_a_multi_letter_prefix_is_read_like_any_other(self):
-        for scenarios, mode in [('LC1', 'implement'), ('LC9-LC11', 'implement'), ('LC9–LC11', 'implement'),
-                                ('LC9 to LC11', 'implement'), ('LC9–11', 'implement'), ('LC1, LC14', 'implement'),
-                                ('LC15', 'specify'), ('LC14–LC15', 'specify')]:
+        for scenarios, mode in [('LC1', 'implement'), ('LC11-LC13', 'implement'), ('LC11–LC13', 'implement'),
+                                ('LC11 to LC13', 'implement'), ('LC11–13', 'implement'), ('LC1, LC14', 'implement'),
+                                ('LC15', 'specify'), ('LC13–LC15', 'specify')]:
             with self.subTest(scenarios=scenarios):
                 body = issue()['body'].replace('Scenarios: U83', f'Scenarios: {scenarios}').replace('ui.md', 'lean-child-start.md')
                 row = orders.classify([issue(body=body)], {}, [])[0]
@@ -479,7 +479,7 @@ class Delivers(unittest.TestCase):
 
     def test_l82_a_pr_delivers_when_it_changes_code_and_adds_a_test_named_after_each_scenario(self):
         for scenarios, file, tests in [('U83', 'ui.md', ['fn u83_a() {}']), ('V4b', 'proofs.md', ['it("v4b_a")']),
-                                       ('LC9-LC11', 'ui.md', ['fn lc9_a() {}', 'fn lc10_a() {}', 'fn lc11_a() {}']),
+                                       ('LC11-LC13', 'ui.md', ['fn lc11_a() {}', 'fn lc12_a() {}', 'fn lc13_a() {}']),
                                        ('U83, V4b', 'ui.md', ['fn u83_a() {}', 'fn v4b_a() {}'])]:
             with self.subTest(scenarios=scenarios):
                 self.assertTrue(self.delivers(added('crates/x/src/lib.rs', *tests), scenarios, file))
@@ -489,7 +489,7 @@ class Delivers(unittest.TestCase):
         old_test = 'diff --git a/x.rs b/x.rs\n@@ -1 +1,2 @@\n fn u83_a() {}\n+fn b() {}\n'
         for name, answer in {
                 'spec-only': self.delivers(added('scenarios/ui.md', '- test `u83_a`')),
-                'a test for two of three scenarios': self.delivers(added('x.rs', 'fn lc9_a() {}', 'fn lc11_a() {}'), 'LC9-LC11'),
+                'a test for two of three scenarios': self.delivers(added('x.rs', 'fn lc11_a() {}', 'fn lc13_a() {}'), 'LC11-LC13'),
                 'a test whose name only starts like the id': self.delivers(added('x.rs', 'fn u831_a() {}')),
                 'a test the diff does not add': self.delivers(old_test),
                 'Mode: specify': self.delivers(code, extra='Mode: specify\n'),
