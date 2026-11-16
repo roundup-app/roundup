@@ -430,7 +430,7 @@
 /* MC70: the page's buttons and the Add dialog's use the App's UI font; the global mono for action captions does not reach them. */
 :is(.settings-machines-page, .add-machine) :is([data-button], [data-button] *) { font-family: var(--font-ui); }
 .settings-machine-state { display: inline-flex; align-items: center; gap: var(--space-1); }
-.settings-machine-dot { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--grey); }
+.settings-machine-dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-round); background: var(--grey); }
 .settings-machine-state[data-state="online"] .settings-machine-dot { background: var(--accent); }
 .settings-machines-add { margin: var(--space-3) var(--space-4); }
 .add-machine-host { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; }
