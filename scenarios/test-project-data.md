@@ -18,7 +18,7 @@ Cost observer (TC1): `n7_launch_sites_clean_on_success_and_failure` needs actual
 | Wrapped command fails | `Test command failed: <exit code>` | non-zero |
 | Neither | no failure row | 0 |
 
-An intentionally leaking real-Daemon command fails the guard; an isolated one passes; an already failing command remains a failure even if it writes no data (`n8_guard_reports_writes_and_command_failure`). N1's fallback observer uses a nested temporary home, so it does not exempt any job or suppress the outer guard (`n8_guard_wraps_all_test_jobs`).
+An intentionally leaking real-Daemon command fails the guard; an isolated one passes; an already failing command remains a failure even if it writes no data (`n8_guard_reports_writes_and_command_failure`). N1's fallback observer uses a nested temporary home, so it does not exempt any job or suppress the outer guard (`n8_guard_wraps_all_test_jobs`). A process the commands leave running that still writes in the guard directory for a moment, as a hook's `rup` numbering its report in `.rupq/seq` (#7309), delays the guard's cleanup without failing it; one still writing after about 8 s fails it (`n8_guard_outlasts_a_leftover_writer`).
 
 Policy: this work deletes none of the user's existing folders, including earlier test-created folders. Cleanup targets only temporary directories created by the current run. No cleanup of the real App data folder is introduced.
 

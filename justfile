@@ -28,6 +28,7 @@ lint-repo:
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]
 lint-rust base="": lint-repo
+    & just proofs
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
@@ -37,6 +38,8 @@ lint-rust base="": lint-repo
     python3 tools/lint/scan.py rust
     python3 loop/lint-repo.test.py
     python3 loop/affected.test.py
+    python3 loop/cache-sweep.test.py
+    python3 loop/ci-lint-time.test.py
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
     tools/nodes-sql/guard.sh
@@ -50,7 +53,6 @@ lint-rust base="": lint-repo
     tools/method-policy/guard.sh
     tools/worktree-prefix.sh
     tools/typed-calls/guard.sh
-    just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
 # With <base>, it runs only when the diff since <base> reaches a crate (`loop/affected.py`), so a Builder's web-only diff
@@ -112,16 +114,7 @@ test-rust-lane profile base *args:
     shift 2
     selection=$(python3 loop/affected.py rust-lane {{quote(profile)}} {{quote(base)}})
     if [ -z "$selection" ]; then echo "no test of {{profile}} reaches the diff since {{base}}"; exit 0; fi
-    # On macOS, where the cached dependencies keep full debug info, the workspace's own crates build with line tables
-    # only: backtraces keep file and line, and the 3-core build takes a quarter less (run 43982531080). Linux lanes
-    # build with none (CI5330e/f); line tables there cost rust 1 44% more build time.
-    lines=()
-    if [ "$(uname)" = Darwin ]; then
-        for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
-            lines+=(--config "profile.test.package.$crate.debug=\"line-tables-only\"")
-        done
-    fi
-    exec cargo nextest run $selection "${lines[@]}" --profile {{quote(profile)}} {{ if base == "" { "" } else { "--no-tests pass" } }} "$@"
+    exec cargo nextest run $selection --profile {{quote(profile)}} {{ if base == "" { "" } else { "--no-tests pass" } }} "$@"
 
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
 [script('loop/keep-going.sh')]
@@ -138,6 +131,7 @@ fix:
 # The web checks that run no test; CI runs them in the `lint-web` job (L89).
 [script('loop/keep-going.sh')]
 lint-web:
+    & just packages typecheck
     loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
@@ -145,7 +139,6 @@ lint-web:
     pnpm typecheck
     pnpm slop
     pnpm lint:cycles
-    just packages typecheck
 
 # L89: the web tests the diff since <base> reaches (`loop/affected.py`), through vitest's module graph; every test when <base> is empty. CI passes vitest a shard.
 test-web-since base *args:

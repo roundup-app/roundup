@@ -1,9 +1,8 @@
 // T5456d: the lint-staged task. Oxlint's safe fixes go onto the staged files, then the commit fails on the errors that sit on lines it adds or changes.
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import parseDiff from "parse-diff";
+import { errorsOnAddedLines, reportErrors } from "./added-lines.mjs";
 
 const oxlint = resolve(fileURLToPath(new URL("../../", import.meta.url)), "node_modules/.bin/oxlint");
 
@@ -29,27 +28,8 @@ const linted = run(oxlint, ["--no-error-on-unmatched-pattern", "-f", "json", "--
 
 const diff = run("git", ["diff", "HEAD", "--relative", "-M", "-U0", "--no-color", "--no-ext-diff"], [0]);
 
-const added = new Map(parseDiff(diff.stdout).map(file => [resolve(file.to), new Set(file.chunks.flatMap(chunk => chunk.changes.filter(change => change.type === "add").map(change => change.ln)))]));
+const failures = errorsOnAddedLines(JSON.parse(linted.stdout).diagnostics, diff.stdout);
 
-function addsLine({ filename, labels }) {
-  if (!labels.length) return true;
-
-  const path = resolve(filename);
-  const lines = added.get(path);
-
-  if (!lines) return false;
-
-  const { offset, length, line } = labels[0].span;
-  const spanned = readFileSync(path).subarray(offset, offset + length).toString().split("\n").length;
-
-  return Array.from({ length: spanned }, (_, index) => line + index).some(number => lines.has(number));
-}
-
-const failures = JSON.parse(linted.stdout).diagnostics.filter(item => item.severity === "error" && addsLine(item));
-
-for (const { filename, labels, code, message } of failures) {
-  const { line, column } = labels[0]?.span ?? {};
-  process.stderr.write(`${filename}:${line ?? 0}:${column ?? 0}: error ${code}: ${message}\n`);
-}
+reportErrors(failures);
 
 process.exit(failures.length ? 1 : 0);

@@ -9,6 +9,7 @@ import site
 import subprocess
 import sys
 import tempfile
+import time
 
 
 def prepare_home(root):
@@ -57,6 +58,19 @@ def inspect(root, code):
     return code or int(written)
 
 
+def remove(root):
+    """Delete the guard directory. A process the commands left running can still write in it for a moment, as a hook's
+    `rup` numbering its report in `.rupq/seq` (#7309), so a failed delete retries for about 8 s, then raises."""
+    for wait in (0.5, 1, 2, 4, None):
+        try:
+            shutil.rmtree(root)
+            return
+        except OSError:
+            if wait is None:
+                raise
+            time.sleep(wait)
+
+
 def main(args):
     if args[0] == '--job-start':
         state = Path(args[1])
@@ -82,10 +96,10 @@ def main(args):
         try:
             return inspect(root, 0 if args[2] == 'success' else 1)
         finally:
-            shutil.rmtree(root)
+            remove(root)
             state.unlink()
-    with tempfile.TemporaryDirectory(prefix='roundup-n8-') as folder:
-        root = Path(folder).resolve()
+    root = Path(tempfile.mkdtemp(prefix='roundup-n8-')).resolve()
+    try:
         env = prepare_home(root)
         try:
             code = subprocess.run(args, env=env).returncode
@@ -93,6 +107,8 @@ def main(args):
             print(error, file=sys.stderr)
             code = 127
         return inspect(root, code if code >= 0 else 128 - code)
+    finally:
+        remove(root)
 
 
 if __name__ == '__main__':

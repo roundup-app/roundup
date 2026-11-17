@@ -1,15 +1,14 @@
 import { copy } from "./copy";
 import { LanguageDescription } from "@codemirror/language";
+import { tagHighlighter, tags } from "@lezer/highlight";
+import { createHighlightPlugin } from "prosemirror-highlight";
+import { createParser } from "prosemirror-highlight/lezer";
 
 export const languages = [
   LanguageDescription.of({ name: copy.languages.typescript, alias: ["ts", "tsx"], load: () => import("@codemirror/lang-javascript").then(module => module.javascript({ typescript: true, jsx: true })) }),
   LanguageDescription.of({ name: copy.languages.javascript, alias: ["js", "jsx"], load: () => import("@codemirror/lang-javascript").then(module => module.javascript({ jsx: true })) }),
   LanguageDescription.of({ name: copy.languages.python, alias: ["py"], load: () => import("@codemirror/lang-python").then(module => module.python()) }),
 ];
-
-import { tagHighlighter, tags } from "@lezer/highlight";
-import { createHighlightPlugin } from "prosemirror-highlight";
-import { createParser } from "prosemirror-highlight/lezer";
 
 const highlighter = tagHighlighter([
   { tag: tags.keyword, class: "pad-syntax-keyword" },
@@ -31,8 +30,7 @@ export const codeColours = () => {
     parser: options => {
       const language = options.language ? LanguageDescription.matchLanguageName(languages, options.language, false) : undefined;
 
-      // Visual fences keep their existing renderer and never request a programming language.
-      if (!language || options.language === "mermaid" || options.language === "excalidraw") return [];
+      if (!language) return [];
 
       if (!language.support) return language.load().then(() => {});
 
