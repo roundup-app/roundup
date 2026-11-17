@@ -362,6 +362,7 @@ jobs:
         uses: ./.github/actions/setup
         with:
           node: 'false'
+          vendored-cache: debug
       # CI7295h: clippy runs on a PR whose diff reaches Rust; the ping only when the diff reaches what it proves.
       - if: github.event_name != 'pull_request' || needs.plan.outputs.rust == 'true'
         run: just clippy
@@ -422,6 +423,8 @@ jobs:
         uses: ./.github/actions/setup
         with:
           save-cache: 'true'
+          vendored-cache: debug
+          save-vendored: 'true'
           # CI5458c: run 41349105933 spent 44 s installing Node packages and 50 s saving their cache.
           # S1 packaging installs them in mac-package instead.
           node: 'false'
@@ -465,6 +468,9 @@ jobs:
             !/crates/perf/evidence/
       - id: setup
         uses: ./.github/actions/setup
+        with:
+          vendored-cache: release
+          save-vendored: 'true'
       - name: C9b native release size
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |

@@ -10,6 +10,12 @@ inputs:
   save-cache:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target and clippy's checks sets it (L84).
     default: 'false'
+  vendored-cache:
+    description: 'macOS only: `debug` or `release` restores the build output of the path crates in `vendor/` and `crates/desktop/vendor/` for that profile (CI7323a); empty restores none.'
+    default: ''
+  save-vendored:
+    description: On a push to main, save the vendored crates' build output this job built (CI7323c).
+    default: 'false'
   experiment-cache:
     description: Opt-in isolated CI3781 Rust cache namespace; honored only on hosted Linux pull requests. A new namespace prepares an empty cache, and subsequent runs restore its saved entry.
     default: ''
@@ -170,6 +176,56 @@ runs:
         for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
           printf '[profile.%s.package.%s]\ndebug = "line-tables-only"\n' dev "$crate" test "$crate"
         done >>"$CARGO_HOME/config.toml"
+    # CI7323: rust-cache stores no path dependency's build, so the six crates in `vendor/` and four in
+    # `crates/desktop/vendor/` compiled on every macOS lane. This entry holds their artifacts for one profile. Cargo calls a
+    # path crate fresh when its dep-info is newer than its sources, so the sources take a fixed old mtime before the build
+    # (a checkout stamps them with now). The key hashes the vendored trees, `Cargo.lock`, the manifest's profiles, the
+    # toolchain, the profile and the cargo config the line-tables step wrote; a feature set it does not name changes
+    # the artifacts' hashes, so cargo misses them and builds, as today.
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS' && inputs.vendored-cache != ''
+      id: vendored
+      name: Vendored crates' cache key
+      shell: bash
+      env:
+        PROFILE: ${{ inputs.vendored-cache }}
+      run: |
+        find vendor crates/desktop/vendor -exec touch -h -t 200001010000 {} +
+        key=$(
+          {
+            git rev-parse HEAD:vendor HEAD:crates/desktop/vendor
+            cat Cargo.lock Cargo.toml rust-toolchain.toml "$CARGO_HOME/config.toml"
+            rustc -vV
+            env | sort | grep -E '^(CARGO_PROFILE_|CARGO_ENCODED_RUSTFLAGS=|RUSTFLAGS=)' || true
+          } | shasum -a 256
+        )
+        echo "key=vendored-$RUNNER_OS-$RUNNER_ARCH-$PROFILE-${key%% *}" >>"$GITHUB_OUTPUT"
+        if [ "$PROFILE" = release ]; then dirs="target/release target/*/release"; else dirs=target/debug; fi
+        {
+          echo "paths<<EOF"
+          for dir in $dirs; do
+            for crate in vendor/* crates/desktop/vendor/*; do
+              name=$(basename "$crate")
+              name=${name%-[0-9]*}
+              echo "$dir/.fingerprint/$name-*"
+              echo "$dir/build/$name-*"
+              echo "$dir/deps/*${name//-/_}-*"
+            done
+          done
+          echo EOF
+        } >>"$GITHUB_OUTPUT"
+    - if: steps.vendored.outcome == 'success' && !(inputs.save-vendored == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main')
+      name: Restore vendored crates' build
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.vendored.outputs.paths }}
+        key: ${{ steps.vendored.outputs.key }}
+    # The post step saves on a miss and logs the entry's size (CI7323c).
+    - if: steps.vendored.outcome == 'success' && inputs.save-vendored == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      name: Restore vendored crates' build, saved after the job
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.vendored.outputs.paths }}
+        key: ${{ steps.vendored.outputs.key }}
     - uses: taiki-e/install-action@just
       if: runner.environment != 'self-hosted'
     - if: inputs.node != 'false'
