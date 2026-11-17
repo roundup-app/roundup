@@ -414,7 +414,8 @@ def main(argv):
         return 0
     changed = changed_since(base)
     if lane == 'first':
-        print('\n'.join(first(changed)))
+        if files := first(changed):
+            print('\n'.join(files))
         return 0
     selected = {'rust': lambda: rust(changed, metadata(), ROOT), 'web': lambda: web(changed),
                 'boxd': lambda: boxd(changed), 'ping': lambda: ping(changed, workspace(metadata()))}[lane]()
