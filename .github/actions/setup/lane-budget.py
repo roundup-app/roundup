@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""CI7295b: on `main`, a lane whose setup took over 90 s or whose test step took over 300 s fails, and one whose test step
-took over 240 s warns, naming itself: file times swing up to half again between runs, and noise must not fail `main`.
+"""CI7295b: on `main`, a lane whose test step took over 300 s fails, and one whose setup took over 90 s or whose test
+step took over 240 s warns, naming itself: setup is cache restore and runner network, which no PR controls, and file times
+swing up to half again between runs, so noise must not fail `main` (run 44046436794 failed `rust 1` at 91 s of setup).
 Usage: lane-budget.py <job name> <test step name>, with `GH_TOKEN` and the run's `GITHUB_*` variables set.
 """
 import json
@@ -12,7 +13,7 @@ from datetime import datetime
 
 def main(lane, test_step):
     budgets = {
-        "Run ./.github/actions/setup": ("setup", 90, 90),
+        "Run ./.github/actions/setup": ("setup", 90, None),
         test_step: ("test step", 240, 300),
     }
     jobs = (
@@ -40,8 +41,8 @@ def main(lane, test_step):
                 - datetime.fromisoformat(step["started_at"])
             ).total_seconds()
             what, aim, limit = budgets[step["name"]]
-            print(f"{lane}: {what} {seconds:.0f} s, aim {aim} s, limit {limit} s")
-            if seconds > limit:
+            print(f"{lane}: {what} {seconds:.0f} s, aim {aim} s" + (f", limit {limit} s" if limit else ""))
+            if limit and seconds > limit:
                 over.append(f"{what} took {seconds:.0f} s, over {limit} s")
             elif seconds > aim:
                 print(f"::warning::{lane}: {what} took {seconds:.0f} s, over {aim} s")
