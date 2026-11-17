@@ -348,7 +348,12 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       (!github.event.pull_request.draft && (needs.plan.outputs.rust == 'true' || needs.plan.outputs.ping == 'true'))
+    # CI7297d: the lane ends within 300 s; CI7295b reads this run's step times.
+    permissions:
+      contents: read
+      actions: read
     runs-on: macos-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
         with:
@@ -360,6 +365,11 @@ jobs:
       # CI7295h: clippy runs on a PR whose diff reaches Rust; the ping only when the diff reaches what it proves.
       - if: github.event_name != 'pull_request' || needs.plan.outputs.rust == 'true'
         run: just clippy
+      - name: CI7295b lane time budget
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/actions/setup/lane-budget.py "mac-clippy" "Run just clippy"
       - name: hello-world round trip (rup ping through rupd)
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
         run: |
@@ -754,16 +764,30 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
           PLAN: ${{ needs.plan.result }}
+          EVENT: ${{ github.event_name }}
         run: |
           [ "$PLAN" = success ] || { echo "::error::plan ended $PLAN"; exit 1; }
           while sleep 30; do
             # `filter=latest`: a re-run job counts by its newest attempt. A failed read is retried, never a verdict.
             jobs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" \
-              --jq '.jobs[] | {name, conclusion}' | jq -s .) || continue
+              --jq '.jobs[] | {name, conclusion, started_at, completed_at}' | jq -s .) || continue
             failed=$(jq -r '[.[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name] | join(", ")' <<<"$jobs")
             [ -z "$failed" ] || { echo "::error::failed: $failed"; exit 1; }
             lanes=$(jq -r '[.[] | select(.name == "lanes") | .conclusion // empty] | first // empty' <<<"$jobs")
-            [ -z "$lanes" ] || { echo "lanes: $lanes"; [ "$lanes" = success ]; exit; }
+            [ -z "$lanes" ] || {
+              echo "lanes: $lanes"
+              # CI7297a: the run's seconds and its longest job, so a run over 300 s names the lane that made it long.
+              if [ "$EVENT" = push ]; then
+                RUN_START=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || RUN_START=
+                [ -z "$RUN_START" ] || jq -r --arg start "$RUN_START" '
+                  def secs: fromdateiso8601;
+                  [.[] | select(.started_at and .completed_at) | {name, s: ((.completed_at | secs) - (.started_at | secs)), end: (.completed_at | secs)}] as $j
+                  | ($j | max_by(.end)) as $last
+                  | "run \(($last.end) - ($start | secs)) s (limit 300 s); longest job \(($j | max_by(.s)).name) \(($j | max_by(.s)).s) s"' \
+                  <<<"$jobs" | tee -a "$GITHUB_STEP_SUMMARY" || true
+              fi
+              [ "$lanes" = success ]; exit
+            }
           done
 
   # Every lane's result. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
