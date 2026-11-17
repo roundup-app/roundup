@@ -52,6 +52,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       rust: ${{ steps.plan.outputs.rust }}
+      ping: ${{ steps.plan.outputs.ping }}
       web: ${{ steps.plan.outputs.web }}
       web_shards: ${{ steps.shards.outputs.web_shards }}
     steps:
@@ -94,7 +95,7 @@ jobs:
       # L82, L120: the merge of `main` and the merge-loss restore a fix run makes with no model; `loop.yml` runs the other loop tests.
       - name: L82 merge of main with no model
         run: python3 loop/app-data.py python3 loop/merge_main.test.py
-      # N7: every launch reference has an entry; the `mac` lane, which runs the rest of N7, skips App-only PRs.
+      # N7: every launch reference has an entry; the `mac` lane runs the rest of N7 when the diff reaches it (CI7295h).
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan
         env:
@@ -113,8 +114,10 @@ jobs:
           if [ -n "$BASE" ] && ! git diff --quiet "$BASE" -- apps/desktop/src/testing/captures.ts; then
             web=all
           fi
+          ping=$(python3 loop/affected.py ping "$rust_base")
           {
             echo "rust=${rust:+true}"
+            echo "ping=${ping:+true}"
             echo "web=${web:+true}"
             # Only a PR whose diff selects some web tests, not all, counts the files that size the shards.
             echo "count=$([ -n "$web" ] && [ "$web" != all ] && echo true)"
@@ -155,30 +158,28 @@ jobs:
           fi
           echo "web_shards=$(python3 loop/affected.py shards "$count")" >>"$GITHUB_OUTPUT"
 
-  # L89: the Rust suite in five lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
-  # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 90 s before its
-  # tests; a build job whose nextest archive the lanes download is no shorter: one compile stays on the path, with the
-  # archive's upload, download and unpacking after it. Lane N runs profile `ciN` of `.config/nextest.toml`, which names
-  # the test binaries packed to equal seconds; a test stays in its lane across commits, so a PR's lane and `main`'s hold
-  # the same tests (L82).
-  # L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
+  # L89: the Rust suite in ten lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
+  # the timed waits of daemons, fake Claude and sqlite. Lane N runs profile `ciN` of `.config/nextest.toml`, which names
+  # the test binaries packed to equal seconds, and builds only those (`just test-rust-lane`): about a tenth of the test
+  # binaries, under `--workspace` so every lane restores the dependencies `cache` built. A test stays in its lane across
+  # commits, so a PR's lane and `main`'s hold the same tests (L82). The observers that build their own targets run
+  # beside the lanes in `contracts` and `observers`.
   rust:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    # CI7295b reads this run's step times.
+    permissions:
+      contents: read
+      actions: read
     env:
       CARGO_TARGET_DIR: target
-      # CI5330e/f: run 41421700034 grew target from 12 GB to 37 GB and filled rust 3's
-      # 72 GB disk compiling a32_removed. Omit debug symbols from both runtime and
-      # test builds; debug assertions, overflow checks and test selection stay enabled.
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
       BASE: >-
         ${{ github.event_name == 'pull_request' && !startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && 'HEAD^1' || '' }}
     name: rust ${{ matrix.partition }}
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4, 5]
+        partition: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-rust-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35
@@ -204,52 +205,10 @@ jobs:
           setsid python3 tools/e14/observe.py memory --output "$RUNNER_TEMP/e14-memory.jsonl" >"$RUNNER_TEMP/e14-memory.log" 2>&1 </dev/null &
       - uses: ./.github/actions/setup
         with:
-          save-cache: ${{ matrix.partition == 1 }}
           experiment-cache: ${{ env.CI3781_CACHE }}
-      - name: C9b native release size
-        if: matrix.partition == 1
-        run: |
-          cargo build --locked --release -p rupd
-          mkdir -p target/release-evidence
-          git rev-parse HEAD > target/release-evidence/commit.txt
-          rustc -Vv > target/release-evidence/toolchain.txt
-          uname -a > target/release-evidence/host.txt
-          cp Cargo.toml target/release-evidence/Cargo.toml
-          python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
-      - name: C9 native evidence
-        if: ${{ always() && matrix.partition == 1 }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ runner.os }}-${{ github.run_attempt }}
-          path: target/release-evidence/
-          if-no-files-found: error
-          retention-days: 30
+      # A4691: the sidecar the agent tests start. The test build makes `rupd`, `rup` and the test core a lane's tests start.
       - name: A4691 debug runtime preparation
-        run: just build-debug
-      - name: C4 addition and freshness observers
-        if: matrix.partition == 1
-        run: just contracts-test
-      # CI5330e: run 41406327635 exhausted rust 1 during test compilation after C4 built two isolated
-      # target trees. Their observers have finished, and C9's release evidence is already uploaded.
-      - name: Reclaim completed observer builds
-        if: matrix.partition == 1
-        run: |
-          du -sh target/release target/c4-addition target/c4-fresh
-          rm -rf target/release target/c4-addition target/c4-fresh
-          df -h /
-      - name: U4251 raw SDK storage capability
-        if: matrix.partition == 1
-        timeout-minutes: 1
-        run: node --test crates/agents/sidecar/storage.test.mjs
-      - name: CI4018 experiment cache regression
-        if: matrix.partition == 1
-        run: |
-          if [ "$RUNNER_ENVIRONMENT" = self-hosted ]; then
-            # Hosted setup downloads this action; prepared machines skip that cache step.
-            git clone --depth 1 --branch v2 https://github.com/Swatinem/rust-cache "$RUNNER_TEMP/rust-cache-action"
-            export RUST_CACHE_ACTION_PATH="$RUNNER_TEMP/rust-cache-action"
-          fi
-          node --test .github/actions/setup/cache.test.mjs
+        run: tools/sidecar/bundle.sh target/debug/sidecar --local-node
       - name: E12 network observer dependencies
         run: |
           if ! command -v strace || ! command -v ip || ! command -v setpriv; then
@@ -268,9 +227,12 @@ jobs:
           observation=()
           if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
           python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      - name: E14 observer regression
-        if: ${{ !cancelled() && matrix.partition == 1 }}
-        run: python3 tools/e14/observe.test.py
+      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      - name: CI7295b lane time budget
+        if: github.event_name == 'push' && runner.environment != 'self-hosted'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/actions/setup/lane-budget.py "rust ${{ matrix.partition }}" test-rust
       - name: CI5330f disk after tests
         if: always()
         run: bash .github/actions/setup/disk.sh report after
@@ -285,8 +247,99 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # C4: the contract observers build `rup` and the generator in a checkout of their own, under `target/c4-addition` and
+  # `target/c4-fresh`; they start from the dependencies setup restored, moved there, so only the workspace crates compile.
+  contracts:
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          experiment-cache: ${{ env.CI3781_CACHE }}
+      - name: C4 addition and freshness observers
+        # The observers rebuild the workspace after each contract edit; incremental builds reuse the first one's work.
+        env:
+          CARGO_INCREMENTAL: 1
+        run: |
+          # The two observers run one after the other, so they share the one target directory.
+          mkdir -p target/c4-addition
+          if [ -d target/debug ]; then mv target/debug target/c4-addition/debug; fi
+          ln -s c4-addition target/c4-fresh
+          just contracts-test
+
+  # The observers of the release build, the sidecar's storage, the Rust cache and E14, beside the lanes.
+  observers:
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          experiment-cache: ${{ env.CI3781_CACHE }}
+      - name: C9b native release size
+        run: |
+          cargo build --locked --release -p rupd
+          mkdir -p target/release-evidence
+          git rev-parse HEAD > target/release-evidence/commit.txt
+          rustc -Vv > target/release-evidence/toolchain.txt
+          uname -a > target/release-evidence/host.txt
+          cp Cargo.toml target/release-evidence/Cargo.toml
+          python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
+      - name: C9 native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}-${{ github.run_attempt }}
+          path: target/release-evidence/
+          if-no-files-found: error
+          retention-days: 30
+      - name: U4251 raw SDK storage capability
+        if: ${{ !cancelled() }}
+        timeout-minutes: 1
+        run: node --test crates/agents/sidecar/storage.test.mjs
+      - name: CI4018 experiment cache regression
+        if: ${{ !cancelled() }}
+        run: node --test .github/actions/setup/cache.test.mjs
+      - name: E14 observer regression
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -m pip install -r tools/e14/requirements.txt
+          python3 tools/e14/observe.test.py
+
+  # L84: on `main`, build every test target, the contract generator, clippy's checks and the release daemon, so the Linux
+  # cache this job saves holds every dependency the lanes, `contracts`, `observers` and `pre`'s `lint` build. A CI3781
+  # experiment PR saves its own namespace the same way.
+  cache:
+    needs: plan
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.title, 'CI3781 experiment: '))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          save-cache: 'true'
+          experiment-cache: ${{ env.CI3781_CACHE }}
+      - run: python3 loop/app-data.py cargo test --locked --workspace --no-run
+      - run: just contracts
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo build --locked --release -p rupd
+
   # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles. A lane of its own, in step with the
-  # tests of `mac`: clippy's 36 s of work and its setup run beside them, not before. `mac` saves the cache.
+  # tests of `mac`: clippy and its setup run beside them, not before. `mac` saves the cache, clippy's checks included.
   mac-clippy:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
@@ -299,14 +352,16 @@ jobs:
         with:
           node: 'false'
       - run: just clippy
+      # Z4280a: a cold desktop build takes 330 s on the 3-core runner, so it observes each `main` push; on a PR,
+      # `just clippy` above denies the deprecation warning it looks for.
       - name: Z4280a fresh desktop build
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name == 'push' }}
         run: |
           fresh_target=$(mktemp -d "$RUNNER_TEMP/z4280a.XXXXXX")
           CARGO_TARGET_DIR="$fresh_target" cargo build --locked -p desktop 2>&1 | tee "$RUNNER_TEMP/z4280a-build.log"
           ! grep -F 'Modifiers::SUPER' "$RUNNER_TEMP/z4280a-build.log"
       - name: Z4280a build diagnostics
-        if: always()
+        if: ${{ always() && github.event_name == 'push' }}
         uses: actions/upload-artifact@v4
         with:
           name: z4280a-macos-build-${{ github.run_attempt }}
@@ -317,7 +372,13 @@ jobs:
   # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
     needs: plan
-    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    if: >-
+      github.event_name != 'pull_request' ||
+      (!github.event.pull_request.draft && (needs.plan.outputs.rust == 'true' || needs.plan.outputs.ping == 'true'))
+    # CI7295b reads this run's step times.
+    permissions:
+      contents: read
+      actions: read
     runs-on: macos-latest
     timeout-minutes: 35
     steps:
@@ -338,22 +399,36 @@ jobs:
           # S1 packaging installs them in mac-package instead.
           node: 'false'
       # L89: a failed check leaves later steps running, so one run reports every failure.
+      # L89: only the test binaries the `mac` profile names that the diff reaches (`just test-rust-lane`).
       - name: test-rust
-        run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
-      # R24: compile the opt-in native producer as well as the normal-build exclusion tests above.
+        run: python3 loop/app-data.py just test-rust-lane mac "$BASE"
+      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      - name: CI7295b lane time budget
+        if: github.event_name == 'push' && runner.environment != 'self-hosted'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/actions/setup/lane-budget.py "mac" test-rust
+      # R24: compile the opt-in native producer as well as the normal-build exclusion tests above. The same selection
+      # under `--workspace` rebuilds only `desktop`, which the feature changes.
       - name: R24 measurement feature
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: python3 loop/app-data.py cargo nextest run -p desktop --features idle-perf --profile mac -E 'test(/^idle::tests::r24_/)'
+        run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
+      # CI7295h: on a PR, the round trip and the guard observers after it run only when the diff reaches them.
       - name: hello-world round trip (rup ping through rupd)
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
         run: |
-          cargo build -p rupd -p rup
+          # `--workspace` keeps the lane's feature set, so the binaries its tests started are already built.
+          cargo build --locked --workspace --bin rupd --bin rup
           python3 loop/app-data.py bash loop/ci-ping.sh
       - name: N7 N8 real Daemon guard observers
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
         run: |
           python3 loop/app-data.py python3 loop/app-data.test.py
           python3 loop/app-data.py python3 loop/launch-sites.test.py
+      # L84: the macOS cache this job saves on `main` holds clippy's checks too, so `mac-clippy` checks only the workspace.
+      - name: Clippy's checks for the cache
+        if: github.event_name == 'push'
+        run: cargo clippy --all-targets -- -D warnings
 
   # CI5458d: main-only release builds run beside the full-test lane to keep each macOS job below 25 min.
   mac-package:
@@ -556,34 +631,12 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 tools/e14/observe.py run --install-dependencies --lane web${{ matrix.partition }} ${{ runner.environment != 'self-hosted' && format('--fault-log {0}/chromium-faults-{1}.jsonl', runner.temp, matrix.partition) || '' }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      # CI7295b: on `main`, a web lane whose setup took over 90 s or whose tests took over 5 min fails, and one whose tests
-      # took over 4 min warns, naming itself: file times swing up to half again between runs, and noise must not fail `main`.
+      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
           GH_TOKEN: ${{ github.token }}
-          LANE: web ${{ matrix.partition }}
-        run: |
-          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
-            --jq '.jobs[] | select(.name == env.LANE) | .steps[] | tojson' | python3 -c '
-          import json, os, sys
-          from datetime import datetime
-          lane = os.environ["LANE"]
-          budgets = {"Run ./.github/actions/setup": ("setup", 90, 90), "test-web": ("test step", 240, 300)}
-          over = []
-          for step in map(json.loads, sys.stdin):
-              if step["name"] in budgets and step["completed_at"]:
-                  seconds = (datetime.fromisoformat(step["completed_at"]) - datetime.fromisoformat(step["started_at"])).total_seconds()
-                  what, aim, limit = budgets[step["name"]]
-                  print(f"{lane}: {what} {seconds:.0f} s, aim {aim} s, limit {limit} s")
-                  if seconds > limit:
-                      over.append(f"{what} took {seconds:.0f} s, over {limit} s")
-                  elif seconds > aim:
-                      print(f"::warning::{lane}: {what} took {seconds:.0f} s, over {aim} s")
-          if over:
-              print(f"::error::{lane}: " + "; ".join(over))
-              sys.exit(1)
-          '
+        run: python3 .github/actions/setup/lane-budget.py "web ${{ matrix.partition }}" test-web
       - name: CI5330a disk after tests
         if: always()
         run: bash .github/actions/setup/disk.sh report after
@@ -652,14 +705,41 @@ jobs:
             ${{ runner.temp }}/chromium-cold.jsonl
           retention-days: 7
 
-  # Keep the required check name. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
-  # push-only `mac-package` skip (CI5915a). Failed or cancelled lanes never pass. L82: when a newer push cancels
-  # this PR run, the gate ends `cancelled`: it blocks merge and starts no fix run.
+  # CI7295e: the required result, red as soon as one job fails. It starts beside the lanes and reads this run's jobs
+  # every 30 s: the first failed or timed-out job fails it at once, while the other lanes run to their end, so the run
+  # still reports every failure (L89); `fix.yml` starts on the run's `completed` event, so one fix run reads them all
+  # (L82). It passes when `lanes` passes. A newer push cancels the whole run, `check` with it: it blocks merge and starts
+  # no fix run (L82). Each read is one request of the repository's 1000 an hour for `GITHUB_TOKEN`.
   # L46: a draft run's skipped job takes another name. GitHub counts a skipped required check as passed, and the ready run
   # creates its own `check` only after its lanes end, so a skipped draft `check` on the same head let #5430 merge red.
   check:
     name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'check (draft)' || 'check' }}
-    needs: [plan, rust, mac-clippy, mac, mac-package, daemon, web, chromium]
+    needs: plan
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      actions: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ needs.plan.result }}
+        run: |
+          [ "$PLAN" = success ] || { echo "::error::plan ended $PLAN"; exit 1; }
+          while sleep 30; do
+            # `filter=latest`: a re-run job counts by its newest attempt. A failed read is retried, never a verdict.
+            jobs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" \
+              --jq '.jobs[] | {name, conclusion}' | jq -s .) || continue
+            failed=$(jq -r '[.[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name] | join(", ")' <<<"$jobs")
+            [ -z "$failed" ] || { echo "::error::failed: $failed"; exit 1; }
+            lanes=$(jq -r '[.[] | select(.name == "lanes") | .conclusion // empty] | first // empty' <<<"$jobs")
+            [ -z "$lanes" ] || { echo "lanes: $lanes"; [ "$lanes" = success ]; exit; }
+          done
+
+  # Every lane's result. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
+  # push-only `mac-package` and `cache` skips (CI5915a). Failed or cancelled lanes never pass.
+  lanes:
+    needs: [plan, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -667,11 +747,11 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
         run: |
-          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and ($event == "pull_request" or ($event == "workflow_dispatch" and .key == "mac-package")))))' <<<"$NEEDS"
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and ($event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache"))))))' <<<"$NEEDS"
 
   # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
   bundle:
-    needs: [plan, rust, mac-clippy, mac, mac-package, web, chromium, check]
+    needs: [lanes, check]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: macos-latest
     timeout-minutes: 35

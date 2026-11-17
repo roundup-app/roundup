@@ -21,9 +21,9 @@ RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text(
 MEMORY_LIMIT_SECONDS = 40 * 60
 WEB_BUDGET_SECONDS = 720
 
-# A full run's lanes: check.yml's rust matrix and its full web matrix, `MAX_SHARDS` in loop/affected.py. A copy, since
-# this file also runs from a copy outside the checkout (README).
-LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 25)]
+# A full run's lanes: check.yml's rust matrix (`ci1` to `ci10` of .config/nextest.toml) and its full web matrix,
+# `MAX_SHARDS` in loop/affected.py. A copy, since this file also runs from a copy outside the checkout (README).
+LANES = [f"rust{i}" for i in range(1, 11)] + [f"web{i}" for i in range(1, 25)]
 
 
 def overlap(rows):
@@ -249,7 +249,7 @@ def observe_lane(args):
     if args.lane.startswith("rust"):
         profile = "ci" + args.lane[4:]
         config = nextest_config(root, output, profile)
-        command = ["python3", "loop/app-data.py", "just", "test-rust-since", args.base, "--profile", profile, "--test-threads", "4", "--config-file", str(config)]
+        command = ["python3", "loop/app-data.py", "just", "test-rust-lane", profile, args.base, "--test-threads", "4", "--config-file", str(config)]
     else:
         reporter = output / "reporter.mjs"
         reporter.write_text(Path(__file__).with_name("reporter.mjs.in").read_text())
@@ -372,10 +372,10 @@ def compare(args):
         commits = {r["commit"] for side, r in results if side == label}
         if len(commits) != 1:
             raise ValueError(f"{label}: mixed commits")
-        rust = [json.loads((directory / lane / "lifecycle.json").read_text()) for lane in LANES[:5]]
+        rust = [json.loads((directory / lane / "lifecycle.json").read_text()) for lane in LANES if lane.startswith("rust")]
         if not any(r["id"].startswith(RUST_SUITES["required_test_prefix"]) for rows in rust for r in rows):
             raise ValueError(f"{label}: missing B21 lifecycle evidence")
-        if not any(r["real"] for lane in LANES[5:] for r in json.loads((directory / lane / "lifecycle.json").read_text())):
+        if not any(r["real"] for lane in LANES if lane.startswith("web") for r in json.loads((directory / lane / "lifecycle.json").read_text())):
             raise ValueError(f"{label}: missing real-Claude web lifecycle evidence")
     for lane in LANES:
         before, after = [r for _, r in results if r["lane"] == lane]

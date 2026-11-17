@@ -51,7 +51,7 @@ class Addition(unittest.TestCase):
                 (adapter.parent / "mcp/c4_adapter.rs").write_text(production + "\n#[cfg(test)]\nmod c4_addition;\n")
                 (adapter.parent / "mcp/c4_addition.rs").write_bytes((ROOT / "tools/contracts/fixtures/addition.rs").read_bytes())
                 run("just", "contracts")
-                run("cargo", "test", "-q", "-p", "rup", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
+                run("cargo", "test", "-q", "--workspace", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
                 caller = checkout / "contracts/c4-addition.ts"
                 caller.write_text('''import type { RpcMethods } from "./generated/methods";
 import type { TodoId } from "./generated/todo/TodoId";
@@ -71,7 +71,7 @@ export type C4Caller = Assert<Equal<RpcMethods["project.contractProbe"], {params
                     declaration.write_text(original.replace('    todos_methods["todo"] {\n', '    todos_methods["todo"] {\n' + row))
                     run("just", "contracts")
                     env[mode] = "1"
-                    run("cargo", "test", "-q", "-p", "rup", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
+                    run("cargo", "test", "-q", "--workspace", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
                     del env[mode]
                 self.assertNotIn('"project.contractProbe"', (checkout / "contracts/generated/methods.ts").read_text())
                 self.assertNotIn('"project.contractProbe"', (checkout / "contracts/generated/contract.ts").read_text())

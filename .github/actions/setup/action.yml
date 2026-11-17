@@ -8,7 +8,7 @@ inputs:
     description: Install the browser used to inspect the rendered App.
     default: 'false'
   save-cache:
-    description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
+    description: On a push to main, save the Rust cache this job built; only a job that builds every test target and clippy's checks sets it (L84).
     default: 'false'
   experiment-cache:
     description: Opt-in isolated CI3781 Rust cache namespace; honored only on hosted Linux pull requests. A new namespace prepares an empty cache, and subsequent runs restore its saved entry.
@@ -74,6 +74,17 @@ runs:
         # A mirror that crawls at 40 kB/s (26 min for these packages) is not a stall `Acquire::http::Timeout` catches: each
         # attempt gets 3 min, and the next resumes the partial downloads, usually from a faster mirror connection.
         setsid sudo bash -c 'for attempt in 1 2 3 4; do timeout 180 bash -c "apt-get update && apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Dir::Cache::archives=$1 libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq" && break; done; echo $? >"$2"' _ "$HOME/apt-archives" "$RUNNER_TEMP/apt.status" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
+    # CI5330e/f: run 41421700034 grew target from 12 GB to 37 GB and filled rust 3's 72 GB disk compiling a32_removed.
+    # Omit debug symbols from both runtime and test builds; debug assertions, overflow checks and test selection stay
+    # enabled. Every Linux job that restores the Rust cache sets the same values before it, since its key hashes them, so
+    # `pre`'s `lint` restores the dependencies `check` saved (L84). `build` restores none and keeps its job's own.
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux' && inputs.rust == 'true'
+      name: Rust build profile
+      shell: bash
+      run: |
+        echo CARGO_TARGET_DIR=target >>"$GITHUB_ENV"
+        echo CARGO_PROFILE_DEV_DEBUG=0 >>"$GITHUB_ENV"
+        echo CARGO_PROFILE_TEST_DEBUG=0 >>"$GITHUB_ENV"
     - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
