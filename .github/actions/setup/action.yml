@@ -109,11 +109,27 @@ runs:
       run: |
         digest=$(printf '%s' "$NAMESPACE" | sha256sum)
         echo "namespace=${digest%% *}" >>"$GITHUB_OUTPUT"
+    # CI7295o: rust-cache keeps the first entry saved under a key, and hashes a root `.cargo/config.toml` into the key's
+    # last part. This file holds the hash of the macOS jobs' build plan, so a changed plan saves a fresh entry on `main`
+    # while a restore still falls back to the newest one. The step after the restore removes it: rust-cache's post step
+    # reads its saved state, and `affected.py` would count the file as a change.
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS'
+      name: Rust cache key holds the build plan
+      shell: bash
+      env:
+        PLAN: ${{ hashFiles('.github/workflows/check.yml', '.config/nextest.toml') }}
+      run: |
+        mkdir .cargo
+        echo "# rust-cache build plan $PLAN" >.cargo/config.toml
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', steps.experiment.outputs.namespace) || format('check-{0}', runner.os) }}
         save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS'
+      name: Remove the build plan key
+      shell: bash
+      run: rm -r .cargo
     # The build takes about 150 s from cold: it runs in the background while Node installs, and `Wait for daemon build`
     # joins it. Only check's `daemon` job builds this way, once per Rust source tree (T7295).
     - if: runner.environment != 'self-hosted' && inputs.rust == 'build'

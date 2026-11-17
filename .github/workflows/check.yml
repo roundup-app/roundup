@@ -96,7 +96,7 @@ jobs:
       # L82, L120: the merge of `main` and the merge-loss restore a fix run makes with no model; `loop.yml` runs the other loop tests.
       - name: L82 merge of main with no model
         run: python3 loop/app-data.py python3 loop/merge_main.test.py
-      # N7: every launch reference has an entry; the `mac` lane runs the rest of N7 when the diff reaches it (CI7295h).
+      # N7: every launch reference has an entry; `mac-clippy` runs the rest of N7 when the diff reaches it (CI7295h).
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan
         env:
@@ -216,9 +216,6 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y strace iproute2 util-linux
           fi
-      # B32 compares Rust with executable Bend; setup stays outside the network-free test.
-      - name: Pinned Bend for model correspondence
-        run: just proofs-setup
       - name: CI5330f disk before tests
         run: bash .github/actions/setup/disk.sh report before
       - name: test-rust
@@ -273,7 +270,7 @@ jobs:
           ln -s c4-addition target/c4-fresh
           just contracts-test
 
-  # The observers of the release build, the sidecar's storage, the Rust cache and E14, beside the lanes.
+  # The observers of the release build, the sidecar's storage, the Rust cache, E14 and the proof toolchains, beside the lanes.
   observers:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
@@ -315,6 +312,10 @@ jobs:
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
           python3 tools/e14/observe.test.py
+      # V1: no Rust test runs Bend since B32 retired (#3563); this job installs the pinned toolchains and checks them.
+      - name: V1 pinned proof toolchains
+        if: ${{ !cancelled() }}
+        run: just proofs-setup
 
   # L84: on `main`, build every test target, the contract generator, clippy's checks and the release daemon, so the Linux
   # cache this job saves holds every dependency the lanes, `contracts`, `observers` and `pre`'s `lint` build. A CI3781
@@ -339,20 +340,37 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo build --locked --release -p rupd
 
-  # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles. A lane of its own, in step with the
-  # tests of `mac`: clippy and its setup run beside them, not before. `mac` saves the cache, clippy's checks included.
+  # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles, and the daemon smoke test, on the OS the
+  # App ships on. A lane of its own, in step with the tests of `mac`: it and its setup run beside them, not before.
+  # `mac` saves the cache, with clippy's checks and the smoke test's binaries.
   mac-clippy:
     needs: plan
-    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    if: >-
+      github.event_name != 'pull_request' ||
+      (!github.event.pull_request.draft && (needs.plan.outputs.rust == 'true' || needs.plan.outputs.ping == 'true'))
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 2
-      - uses: ./.github/actions/setup
+      - id: setup
+        uses: ./.github/actions/setup
         with:
           node: 'false'
-      - run: just clippy
+      # CI7295h: clippy runs on a PR whose diff reaches Rust; the ping only when the diff reaches what it proves.
+      - if: github.event_name != 'pull_request' || needs.plan.outputs.rust == 'true'
+        run: just clippy
+      - name: hello-world round trip (rup ping through rupd)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
+        run: |
+          # `--workspace` keeps the feature set `mac` builds for the cache.
+          cargo build --locked --workspace --bin rupd --bin rup
+          python3 loop/app-data.py bash loop/ci-ping.sh
+      - name: N7 N8 real Daemon guard observers
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
+        run: |
+          python3 loop/app-data.py python3 loop/app-data.test.py
+          python3 loop/app-data.py python3 loop/launch-sites.test.py
       # Z4280a: a cold desktop build takes 330 s on the 3-core runner, so it observes each `main` push; on a PR,
       # `just clippy` above denies the deprecation warning it looks for.
       - name: Z4280a fresh desktop build
@@ -370,12 +388,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
+  # L89: the tests that take a macOS path, on the OS the App ships on.
   mac:
     needs: plan
-    if: >-
-      github.event_name != 'pull_request' ||
-      (!github.event.pull_request.draft && (needs.plan.outputs.rust == 'true' || needs.plan.outputs.ping == 'true'))
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     # CI7295b reads this run's step times.
     permissions:
       contents: read
@@ -414,22 +430,13 @@ jobs:
       - name: R24 measurement feature
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
-      # CI7295h: on a PR, the round trip and the guard observers after it run only when the diff reaches them.
-      - name: hello-world round trip (rup ping through rupd)
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
-        run: |
-          # `--workspace` keeps the lane's feature set, so the binaries its tests started are already built.
-          cargo build --locked --workspace --bin rupd --bin rup
-          python3 loop/app-data.py bash loop/ci-ping.sh
-      - name: N7 N8 real Daemon guard observers
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
-        run: |
-          python3 loop/app-data.py python3 loop/app-data.test.py
-          python3 loop/app-data.py python3 loop/launch-sites.test.py
-      # L84: the macOS cache this job saves on `main` holds clippy's checks too, so `mac-clippy` checks only the workspace.
-      - name: Clippy's checks for the cache
+      # L84: the macOS cache this job saves on `main` holds clippy's checks and the smoke test's binaries too, so
+      # `mac-clippy` builds only the workspace.
+      - name: Clippy's checks and the smoke test's binaries for the cache
         if: github.event_name == 'push'
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo build --locked --workspace --bin rupd --bin rup
 
   # CI5458d: main-only release builds run beside the full-test lane to keep each macOS job below 25 min.
   mac-package:
