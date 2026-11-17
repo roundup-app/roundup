@@ -7,3 +7,9 @@ pre-commit:
     file-stays-under-a-size-cap:
       priority: 2
       run: .claude/sound/placement/file-stays-under-a-size-cap.gate --worktree
+
+pre-push:
+  commands:
+    lint-and-typecheck-the-push:
+      use_stdin: true
+      run: node tools/oxlint/pre-push.mjs
