@@ -52,6 +52,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       rust: ${{ steps.plan.outputs.rust }}
+      ping: ${{ steps.plan.outputs.ping }}
       web: ${{ steps.plan.outputs.web }}
       web_shards: ${{ steps.shards.outputs.web_shards }}
     steps:
@@ -94,7 +95,7 @@ jobs:
       # L82, L120: the merge of `main` and the merge-loss restore a fix run makes with no model; `loop.yml` runs the other loop tests.
       - name: L82 merge of main with no model
         run: python3 loop/app-data.py python3 loop/merge_main.test.py
-      # N7: every launch reference has an entry; the `mac` lane, which runs the rest of N7, skips App-only PRs.
+      # N7: every launch reference has an entry; the `mac` lane runs the rest of N7 when the diff reaches it (CI7295h).
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan
         env:
@@ -113,8 +114,10 @@ jobs:
           if [ -n "$BASE" ] && ! git diff --quiet "$BASE" -- apps/desktop/src/testing/captures.ts; then
             web=all
           fi
+          ping=$(python3 loop/affected.py ping "$rust_base")
           {
             echo "rust=${rust:+true}"
+            echo "ping=${ping:+true}"
             echo "web=${web:+true}"
             # Only a PR whose diff selects some web tests, not all, counts the files that size the shards.
             echo "count=$([ -n "$web" ] && [ "$web" != all ] && echo true)"
@@ -164,6 +167,10 @@ jobs:
   rust:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    # CI7295b reads this run's step times.
+    permissions:
+      contents: read
+      actions: read
     env:
       CARGO_TARGET_DIR: target
       BASE: >-
@@ -220,6 +227,12 @@ jobs:
           observation=()
           if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
           python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      - name: CI7295b lane time budget
+        if: github.event_name == 'push' && runner.environment != 'self-hosted'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/actions/setup/lane-budget.py "rust ${{ matrix.partition }}" test-rust
       - name: CI5330f disk after tests
         if: always()
         run: bash .github/actions/setup/disk.sh report after
@@ -359,7 +372,13 @@ jobs:
   # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
     needs: plan
-    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    if: >-
+      github.event_name != 'pull_request' ||
+      (!github.event.pull_request.draft && (needs.plan.outputs.rust == 'true' || needs.plan.outputs.ping == 'true'))
+    # CI7295b reads this run's step times.
+    permissions:
+      contents: read
+      actions: read
     runs-on: macos-latest
     timeout-minutes: 35
     steps:
@@ -383,19 +402,26 @@ jobs:
       # L89: only the test binaries the `mac` profile names that the diff reaches (`just test-rust-lane`).
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE"
+      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      - name: CI7295b lane time budget
+        if: github.event_name == 'push' && runner.environment != 'self-hosted'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/actions/setup/lane-budget.py "mac" test-rust
       # R24: compile the opt-in native producer as well as the normal-build exclusion tests above. The same selection
       # under `--workspace` rebuilds only `desktop`, which the feature changes.
       - name: R24 measurement feature
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
+      # CI7295h: on a PR, the round trip and the guard observers after it run only when the diff reaches them.
       - name: hello-world round trip (rup ping through rupd)
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
         run: |
           # `--workspace` keeps the lane's feature set, so the binaries its tests started are already built.
           cargo build --locked --workspace --bin rupd --bin rup
           python3 loop/app-data.py bash loop/ci-ping.sh
       - name: N7 N8 real Daemon guard observers
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
         run: |
           python3 loop/app-data.py python3 loop/app-data.test.py
           python3 loop/app-data.py python3 loop/launch-sites.test.py
@@ -605,34 +631,12 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 tools/e14/observe.py run --install-dependencies --lane web${{ matrix.partition }} ${{ runner.environment != 'self-hosted' && format('--fault-log {0}/chromium-faults-{1}.jsonl', runner.temp, matrix.partition) || '' }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      # CI7295b: on `main`, a web lane whose setup took over 90 s or whose tests took over 5 min fails, and one whose tests
-      # took over 4 min warns, naming itself: file times swing up to half again between runs, and noise must not fail `main`.
+      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
           GH_TOKEN: ${{ github.token }}
-          LANE: web ${{ matrix.partition }}
-        run: |
-          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
-            --jq '.jobs[] | select(.name == env.LANE) | .steps[] | tojson' | python3 -c '
-          import json, os, sys
-          from datetime import datetime
-          lane = os.environ["LANE"]
-          budgets = {"Run ./.github/actions/setup": ("setup", 90, 90), "test-web": ("test step", 240, 300)}
-          over = []
-          for step in map(json.loads, sys.stdin):
-              if step["name"] in budgets and step["completed_at"]:
-                  seconds = (datetime.fromisoformat(step["completed_at"]) - datetime.fromisoformat(step["started_at"])).total_seconds()
-                  what, aim, limit = budgets[step["name"]]
-                  print(f"{lane}: {what} {seconds:.0f} s, aim {aim} s, limit {limit} s")
-                  if seconds > limit:
-                      over.append(f"{what} took {seconds:.0f} s, over {limit} s")
-                  elif seconds > aim:
-                      print(f"::warning::{lane}: {what} took {seconds:.0f} s, over {aim} s")
-          if over:
-              print(f"::error::{lane}: " + "; ".join(over))
-              sys.exit(1)
-          '
+        run: python3 .github/actions/setup/lane-budget.py "web ${{ matrix.partition }}" test-web
       - name: CI5330a disk after tests
         if: always()
         run: bash .github/actions/setup/disk.sh report after
