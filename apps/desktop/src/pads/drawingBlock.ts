@@ -34,7 +34,7 @@ const Scene = v.object({ type: v.literal("excalidraw"), elements: v.array(v.loos
 const parse = (text: string) => {
   const scene = v.safeParse(Scene, JSON.parse(text));
 
-  if (!scene.success) throw new Error("not a scene");
+  if (!scene.success) throw new Error(copy.notAnExcalidrawScene);
 
   return scene.output.elements;
 };
