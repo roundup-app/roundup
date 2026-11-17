@@ -541,7 +541,8 @@ jobs:
           key: ${{ steps.key.outputs.key }}
 
   # CI7297b: a PR's changed web test files, and only those, at once after `plan`, so the author reads the failure of their
-  # own test before the full verdict. Its failure fails `check` at once (CI7295e); the other lanes run to their end.
+  # own test before the full verdict. Only the `app` and `webkit-guards` projects run, which start no Chrome or daemon; the
+  # `web` shards run the rest. Its failure fails `check` at once (CI7295e); the other lanes run to their end.
   first:
     needs: plan
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft && needs.plan.outputs.first != ''
@@ -557,7 +558,7 @@ jobs:
       - name: CI7297b changed tests
         env:
           FILES: ${{ needs.plan.outputs.first }}
-        run: python3 loop/app-data.py pnpm --filter desktop exec vitest run ${FILES//apps\/desktop\//}
+        run: python3 loop/app-data.py pnpm --filter desktop exec vitest run --project app --project webkit-guards --passWithNoTests ${FILES//apps\/desktop\//}
 
   # L89: the web tests in up to 24 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
