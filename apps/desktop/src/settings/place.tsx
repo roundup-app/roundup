@@ -5,15 +5,15 @@ import type { Entry } from "./entries";
 
 /** PL2: a Settings page as a link names it, and the value of its tab in App Settings. */
 export const SETTINGS_PAGES = {
-  agents: "Agents",
-  terminal: "Terminal",
-  editor: "Editor",
-  shortcuts: "Shortcuts",
-  appearance: "Appearance",
-  alerts: "Alerts",
-  pads: "Pads",
-  machines: "Machines",
-  updates: "Updates",
+  agents: copy.settingsAgents,
+  terminal: copy.settingsTerminal,
+  editor: copy.settingsEditor,
+  shortcuts: copy.settingsShortcuts,
+  appearance: copy.settingsAppearance,
+  alerts: copy.settingsAlerts,
+  pads: copy.settingsPads,
+  machines: copy.settingsMachines,
+  updates: copy.settingsUpdates,
 } as const;
 
 /** What App Settings hands over so a link can move it. */
@@ -22,9 +22,6 @@ type Live = { entries: () => Entry[]; setQuery: (query: string) => void; setSect
 let live: Live | undefined;
 
 const marks = new Map<string, HTMLElement>();
-
-/** The control the user flips inside one entry's mount. */
-const FLIPPABLE = ":is(input, button, [role=combobox], [role=radio], [role=switch], textarea)";
 
 export const registerSettingsPlace = (next: Live) => {
   live = next;
@@ -42,7 +39,7 @@ export const markControls = <K extends string>(renders: Record<K, () => JSX.Elem
 const focusControl = (id: string) => {
   const reach = (target: HTMLElement) => { target.focus(); target.scrollIntoView({ block: "nearest" }); };
 
-  const find = () => marks.get(id)?.querySelector<HTMLElement>(FLIPPABLE);
+  const find = () => marks.get(id)?.querySelector<HTMLElement>(":is(input, button, [role=combobox], [role=radio], [role=switch], textarea)");
   const now = find();
 
   if (now) return reach(now);
