@@ -83,6 +83,33 @@ async fn lk1_a_malformed_link_is_invalid_params_naming_the_part() {
 }
 
 #[tokio::test]
+async fn pl1_link_read_of_a_shelf_link_is_invalid_params() {
+    let project = daemon::start(&[]);
+    let client = project.client().await;
+    let key = key(&client).await;
+    let err = read(&client, &format!("roundup://shelf/pads?project={key}"))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert!(err.message.contains("`shelf`"), "{}", err.message);
+}
+
+#[tokio::test]
+async fn pl2_link_read_of_a_settings_link_is_invalid_params() {
+    let project = daemon::start(&[]);
+    let client = project.client().await;
+    let key = key(&client).await;
+    let err = read(
+        &client,
+        &format!("roundup://settings/agents?project={key}#model"),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert!(err.message.contains("`settings`"), "{}", err.message);
+}
+
+#[tokio::test]
 async fn lk1_a_link_for_another_project_is_not_found_and_never_resolved_here() {
     let project = daemon::start(&[]);
     let client = project.client().await;

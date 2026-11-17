@@ -248,7 +248,7 @@ export const App = (props: {
   onSettled(() => {
     const app = props.app;
 
-    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => owner && isDisposed(owner) ? () => {} : runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
+    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => owner && isDisposed(owner) ? () => {} : runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item: linkedItem, fail: failNative, openShelf: tab => { settingsView.close(false); openShelf(tab); } }))!);
 
     return app.onNativeOpen?.(routeNativeOpen, cause => failNative(cause));
   });

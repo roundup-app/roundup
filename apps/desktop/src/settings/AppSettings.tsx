@@ -22,6 +22,7 @@ import { AlertSettings } from "./AlertSettings";
 import { ResetWarnings } from "./ResetWarnings";
 import { MachinesSettings } from "./MachinesSettings";
 import { settingsEntries } from "./entries";
+import { markControls, registerSettingsPlace } from "./place";
 import { UpdateRow } from "./UpdateRow";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 
@@ -245,7 +246,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const lineHeightControl = () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint);
   const letterSpacingControl = () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint);
 
-  const controls = {
+  const bare = {
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.settingsDefault },
@@ -310,7 +311,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     ),
   };
 
-
+  const controls = markControls(bare);
   const entries = () => settingsEntries({ project: props.project, updates, numericFields });
 
   // U5243a: `fuzzysort` ranks the live entries by label, description, page and group.
@@ -318,6 +319,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const searching = () => query().trim() !== "";
   const results = createMemo(() => searching() ? fuzzysort.go(query().trim(), entries(), { keys: ["label", "description", "page", "group"] }).map(result => result.obj) : []);
   let searchInput: HTMLInputElement | undefined;
+  onCleanup(registerSettingsPlace({ entries, setQuery, setSection, show: () => show() }));
 
   return <>
     <Show when={view.open()}>

@@ -142,6 +142,10 @@ export const copy = {
   dontAskAgain: sharedCopy.dontAskAgain,
   resetWarnings: "Reset warnings",
   resetWarningsLabel: "Skipped questions",
+  /** @prose */
+  noSettingsPage: (page: string) => `There is no Settings page "${page}".`,
+  /** @prose */
+  noSettingsControl: (control: string, page: string) => `There is no control "${control}" on the ${page} page.`,
   settingsAgents: "Agents",
   settingsTerminal: sharedCopy.terminal,
   settingsEditor: "Editor",

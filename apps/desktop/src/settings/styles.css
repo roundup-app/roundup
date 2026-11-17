@@ -444,3 +444,7 @@
 .add-machine-host { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; }
 .add-machine-entry { display: flex; gap: var(--space-2); align-items: center; }
 .add-machine-entry input { flex: 1; min-width: 0; }
+
+.settings-control {
+  display: contents;
+}
