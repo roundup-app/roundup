@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
+import { notice } from "../testing/notices";
 import { HELP_ROWS, hintsFor } from "../keys/chords";
 import { agent, event, workstream } from "../testing/nodes";
 import { mountTodos, todo, todoEvent, todoCallsTo } from "./testHarness";
@@ -71,12 +72,13 @@ it("u3310_a_refused_call_keeps_the_state_and_shows_its_cause", async () => {
   const m = await mountTodos([todo(1, { home: "w" })], true, [workstream("w", { auto: false })]);
 
   m.connected.rail.select("w");
-  m.app.handlers["workstream.setAuto"] = () => { throw new RpcError(-32003, "Supervisor unavailable; start it and retry"); };
+  const refusal = new RpcError(-32003, "Supervisor unavailable; start it and retry");
+  m.app.handlers["workstream.setAuto"] = () => { throw refusal; };
 
   const control = await screen.findByRole("switch", { name: "Auto" });
 
   fireEvent.click(control);
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Supervisor unavailable; start it and retry"));
+  await waitFor(() => expect(notice("alert").textContent).toContain(refusal.message));
   expect(control.getAttribute("aria-checked")).toBe("false");
 });
 
@@ -84,11 +86,12 @@ it("u3309_a_refused_digit_assignment_shows_its_cause_and_keeps_the_owner", async
   const m = await mountTodos([todo(1)], true, [agent("a", "idle", "")]);
   const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
 
-  m.app.handlers["todo.assign"] = () => { throw new RpcError(-32003, "Agent unavailable; choose another owner"); };
+  const refusal = new RpcError(-32003, "Agent unavailable; choose another owner");
+  m.app.handlers["todo.assign"] = () => { throw refusal; };
 
   row.focus();
   fireEvent.keyDown(row, { key: "1", code: "Digit1" });
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Agent unavailable; choose another owner"));
+  await waitFor(() => expect(notice("alert").textContent).toContain(refusal.message));
   expect(row.closest<HTMLElement>("[data-shelf-group]")?.dataset.shelfGroup).toBe("unassigned");
 });
 

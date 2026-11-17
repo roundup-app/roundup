@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
+import { notice } from "../testing/notices";
 import { USER } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
@@ -33,11 +34,11 @@ describe("u35 Todo triage without the Drawer", () => {
     rowOf(5).querySelector<HTMLButtonElement>(".todo-row-button")!.focus();
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
 
-    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
+    expect((await waitFor(() => notice("alert"))).textContent).toContain(failure.message);
     expect([...place.parentElement!.children]).toEqual(siblings);
     app.handlers["todo.complete"] = () => new Promise(() => {});
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
-    expect(screen.getByRole("alert").textContent).toContain(failure.message);
+    expect(notice("alert").textContent).toContain(failure.message);
     expect(rowOf(5).querySelector(".reserved-line")).toBe(place);
     expect([...place.parentElement!.children]).toEqual(siblings);
   });
@@ -94,7 +95,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
     fireEvent.click(rowOf(4));
 
-    expect(screen.getByRole("alert").textContent).toContain(failure.message);
+    expect(notice("alert").textContent).toContain(failure.message);
   });
 
   it("u35_moving_focus_from_the_row_to_complete_keeps_it_visible_and_clickable", async () => {

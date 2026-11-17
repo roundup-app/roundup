@@ -196,8 +196,6 @@
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_delegate_board_%s","identity":"30319a27526f0604c7be95b1610a2a1af2b23a119f3783e16eea5c3009e8a21a"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_the_switch_is_absent_without_a_workstream","identity":"5701c4135075bbbcbbce87d2865b482482ab310ef1a3e7509e343c5c6780961b"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_a_refused_call_keeps_the_state_and_shows_its_cause","identity":"89c3dee33abc2d5e17ce022200e81462292088093fc5613bbf412ccd6d241a93"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3309_a_refused_digit_assignment_shows_its_cause_and_keeps_the_owner","identity":"460f377a9628ed811657169b4fb791fa9aebd4c11b439ce99239a2fa8073d638"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3708 the Todos list is a tree drawn from blockers > u3708_depth_is_read_from_the_first_blocker","identity":"b602b2e44217621c5bed80941f9e922e0feac01f651765735c9ec3e60d3e725c"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3711 a move that would make a cycle is refused and says why > u3711_a_refused_move_returns_the_row_and_shows_the_cause","identity":"036a5fec73bb7a21bb3d80d28f8f69bed820b1ccd305c6a2b4dcd87df18636ea"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3711 a move that would make a cycle is refused and says why > u3711_a_refused_move_returns_the_row_and_shows_the_cause","identity":"a6a200e95f1e02c259394eabece6264c676a1cc68705f4ac2cdd422f8dea6637"}
