@@ -81,7 +81,7 @@ const routeLinks = (app: Awaited<ReturnType<typeof mountAskBar>>["app"], connect
   // SAFETY: a link to an Agent reads only `projects.select`.
   createRoot(() => watchNativeOpen({
     solid: Solid, app, projects: { select: vi.fn() } as never, connectionOf: () => connected,
-    item: () => document.createElement("div"), fail: vi.fn(), openShelf: vi.fn(),
+    item: () => document.createElement("div"), walk: () => document.createElement("div"), fail: vi.fn(), openShelf: vi.fn(),
   }));
 };
 

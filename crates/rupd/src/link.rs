@@ -41,10 +41,10 @@ fn parse(url: &str) -> Result<(Target, String, Option<String>), RpcError> {
     }
     if !matches!(
         kind.as_str(),
-        "pad" | "todo" | "agent" | "workstream" | "terminal" | "deliverable"
+        "pad" | "walk" | "todo" | "agent" | "workstream" | "terminal" | "deliverable"
     ) {
         return Err(invalid(format!(
-            "the kind `{kind}` is not pad, todo, agent, workstream, terminal or deliverable"
+            "the kind `{kind}` is not pad, walk, todo, agent, workstream, terminal or deliverable"
         )));
     }
     let mut segments = url.path().strip_prefix('/').unwrap_or_default().split('/');
@@ -87,7 +87,8 @@ fn parse(url: &str) -> Result<(Target, String, Option<String>), RpcError> {
     }
     let target = match kind.as_str() {
         "deliverable" => Target::Deliverable(id),
-        "pad" => Target::Pad(id),
+        // PW2: a walk link names a Pad by its name and reads as the Pad.
+        "pad" | "walk" => Target::Pad(id),
         "todo" => Target::Todo(
             id.parse()
                 .map_err(|_| invalid(format!("the Todo id `{id}` is not a whole number")))?,

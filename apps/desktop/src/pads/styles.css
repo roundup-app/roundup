@@ -359,3 +359,60 @@ li[aria-selected="true"] svg {
 .pad-toolbar-expand {
   order: 3;
 }
+
+/* PW1 to PW6: the walk of a Pad. */
+.walk {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--pad-reading-width, var(--reading-width));
+  align-self: center;
+  padding: var(--space-5) var(--reading-gutter);
+  outline: none;
+}
+
+.walk-step {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.walk-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.walk-title {
+  margin: 0;
+  font-size: var(--text-pad-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.walk-count {
+  flex: none;
+  color: var(--grey);
+  font-variant-numeric: tabular-nums;
+}
+
+.walk-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.walk-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}

@@ -288,6 +288,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Daemon | same | — |
 | Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `naming_guide`, `naming_settled`, `naming_settings`) | Automatic renaming, Naming guide | — |
 | Link (`link.read`) | same | — |
+| Walk (`walk` link kind, `Walk`, `walkSteps`) | walk | — |
 | Link set (`links::LinkSet`, `LinkEntry`, `LinkKind`, `LinksEvent`, `agent.links`, the `agent.links` event, `LinksModel`, `claude_code::links`) | links (an Agent's header) | — |
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |

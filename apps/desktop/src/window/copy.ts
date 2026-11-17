@@ -2,6 +2,8 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const linkCopy = {
   /** @prose */
+  walkFinished: (pad: string, link: string) => `The user finished the walk of the Pad ${pad}: ${link}`,
+  /** @prose */
   notOpened: (url: string, cause: string) => `link not opened: ${url}: ${cause}`,
   /** The digest the Daemon hashes a Project path with; not shown. */
   keyDigest: "SHA-256",
