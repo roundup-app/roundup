@@ -126,7 +126,7 @@ Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, 
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
-- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so a diagram lives only in a Pad as depth, and the message makes the same point with a table or code-shape sketch and gives the Pad's link;
+- a Mermaid diagram only in a Pad or a Todo's body, written with `pad_write`, `pad_append`, `todo_create` or `todo_update`: a Message, `AskUserQuestion` question, Digest, Work order, Todo title or comment never holds one, so a diagram lives only in a Pad or a Todo's body as depth, and the message makes the same point with a table or code-shape sketch and gives that Pad's or Todo's link;
 - no HTML artifact: write no HTML file and never `open` one.
 
 Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.

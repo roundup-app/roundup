@@ -14,10 +14,17 @@ let counter = 0;
 /** U7312c: the five Pad colours, in the order a pie's slices take them. */
 const padTones = ["--pad-blue", "--pad-green", "--pad-amber", "--pad-purple", "--red"];
 
+/** The height Mermaid draws a pie at, before CSS shows it at the chart height. */
+const MERMAID_PIE_HEIGHT = 450;
+
 /** The error's first line: Mermaid's own message continues with a code frame. */
 const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy.invalidDiagram;
 
 const render = async (mermaid: MermaidApi, text: string) => {
+  const chartHeight = parseFloat(tokenValue("--pad-chart-height"));
+  // U7312c: a pie's labels show at the small text size once the pie scales to the chart height.
+  const pieLabel = `calc(var(--text-small) * ${MERMAID_PIE_HEIGHT / chartHeight})`;
+
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
@@ -39,6 +46,8 @@ const render = async (mermaid: MermaidApi, text: string) => {
       pieSectionTextColor: tokenColour("--ground"),
       pieLegendTextColor: tokenColour("--grey"),
       pieTitleTextColor: tokenColour("--text"),
+      pieLegendTextSize: pieLabel,
+      pieSectionTextSize: pieLabel,
       xyChart: {
         backgroundColor: tokenColour("--ground"),
         titleColor: tokenColour("--text"),
@@ -52,7 +61,7 @@ const render = async (mermaid: MermaidApi, text: string) => {
       },
     },
     // U7312c: an xychart's plot is the chart height Token tall.
-    xyChart: { height: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pad-chart-height")) },
+    xyChart: { height: chartHeight },
   });
   // `parse` first: a failed `render` leaves its error diagram in the document.
   await mermaid.parse(text);

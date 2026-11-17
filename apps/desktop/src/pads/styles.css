@@ -191,6 +191,12 @@
   height: auto;
 }
 
+/* U7312c: Mermaid draws a pie at a fixed size; it shows at the chart height. */
+.visual-mermaid svg[aria-roledescription="pie"] {
+  width: auto;
+  height: var(--pad-chart-height);
+}
+
 .visual-block pre {
   margin: 0;
   padding: var(--space-3);

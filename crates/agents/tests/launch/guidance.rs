@@ -33,8 +33,9 @@ fn q7_brief_names_each_view_and_its_place() {
         assert!(text.contains(view), "{view}");
     }
     assert!(text.contains("only in a Pad"));
-    assert!(text.contains("a diagram lives only in a Pad as depth"));
-    assert!(text.contains("a table or code-shape sketch and gives the Pad's link"));
+    // #7312: a Todo's body draws every Pad block, so a diagram may live there too.
+    assert!(text.contains("a diagram lives only in a Pad or a Todo's body as depth"));
+    assert!(text.contains("a table or code-shape sketch and gives that Pad's or Todo's link"));
     assert!(!text.contains("send the Pad's name"));
 }
 

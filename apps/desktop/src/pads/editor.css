@@ -34,12 +34,6 @@
     width: 100%;
     height: auto;
   }
-  /* U7312c: Mermaid draws a pie at a fixed size; it shows at the chart height. */
-  .visual-mermaid svg[aria-roledescription="pie"] {
-    width: auto;
-    max-width: 100%;
-    height: var(--pad-chart-height);
-  }
   .milkdown .ProseMirror {
     position: relative;
     white-space: break-spaces;
