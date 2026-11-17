@@ -80,6 +80,12 @@ async fn ready_peer(run: &Run, node: Value) -> Peer {
         .request("daemon.identify", json!({"actor":{"kind":"agent","id":id}}))
         .await
         .unwrap();
+    // The fake `claude` starts no `rup mcp`, so its Channel stays `pending` for the 15 s deadline
+    // (the whole of `BOUND`) and the Daemon holds each Message for it until then.
+    client
+        .request("agent.channelUp", json!({"id":id}))
+        .await
+        .unwrap();
     Peer {
         id,
         terminal: node["terminal_id"].clone(),
@@ -541,23 +547,14 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         // Each completion case has its own B22 window; this observes A5482c, not the push cap.
         let (mut run, lead, child) = family().await;
         let typed = (lead.typed(), child.typed());
-        signal(
-            &run,
-            &child,
-            json!({"hook_event_name":"PreToolUse","tool_name":"Read"}),
-        )
-        .await;
+        // The fake `claude` ends a turn itself when this file appears: its tool use, its text on the
+        // Terminal and its Stop carrying `last_assistant_message`, in order from one source.
         std::fs::write(child.dir.join("final-reply.txt"), &text).unwrap();
-        run.user
-            .request(
-                "message.send",
-                json!({"to":child.id,"kind":"note","body":format!("Complete turn: {text}")}),
-            )
-            .await
-            .unwrap();
-        signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
-        let digest = until("final text Digest", async || {
-            // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
+        // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
+        // DTC4 may fold the Digest `message.list` shows into a later one, so wait for the lead's
+        // inbox to take the entry holding the text, whichever Digest id carries it.
+        let marker = format!("last: {}", &text[..text.len().min(40)]);
+        let entry = until("final text Digest", async || {
             run.user
                 .request(
                     "message.send",
@@ -566,27 +563,17 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
                 .await
                 .unwrap();
             signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
-            let messages = run
-                .user
-                .request("message.list", json!({"to":lead.id}))
-                .await
-                .unwrap();
-            messages
-                .as_array()
-                .unwrap()
-                .iter()
-                .rev()
-                .find(|m| {
-                    m["body"].as_str().is_some_and(|s| {
-                        s.contains(&format!("last: {}", &text[..text.len().min(100)]))
-                    })
-                })
-                .cloned()
+            let f = lead.entries().into_iter().find(|e| {
+                e["message"]["content"]
+                    .as_str()
+                    .is_some_and(|s| s.contains(&marker))
+            });
+            if f.is_none() { let _ = std::fs::copy(run.dir.path().join("rupd.err"), "/tmp/rupd.err"); let _ = std::fs::copy(lead.dir.join("taken.jsonl"), "/tmp/taken.jsonl"); let _ = std::fs::copy(lead.dir.join("transcript.jsonl"), "/tmp/transcript.jsonl"); while let Ok(Some(event)) = tokio::time::timeout(Duration::from_millis(50), run.watcher.next_event()).await { if let EventData::AgentStatus(st) = event.data { eprintln!("EV {} {:?} {}", st.id, st.status.kind, st.status.label); } } let m = run.user.request("message.list", json!({})).await.unwrap(); eprintln!("DBG {}", m.as_array().unwrap().iter().take(8).map(|m| format!("{}>{} {} {} {} {} {}", m["from"]["id"], m["to"], m["id"], m["status"], m["reason"], m["waiting"], m["body"])).collect::<Vec<_>>().join(" || ")); eprintln!("ENT {}", lead.entries().iter().map(|e| e["message"]["content"].to_string()).collect::<Vec<_>>().join(" || ")); }
+            f
         })
         .await;
-        let body = digest["body"].as_str().unwrap();
-        assert_eq!(digest["kind"], "note");
-        let id = u32::try_from(digest["id"].as_u64().unwrap()).unwrap();
+        let body = entry["message"]["content"].as_str().unwrap().to_owned();
+        let id = u32::from_str_radix(&entry["msg_id"].as_str().unwrap()[24..], 16).unwrap();
         // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
         let status = if text == "Publishing is complete" {
             "builder is idle"
