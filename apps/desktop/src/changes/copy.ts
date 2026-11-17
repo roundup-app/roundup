@@ -18,7 +18,7 @@ export const copy = {
   addedLines: sharedCopy.plus,
   removedLines: (count: number) => `-${count}`,
   groupLabel: sharedCopy.dotted,
-  diff: "Diff",
+  diff: sharedCopy.diff,
   loadingDiff: "Loading diff…",
   noDifference: "No remaining difference",
   diffNotLoaded: "Diff not loaded",

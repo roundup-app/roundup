@@ -119,7 +119,8 @@ async fn t21_a_long_or_multi_line_agent_comment_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     made(&h, json!({"title": "t"})).await;
-    let fold = |inner: &str| format!("<details><summary>For Agents</summary>\n\n{inner}\n\n</details>");
+    let fold =
+        |inner: &str| format!("<details><summary>For Agents</summary>\n\n{inner}\n\n</details>");
     let long = "x".repeat(281);
     for body in [
         long.clone(),
