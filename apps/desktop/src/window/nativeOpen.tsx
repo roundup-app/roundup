@@ -31,7 +31,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
   /** PW5: where a clicked link came from, by the focus its click captured. */
   const origins = new WeakMap<object, { url: string; before: Element | null }>();
 
-  /** PW5: the Agent whose Terminal held the clicked link: the Terminal holding focus when it was clicked, as a Door's own or a child Terminal's owner. */
+  /** PW5: the Agent whose Terminal showed the clicked link: the Terminal with focus when it was clicked, as a Door's own or a child Terminal's owner. */
   const senderOf = (path: string, before: Element | null) => {
     const rail = connectionOf(path)?.rail;
     const terminal = before?.closest<HTMLElement>("[data-terminal]")?.dataset.terminal;

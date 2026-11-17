@@ -801,7 +801,10 @@ async fn pw2_a_walk_link_is_a_link_form() {
         .to_owned();
     let mut agent = Shim::start(&project, &rail.a).await;
     agent
-        .call("pad_create", json!({ "name": "plan: v1", "text": "# One\nhi" }))
+        .call(
+            "pad_create",
+            json!({ "name": "plan: v1", "text": "# One\nhi" }),
+        )
         .await;
 
     let read = agent
