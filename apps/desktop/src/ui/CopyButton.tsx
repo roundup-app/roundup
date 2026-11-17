@@ -5,6 +5,7 @@ import { writeText } from "../app/clipboard";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
 import { BusyButton } from "./BusyButton";
+import { Icon } from "../ink/Icon";
 
 /** Clipboard feedback belongs to one mounted control and the latest acknowledged attempt. */
 export const createCopyFeedback = () => {
@@ -63,7 +64,7 @@ export const createCopyLabels = <T extends string | number>(ids: () => readonly 
 /** The existing native button owns activation; the App seam owns the clipboard write. */
 export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "type" | "disabled"> & {
   /** The button kind; quiet unless named, `null` for a surface that styles it. */
-  "data-button"?: "primary" | "quiet" | null;
+  "data-button"?: "primary" | "quiet" | "icon" | null;
   app: Pick<App, "writeClipboardText">;
   text: string;
   identity?: unknown;
@@ -87,5 +88,8 @@ export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     return feedback.run(() => writeText(app, text), () => success?.(), failure);
   };
 
-  return <BusyButton {...rest} kind={props["data-button"] === undefined ? "quiet" : props["data-button"]} busyLabel={copy.copying} onClick={write}>{feedback.copied() ? copy.copied : feedback.failed() && props.failureLabel ? props.failureLabel : props.children}</BusyButton>;
+  // U7310e: an icon button shows a check, and is named Copied, once its write lands.
+  const copiedIcon = () => props["data-button"] === "icon" && feedback.copied();
+
+  return <BusyButton {...rest} aria-label={copiedIcon() ? copy.copied : props["aria-label"]} kind={props["data-button"] === undefined ? "quiet" : props["data-button"]} busyLabel={copy.copying} onClick={write}>{copiedIcon() ? <Icon name="check" /> : feedback.copied() ? copy.copied : feedback.failed() && props.failureLabel ? props.failureLabel : props.children}</BusyButton>;
 };

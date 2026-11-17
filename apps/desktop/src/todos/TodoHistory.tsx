@@ -1,4 +1,5 @@
 import { CopyButton } from "../ui/CopyButton";
+import { Icon } from "../ink/Icon";
 import { createMessageToast } from "../toasts/messageToast";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
@@ -94,10 +95,10 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
 
   return {
     changes: () => loaded()?.changes,
-    copy: <Show when={loaded()}>{record => <CopyButton app={app} text={JSON.stringify({
+    copy: <Show when={loaded()}>{record => <CopyButton data-button="icon" class="word" aria-label={copy.copy} app={app} text={JSON.stringify({
       lines: record().changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())),
       history: record(), failure: failure(),
-    }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>}</Show>,
+    }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}><Icon name="copy" /></CopyButton>}</Show>,
     entry: (change: Change) => <div class="todo-change" data-change={change.seq}>
       <span class="todo-activity-dot" aria-hidden="true" />
       <div><For each={lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())}>{line => <p>{line}</p>}</For></div>

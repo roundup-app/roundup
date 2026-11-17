@@ -24,7 +24,9 @@
 .todo-refs h3 { font: inherit; font-size: var(--text-body); font-weight: 600; margin: 0 0 var(--space-2); }
 .todo-ref { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); min-width: 0; }
 .todo-ref-link, .todo-ref-text { min-width: 0; overflow-wrap: anywhere; text-align: start; }
-.todo-ref button:last-child { flex: none; }
+/* U7310e: Unlink shows while its row is hovered or holds focus, and while it works. */
+.todo-ref-remove { flex: none; opacity: 0; }
+.todo-ref:is(:hover, :focus-within) .todo-ref-remove, .todo-ref-remove[aria-busy="true"] { opacity: 1; }
 .todo-ref-link { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .todo-ref-text { opacity: 0.7; }
 .todo-comments { position: relative; display: flex; flex-direction: column; gap: var(--space-3); }
@@ -49,7 +51,7 @@
 .todo-comment-author { color: var(--text); font-weight: 500; }
 .todo-comment-glyph-gap { width: var(--space-4); flex-shrink: 0; }
 .todo-comment-head time { color: var(--grey); white-space: nowrap; flex-shrink: 0; }
-.todo-comment-head button { margin-inline-start: auto; white-space: nowrap; flex-shrink: 0; }
+.todo-comment-actions { display: inline-flex; margin-inline-start: auto; flex-shrink: 0; }
 .todo-comment-author { min-width: 0; overflow-wrap: anywhere; }
 .todo-comments-send { display: flex; justify-content: flex-end; }
 

@@ -3,6 +3,9 @@ button[data-busy-button] { display: inline-grid; place-items: center; }
 .busy-idle, .busy-work, button[data-busy-button]::after { grid-area: 1 / 1; }
 .busy-idle, .busy-work { display: inline-flex; align-items: center; gap: inherit; }
 button[data-busy-button]::after { content: attr(data-busy-label); visibility: hidden; padding-left: calc(var(--space-3) + var(--space-1)); }
+/* U7310e: an icon button reserves no busy label; its mark takes the icon's place. */
+button[data-busy-button]:not([data-busy-label])::after { content: none; }
+button[data-busy-button]:not([data-busy-label]) .busy-mark { margin-right: 0; }
 /* Opacity, not visibility: the idle label stays the button's name while it is busy. */
 button[data-busy-button][aria-busy="true"] .busy-idle { opacity: 0; }
 

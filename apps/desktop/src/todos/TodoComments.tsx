@@ -8,6 +8,11 @@ import { createReply } from "../state/read";
 import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
+import { CopyButton } from "../ui/CopyButton";
+import { IconButton } from "../ui/IconButton";
+import { contextMenu } from "../ui/contextMenu";
+import { createRowMenu } from "../ui/rowMenu";
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import { createMessageToast } from "../toasts/messageToast";
 import { Icon } from "../ink/Icon";
@@ -181,11 +186,27 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     if (message === null) { props.onSaved?.(); await refetch(); props.onSent?.(focus); }
   };
 
+  const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
+  const failCopy = (message: string | null) => { setCopyFailure(message === null ? null : copy.copyDraftFailure(message)); };
+
+  // U7310e: a comment's row opens Reply and Copy in the native menu.
+  let section: HTMLElement | undefined;
+
+  const commentMenu = createRowMenu(() => section, "[data-comment]", (row, x, y) => {
+    const comment = thread.find(item => String(item.id) === row.dataset.comment);
+
+    if (comment) void contextMenu(app, [
+      ...(comment.author.kind === "agent" ? [{ id: "reply", label: copy.reply, run: () => field?.focus() }] : []),
+      { id: "copy", label: copy.copy, run: () => { void failureOf(() => writeText(app, spoken(comment))).then(failCopy); } },
+    ], x, y);
+  });
+
   const renderEntry = (entry: Entry) => renderComment(entry.comment);
 
   const renderComment = (comment: Comment) => <div class="todo-comment" data-comment={comment.id}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={shownKind(node().status, rail.dismissed(node()))} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at, now())}</time>
-        <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
+        <span class="todo-comment-actions"><CopyButton data-button="icon" class="word" app={app} text={spoken(comment)} aria-label={copy.copy} onSuccess={() => failCopy(null)} onFailure={error => failCopy(error.message)}><Icon name="copy" /></CopyButton>
+          <Show when={comment.author.kind === "agent"}><IconButton aria-label={copy.reply} onClick={() => field?.focus()}><Icon name="reply" /></IconButton></Show></span></p>
       <Show when={glyphOf(comment)}>{(node) => <Show when={!rail.dismissed(node())}><FailureLine status={node().status} dismiss={() => rail.dismiss(node())} /></Show>}</Show>
       <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)
         ? <Collapsible.Root class="todo-status">
@@ -198,8 +219,9 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   // U7310d: the thread's failures show as toasts.
   createMessageToast({ get message() { return failure(); }, dismiss: () => dismiss(loaded()), recover: { run: () => refetch(), label: copy.commentRetry } });
   createMessageToast({ get message() { return sendFailure(); }, dismiss: () => setSendFailure(null) });
+  createMessageToast({ get message() { return copyFailure(); }, dismiss: () => setCopyFailure(null) });
 
-  return <section class="todo-comments" aria-label={copy.activity}>
+  return <section class="todo-comments" aria-label={copy.activity} ref={section} onContextMenu={commentMenu}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     <Show when={(history.changes()?.length ?? 0) > 0}>
       <Collapsible.Root open={historyExpanded()} onOpenChange={open => setHistoryExpanded(open)}>
@@ -221,6 +243,6 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} /></div>
-    <p class="todo-comments-send"><BusyButton kind="quiet" class="word" busy={sending()} disabled={text().trim() === ""} busyLabel={copy.sending} onClick={() => send()}>{copy.comment}</BusyButton></p>
+    <p class="todo-comments-send"><BusyButton kind="icon" class="word" busy={sending()} disabled={text().trim() === ""} busyLabel={copy.sending} aria-label={copy.comment} onClick={() => send()}><Icon name="send" /></BusyButton></p>
   </section>;
 };

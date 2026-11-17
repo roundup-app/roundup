@@ -6,11 +6,12 @@ import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
 import { event } from "../testing/nodes";
 import { mountTodos, todo } from "./testHarness";
 import { Todos } from "./Todos";
 
-const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}>{view()}</DisplayClockContext>);
+const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}><ToastHost>{view()}</ToastHost></DisplayClockContext>);
 
 afterEach(cleanup);
 
