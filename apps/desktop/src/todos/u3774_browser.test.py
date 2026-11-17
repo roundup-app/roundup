@@ -1,4 +1,4 @@
-"""U3774, U3775, U3796: the Drawer's thread with an Agent comment of three status lines on tree-40, dark, 1512x950; dedicated headless agent-browser, fresh profile."""
+"""U3774, U3796: the Drawer's thread with three Agent comments, each ending in a fold, on tree-40, dark, 1512x950; dedicated headless agent-browser, fresh profile."""
 import json
 from pathlib import Path
 import subprocess
