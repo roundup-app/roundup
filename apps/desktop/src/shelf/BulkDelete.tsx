@@ -8,7 +8,7 @@ import { BusyButton } from "../ui/BusyButton";
 import { createItemFailures } from "../ink/itemFailures";
 import { createContext, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack, useContext, type Accessor } from "solid-js";
 import { type JSX, Portal } from "@solidjs/web";
-import { createMessageToast, createMessageToasts } from "../ink/messageToast";
+import { createMessageToast } from "../ink/messageToast";
 import { StatusNote } from "../ink/MountedLine";
 import { registerKeys } from "../keys/registry";
 import { strandedFocus } from "../keys/stranded";
@@ -203,7 +203,8 @@ export const createBulkDelete = <Id,>(props: {
 
   createMessageToast({ get message() { return readFailure(); }, dismiss: () => setReadFailure(null), recover: { run: () => readback?.() } });
 
-  createMessageToasts(shown, failure => ({ message: failureText(failure), dismiss: () => clearFailure(failure) }));
+  // One toast per failed row, each living as long as its failure shows.
+  const failureToasts = () => <For each={shown()}>{failure => { createMessageToast({ get message() { return failureText(failure()); }, dismiss: () => clearFailure(failure()) }); return null; }}</For>;
 
   const bar = () => (
     <Show when={props.selected().length > 1 || failed().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
@@ -222,6 +223,7 @@ export const createBulkDelete = <Id,>(props: {
           <p>{copy.agentsMayStillBeWritingDeletingDoesNot(owners().filter(owner => owner.live).map(owner => owner.name).join(copy.comma))}</p>
         </Show>
         <StatusNote text={question()?.kind === "pending" ? copy.draftStatus.pending : null} />
+        {failureToasts()}
       </div>
     </Show>
   );
