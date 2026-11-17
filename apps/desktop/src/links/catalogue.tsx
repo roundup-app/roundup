@@ -5,7 +5,9 @@ import Server from "@lucide/solid/icons/server";
 import SquareTerminal from "@lucide/solid/icons/square-terminal";
 import Ticket from "@lucide/solid/icons/ticket";
 import { createSignal, For, Show } from "solid-js";
-import type { Spec } from "@json-render/core";
+import { defineCatalog, type Spec } from "@json-render/core";
+import { schema } from "@json-render/solid/schema";
+import { z } from "zod";
 import type { LinkSet } from "@contracts/links/LinkSet";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
@@ -19,11 +21,27 @@ export type Env = { editor: () => void; terminal: () => void; open: (url: string
 
 type Item = { id: string; type: Type; url: string; tooltip: string };
 
+const iconProps = z.object({ tooltip: z.string(), url: z.string().optional() });
+
+const icon = { props: iconProps, description: "An icon button" };
+
+/** LH2, LH8: the one definition of the header's elements, validated by the schema. */
+const catalog = defineCatalog(schema, {
+  components: {
+    Links: { props: z.object({}), description: "The header row" },
+    Editor: icon,
+    Terminal: icon,
+    pr: icon,
+    tracker: icon,
+    "dev-server": icon,
+    asked: icon,
+  },
+  actions: {},
+});
+
 /** The most icons shown inline (LH9). */
 const SHOWN = 6;
 
-
-const known = (type: string): type is Type => Object.hasOwn(ICONS, type);
 
 /** The header's spec: the App's own two icons, then one element per entry of the set. */
 export const specOf = (set: LinkSet | undefined): Spec => {
@@ -41,14 +59,17 @@ export const specOf = (set: LinkSet | undefined): Spec => {
 };
 
 
+const known = (type: string): type is Type => Object.hasOwn(ICONS, type);
+
+/** The items of the header's children that the catalogue accepts: a known type whose props match its schema. */
 const itemsOf = (spec: Spec): Item[] => (spec.elements[spec.root]?.children ?? []).flatMap(id => {
   const element = spec.elements[id];
 
   if (!element || !known(element.type)) return [];
-  // SAFETY: the props of a catalogue type hold only the optional strings `url` and `tooltip`, as `specOf` writes them.
-  const { url, tooltip } = element.props as { url?: string; tooltip?: string };
 
-  return [{ id, type: element.type, url: url ?? "", tooltip: tooltip ?? "" }];
+  const parsed = catalog.data.components[element.type].props.safeParse(element.props);
+
+  return parsed.success ? [{ id, type: element.type, url: parsed.data.url ?? "", tooltip: parsed.data.tooltip }] : [];
 });
 
 /** LH8, LH9: the icons of a spec, six inline and a `+N` count that reveals the rest; an element outside the catalogue draws nothing. */

@@ -130,6 +130,9 @@ importers:
       '@json-render/core':
         specifier: 0.23.1
         version: 0.23.1(zod@4.6.7)
+      '@json-render/solid':
+        specifier: 0.23.1
+        version: 0.23.1(solid-js@2.0.0-rc.21)(zod@4.6.7)
       '@lezer/highlight':
         specifier: 1.2.5
         version: 1.2.5
@@ -262,6 +265,9 @@ importers:
       valibot:
         specifier: ^1.5.0
         version: 1.5.0(typescript@7.0.2)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@babel/parser':
         specifier: 7.29.9
@@ -1251,6 +1257,12 @@ packages:
   '@json-render/core@0.23.1':
     resolution: {integrity: sha512-FVTxhxucSNdcZe9CWQ/767N/vtj4f5YLu5BEY8P8eXYs80tvbKh/26avadTEDaAMfCnnyGRsuA/POzyvA2O85A==}
     peerDependencies:
+      zod: ^4.0.0
+
+  '@json-render/solid@0.23.1':
+    resolution: {integrity: sha512-ouNhgT/7JRJ79b3cirx8rxuopdMl1nddM8l2r8P/SNTi4DvLRWNby1N9QHJ8DuCR71f0FzBoo8ncPjpLdnjs8A==}
+    peerDependencies:
+      solid-js: ^1.9.0
       zod: ^4.0.0
 
   '@keyv/bigmap@1.3.1':
@@ -7662,6 +7674,12 @@ snapshots:
 
   '@json-render/core@0.23.1(zod@4.6.7)':
     dependencies:
+      zod: 4.6.7
+
+  '@json-render/solid@0.23.1(solid-js@2.0.0-rc.21)(zod@4.6.7)':
+    dependencies:
+      '@json-render/core': 0.23.1(zod@4.6.7)
+      solid-js: 2.0.0-rc.21
       zod: 4.6.7
 
   '@keyv/bigmap@1.3.1(keyv@5.6.0)':
