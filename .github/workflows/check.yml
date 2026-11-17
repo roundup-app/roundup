@@ -143,13 +143,12 @@ jobs:
           import { relative } from 'node:path';
           import { createVitest } from 'vitest/node';
           import durations from './src/testing/shardDurations.json' with { type: 'json' };
-          import { shardCount } from './src/testing/shardSequencer.ts';
+          import { serialFiles, shardCount } from './src/testing/shardSequencer.ts';
           const ctx = await createVitest({ related: process.env.SOURCES.split('\n'), watch: false, run: true });
           try {
             const specs = await ctx.getRelevantTestSpecifications();
             const file = (spec) => relative(ctx.config.root, spec.moduleId);
-            const serial = new Set(specs.filter((spec) => spec.project.config.maxWorkers === 1).map(file));
-            console.log(shardCount(specs.map(file), durations, Number(process.env.BUDGET), Number(process.env.MAX), serial));
+            console.log(shardCount(specs.map(file), durations, Number(process.env.BUDGET), Number(process.env.MAX), serialFiles(specs, ctx.config.root)));
           } finally {
             await ctx.close();
           }
