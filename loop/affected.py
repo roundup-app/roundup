@@ -405,7 +405,9 @@ def main(argv):
         if args := lane_args(argv[2], changed_since(base) if base else None, metadata(), ROOT, resolved_features()):
             print(args)
         return 0
-    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd', 'ping', 'first'):
+    selectors = {'rust': lambda changed: rust(changed, metadata(), ROOT), 'web': web, 'boxd': boxd,
+                 'ping': lambda changed: ping(changed, workspace(metadata())), 'first': first}
+    if len(argv) not in (2, 3) or argv[1] not in selectors:
         print(__doc__, file=sys.stderr)
         return 2
     lane, base = argv[1], argv[2] if len(argv) == 3 else ''
@@ -413,16 +415,12 @@ def main(argv):
         print('' if lane == 'first' else 'all')
         return 0
     changed = changed_since(base)
-    if lane == 'first':
-        if files := first(changed):
-            print('\n'.join(files))
-        return 0
-    selected = {'rust': lambda: rust(changed, metadata(), ROOT), 'web': lambda: web(changed),
-                'boxd': lambda: boxd(changed), 'ping': lambda: ping(changed, workspace(metadata()))}[lane]()
+    selected = selectors[lane](changed)
     if selected != 'all' and lane == 'web':
         selected = sorted(set(selected) | set(app_scans(changed)))
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]
-    print(selected if selected == 'all' else '\n'.join(selected))
+    if selected:
+        print(selected if selected == 'all' else '\n'.join(selected))
     return 0
 
 
