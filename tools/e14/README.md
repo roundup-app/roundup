@@ -45,7 +45,7 @@ python3 /tmp/e14-observer/observe.py run --lane rust1 \
   --output /tmp/e14/baseline/rust1 --cache-state 'cold: fresh runner, no restored target or pnpm cache'
 ```
 
-Run `rust1` through `rust5` and `web1` through `web24`, each on an equivalently
+Run `rust1` through `rust5` and `web1` through `web28`, each on an equivalently
 prepared runner, writing `/tmp/e14/baseline/<lane>`. Repeat on head into
 `/tmp/e14/head/<lane>`. Replace the example cache description with the actual
 preparation or restore hits/misses and keys. Warm and cold measurements are not
