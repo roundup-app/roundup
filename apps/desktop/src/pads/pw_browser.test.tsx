@@ -90,7 +90,7 @@ const step = async () => {
 };
 
 it("pw1_a_pad_splits_into_steps_by_top_level_heading", () => {
-  expect(walkSteps("intro\n# A\none\n## sub\n# B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["A", "intro\n# A\none\n## sub"], ["B", "# B\ntwo"]]);
+  expect(walkSteps("intro\n# A\none\n## sub\n# B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["A", "intro\n\none\n## sub"], ["B", "two"]]);
   expect(walkSteps("# A\n```\n# not a heading\n```\n~~~\n# nor this\n~~~\n# B", "p").map(s => s.title)).toEqual(["A", "B"]);
   expect(walkSteps("just text\n## deeper", "p")).toEqual([{ title: "p", text: "just text\n## deeper" }]);
 });
@@ -124,8 +124,10 @@ it("pw3_keys_and_buttons_move_one_step", async () => {
   expect(await step()).toEqual([3, 3]);
   fireEvent.keyDown(walk, { key: "ArrowLeft" });
   expect(await step()).toEqual([2, 3]);
+  screen.getByRole("button", { name: "Back" }).focus();
   fireEvent.click(screen.getByRole("button", { name: "Back" }));
   expect(await step()).toEqual([1, 3]);
+  await waitFor(() => expect(document.activeElement).toBe(walk));
   expect(m.messages()).toEqual([]);
 });
 
