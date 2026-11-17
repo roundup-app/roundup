@@ -360,6 +360,21 @@ fn pw6_brief_says_to_hand_a_walk_link() {
     }
 }
 
+#[test]
+fn pl3_every_role_brief_asks_for_the_shelf_and_settings_links() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        for token in [
+            "roundup://shelf/<tab>?project=<key>",
+            "roundup://settings/<page>?project=<key>#<control>",
+            "you never change a setting",
+        ] {
+            assert!(text.contains(token), "{role:?}: {token}");
+        }
+    }
+}
+
 fn stand_alone(name: &str) -> String {
     std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR"))
