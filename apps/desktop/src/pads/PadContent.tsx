@@ -490,7 +490,7 @@ const PadBody = (props: {
         </IconButton>
         <Show when={!deleted()}>
           <IconButton
-            style={wholeWord}
+            icon="delete" style={wholeWord}
             aria-label={copy.delete}
             disabled={connected.drafts.undo.pending() || connected.drafts.undo.uncertain()}
             onClick={() => {

@@ -221,7 +221,7 @@ export const Bubble = (props: {
                 if (!(event.target as Element).closest("button")) props.setPlace(id(), toggledFill(place(), props.extent()));
               }}>
               <span class="bubble-controls">
-                <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id())}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
+                <IconButton icon="close" data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id())}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
                 <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => props.toggleMinimised(id())}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
               </span>
               <span class="bubble-name">{props.name}</span>

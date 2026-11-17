@@ -80,10 +80,10 @@ it("u474_dialog_focus_returns", async () => {
 // App caller inventory: each selector denotes a source occurrence, not one seeded instance.
 // Bubbles seed reveals the floating header and terminal bar; tree-40 reveals Todo actions.
 const appIcons = [
-  { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Minimise"]' },
-  { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Close"]' },
-  { seed: "bubbles", selector: '.terminal-tab-pair button[data-button="icon"]' },
-  { seed: "tree-40", selector: '.todo-header [aria-label="More actions"]' },
+  { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Minimise"]', tooltip: true },
+  { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Close"]', tooltip: false },
+  { seed: "bubbles", selector: '.terminal-tab-pair button[data-button="icon"]', tooltip: false },
+  { seed: "tree-40", selector: '.todo-header [aria-label="More actions"]', tooltip: false },
 ];
 
 const loadAppIcon = async (base: string, seed: string, selector: string) => {
@@ -114,7 +114,7 @@ const loadAppIcon = async (base: string, seed: string, selector: string) => {
 it("u477_app_focus_shows_each_icon_button_name", async () => {
   await browser("set", "media", "dark");
 
-  for (const [index, { seed, selector }] of appIcons.entries()) {
+  for (const [index, { seed, selector, tooltip }] of appIcons.entries()) {
     const capture = async (step: string) => {
       if (!art) return;
       mkdirSync(art, { recursive: true });
@@ -137,9 +137,18 @@ it("u477_app_focus_shows_each_icon_button_name", async () => {
     await browser("wait", "--fn", `document.activeElement?.id === "u477-previous"`);
     await browser("press", "Tab");
     await browser("wait", "--fn", `document.activeElement === ${query}`);
-    // A closed tooltip stays mounted, so wait for the described tooltip to open.
-    await browser("wait", "--fn", `document.getElementById(${query}.getAttribute('aria-describedby'))?.hasAttribute('data-open')`);
-    expect(await read<boolean>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.getAttribute('role') === 'tooltip'`), selector).toBe(true);
+
+    if (tooltip) {
+      // A closed tooltip stays mounted, so wait for the described tooltip to open.
+      await browser("wait", "--fn", `document.getElementById(${query}.getAttribute('aria-describedby'))?.hasAttribute('data-open')`);
+      expect(await read<boolean>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.getAttribute('role') === 'tooltip'`), selector).toBe(true);
+    } else {
+      // Universal icons show no name tooltip; the accessible name stays.
+      await browser("wait", "800");
+      expect(await read<boolean>(`!document.querySelector('[role=tooltip][data-open]')`), selector).toBe(true);
+      expect(await read<boolean>(`!!${query}.getAttribute('aria-label')`), selector).toBe(true);
+    }
+
     await capture("after");
   }
 }, 120_000);
