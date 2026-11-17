@@ -13,6 +13,7 @@ import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
 import { flush } from "solid-js";
+import { storageIdle } from "../state/storage";
 import { notices } from "../testing/notices";
 
 // ESM exports are non-configurable: spy mode records the scenario's library calls while executing the real implementation.
@@ -22,7 +23,7 @@ vi.mock("@pierre/diffs", { spy: true });
 // eslint-disable-next-line anti-slop/no-module-mocking
 vi.mock("diff", { spy: true });
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(async () => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); await storageIdle(); localStorage.clear(); });
 
 const annotations = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.lineAnnotations).at(-1)?.[0]?.lineAnnotations;
 
