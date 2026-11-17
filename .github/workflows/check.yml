@@ -52,6 +52,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       rust: ${{ steps.plan.outputs.rust }}
+      ping: ${{ steps.plan.outputs.ping }}
       web: ${{ steps.plan.outputs.web }}
       first: ${{ steps.plan.outputs.first }}
       web_shards: ${{ steps.shards.outputs.web_shards }}
@@ -95,7 +96,7 @@ jobs:
       # L82, L120: the merge of `main` and the merge-loss restore a fix run makes with no model; `loop.yml` runs the other loop tests.
       - name: L82 merge of main with no model
         run: python3 loop/app-data.py python3 loop/merge_main.test.py
-      # N7: every launch reference has an entry; `mac-clippy`, which runs the rest of N7, skips App-only PRs.
+      # N7: every launch reference has an entry; `mac-clippy` runs the rest of N7 when the diff reaches it (CI7295h).
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan
         env:
@@ -114,8 +115,10 @@ jobs:
           if [ -n "$BASE" ] && ! git diff --quiet "$BASE" -- apps/desktop/src/testing/captures.ts; then
             web=all
           fi
+          ping=$(python3 loop/affected.py ping "$rust_base")
           {
             echo "rust=${rust:+true}"
+            echo "ping=${ping:+true}"
             echo "web=${web:+true}"
             echo "first=$(python3 loop/affected.py first "$BASE" | tr '\n' ' ')"
             # Only a PR whose diff selects some web tests, not all, counts the files that size the shards.
@@ -342,7 +345,9 @@ jobs:
   # `mac` saves the cache, with clippy's checks and the smoke test's binaries.
   mac-clippy:
     needs: plan
-    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    if: >-
+      github.event_name != 'pull_request' ||
+      (!github.event.pull_request.draft && (needs.plan.outputs.rust == 'true' || needs.plan.outputs.ping == 'true'))
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -352,15 +357,17 @@ jobs:
         uses: ./.github/actions/setup
         with:
           node: 'false'
-      - run: just clippy
+      # CI7295h: clippy runs on a PR whose diff reaches Rust; the ping only when the diff reaches what it proves.
+      - if: github.event_name != 'pull_request' || needs.plan.outputs.rust == 'true'
+        run: just clippy
       - name: hello-world round trip (rup ping through rupd)
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
         run: |
           # `--workspace` keeps the feature set `mac` builds for the cache.
           cargo build --locked --workspace --bin rupd --bin rup
           python3 loop/app-data.py bash loop/ci-ping.sh
       - name: N7 N8 real Daemon guard observers
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && needs.plan.outputs.ping == 'true' }}
         run: |
           python3 loop/app-data.py python3 loop/app-data.test.py
           python3 loop/app-data.py python3 loop/launch-sites.test.py

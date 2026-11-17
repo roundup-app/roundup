@@ -6,7 +6,7 @@ Prints `all` when no base is given or the diff since <base> can move any test; e
 the cargo selection of the tests to run (`-p <crate>` runs a crate's whole suite; `-p <crate> --test <binary>` compiles
 only that binary, for a diff of test files alone; T7188b), for `web` the files that still exist, as absolute paths, to pass
 `vitest related`. The `boxd` selector prints `all` only for runner, integration or package-configuration changes, and
-the `ping` selector (CI7295h) only when the diff reaches the `mac` lane's ping round trip or its guard observers. The diff
+the `ping` selector (CI7295h) only when the diff reaches `mac-clippy`'s ping round trip or its guard observers. The diff
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
 counts. The `first` selector (CI7297b) prints the web test files the diff changes, existing ones only, and nothing else.
 No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
@@ -55,7 +55,7 @@ BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
               'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
               'AGENTS.md', 'scenarios/loop-boxd.md')
 
-# CI7295h: the `mac` lane's `rup ping` round trip and the N7/N8 guard observers after it start the `rupd` and `rup` the lane
+# CI7295h: `mac-clippy`'s `rup ping` round trip and the N7/N8 guard observers after it start the `rupd` and `rup` the job
 # builds, which `desktop` starts and bundles as the App, and read these files.
 PING_CRATES = {'rupd', 'rup', 'desktop'}
 PING_READS = ('loop/ci-ping.sh', 'loop/app-data.py', 'loop/app-data.test.py', 'loop/launch-sites.test.py',
