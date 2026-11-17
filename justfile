@@ -28,6 +28,7 @@ lint-repo:
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]
 lint-rust base="": lint-repo
+    & just proofs
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
@@ -52,7 +53,6 @@ lint-rust base="": lint-repo
     tools/method-policy/guard.sh
     tools/worktree-prefix.sh
     tools/typed-calls/guard.sh
-    just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
 # With <base>, it runs only when the diff since <base> reaches a crate (`loop/affected.py`), so a Builder's web-only diff
@@ -131,6 +131,7 @@ fix:
 # The web checks that run no test; CI runs them in the `lint-web` job (L89).
 [script('loop/keep-going.sh')]
 lint-web:
+    & just packages typecheck
     loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
@@ -138,7 +139,6 @@ lint-web:
     pnpm typecheck
     pnpm slop
     pnpm lint:cycles
-    just packages typecheck
 
 # L89: the web tests the diff since <base> reaches (`loop/affected.py`), through vitest's module graph; every test when <base> is empty. CI passes vitest a shard.
 test-web-since base *args:
