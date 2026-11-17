@@ -63,9 +63,7 @@ const focusControl = (id: string) => {
 export const goToSetting = (page: string, control: string | null): string | null => {
   const target = Object.entries(SETTINGS_PAGES).find(([name]) => name === page)?.[1];
 
-  if (!live) return copy.noSettingsPage(page);
-
-  if (!target) return copy.noSettingsPage(page);
+  if (!live || !target) return copy.noSettingsPage(page);
 
   if (control !== null && !live.entries().some(entry => entry.id === control && entry.page === target)) return copy.noSettingsControl(control, target);
 
