@@ -191,7 +191,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
     >
       <div class="drawer-controls">
         <Show when={expandHost()} fallback={expand()}>{target => <Portal mount={target()}><div class="pad-toolbar-expand">{expand()}</div></Portal>}</Show>
-        <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
+        <IconButton icon="close" class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
           <Icon name="x" />
         </IconButton>
       </div>

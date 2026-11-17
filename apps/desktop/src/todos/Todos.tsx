@@ -712,7 +712,7 @@ export const Todos = (props: {
             return (
             <OpenRow
               copyWith={registerCopy(todo.id)}
-              disclosure={<Show when={total() > 0}><IconButton aria-label={copy.toggleTodoGroup(todo.title)} aria-controls={`todo-group-${todo.id}`} aria-expanded={dependency.expanded(todo.id) ? "true" : "false"} data-group-toggle={todo.id}
+              disclosure={<Show when={total() > 0}><IconButton icon="expand" aria-label={copy.toggleTodoGroup(todo.title)} aria-controls={`todo-group-${todo.id}`} aria-expanded={dependency.expanded(todo.id) ? "true" : "false"} data-group-toggle={todo.id}
                 onClick={event => {
                   const content = document.getElementById(`todo-group-${todo.id}`);
                   const open = dependency.expanded(todo.id);

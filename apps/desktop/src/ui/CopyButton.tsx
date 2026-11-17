@@ -91,5 +91,5 @@ export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
   // U7310e: an icon button shows a check, and is named Copied, once its write lands.
   const copiedIcon = () => props["data-button"] === "icon" && feedback.copied();
 
-  return <BusyButton {...rest} aria-label={copiedIcon() ? copy.copied : props["aria-label"]} kind={props["data-button"] === undefined ? "quiet" : props["data-button"]} busyLabel={copy.copying} onClick={write}>{copiedIcon() ? <Icon name="check" /> : feedback.copied() ? copy.copied : feedback.failed() && props.failureLabel ? props.failureLabel : props.children}</BusyButton>;
+  return <BusyButton {...rest} aria-label={copiedIcon() ? copy.copied : props["aria-label"]} icon={props["data-button"] === "icon" ? "copy" : undefined} kind={props["data-button"] === undefined ? "quiet" : props["data-button"]} busyLabel={copy.copying} onClick={write}>{copiedIcon() ? <Icon name="check" /> : feedback.copied() ? copy.copied : feedback.failed() && props.failureLabel ? props.failureLabel : props.children}</BusyButton>;
 };

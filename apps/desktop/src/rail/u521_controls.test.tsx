@@ -35,6 +35,15 @@ it("u521_icon_controls_show_their_names", { timeout: 60_000 }, async () => {
     expect(name).not.toBe("");
     expect(button.getAttribute("title") ?? "").toBe("");
 
+    // U7413a: a universal icon (stop, more actions, expand, collapse) shows no name.
+    if ([copy.stop, copy.rowActions, copy.expand, copy.collapse].some(universal => universal === name)) {
+      fireEvent.pointerEnter(button, { pointerType: "mouse" });
+      await new Promise(done => setTimeout(done, 300));
+      expect(tips().some((tip) => tip.startsWith(name))).toBe(false);
+      fireEvent.pointerLeave(button, { pointerType: "mouse", clientX: 400, clientY: 400 });
+      continue;
+    }
+
     // Hover and keyboard focus each open the name, independently of the other.
     fireEvent.pointerEnter(button, { pointerType: "mouse" });
     await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(true));

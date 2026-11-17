@@ -276,7 +276,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
         </div>;
       }}
       </Show>
-      <IconButton ref={closeButton} aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
+      <IconButton icon="close" ref={closeButton} aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
     </FlatTab>
   </>;
 };
