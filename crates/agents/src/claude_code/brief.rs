@@ -526,6 +526,17 @@ When you point the user to a Pad, a Pad section or a Todo, give its clickable li
 
 ";
 
+/// PL3: the places a user can be sent to, as links the user clicks.
+const PLACE_RULE: &str = "\
+## Places
+
+When the user must look at a Bench tab or flip a setting, hand the link and change nothing yourself: \
+`roundup://shelf/<tab>?project=<key>` for a Bench tab (`todos` or `pads`), \
+`roundup://settings/<page>?project=<key>#<control>` for a setting (the fragment is optional). \
+Take `<key>` from `daemon.ping`'s `projectKey`, as in every link. A click only moves the user there; you never change a setting.
+
+";
+
 /// Q9: B24's additions for a Door's own questions to `you`.
 const DOOR_QUESTIONS: &str = "\
 Open a question with the question. State a guess once, as a choice to confirm. \
@@ -701,6 +712,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
     text.push_str(REDUCE_RULE);
     if role != Role::Scout {
         text.push_str(PAD_RULE);
+        text.push_str(PLACE_RULE);
     }
     text.push_str(REDUCE);
     text.push('\n');

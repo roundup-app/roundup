@@ -7,7 +7,8 @@ import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { captureFocus } from "../keys/focus";
-import { inProject, keyOfPath } from "./linkRoute";
+import { inProject, isPlaceLink, keyOfPath } from "./linkRoute";
+import type { ShelfTab } from "../shelf/frame";
 import { isDoor } from "../state/doorNode";
 
 /** An OS request, or a `roundup://` link clicked in a surface of the Project at `surface` (U6249c1). */
@@ -16,7 +17,7 @@ export type OpenRequest = Extract<NativeOpen, { kind: "project" }> | { kind: "li
 const INVALID_PARAMS = -32602;
 
 /** Native open requests stay out of the startup entry; App loads this once mounted, under its own owner, and routes each request to the returned handler. */
-export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item, fail }: {
+export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item, fail, openShelf }: {
   solid: Pick<typeof Solid, "createEffect" | "createSignal" | "onCleanup" | "untrack">;
   app: App;
   projects: ProjectsState;
@@ -25,6 +26,8 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
   item: (content: LinkContent, fail: (message: string) => void) => JSX.Element;
   /** An `action` is the one thing the user can do about the failure; the App shows it beside a dismissal. */
   fail: (message: string | null, action?: { label: string; run: () => void }) => void;
+  /** PL1: the Bench opens at `tab`, whatever else the App shows. */
+  openShelf: (tab: ShelfTab) => void;
 }) => {
   const [linked, setLinked] = createSignal<{ path: string; content: LinkContent; focus: ReturnType<typeof captureFocus> } | null>(null);
   createEffect(() => {
@@ -84,7 +87,13 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
     return undefined;
   };
 
+  // The place route loads with the first place link, so this module's own load stays what it was.
+  const route = async (surface: string | undefined, url: string) => (await import("./place")).createPlaceRoute({ app, projects, connectionOf, openShelf, fail })(surface, url);
+
   const open = (request: OpenRequest, offer = true) => {
+    // PL1, PL2: a place is no object, so no Daemon reads it.
+    if (request.kind === "link" && isPlaceLink(request.url)) return void route(request.surface, request.url).catch(error => fail(String(error)));
+
     const focus = captureFocus(true);
     pending = pending.then(async () => {
       if (stopped) return;

@@ -33,6 +33,12 @@ fn parse(url: &str) -> Result<(Target, String, Option<String>), RpcError> {
         )));
     }
     let kind = url.host_str().unwrap_or_default().to_owned();
+    // PL1, PL2: a shelf or settings link names a place the App opens, never an object with content.
+    if matches!(kind.as_str(), "shelf" | "settings") {
+        return Err(invalid(format!(
+            "the kind `{kind}` is a place, not an object: it has no content to read"
+        )));
+    }
     if !matches!(
         kind.as_str(),
         "pad" | "todo" | "agent" | "workstream" | "terminal" | "deliverable"
