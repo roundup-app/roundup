@@ -1,0 +1,191 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 91a3f6e6de922d44d246c91e2f0dbd4ff3f006a6..3ac2abd6c1ea92a162b14aa45f3b94206a213b86 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -4,8 +4,8 @@ import {
+ } from "./chunk-ZTWTJIEL.mjs";
+ 
+ // src/contexts/state.tsx
+-import { createComponent as _$createComponent } from "solid-js/web";
+-import { createContext, useContext, createSignal, createEffect, createMemo, onCleanup } from "solid-js";
++import { createComponent as _$createComponent } from "@solidjs/web";
++import { createContext, useContext, createSignal, createTrackedEffect as createEffect, createMemo, onCleanup } from "solid-js";
+ import { getByPath, createStateStore } from "@json-render/core";
+ import { flattenToPointers } from "@json-render/core/store-utils";
+ var StateContext = createContext(null);
+@@ -73,7 +73,7 @@ function StateProvider(props) {
+     const unsubscribe = s.subscribe(() => {
+       setState(s.getSnapshot());
+     });
+-    onCleanup(unsubscribe);
++    return unsubscribe;
+   });
+   const set = (path, value) => {
+     const s = store();
+@@ -123,7 +123,7 @@ function StateProvider(props) {
+     getSnapshot,
+     subscribeChanges
+   };
+-  return _$createComponent(StateContext.Provider, {
++  return _$createComponent(StateContext, {
+     value: ctx,
+     get children() {
+       return props.children;
+@@ -149,7 +149,7 @@ function useStateBinding(path) {
+ }
+ 
+ // src/contexts/visibility.tsx
+-import { createComponent as _$createComponent2 } from "solid-js/web";
++import { createComponent as _$createComponent2 } from "@solidjs/web";
+ import { createContext as createContext2, useContext as useContext2 } from "solid-js";
+ import { evaluateVisibility } from "@json-render/core";
+ var VisibilityContext = createContext2(null);
+@@ -164,7 +164,7 @@ function VisibilityProvider(props) {
+     isVisible: (condition) => evaluateVisibility(condition, visibilityCtx),
+     ctx: visibilityCtx
+   };
+-  return _$createComponent2(VisibilityContext.Provider, {
++  return _$createComponent2(VisibilityContext, {
+     value,
+     get children() {
+       return props.children;
+@@ -186,20 +186,19 @@ function useIsVisible(condition) {
+ }
+ 
+ // src/contexts/actions.tsx
+-import { template as _$template } from "solid-js/web";
+-import { delegateEvents as _$delegateEvents } from "solid-js/web";
+-import { setStyleProperty as _$setStyleProperty } from "solid-js/web";
+-import { effect as _$effect } from "solid-js/web";
+-import { memo as _$memo } from "solid-js/web";
+-import { insert as _$insert } from "solid-js/web";
+-import { addEventListener as _$addEventListener } from "solid-js/web";
+-import { createComponent as _$createComponent4 } from "solid-js/web";
++import { template as _$template } from "@solidjs/web";
++import { delegateEvents as _$delegateEvents } from "@solidjs/web";
++import { setStyleProperty as _$setStyleProperty } from "@solidjs/web";
++import { effect as _$effect } from "@solidjs/web";
++import { memo as _$memo } from "@solidjs/web";
++import { insert as _$insert } from "@solidjs/web";
++import { createComponent as _$createComponent4 } from "@solidjs/web";
+ import { createContext as createContext4, useContext as useContext4, createSignal as createSignal3 } from "solid-js";
+ import { resolveAction, executeAction, nextActionDispatchId, notifyActionDispatch, notifyActionSettle } from "@json-render/core";
+ 
+ // src/contexts/validation.tsx
+-import { createComponent as _$createComponent3 } from "solid-js/web";
+-import { createContext as createContext3, useContext as useContext3, createSignal as createSignal2, createEffect as createEffect2, createMemo as createMemo2 } from "solid-js";
++import { createComponent as _$createComponent3 } from "@solidjs/web";
++import { createContext as createContext3, useContext as useContext3, createSignal as createSignal2, createTrackedEffect as createEffect2, createMemo as createMemo2 } from "solid-js";
+ import { runValidation } from "@json-render/core";
+ var ValidationContext = createContext3(null);
+ function dynamicArgsEqual(a, b) {
+@@ -329,7 +328,7 @@ function ValidationProvider(props) {
+     validateAll,
+     registerField
+   };
+-  return _$createComponent3(ValidationContext.Provider, {
++  return _$createComponent3(ValidationContext, {
+     value,
+     get children() {
+       return props.children;
+@@ -615,7 +614,7 @@ function ActionProvider(props) {
+     cancel,
+     registerHandler
+   };
+-  return _$createComponent4(ActionContext.Provider, {
++  return _$createComponent4(ActionContext, {
+     value: ctx,
+     get children() {
+       return props.children;
+@@ -657,11 +656,11 @@ function ConfirmDialog(props) {
+ _$delegateEvents(["click"]);
+ 
+ // src/contexts/repeat-scope.tsx
+-import { createComponent as _$createComponent5 } from "solid-js/web";
++import { createComponent as _$createComponent5 } from "@solidjs/web";
+ import { createContext as createContext5, useContext as useContext5 } from "solid-js";
+ var RepeatScopeContext = createContext5(null);
+ function RepeatScopeProvider(props) {
+-  return _$createComponent5(RepeatScopeContext.Provider, {
++  return _$createComponent5(RepeatScopeContext, {
+     get value() {
+       return {
+         item: props.item,
+@@ -682,13 +681,13 @@ function useRepeatScope() {
+ import { createStateStore as createStateStore2 } from "@json-render/core";
+ 
+ // src/renderer.tsx
+-import { template as _$template2 } from "solid-js/web";
+-import { setAttribute as _$setAttribute } from "solid-js/web";
+-import { effect as _$effect2 } from "solid-js/web";
+-import { insert as _$insert2 } from "solid-js/web";
+-import { memo as _$memo2 } from "solid-js/web";
+-import { createComponent as _$createComponent6 } from "solid-js/web";
+-import { createContext as createContext6, useContext as useContext6, createMemo as createMemo3, createEffect as createEffect3, createSignal as createSignal4, onCleanup as onCleanup2, ErrorBoundary, Show, For } from "solid-js";
++import { template as _$template2 } from "@solidjs/web";
++import { setAttribute as _$setAttribute } from "@solidjs/web";
++import { effect as _$effect2 } from "@solidjs/web";
++import { insert as _$insert2 } from "@solidjs/web";
++import { memo as _$memo2 } from "@solidjs/web";
++import { createComponent as _$createComponent6 } from "@solidjs/web";
++import { createContext as createContext6, useContext as useContext6, createMemo as createMemo3, createTrackedEffect as createEffect3, createSignal as createSignal4, onCleanup as onCleanup2, Errored as ErrorBoundary, Show, For } from "solid-js";
+ import { resolveElementProps, resolveBindings, resolveActionParam, resolveRepeatItemStatePath, resolveRepeatStatePath, evaluateVisibility as evaluateVisibility2, getByPath as getByPath2, isDevtoolsActive, subscribeDevtoolsActive, createDirectiveRegistry } from "@json-render/core";
+ var _tmpl$2 = /* @__PURE__ */ _$template2(`<span style=display:contents>`);
+ var EMPTY_FUNCTIONS = {};
+@@ -696,7 +695,7 @@ var FunctionsContext = createContext6(EMPTY_FUNCTIONS);
+ function useFunctions() {
+   return useContext6(FunctionsContext) ?? EMPTY_FUNCTIONS;
+ }
+-var DirectivesContext = createContext6(void 0);
++var DirectivesContext = createContext6(null);
+ function useDirectives() {
+   return useContext6(DirectivesContext);
+ }
+@@ -817,9 +816,9 @@ function ElementRenderer(props) {
+         }
+       })().catch(console.error);
+     });
+-    onCleanup2(() => {
++    return () => {
+       unsubscribe();
+-    });
++    };
+   });
+   const elementBindings = createMemo3(() => {
+     const rawProps = props.element.props;
+@@ -1106,14 +1105,14 @@ function JSONUIProvider(props) {
+                   return props.navigate;
+                 },
+                 get children() {
+-                  return _$createComponent6(FunctionsContext.Provider, {
++                  return _$createComponent6(FunctionsContext, {
+                     get value() {
+                       return props.functions ?? EMPTY_FUNCTIONS;
+                     },
+                     get children() {
+-                      return _$createComponent6(DirectivesContext.Provider, {
++                      return _$createComponent6(DirectivesContext, {
+                         get value() {
+-                          return directiveRegistry();
++                          return directiveRegistry() ?? null;
+                         },
+                         get children() {
+                           return [_$memo2(() => props.children), _$createComponent6(ConfirmationDialogManager, {})];
+@@ -1231,14 +1230,14 @@ function createRenderer(catalog, components) {
+                     return actionHandlers();
+                   },
+                   get children() {
+-                    return _$createComponent6(FunctionsContext.Provider, {
++                    return _$createComponent6(FunctionsContext, {
+                       get value() {
+                         return props.functions ?? EMPTY_FUNCTIONS;
+                       },
+                       get children() {
+-                        return _$createComponent6(DirectivesContext.Provider, {
++                        return _$createComponent6(DirectivesContext, {
+                           get value() {
+-                            return directiveRegistry();
++                            return directiveRegistry() ?? null;
+                           },
+                           get children() {
+                             return [_$createComponent6(Renderer, {
