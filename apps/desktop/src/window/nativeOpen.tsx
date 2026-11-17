@@ -7,8 +7,7 @@ import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { captureFocus } from "../keys/focus";
-import { inProject, keyOfPath } from "./linkRoute";
-import { createPlaceRoute, isPlaceLink } from "./place";
+import { inProject, isPlaceLink, keyOfPath } from "./linkRoute";
 import type { ShelfTab } from "../shelf/frame";
 import { isDoor } from "../state/doorNode";
 
@@ -88,7 +87,8 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
     return undefined;
   };
 
-  const route = createPlaceRoute({ app, projects, connectionOf, openShelf, fail });
+  // The place route loads with the first place link, so this module's own load stays what it was.
+  const route = async (surface: string | undefined, url: string) => (await import("./place")).createPlaceRoute({ app, projects, connectionOf, openShelf, fail })(surface, url);
 
   const open = (request: OpenRequest, offer = true) => {
     // PL1, PL2: a place is no object, so no Daemon reads it.

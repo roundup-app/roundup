@@ -12,9 +12,6 @@ type Place = { kind: "shelf"; tab: ShelfTab } | { kind: "settings"; page: string
 
 type Parsed = { key: string | null; place: Place } | { failure: string };
 
-/** PL1, PL2: whether `url` names a place; those links never reach `link.read`. */
-export const isPlaceLink = (url: string) => /^roundup:\/\/(shelf|settings)\//.test(url);
-
 const parseShelf = (link: URL, name: string, key: string | null, control: string | null): Parsed => {
   const tab = SHELF_TABS.find(({ value }) => value === name)?.value;
 
