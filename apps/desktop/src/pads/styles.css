@@ -41,6 +41,14 @@
   margin-right: var(--space-2);
 }
 
+/* U3729: the save status is a caption: mono 12 grey. */
+.pad-head-status {
+  color: var(--grey);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
 .pad-editor {
   flex: 1;
   min-height: 0;

@@ -59,8 +59,8 @@ export type ToastQueue = {
   message(card: MessageCard): () => void;
 };
 
-/** U7310d: a failure has no time; a `timed` status leaves by the Toast's own time. `closed` answers the user closing the card. */
-export type MessageCard = { id: string; body: () => JSX.Element; closed: () => void; timed?: true };
+/** U7310d: a message card has no time; `closed` answers the user closing the card. */
+export type MessageCard = { id: string; body: () => JSX.Element; closed: () => void };
 
 export const ToastQueueContext = createContext<ToastQueue | null>(null);
 
@@ -246,13 +246,10 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     notify: (candidate) => {
       show(candidate);
     },
-    message: ({ id, body, closed, timed }) => {
+    message: ({ id, body, closed }) => {
       toast.remove(id);
       messages.set(id, closed);
-      const shown: Parameters<typeof toast.show>[0] = { id, name: "", content: "", body, extra: true };
-
-      if (!timed) shown.duration = NO_TIME;
-      toast.show(shown);
+      toast.show({ id, name: "", content: "", body, extra: true, duration: NO_TIME });
 
       return () => {
         messages.delete(id);

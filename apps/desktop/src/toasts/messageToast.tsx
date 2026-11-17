@@ -8,10 +8,10 @@ type MessageLine = ComponentProps<typeof ReservedLine>;
 
 /**
  * U7310d: a message a view shows beside its content shows as one card in the App's Toast region, with the line's own text, Dismiss and recover action, and holds no place in the view.
- * A failure stays until the user dismisses it; a `timed` status leaves by the Toast's own time, else when it clears. A new message is a new card, and closing the card runs the line's `dismiss`.
+ * A failure stays until the user dismisses it; a status leaves when it clears. A new message is a new card, and closing the card runs the line's `dismiss`.
  * Pass the line's changing parts as getters, as a component's props are.
  */
-export const createMessageToast = (line: MessageLine, timed?: true): void => {
+export const createMessageToast = (line: MessageLine): void => {
   const queue = useToastQueue();
   const id = createUniqueId();
   // The line is made under the view's owner, so it ends with the view; the card only shows it.
@@ -23,8 +23,6 @@ export const createMessageToast = (line: MessageLine, timed?: true): void => {
 
     // SAFETY: `dismiss` is the one prop a status line lacks and a failure line may carry; both forms are read through it.
     const card: MessageCard = { id, body: () => body, closed: () => (line as Partial<Dismissible>).dismiss?.() };
-
-    if (timed && !line.message) card.timed = true;
 
     return queue.message(card);
   });

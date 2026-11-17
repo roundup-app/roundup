@@ -3,6 +3,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
+import { notices } from "../testing/notices";
 import { historyLoaded, leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -214,7 +215,7 @@ it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p
   fireEvent.input(field, { target: { value: text } });
   m.app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32003, "Cannot save; retry"));
   fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
-  await screen.findByRole("alert", { name: "Cannot save; retry" });
+  const shown = await screen.findByRole("alert", { name: "Cannot save; retry" });
   const before = [...m.app.calls];
 
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -236,7 +237,9 @@ it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
     await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
     await openDrawerOf(2);
-    expect(screen.queryByRole("alert")).toBeNull();
+    // The Todos list keeps its own recovery line for the deleted Todo's draft; the Drawer's failure toast ends with its Todo.
+    await waitFor(() => expect(shown.isConnected).toBe(false));
+    expect(within(drawer()).queryByRole("alert")).toBeNull();
   } else {
     const stays = action === "unrelated";
     const message = action === "failed-delete" ? "Cannot delete; retry" : "Cannot save; retry";
@@ -410,7 +413,7 @@ for (const owner of ["todo_comments", "todo_history", "todo_refs"] as const) {
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
-    expect(screen.getAllByRole("alert")).toEqual([shown]);
+    expect(notices("alert")).toEqual([shown]);
     // The events above start a read that fails the same way after its 5 attempts (U6249b); Dismiss answers the failure shown, so that read ends first.
     await waitFor(() => expect(callsTo(m.app, method).length % 5).toBe(0));
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -423,7 +426,7 @@ for (const owner of ["todo_comments", "todo_history", "todo_refs"] as const) {
       fireEvent.click(screen.getByRole("button", { name: retry }));
     }
 
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toEqual([]));
     expect(field.value).toBe(exactDraft);
     expect(writes(m.app.calls)).toEqual(before);
   });

@@ -72,6 +72,9 @@ const draftOf = (original: { name: string; base: string; revision: number }, sou
   return snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
 };
 
+/** U3729: "Saved" is a quiet caption after the Pad's name while its last write stands; a toast is for a failure the user dismisses (U7310d). */
+const PadSavedStatus = (props: { saved: () => boolean }) => <Show when={props.saved()}><span role="status" class="pad-head-status" data-state="saved">{copy.padSaved}</span></Show>;
+
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
@@ -461,9 +464,8 @@ const PadBody = (props: {
 
   const nameCut = createCutTitle(() => name);
 
-  // U7310d: the Pad's save status, failures and conflicts show as toasts; "Saved" leaves by the Toast's own time.
+  // U7310d: the Pad's failures and conflicts show as toasts.
   createMessageToast({
-    get "data-state"() { return saved() && cycle.save().kind === "clean" ? "saved" : undefined; }, get status() { return saved() && cycle.save().kind === "clean" ? copy.padSaved : null; },
     get message() { return actionFailure.message() ?? note.message(); }, dismiss: () => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); },
     get recover() { return retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined; },
     get action() { return <>
@@ -474,13 +476,14 @@ const PadBody = (props: {
         <Show when={actionFailure.kind() === "source-mapping"}><CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton></Show>
         <Show when={awaitingResume() && !retentionProblem()}><BusyButton kind="primary" disabled={resumeBlocked()} busyLabel={copy.resuming} onClick={() => resume()}>{copy.resume}</BusyButton></Show>
         <Show when={conflictActor()}><button data-button="quiet" type="button" class="word" onClick={() => keepMine()}>{copy.keepMine}</button><BusyButton kind="quiet" class="word" busyLabel={copy.discarding} onClick={useTheirs}>{copy.useTheirs}</BusyButton></Show>
-      </>; } }, true);
+      </>; } });
 
   return (
     <div class="pad-body" data-pad-width={maximised() ? width() : undefined} data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
+          <PadSavedStatus saved={() => saved() && cycle.save().kind === "clean"} />
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
