@@ -61,8 +61,7 @@ it("u5562a_insert_each_callout", { retry: 0, timeout: 180000 }, async () => {
     if (kind === "TIP" || kind === "WARNING") await browser("press", "Enter");
     else await browser("click", ".milkdown-slash-menu li[data-index]");
     await browser("keyboard", "type", "Inserted body");
-    // The Saved Toast covers the drawer's Close for a moment, so Close is pressed from the page.
-    await evaluate("document.querySelector('.drawer .close').click(); true");
+    await browser("click", ".drawer .close");
     await settle();
     const writes = await evaluate<{ params: { text: string } }[]>("window.__fake.app.calls.filter(call => call.method === 'pad.write')");
     const final = writes.filter(write => write.params.text.includes("Inserted body"));
