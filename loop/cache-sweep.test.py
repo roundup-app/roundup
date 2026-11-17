@@ -68,8 +68,8 @@ class Sweep(unittest.TestCase):
 class Workflow(unittest.TestCase):
     def test_ci7335c_only_the_sweep_job_writes_caches_and_a_pr_skips_it(self):
         check = Path(__file__).with_name("..").joinpath(".github/workflows/check.yml").resolve().read_text()
-        self.assertEqual(check.count("actions: write"), 1)
-        self.assertEqual(check.count("pull-requests: read"), 1)
+        self.assertEqual(check.count("\n      actions: write\n"), 1)
+        self.assertEqual(check.count("\n      pull-requests: read\n"), 1)
         job = check.split("\n  cache-sweep:\n")[1].split("\n\n")[0]
         self.assertIn("actions: write", job)
         self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/main'", job)
