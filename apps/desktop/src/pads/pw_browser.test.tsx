@@ -4,7 +4,7 @@ import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
 import type { ConnectedProject } from "../state/connectedProject";
-import type { NativeOpen } from "../app/seam";
+import type { OpenRequest } from "../window/nativeOpen";
 import { walkSteps } from "./walkSteps";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
@@ -18,24 +18,42 @@ const mount = async () => {
   const app = createFakeApp();
   app.add("/project");
   const target = agent("chosen", "idle", "ready");
-  const pads: Record<string, string> = { notes: TEXT(3), plan: TEXT(3) };
+  const pads = new Map([["notes", TEXT(3)], ["plan", TEXT(3)]]);
   app.handlers["rail.tree"] = () => [target];
   app.handlers["terminal.list"] = () => [];
+  // SAFETY: the Message reply is unread.
   app.handlers["message.send"] = () => ({}) as never;
   app.handlers["link.read"] = params => {
+    // SAFETY: link.read params always carry the url.
     const name = decodeURIComponent(new URL((params as { url: string }).url).pathname.slice(1));
+    const text = pads.get(name);
 
-    if (!(name in pads)) throw new Error(`not found: pad ${name}`);
+    if (text === undefined) throw new Error(`not found: pad ${name}`);
 
     // SAFETY: the walk reads only `pad.text`.
-    return { kind: "pad", id: name, pad: { name, text: pads[name] }, section: null } as never;
+    return { kind: "pad", id: name, pad: { name, text }, section: null } as never;
   };
-  let receive: ((request: NativeOpen) => void) | undefined;
-  app.onNativeOpen = listener => { receive = listener; return () => {}; };
-  let connected!: ConnectedProject;
+
+  let receive: ((request: OpenRequest) => void) | undefined;
+
+
+  // SAFETY: the App's listener takes an OpenRequest, a NativeOpen that may carry a surface.
+  app.onNativeOpen = listener => {
+    // SAFETY: every request the listener gets is an OpenRequest.
+    receive = listener as typeof receive;
+
+    return () => {};
+  };
+
+  let connected: ConnectedProject | undefined;
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open; }} />);
   await waitFor(() => expect(connected).toBeDefined());
   await waitFor(() => expect(receive).toBeDefined());
+
+  if (connected === undefined || receive === undefined) throw new Error("the App did not connect");
+
+  const open = receive;
+  const project = connected;
 
   /** A plain click on a walk link of `pad`; with `terminal`, the click lands in that Terminal, which holds focus. */
   const click = (pad: string, terminal?: string) => {
@@ -46,10 +64,11 @@ const mount = async () => {
       screen.focus();
     }
 
-    receive!({ kind: "link", url: `roundup://walk/${pad}?project=${KEY}`, surface: "/project" });
+    open({ kind: "link", url: `roundup://walk/${pad}?project=${KEY}`, surface: "/project" });
   };
 
-  return { app, connected, click, messages: () => app.calls.filter(call => call.method === "message.send").map(call => call.params as { to: string; body: string }) };
+  // SAFETY: message.send params always carry `to` and `body`.
+  return { app, connected: project, click, messages: () => app.calls.filter(call => call.method === "message.send").map(call => call.params as { to: string; body: string }) };
 };
 
 const walkEl = () => document.querySelector<HTMLElement>("[data-walk]");
@@ -142,7 +161,7 @@ it("pw5_finish_focuses_the_senders_terminal_and_sends_one_message", async () => 
   fireEvent.click(screen.getByRole("button", { name: "Finish" }));
   await waitFor(() => expect(m.connected.rail.selected()).toBe("chosen"));
   expect(m.messages().map(message => message.to)).toEqual(["chosen"]);
-  expect(m.messages()[0]!.body).toContain(`roundup://walk/notes?project=${KEY}`);
+  expect(m.messages()[0]?.body).toContain(`roundup://walk/notes?project=${KEY}`);
   await waitFor(() => expect(walkEl()).toBeNull());
 
   m.click("notes", "t-chosen");
