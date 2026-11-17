@@ -1,7 +1,7 @@
 import { $node, $remark, $view } from "@milkdown/kit/utils";
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { copy } from "./copy";
-import { foldClosing as closing, foldOpening as opening } from "../plain/fold";
+import { foldClosing, foldOpening } from "../plain/fold";
 
 /** U5561: retain each attribute-free toggle as one opaque, source-preserving block. */
 export const agentDetailsRemark = $remark("pad-agent-details", () => () => (tree, file) => {
@@ -15,10 +15,10 @@ export const agentDetailsRemark = $remark("pad-agent-details", () => () => (tree
   for (let start = 0; start < nodes.length; start++) {
     const first = nodes[start]!;
 
-    if (html(first).type !== "html" || !opening.test(String(html(first).value))) continue;
+    if (html(first).type !== "html" || !foldOpening.test(String(html(first).value))) continue;
     let end = start + 1;
 
-    while (end < nodes.length && !(html(nodes[end]!).type === "html" && closing.test(String(html(nodes[end]!).value)))) end++;
+    while (end < nodes.length && !(html(nodes[end]!).type === "html" && foldClosing.test(String(html(nodes[end]!).value)))) end++;
     const last = nodes[end];
     const from = first.position?.start.offset;
     const to = last?.position?.end.offset;
