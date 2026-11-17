@@ -17,7 +17,7 @@ import { createEffect, createMemo, createSignal, flush as commitWrites, lazy, Lo
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
@@ -71,9 +71,6 @@ const draftOf = (original: { name: string; base: string; revision: number }, sou
 
   return snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
 };
-
-/** U3729: "Saved" is a quiet caption after the Pad's name while its last write stands; a toast is for a failure the user dismisses (U7310d). */
-const PadSavedStatus = (props: { saved: () => boolean }) => <Show when={props.saved()}><ReservedLine class="pad-head-status" data-state="saved" status={copy.padSaved} /></Show>;
 
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
@@ -160,7 +157,6 @@ const PadBody = (props: {
   let pendingActor: Actor | null = null;
   let closed = false;
   let finalDraft: string | null | undefined;
-  const [saved, setSaved] = createSignal(false);
   const saveAfterPause = debounce(() => flush(), 500);
 
   /** `typing`: the user is editing, which a change handler knows before `editing` shows it. */
@@ -179,7 +175,6 @@ const PadBody = (props: {
   const settle = (next: Pad) => {
     saveAfterPause.clear();
     cycle.send({ kind: "settled" });
-    setSaved(false);
     setEditing(false);
     sourceRevision = next.revision;
     originalRevision = next.revision;
@@ -222,7 +217,6 @@ const PadBody = (props: {
       if (!current || current.incarnation !== destination.object) {
         saveAfterPause.clear();
         cycle.send({ kind: "gone", byMe: false });
-        setSaved(false);
         actionFailure.clear();
         props.onFailureCleared?.();
 
@@ -245,7 +239,6 @@ const PadBody = (props: {
       }
 
       saveAfterPause.clear();
-      setSaved(false);
       cycle.send({ kind: "external", actor: actor ?? conflictActor() ?? "unknown", version: cycle.next() });
     }),
     { defer: true },
@@ -317,7 +310,6 @@ const PadBody = (props: {
       capture();
 
       if (cycle.send({ kind: "send", text, version, mine: resolveConflict }).kind !== "sending") return;
-      setSaved(false);
       const sent = await field.send(() => applying(() => connected.app.rpc("pad.write", { name, text, expectedRevision, expectedIncarnation: destination.object })));
 
       if (sent.kind === "skipped") {
@@ -351,7 +343,6 @@ const PadBody = (props: {
 
       // The cycle, the origin and the shown text the reply just moved are read below, by this and by the next `write`.
       commitWrites();
-      setSaved(!closed && cycle.save().kind === "clean");
       props.onAcknowledged?.(destination.object);
 
       // A write asked for in flight goes out now; with none due, `write` sends nothing.
@@ -391,7 +382,6 @@ const PadBody = (props: {
     });
 
   const onChange = () => {
-    setSaved(false);
     setEditing(true);
     const edited = cycle.send({ kind: "edited" });
 
@@ -483,7 +473,6 @@ const PadBody = (props: {
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
-          <PadSavedStatus saved={() => saved() && cycle.save().kind === "clean"} />
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />

@@ -41,15 +41,6 @@
   margin-right: var(--space-2);
 }
 
-/* U3729: the save status is a caption: mono 12 grey, as wide as its word. */
-.pad-head-title .pad-head-status {
-  inline-size: auto;
-  color: var(--grey);
-  font-family: var(--font-mono);
-  font-size: var(--text-small);
-  white-space: nowrap;
-}
-
 .pad-editor {
   flex: 1;
   min-height: 0;
@@ -214,6 +205,18 @@
   border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-control);
   overflow: hidden;
+  position: relative;
+}
+
+.visual-drawing > div:first-child {
+  height: 100%;
+}
+
+.visual-drawing-edit {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
 }
 
 .visual-drawing:has(.visual-error) {

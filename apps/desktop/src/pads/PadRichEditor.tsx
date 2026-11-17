@@ -166,6 +166,19 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
   // ProseMirror's own focus writes its selection to the DOM first, so Chromium has no caret of its own to adopt.
   const focusEditor = () => crepe?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
 
+  /** U7414b: a click in the body area outside the document's own blocks puts the cursor at the end, which is the start of an empty Pad. */
+  const focusAtEnd = (event: MouseEvent) => {
+    if (props.readonly) return;
+
+    crepe?.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+
+      if (event.target instanceof Node && view.dom.contains(event.target)) return;
+      view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
+      view.focus();
+    });
+  };
+
   const currentColour = createMemo(() => {
     const state = commandState();
 
@@ -650,6 +663,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
       </Portal>
       <div
         class={["pad-editor pad-rich-editor reading", { "pad-readonly": props.readonly }]}
+        onClick={focusAtEnd}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
         <div class="pad-editor-host" ref={(element) => (host = element)} />
       </div>

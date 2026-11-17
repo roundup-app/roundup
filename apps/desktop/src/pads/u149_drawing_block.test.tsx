@@ -54,13 +54,7 @@ const writes = (calls: { method: string; params?: unknown }[]) => calls.filter((
 describe("u149 a Drawing renders and edits in the Pad", () => {
   // Rule 10: the fake-only render/count proof is retired; u149_a_stored_drawing_renders_in_the_open_drawer_and_reads_back_byte_exact covers opening a stored block through App/Daemon.
   // U3789f: the user edits an Agent-owned Pad, so the read-only Drawing case is retired; the editable test below proves the canvas.
-  it("u149_a_user_owned_drawing_is_editable", async () => {
-    await openShelf([padOf("note", USER, block)]);
-    await openPad("note");
-
-    expect((await screen.findByTestId("canvas")).dataset.readonly).toBe("false");
-  });
-
+  // U7414c: a Drawing opens clean; u7414c_edit_toggles_the_drawings_tools proves Edit shows the tools.
   it("u149_an_unchanged_drawing_keeps_its_block_byte_for_byte_and_writes_nothing", async () => {
     const source = `${block}\ntail  \n`;
     const { app, connected, state } = await openShelf([padOf("note", USER, source)]);
