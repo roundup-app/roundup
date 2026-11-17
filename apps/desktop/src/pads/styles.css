@@ -369,7 +369,7 @@ li[aria-selected="true"] svg {
   box-sizing: border-box;
   width: 100%;
   max-width: var(--pad-reading-width, var(--reading-width));
-  margin: 0;
+  align-self: center;
   padding: var(--space-5) var(--reading-gutter);
   outline: none;
 }
@@ -412,10 +412,7 @@ li[aria-selected="true"] svg {
 
 .walk-foot {
   display: flex;
+  justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-4);
-}
-
-.walk-next {
-  margin-inline-start: auto;
 }
