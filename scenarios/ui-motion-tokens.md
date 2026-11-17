@@ -1,0 +1,11 @@
+# UI: one helper reads the motion Tokens (U7396a, U7396b)
+
+Module: `apps/desktop` (`apps/desktop/src/ui/reorderMotion.ts` and the views that read `--duration-*` and `--easing-out`). Ids: U7396a, U7396b. Acceptance for [#7396](https://github.com/roundup-app/roundup/issues/7396). Webview only: no App command, no Daemon method, no `contracts/` file, no new Token. Refs #7372 (the Pad walk added the third curve parser).
+
+**U7396a one module turns a motion Token into numbers.** Given the Tokens `--duration-<name>` in `s` or `ms` and `--easing-out` as a `cubic-bezier(a, b, c, d)`, when a view asks the helper module `apps/desktop/src/ui/reorderMotion.ts` (grown or renamed in the implementation PR) for a duration, then it gets milliseconds for either unit, and a Token it cannot parse gives 0, which lands at once as reduced motion does. When the view asks for `--easing-out`, it gets the CSS string and the four-number curve `[a, b, c, d]` parsed from that same string. Test: `u7396a_a_duration_token_reads_in_ms_and_the_curve_parses` beside the module, pinning the `s` to `ms` conversion, the `ms` pass-through, the unparsable value and the curve parse; no test checks looks (rule 10). Before writing a parser the implementation reads whether `motion` (installed) or the platform already turns a CSS duration or cubic-bezier into numbers, and its `Reuse:` section says what was found (rule 9).
+
+**U7396b no view parses a motion Token by hand.** Given the source tree under `apps/desktop/src`, when the implementation PR lands, then `pads/Walk.tsx`, `ui/fold.ts`, `todos/beforeOf.ts`, `ui/slideLifetime.ts`, `ink/KindGlyph.tsx`, `ui/CopyButton.tsx` and `ui/reorderMotion.ts`'s own callers read every `--duration-*` and `--easing-out` through U7396a's module, none keeps its own `match(/[\d.]+/g)` curve split or `endsWith("ms")` unit rule, and every motion keeps its duration, curve and reduced-motion behaviour (reduced motion still lands at once). Policy: the call sites changing together is rule 3's one PR; the existing tests of those views prove no motion changed, and no test rereads the source for the absence of a parser.
+
+## Regression requirements
+
+Policy: same durations, same curves, reduced motion lands at once; `just perf` budgets (rule 7) hold.
