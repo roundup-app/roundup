@@ -41,6 +41,23 @@ class Guard(unittest.TestCase):
         self.assertEqual(result.returncode, 23)
         self.assertEqual(result.stdout.strip(), 'Test command failed: 23')
 
+    def test_n8_guard_outlasts_a_leftover_writer(self):
+        # #7309: a process the command left running still wrote in `.rupq/seq` while the guard deleted its directory.
+        writer = ('import os,pathlib,time; seq=pathlib.Path(os.environ["HOME"])/".rupq/seq"; seq.mkdir(parents=True); '
+                  'end=time.monotonic()+1.5\n'
+                  'for i in range(10**9):\n'
+                  '    if time.monotonic()>end: break\n'
+                  '    try: (seq/str(i)).write_text("1")\n'
+                  '    except OSError: pass')
+        result = self.run_guard([sys.executable, '-c',
+            'import os,pathlib,subprocess,sys,time; '
+            f'subprocess.Popen([sys.executable, "-c", {writer!r}], start_new_session=True); '
+            'seq=pathlib.Path(os.environ["HOME"])/".rupq/seq"\n'
+            'while not seq.exists(): time.sleep(.01)\n'
+            'print(os.environ["HOME"])'])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(Path(result.stdout.strip()).parent.exists())
+
     def test_n8_guard_owns_home_and_preserves_toolchains(self):
         with tempfile.TemporaryDirectory() as seeded:
             seed = Path(seeded) / '.local/share/dev.roundup.app/keep'
