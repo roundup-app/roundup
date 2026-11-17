@@ -429,6 +429,9 @@ jobs:
       # L89: only the test binaries the `mac` profile names that the diff reaches (`just test-rust-lane`).
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE"
+      # TEMPORARY (ci-retry-only-u3787e): 30 repeats, retry off; removed before merge.
+      - name: u3787e repeat
+        run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --retries 0 --stress-count 30 -E 'test(=u3787e_corrupt_state_is_reachable)'
       # CI7295b: on `main`, a setup or test step over its time budget warns, naming the lane (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
