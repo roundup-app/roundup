@@ -608,6 +608,35 @@ pub mod test_support {
         .unwrap()
     }
 
+    /// A Daemon over `data` whose links side call asks `model` instead of the vendor's, and the
+    /// Bus its Agents emit on.
+    pub fn daemon_with_links(
+        project: &Path,
+        data: &Path,
+        launcher: agents::claude_code::Launcher,
+        model: impl agents::LinksModel + 'static,
+    ) -> (Daemon, Watchers, Bus) {
+        assert!(data.is_absolute(), "test data directory must be absolute");
+        let bus = Bus::new();
+        let agents_bus = bus.clone();
+        let (daemon, watchers) = Daemon::open_stores(project, data, Observers::default(), |_| {
+            let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
+            agents::Agents::open_in(
+                project,
+                data,
+                bus,
+                terminals,
+                launcher,
+                agents::worktree::Git::from_env(),
+                agents::Quiet::default().shared(),
+            )
+            .unwrap()
+            .with_links_model(model)
+        })
+        .unwrap();
+        (daemon, watchers, agents_bus)
+    }
+
     /// Open stores before entering Tokio so background readers see the configured modules.
     pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Watchers, Arc<ReplyState>) {
         let (daemon, watchers, state, _) =
