@@ -108,6 +108,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Vendor listing sidecar (`import.list`, `ImportList`, `ImportListed`, `ImportLive`) | same | — |
 | Conversation card (`ConversationCard`, `ConversationOverview.card`) | same | — |
 | Worktree | same | — |
+| Adopted Worktree (`agent.adopt`, `agent.adoptable`, `Worktree.adopted`) | same | — |
 | Prepared directory | same | — |
 | Worktree state | same | — |
 | Changed file | same | — |
