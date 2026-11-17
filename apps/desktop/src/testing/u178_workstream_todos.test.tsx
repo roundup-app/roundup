@@ -1,4 +1,6 @@
 import { copy as recoveryCopy } from "../sharedCopy";
+import { notice } from "./notices";
+import { ToastHost } from "./toastHost";
 import { todo } from "../todos/testHarness";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -35,9 +37,9 @@ const mount = async (original: ReturnType<typeof todo>) => {
   const rendered = render(() => {
     const now = createNow(() => 0, () => false);
 
-    return <DisplayClockContext value={now.subscribe}><ConnectedProjectContext value={connected}>
+    return <DisplayClockContext value={now.subscribe}><ToastHost><ConnectedProjectContext value={connected}>
     <Todos /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-  </ConnectedProjectContext></DisplayClockContext>;
+  </ConnectedProjectContext></ToastHost></DisplayClockContext>;
   });
 
   await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control')).not.toBeNull());
@@ -100,7 +102,7 @@ it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () =>
   connected.drawer.close("key");
   store.todos = [];
   app.emit(event({ name: "todo.deleted", data: { id: original.id } }));
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(String(original.id)));
+  await waitFor(() => expect(notice("alert").textContent).toContain(String(original.id)));
   expect(connected.drafts.list().find(draft => draft.destination.object === String(original.id))?.value.text).toBe("  recover after removal 🧪  ");
   fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
   flush();
