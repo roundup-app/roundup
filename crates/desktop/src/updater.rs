@@ -1,8 +1,9 @@
 //! CH7077e: an installed build's "Update available" item, offered from its channel's signed feed
 //! (`plugins.updater` of its config overlay). Nothing here installs or relaunches until the user
-//! presses `Update roundup` (U7208b).
+//! presses `Update roundup` (U7208b), and that press installs what the feed offers then.
 
 use crate::Unpoisoned;
+use std::fmt;
 use std::future::Future;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -23,8 +24,8 @@ const PROGRESS: &str = "update-progress";
 /// The least time between two `downloading` events; a download's first chunk always sends one.
 const EVERY: Duration = Duration::from_millis(250);
 
-/// The newer version the feed offered last; `None` until it offers one. Managed only on an
-/// installed build: a Source build has no feed (U7208a).
+/// The newer version the feed offered at the last look; `None` when it offered none. Managed only
+/// on an installed build: a Source build has no feed (U7208a).
 #[derive(Default)]
 pub(crate) struct Offered(Mutex<Option<Update>>);
 
@@ -43,31 +44,28 @@ pub(crate) fn row<R: Runtime>(app: &AppHandle<R>) -> Option<Row> {
     })
 }
 
-/// Reads the feed once; when it offers a newer version, the application menu holds "Update
-/// available". A failed read is logged and changes nothing.
-pub(crate) async fn look<R: Runtime>(app: &AppHandle<R>) {
-    let checked = match app.updater() {
+/// Reads the feed and keeps what it offers now, a newer version or none: the application menu holds
+/// "Update available" only while one is offered. A failed read changes nothing.
+pub(crate) async fn look<R: Runtime>(app: &AppHandle<R>) -> Result<Option<Update>, Failure> {
+    let offer = match app.updater() {
         Ok(updater) => updater.check().await,
         Err(error) => Err(error),
-    };
-    match checked {
-        Ok(Some(update)) => offer(app, update),
-        Ok(None) => {}
-        Err(error) => {
-            crate::diagnostics::report("read the update feed", cause(&error));
-        }
     }
+    .map_err(|error| Failure::of_look(&error))?;
+    *app.state::<Offered>().0.lock().unpoisoned() = offer.clone();
+    show(app, offer.is_some());
+    Ok(offer)
 }
 
-/// Keeps `update` and shows the item, once.
-fn offer<R: Runtime>(app: &AppHandle<R>, update: Update) {
-    *app.state::<Offered>().0.lock().unpoisoned() = Some(update);
-    let shown = application(app).and_then(|application| {
-        if application.get(ITEM).is_some() {
-            return Ok(());
+/// Adds "Update available" once while a version is offered, and takes it away once none is.
+fn show<R: Runtime>(app: &AppHandle<R>, offered: bool) {
+    let shown = application(app).and_then(|application| match application.get(ITEM) {
+        Some(item) if !offered => application.remove(&item),
+        None if offered => {
+            let item = MenuItem::with_id(app, ITEM, "Update available", true, None::<&str>)?;
+            application.insert(&item, 3)
         }
-        let item = MenuItem::with_id(app, ITEM, "Update available", true, None::<&str>)?;
-        application.insert(&item, 3)
+        _ => Ok(()),
     });
     if let Err(error) = shown {
         crate::diagnostics::failure("show Update available", &error);
@@ -150,20 +148,31 @@ impl<'a, R: Runtime> Report<'a, R> {
     }
 }
 
-/// `Update roundup`: install the offered update, leave every Daemon so Agents keep running
-/// (S5981a), then relaunch on the new bundle. A failure says why, leaves the Daemons running and
-/// keeps the update offered (U7208b).
+/// `Update roundup`: read the feed again and install what it offers now, never a version an
+/// earlier look offered, leave every Daemon so Agents keep running (S5981a), then relaunch on the
+/// new bundle. With nothing newer offered now it installs nothing. A failure says why and leaves
+/// the Daemons running. Unless it relaunches, the webview hears the facts the click's looks left
+/// (U7208b).
 pub(crate) async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let update = app
+    let ready = app
         .try_state::<Offered>()
-        .and_then(|offered| offered.0.lock().unpoisoned().take())
-        .ok_or_else(|| "no update is ready".to_owned())?;
+        .is_some_and(|offered| offered.0.lock().unpoisoned().is_some());
+    if !ready {
+        return Err("no update is ready".to_owned());
+    }
+    let update = match look(app).await {
+        Ok(Some(update)) => update,
+        Ok(None) => {
+            crate::updates::tell(app).await;
+            return Ok(());
+        }
+        Err(why) => return Err(fail(app, why.to_string()).await),
+    };
     let report = Report::new(app);
     let install = async {
-        update
-            .download_and_install(|len, total| report.chunk(len, total), || report.finished())
+        put(app, update, &report)
             .await
-            .map_err(|error| cause(&error).to_owned())
+            .map_err(|why| why.to_string())
     };
     let leave = async {
         app.state::<AppState>()
@@ -173,12 +182,43 @@ pub(crate) async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String
     };
     match install_then_leave(install, leave).await {
         Ok(()) => app.restart(),
-        Err(why) => {
-            *app.state::<Offered>().0.lock().unpoisoned() = Some(update);
-            crate::diagnostics::report("install the update", &why);
-            Err(why)
-        }
+        Err(why) => Err(fail(app, why).await),
     }
+}
+
+/// Downloads and installs `update`. When the server no longer holds its build, reads the feed once
+/// more and installs the newer version it offers then.
+async fn put<R: Runtime>(
+    app: &AppHandle<R>,
+    update: Update,
+    report: &Report<'_, R>,
+) -> Result<(), Failure> {
+    let Err(error) = download(&update, report).await else {
+        return Ok(());
+    };
+    if !gone(&error) {
+        return Err(Failure::of_install(&error));
+    }
+    let newer = look(app)
+        .await?
+        .filter(|newer| newer.version != update.version)
+        .ok_or(Failure::Replaced)?;
+    download(&newer, report)
+        .await
+        .map_err(|error| Failure::of_install(&error))
+}
+
+async fn download<R: Runtime>(update: &Update, report: &Report<'_, R>) -> Result<(), Error> {
+    update
+        .download_and_install(|len, total| report.chunk(len, total), || report.finished())
+        .await
+}
+
+/// Logs why the install failed and tells the webview the facts the click's looks left; answers `why`.
+async fn fail<R: Runtime>(app: &AppHandle<R>, why: String) -> String {
+    crate::diagnostics::report("install the update", &why);
+    crate::updates::tell(app).await;
+    why
 }
 
 /// Runs `leave` only once `install` has succeeded.
@@ -190,24 +230,99 @@ async fn install_then_leave(
     leave.await
 }
 
-/// The updater's failure in the App's own words; the feed's text stays out of the log.
-fn cause(error: &Error) -> &'static str {
-    match error {
-        Error::Reqwest(_) | Error::Network(_) | Error::Http(_) => "the update feed did not answer",
-        Error::ReleaseNotFound | Error::TargetNotFound(_) | Error::TargetsNotFound(_) => {
-            "the update feed offers no build for this Mac"
+/// The download answered 404 or 410: the release no longer holds the build the feed offered, as the
+/// `dev` release keeps only its newest build. The updater names the status only in its text.
+fn gone(error: &Error) -> bool {
+    matches!(error, Error::Network(status)
+        if status.ends_with("404 Not Found") || status.ends_with("410 Gone"))
+}
+
+/// Why a look or an install failed. Its text leads with the kind word the webview reads to pick its
+/// sentence from the copy catalogue (U7208b), then says the cause in the App's own words for the
+/// log; the feed's text stays out of both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Failure {
+    /// Neither the feed nor the download could be reached.
+    Unreachable,
+    /// The feed offers no build for this Mac.
+    NoBuild,
+    /// The offered build is gone and the feed offers no newer one.
+    Replaced,
+    /// The download started and broke off.
+    BrokeOff,
+    /// The server answered the download with an error other than gone.
+    Refused,
+    /// The download does not match the update's signature.
+    Signature,
+    /// The download could not be put in place.
+    NotInstalled,
+    /// Anything else the updater reports.
+    Failed,
+}
+
+impl Failure {
+    /// A failed feed read. The updater reads a feed's error answer as no release.
+    fn of_look(error: &Error) -> Self {
+        match error {
+            Error::Reqwest(_) | Error::Network(_) => Self::Unreachable,
+            Error::ReleaseNotFound | Error::TargetNotFound(_) | Error::TargetsNotFound(_) => {
+                Self::NoBuild
+            }
+            _ => Self::Failed,
         }
-        Error::Minisign(_)
-        | Error::Base64(_)
-        | Error::SignatureUtf8(_)
-        | Error::SignedVersionMismatch { .. }
-        | Error::MissingSignedVersion => "the update's signature was refused",
-        Error::Io(_)
-        | Error::TempDirNotOnSameMountPoint
-        | Error::TempDirNotFound
-        | Error::PreviousAppNotRestored(_)
-        | Error::BinaryNotFoundInArchive => "the update could not be installed",
-        _ => "the updater failed",
+    }
+
+    /// A failed download or install.
+    fn of_install(error: &Error) -> Self {
+        match error {
+            Error::Network(_) if gone(error) => Self::Replaced,
+            Error::Network(_) => Self::Refused,
+            Error::Reqwest(error) if error.is_connect() => Self::Unreachable,
+            Error::Reqwest(_) => Self::BrokeOff,
+            Error::Minisign(_)
+            | Error::Base64(_)
+            | Error::SignatureUtf8(_)
+            | Error::SignedVersionMismatch { .. }
+            | Error::MissingSignedVersion => Self::Signature,
+            Error::Io(_)
+            | Error::TempDirNotOnSameMountPoint
+            | Error::TempDirNotFound
+            | Error::PreviousAppNotRestored(_)
+            | Error::BinaryNotFoundInArchive => Self::NotInstalled,
+            _ => Self::Failed,
+        }
+    }
+
+    fn kind(self) -> &'static str {
+        match self {
+            Self::Unreachable => "unreachable",
+            Self::NoBuild => "no_build",
+            Self::Replaced => "replaced",
+            Self::BrokeOff => "broke_off",
+            Self::Refused => "refused",
+            Self::Signature => "signature",
+            Self::NotInstalled => "not_installed",
+            Self::Failed => "failed",
+        }
+    }
+
+    fn cause(self) -> &'static str {
+        match self {
+            Self::Unreachable => "the update feed or its download could not be reached",
+            Self::NoBuild => "the update feed offers no build for this Mac",
+            Self::Replaced => "the offered build was replaced and the feed offers no newer one",
+            Self::BrokeOff => "the download broke off",
+            Self::Refused => "the server refused the download",
+            Self::Signature => "the update's signature did not match",
+            Self::NotInstalled => "the update could not be installed",
+            Self::Failed => "the updater failed",
+        }
+    }
+}
+
+impl fmt::Display for Failure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.kind(), self.cause())
     }
 }
 
