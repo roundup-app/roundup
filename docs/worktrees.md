@@ -1,6 +1,6 @@
 # Worktrees
 
-Design for `scenarios/worktrees.md` (G1–G9 and G2542a–G2542e). G1–G9 describe legacy behavior; prepared-directory mode below is specified for separate implementation. Terms: Worktree, Base, Landing (`GLOSSARY.md`).
+Design for `scenarios/worktrees.md` (G1–G12 and G2542a–G2542e). G1–G9 describe legacy behavior; prepared-directory mode below is specified for separate implementation. Terms: Worktree, Base, Landing (`GLOSSARY.md`).
 
 ## Principles served
 
@@ -8,7 +8,7 @@ Design for `scenarios/worktrees.md` (G1–G9 and G2542a–G2542e). G1–G9 descr
 |---|---|
 | P2 | Does a new path let two Agents with Kind `working` share one cwd? Yes while a Project's `worktrees` setting is off, which is the default and `docs/wireframes.md` decision 12. With it on, no: G2's test spawns two Agents, starts two Doors and compares their cwds; `agent.spawn` and `rail.startDoor` are the two paths that start an Agent. P2 stays a goal, as it says. |
 | P4 | Does code outside `crates/agents/<vendor>/` read a vendor string, and does `AgentAdapter` gain a seam? No to both. Provisioning runs in `crates/agents` before the Agent's Terminal starts, and the Adapter trait gains nothing: the working directory it is given is the Worktree. |
-| P5 | Does a path write the Base other than rebase, check, fast-forward? No: `agent.land` is the only writer. No gap: with the Project's `check` `null`, `agent.land` refuses (`check_missing`) instead of skipping, because P5 requires "check green" and nothing in it allows a skip. Isolation (G2) needs no check, so the setting may be on without one. Does a rejected Agent leave a worktree or branch? No: G5's test compares `git worktree list` and `git branch` before and after. |
+| P5 | Does a path write the Base other than rebase, check, fast-forward? No: `agent.land` is the only writer. No gap: with the Project's `check` `null`, `agent.land` refuses (`check_missing`) instead of skipping, because P5 requires "check green" and nothing in it allows a skip. Isolation (G2) needs no check, so the setting may be on without one. Does a rejected Agent leave a worktree or branch? No: G5's test compares `git worktree list` and `git branch` before and after; an adopted Worktree (G10–G12) is the exception and is always kept. |
 
 P5 says "a dropped or rejected Agent leaves no worktree and no branch". The user's rule here is that removal never deletes unlanded or dirty work. Both hold: `rail.remove` refuses when work would be lost (`worktree_unlanded`), and `agent.discard` is the deliberate drop that deletes it. P5's "dropped" means `agent.discard`. The user confirmed this reading.
 
