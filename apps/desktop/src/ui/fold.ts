@@ -1,4 +1,5 @@
 import { animate as motionAnimate, animateLayout as motionLayout } from "motion";
+import { durationMs, easingOutCurve } from "./reorderMotion";
 import { createRoot, createEffect, type Accessor } from "solid-js";
 
 /** Every fold control in the App: the tree's branches and indicators, the collapsible triggers, and the Rail's chevrons and section heads. */
@@ -55,18 +56,9 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
     let running: Session | null = null;
 
     createEffect(reduced, () => {
-      const tokens = getComputedStyle(doc.documentElement);
-
-      const read = (name: string) => {
-        const value = tokens.getPropertyValue(name).trim();
-
-        return parseFloat(value) / (value.endsWith("ms") ? 1000 : 1);
-      };
-
-      seconds = read("--duration-layout");
-      fade = read("--duration-reduced");
-      const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
-      ease = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
+      seconds = durationMs("--duration-layout", doc.documentElement) / 1000;
+      fade = durationMs("--duration-reduced", doc.documentElement) / 1000;
+      ease = easingOutCurve(doc.documentElement);
     });
 
     /** Resolves once the press's own handler has changed the DOM, before the next paint: true when it changed something, false when nothing did. */
