@@ -438,10 +438,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/actions/setup/lane-budget.py "mac" test-rust
-      # R24: compile the opt-in native producer as well as the normal-build exclusion tests above. The same selection
-      # under `--workspace` rebuilds only `desktop`, which the feature changes.
+      # R24: on `main` the opt-in native producer builds here so the saved cache holds it; a PR runs it in `mac-r24`.
       - name: R24 measurement feature
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && github.event_name == 'push' }}
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
       # L84: the macOS cache this job saves on `main` holds clippy's checks and the smoke test's binaries too, so
       # `mac-clippy` builds only the workspace.
@@ -450,6 +449,24 @@ jobs:
         run: |
           cargo clippy --all-targets -- -D warnings
           cargo build --locked --workspace --bin rupd --bin rup
+
+  # CI7297d: R24 compiles the opt-in native producer as well as the normal-build exclusion tests of `mac`. A PR runs it
+  # beside `mac`, not after it, so neither lane passes 300 s; the same selection under `--workspace` rebuilds only `desktop`.
+  mac-r24:
+    needs: plan
+    if: github.event_name != 'push' && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true'))
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          node: 'false'
+          vendored-cache: debug
+      - name: R24 measurement feature
+        run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
 
   # CI5458d: main-only release builds run beside the full-test lane to keep each macOS job below 25 min.
   mac-package:
@@ -800,7 +817,7 @@ jobs:
   # stays; then the guard fails the run if the cache still holds over 9 GB. Only this job writes caches (`actions: write`)
   # and reads PRs; a failed read of the open PRs deletes nothing and fails the job.
   cache-sweep:
-    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
+    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-r24, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -821,7 +838,7 @@ jobs:
   # Every lane's result. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
   # push-only `mac-package` and `cache` skips (CI5915a). Failed or cancelled lanes never pass.
   lanes:
-    needs: [plan, first, rust, contracts, observers, cache, cache-sweep, mac-clippy, mac, mac-package, daemon, web, chromium]
+    needs: [plan, first, rust, contracts, observers, cache, cache-sweep, mac-clippy, mac, mac-r24, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -829,7 +846,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
         run: |
-          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache" or .key == "cache-sweep"))))))' <<<"$NEEDS"
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or .key == "mac-r24" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache" or .key == "cache-sweep"))))))' <<<"$NEEDS"
 
   # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
   bundle:
