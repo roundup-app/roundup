@@ -64,6 +64,7 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 command.env("TMPDIR", core_tmp);
             }
             command
+                .env("ROUNDUP_CHANNEL_DEADLINE_MS", "100")
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
