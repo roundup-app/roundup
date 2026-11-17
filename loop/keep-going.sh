@@ -34,7 +34,7 @@ while IFS= read -r line <&3 || [ -n "$line" ]; do
     [ "$code" -ne 130 ] || exit 130
 done 3<"$1"
 wait
-for n in $(seq 1 "$background"); do
+for ((n = 1; n <= background; n++)); do
     printf '::group::background line %s\n' "$n" >&2
     cat "$scratch/log.$n" >&2
     printf '::endgroup::\n' >&2
