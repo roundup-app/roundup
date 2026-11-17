@@ -155,8 +155,7 @@
 
 /* The shared editor scrolls with the document; its toolbar clears the sticky header. */
 .todo-detail .todo-detail-body { margin-top: var(--space-5); padding-inline: 0; flex-shrink: 0; }
-.todo-detail .todo-detail-body .ProseMirror { padding-bottom: 0; }
-.todo-detail .todo-detail-body .ProseMirror > :last-child { margin-bottom: 0; }
+.todo-detail-body .ProseMirror { padding-bottom: 0; }
 .todo-detail-body .pad-editor { overflow: visible; }
 .todo-detail-body .milkdown-top-bar { top: calc(var(--space-6) + var(--space-2)); z-index: 1; }
 .todo-detail-body .todo-add-notes { margin-inline: var(--reading-gutter); }
@@ -178,7 +177,7 @@
 .todo-comment-parts { line-height: var(--line); }
 .todo-composer { display: flex; gap: var(--space-3); align-items: flex-start; margin-top: var(--space-2); }
 /* U7310a: in the maximised Drawer an Agent's glyph and the composer's mark hang in the gutter, so names and text keep the column edge. */
-.drawer[data-maximised="true"] .todo-comment-head:has(> :is(.todo-comment-glyph-gap, svg):first-child) { margin-inline-start: calc((var(--space-4) + var(--space-2)) * -1); }
+[data-maximised="true"] .todo-comment-head:has(.glyph, .todo-comment-glyph-gap) { margin-inline-start: calc((var(--space-4) + var(--space-2)) * -1); }
 .drawer[data-maximised="true"] .todo-composer { margin-inline-start: calc((var(--space-4) + var(--space-3)) * -1); }
 .todo-composer-actor { flex: none; color: var(--grey); font-size: var(--text-small); padding-top: var(--space-2); }
 .todo-comment-field { min-width: 0; min-height: calc(var(--line) * 3); line-height: var(--line); }

@@ -215,9 +215,9 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
 
 /* A content name keeps the same face inside an action or navigation control; U7310b narrows U5557c the same way for a Todo's meta values, Pad names and change count. */
 .tab-name, .tab-name *, .shelf-group-name, .overview-name,
-.todo-meta [data-button], .todo-meta [data-button] *,
+.todo-meta, .todo-meta *,
 [data-button].todo-ref-link, [data-button].todo-ref-link *,
-.todo-history-line [data-button], .todo-history-line [data-button] * {
+.todo-history-line, .todo-history-line * {
   font-family: var(--font-ui);
 }
 

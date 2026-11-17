@@ -106,10 +106,22 @@
   pointer-events: none;
 }
 
-/* U7310a: a Pad's scroller spans the Drawer's width; the head, document and footer keep the Pad's column. */
+/* U7310a: a Pad's scroller spans the Drawer's width; the head, status line, document and footer keep the Pad's column. */
 .drawer:has(> .pad-body) {
   padding-inline: 0;
   padding-bottom: 0;
+}
+
+.pad-body .reserved-line {
+  max-width: var(--pad-reading-width);
+  margin-inline: auto;
+  padding-inline: var(--reading-gutter);
+}
+
+/* U7310b: the footer is a caption, 12 grey. */
+.item-drawer-footer {
+  padding: var(--space-2) var(--reading-gutter);
+  font-size: var(--text-small);
 }
 
 /* U431: one row at the Drawer's width: icons only, no wrap. The heading menu shows only its chevron; its options keep their words. */

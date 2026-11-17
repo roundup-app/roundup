@@ -481,7 +481,7 @@ details[data-pad-agents] input {
 }
 
 /* U7310a: in the maximised Drawer a heading's fold mark hangs in the gutter, so the heading's text keeps the column edge. */
-.drawer[data-maximised="true"] .pad-rich-editor details[data-pad-heading] {
+[data-maximised="true"] details[data-pad-heading] {
   margin-inline-start: calc((var(--space-4) + var(--space-2)) * -1);
 }
 

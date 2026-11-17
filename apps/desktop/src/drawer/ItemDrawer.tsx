@@ -75,7 +75,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
             <ReservedLine message={historyLine.message()} dismiss={historyLine.dismiss} recover={{ run: () => refreshHistory(), label: copy.tryAgain }} />
             <Show when={newer() ?? item().line}>
               {(line) => (
-                <p class="light" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>
+                <p class="light item-drawer-footer" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>
                   {line()}
                 </p>
               )}
