@@ -48,7 +48,7 @@ class CiLintTime(unittest.TestCase):
             r = keep_going('sleep 1\nexit 3\necho after\n', summary)
             self.assertEqual(r.returncode, 1)
             self.assert_logged(r.stderr, 'sleep 1', 1)
-            self.assertIn('exit 3 (exit 3)', r.stderr)
+            self.assert_logged(r.stderr, 'exit 3', 0, code=3)
             self.assertIn('failed lines:\n  exit 3 (exit 3)', r.stderr)
             self.assert_logged(r.stderr, 'echo after', 0)
             self.assertRegex(summary.read_text(), re.compile(r'^\d+ sleep 1$.*^\d+ echo after$', re.M | re.S))
