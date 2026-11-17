@@ -774,7 +774,7 @@ jobs:
                 RUN_START=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || RUN_START=
                 [ -z "$RUN_START" ] || jq -r --arg start "$RUN_START" '
                   def secs: fromdateiso8601;
-                  [.[] | select(.started_at and .completed_at) | {name, s: (.completed_at | secs) - (.started_at | secs), end: (.completed_at | secs)}] as $j
+                  [.[] | select(.started_at and .completed_at) | {name, s: ((.completed_at | secs) - (.started_at | secs)), end: (.completed_at | secs)}] as $j
                   | ($j | max_by(.end)) as $last
                   | "run \(($last.end) - ($start | secs)) s (limit 300 s); longest job \(($j | max_by(.s)).name) \(($j | max_by(.s)).s) s"' \
                   <<<"$jobs" | tee -a "$GITHUB_STEP_SUMMARY" || true
