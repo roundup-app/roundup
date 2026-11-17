@@ -1,7 +1,7 @@
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 
-/** U7424a: the fold marks sit inside the body, so the browser's Tab order puts them all after the body and none before it. Tab and Shift+Tab from the caret stop on the next and the previous visible mark in document order (the heading's own included going back); in code, lists and tables the key stays theirs, and past the last mark the browser leaves the body. */
+/** U7424a: the fold marks sit inside the body, so the browser's Tab order puts them all after the body and none before it. Tab and Shift+Tab from the caret stop on the next and the previous visible mark in document order (the heading's own included going back); in code, lists and tables the key stays theirs, and past the last mark focus moves to the last mark and the key's default carries it on, out of the body. */
 const walkFoldMarks = (view: EditorView, event: KeyboardEvent): boolean => {
   if (event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey) return false;
 
@@ -24,7 +24,15 @@ const walkFoldMarks = (view: EditorView, event: KeyboardEvent): boolean => {
     ? marks.findLast((mark) => at.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_PRECEDING)
     : marks.find((mark) => at.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING && !at.contains(mark));
 
-  if (!target) return false;
+  if (!target) {
+    const last = event.shiftKey ? undefined : marks.at(-1);
+
+    // The native order would return to the body's first mark; start the default Tab from the last one so it leaves the body.
+    last?.focus();
+
+    return false;
+  }
+
   event.preventDefault();
   target.focus();
 
