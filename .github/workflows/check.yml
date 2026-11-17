@@ -237,6 +237,9 @@ jobs:
         with:
           experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C4 addition and freshness observers
+        # The observers rebuild the workspace after each contract edit; incremental builds reuse the first one's work.
+        env:
+          CARGO_INCREMENTAL: 1
         run: |
           # The two observers run one after the other, so they share the one target directory.
           mkdir -p target/c4-addition

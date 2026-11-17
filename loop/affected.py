@@ -336,8 +336,7 @@ def lane_args(profile, changed, meta, root, features):
     """L89: the `cargo nextest run` arguments for a CI lane: `--workspace` and the `--lib`, `--bin` and `--test` targets
     of the profile's binaries that the changed paths reach (`rust()`; every one when `changed` is None), plus one integration
     test of each helper crate whose binaries a target starts (`helpers()`); None when no binary is reached. `--workspace`
-    keeps every lane on one feature set, so each restores the dependencies the cache job built; `--lib` builds every
-    requested crate's library harness, so a lane that runs library tests excludes the crates it runs no test of. A target whose
+    keeps every lane on one feature set, so each restores the dependencies the cache job built. A target whose
     `required-features` `features` (each crate's enabled features) lacks builds in no lane, as in `cargo nextest run --workspace`."""
     config = tomllib.loads((root / '.config/nextest.toml').read_text())
     tested = {(package['name'], 'bin' in target['kind'], target['name']) for package in meta['packages']
@@ -361,10 +360,7 @@ def lane_args(profile, changed, meta, root, features):
             tests = [target for target in size if target[0] == helper and target[1][0] == '--test' and names.count(target[1][1]) == 1]
             if tests and not chosen & set(tests):
                 chosen.add(min(tests, key=lambda target: (size[target], target)))
-    idle = ({package['name'] for package in meta['packages']} - {crate for crate, _ in chosen}
-            if ('--lib',) in {flags for _, flags in chosen} else set())
-    return ' '.join(['--workspace', *(f'--exclude {crate}' for crate in sorted(idle)),
-                     *sorted({' '.join(flags) for _, flags in chosen})])
+    return ' '.join(['--workspace', *sorted({' '.join(flags) for _, flags in chosen})])
 
 
 def changed_since(base):

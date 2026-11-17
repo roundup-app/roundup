@@ -221,9 +221,7 @@ class RustLane(Fixture):
             self.lane("binary_id(=plain::quiet) | (binary_id(=gamma::leaf) & test(=leaf_probe))"),
             "--workspace --test leaf --test quiet",
         )
-        self.assertEqual(
-            self.lane("package(gamma)"), "--workspace --exclude alpha --exclude beta --exclude plain --lib --test leaf"
-        )
+        self.assertEqual(self.lane("package(gamma)"), "--workspace --lib --test leaf")
 
     def test_ci7295f_a_not_lane_takes_every_binary_but_those_it_names_alone(self):
         self.assertEqual(
