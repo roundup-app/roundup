@@ -209,7 +209,8 @@ class Publish(unittest.TestCase):
         self.assertRegex(text.split("\njobs:\n")[0], r"(?m)^permissions:\n  contents: read$")
         gate = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
         for name in ["bundle", "publish"]:
-            self.assertIn(f"    if: {gate}", all_jobs[name], name)
+            self.assertIn(gate, all_jobs[name], name)
+            self.assertIn("!cancelled()", all_jobs[name], name)
             self.assertTrue(set(LANES + ["check"]) <= reaches(all_jobs, name), name)
         self.assertNotIn("publish", reaches(all_jobs, "check"))
         self.assertNotIn("bundle", reaches(all_jobs, "check"))
@@ -218,6 +219,33 @@ class Publish(unittest.TestCase):
         for name, body in jobs().items():
             if name != "publish":
                 self.assertNotIn("gh release", body, name)
+
+
+    def test_df7078a_bundle_and_publish_survive_a_skipped_first(self):
+        # `first` is skipped on a push; only a status function lets a descendant run (df7078a/b).
+        all_jobs = jobs()
+        self.assertIn("first", reaches(all_jobs, "bundle"))
+        self.assertIn("needs.lanes.result == 'success'", all_jobs["bundle"])
+        self.assertIn("needs.check.result == 'success'", all_jobs["bundle"])
+        self.assertIn("needs.bundle.result == 'success'", all_jobs["publish"])
+
+    def test_df7078h_guard_names_a_skipped_bundle_after_green_lanes(self):
+        guard = importlib.util.spec_from_file_location("main_jobs", pathlib.Path(__file__).with_name("main_jobs.py"))
+        main_jobs = importlib.util.module_from_spec(guard)
+        guard.loader.exec_module(main_jobs)
+
+        def needs(**results):
+            return {name: {"result": result} for name, result in results.items()}
+
+        ok = dict(lanes="success", cache="success", bundle="success", publish="success")
+        self.assertEqual(main_jobs.skipped(needs(**ok)), [])
+        self.assertEqual(main_jobs.skipped(needs(**{**ok, "bundle": "skipped", "publish": "skipped"})), ["bundle"])
+        self.assertEqual(main_jobs.skipped(needs(**{**ok, "publish": "skipped"})), ["publish"])
+        self.assertEqual(main_jobs.skipped(needs(**{**ok, "lanes": "failure", "bundle": "skipped"})), [])
+        self.assertEqual(main_jobs.skipped(needs(**{**ok, "bundle": "failure", "publish": "skipped"})), [])
+        self.assertTrue(main_jobs.MAIN_JOBS and {"bundle", "publish", "cache-sweep", "mac-package", "cache"} == set(main_jobs.MAIN_JOBS))
+        self.assertIn("main-guard", jobs())
+        self.assertNotIn("main-guard", reaches(jobs(), "check"))
 
 
 if __name__ == "__main__":

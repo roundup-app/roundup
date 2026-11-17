@@ -858,7 +858,8 @@ jobs:
   # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
   bundle:
     needs: [lanes, check]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # `first` runs on pull requests only, so its skip reaches every descendant; a status function keeps this job running.
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.lanes.result == 'success' && needs.check.result == 'success' }}
     runs-on: macos-latest
     timeout-minutes: 35
     strategy:
@@ -897,7 +898,7 @@ jobs:
   # DF7078b/c: the Dev feed first, then the Stable artifact for promote. A failed publish leaves `check` as it was.
   publish:
     needs: [bundle]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.bundle.result == 'success' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -920,3 +921,16 @@ jobs:
           path: bundles/bundle-stable/
           if-no-files-found: error
           retention-days: 90
+
+  # DF7078h: a skipped main-only job on a push whose lanes succeeded fails the run, naming the job. Nothing needs this job.
+  main-guard:
+    needs: [lanes, cache, mac-package, cache-sweep, bundle, publish]
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: tools/release
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 tools/release/main_jobs.py <<<"$NEEDS"
