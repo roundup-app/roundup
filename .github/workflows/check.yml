@@ -562,7 +562,9 @@ jobs:
             !/crates/perf/evidence/
       - id: key
         run: |
-          tree=$(git ls-tree -r HEAD -- crates Cargo.toml Cargo.lock .github/actions/setup/action.yml | grep -v $'\tcrates/perf/evidence/' | sha256sum)
+          # CI7295a: the key holds what shapes the binaries (the sources, the toolchain, the build line and profile), not the
+          # whole setup action, which changes with every cache or lane edit and sent most PRs to a 150 s cold build.
+          tree=$({ git ls-tree -r HEAD -- crates Cargo.toml Cargo.lock rust-toolchain.toml | grep -v $'\tcrates/perf/evidence/'; grep -hE 'toolchain: |cargo build -p rupd' .github/actions/setup/action.yml; echo "$CARGO_PROFILE_DEV_DEBUG"; } | sha256sum)
           echo "key=daemon-$RUNNER_OS-${tree%% *}" >>"$GITHUB_OUTPUT"
       - id: cache
         uses: actions/cache/restore@v4
