@@ -289,6 +289,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `naming_guide`, `naming_settled`, `naming_settings`) | Automatic renaming, Naming guide | — |
 | Link (`link.read`) | same | — |
 | Link set (`links::LinkSet`, `LinkEntry`, `LinkKind`, `LinksEvent`, `agent.links`, the `agent.links` event, `LinksModel`, `claude_code::links`) | links (an Agent's header) | — |
+| Links header (`LinksHeader`, `links/catalogue`, the fixed catalogue of icons `@json-render/core`'s spec names: `Editor`, `Terminal` and each `LinkKind`) | links (an Agent's header) | — |
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |
 | open_in_editor | none | — |
