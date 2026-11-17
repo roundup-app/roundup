@@ -158,6 +158,18 @@ runs:
       run: |
         brew install coreutils jq
         echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+    # On macOS, where the cached dependencies keep full debug info, the workspace's own crates build with line tables only
+    # in every build: backtraces keep file and line, and the 3-core build takes a quarter less (run 43982531080). Linux
+    # lanes build with none (CI5330e/f); line tables there cost rust 1 44% more build time. `$CARGO_HOME` holds the
+    # setting, outside the cache key, so the cached dependencies stay valid.
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS'
+      name: Workspace crates keep line tables
+      shell: bash
+      run: |
+        mkdir -p "$CARGO_HOME"
+        for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+          printf '[profile.%s.package.%s]\ndebug = "line-tables-only"\n' dev "$crate" test "$crate"
+        done >>"$CARGO_HOME/config.toml"
     - uses: taiki-e/install-action@just
       if: runner.environment != 'self-hosted'
     - if: inputs.node != 'false'
