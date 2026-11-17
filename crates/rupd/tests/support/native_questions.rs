@@ -562,7 +562,29 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             .await
             .unwrap();
         signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
-        let digest = until("final text Digest", async || {
+        // The Stop delivers the note; the fake then reports the final text. Release the lead's
+        // Digest only after that turn ended, so no later `working`/`idle` Digest replaces it.
+        let expected = if text == "Publishing is complete" {
+            "idle"
+        } else {
+            "needs-you"
+        };
+        until("child ends its turn with the final text", async || {
+            let tree = run.user.request("rail.tree", Value::Null).await.unwrap();
+            let node = tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == child.id)?;
+            (!child.dir.join("final-reply.txt").exists()
+                && node["status"]["kind"] == expected
+                && node["status"]["label"] != "")
+                .then_some(())
+        })
+        .await;
+        let last = format!("last: {}", &text[..text.len().min(100)]);
+        // A later Digest may replace a held one, so the Digest is the one the lead's inbox took.
+        let taken = until("final text Digest", async || {
             // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
             run.user
                 .request(
@@ -572,27 +594,24 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
                 .await
                 .unwrap();
             signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
-            let messages = run
-                .user
-                .request("message.list", json!({"to":lead.id}))
-                .await
-                .unwrap();
-            messages
-                .as_array()
-                .unwrap()
-                .iter()
-                .rev()
-                .find(|m| {
-                    m["body"].as_str().is_some_and(|s| {
-                        s.contains(&format!("last: {}", &text[..text.len().min(100)]))
-                    })
-                })
-                .cloned()
+            eprintln!("DBG {text:?} {:?}", lead.entries().iter().map(|e| e["message"]["content"].as_str().unwrap().chars().skip(95).take(230).collect::<String>()).collect::<Vec<_>>());
+            lead.entries().into_iter().find(|e| {
+                e["message"]["content"]
+                    .as_str()
+                    .is_some_and(|s| s.contains(&last))
+            })
         })
         .await;
+        let msg_id = taken["msg_id"].as_str().unwrap();
+        let id =
+            u32::try_from(i64::from_str_radix(&msg_id[msg_id.len() - 12..], 16).unwrap()).unwrap();
+        let digest = run
+            .user
+            .request("message.get", json!({"id":id}))
+            .await
+            .unwrap();
         let body = digest["body"].as_str().unwrap();
         assert_eq!(digest["kind"], "note");
-        let id = u32::try_from(digest["id"].as_u64().unwrap()).unwrap();
         // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
         let status = if text == "Publishing is complete" {
             "builder is idle"
