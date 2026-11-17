@@ -80,6 +80,12 @@ async fn ready_peer(run: &Run, node: Value) -> Peer {
         .request("daemon.identify", json!({"actor":{"kind":"agent","id":id}}))
         .await
         .unwrap();
+    // E6: the fake `claude` starts no `rup mcp`, so its Channel stays `pending` for the 15 s
+    // deadline, the whole of `BOUND`, and the Daemon holds each Message for the lead until then.
+    client
+        .request("agent.channelUp", json!({"id":id}))
+        .await
+        .unwrap();
     Peer {
         id,
         terminal: node["terminal_id"].clone(),
