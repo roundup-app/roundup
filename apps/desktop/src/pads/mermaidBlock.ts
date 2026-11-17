@@ -22,6 +22,8 @@ const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy
 
 const render = async (mermaid: MermaidApi, text: string) => {
   const chartHeight = parseFloat(tokenValue("--pad-chart-height"));
+  const grey = tokenColour("--grey");
+  const hairline = tokenColour("--hairline");
   // U7312c: a pie's labels show at the small text size once the pie scales to the chart height.
   const pieLabel = `calc(var(--text-small) * ${MERMAID_PIE_HEIGHT / chartHeight})`;
 
@@ -42,9 +44,9 @@ const render = async (mermaid: MermaidApi, text: string) => {
       // U7312c: pie slices take the five Pad colours, labels are grey and lines are hairlines.
       ...Object.fromEntries(padTones.map((tone, at) => [`pie${at + 1}`, tokenColour(tone)])),
       pieStrokeColor: tokenColour("--ground"),
-      pieOuterStrokeColor: tokenColour("--hairline"),
+      pieOuterStrokeColor: hairline,
       pieSectionTextColor: tokenColour("--ground"),
-      pieLegendTextColor: tokenColour("--grey"),
+      pieLegendTextColor: grey,
       pieTitleTextColor: tokenColour("--text"),
       pieLegendTextSize: pieLabel,
       pieSectionTextSize: pieLabel,
@@ -52,12 +54,14 @@ const render = async (mermaid: MermaidApi, text: string) => {
         backgroundColor: tokenColour("--ground"),
         titleColor: tokenColour("--text"),
         plotColorPalette: tokenColour("--pad-blue"),
-        ...Object.fromEntries(["x", "y"].flatMap(axis => [
-          [`${axis}AxisLabelColor`, tokenColour("--grey")],
-          [`${axis}AxisTitleColor`, tokenColour("--grey")],
-          [`${axis}AxisTickColor`, tokenColour("--hairline")],
-          [`${axis}AxisLineColor`, tokenColour("--hairline")],
-        ])),
+        xAxisLabelColor: grey,
+        yAxisLabelColor: grey,
+        xAxisTitleColor: grey,
+        yAxisTitleColor: grey,
+        xAxisTickColor: hairline,
+        yAxisTickColor: hairline,
+        xAxisLineColor: hairline,
+        yAxisLineColor: hairline,
       },
     },
     // U7312c: an xychart's plot is the chart height Token tall.

@@ -123,7 +123,7 @@ mark[data-pad-color="amber"], mark [data-pad-color="amber"], [data-pad-color="am
 .reading [data-pad-callout="important"] { --pad-callout-tone: var(--pad-purple); }
 .reading [data-pad-callout="caution"] { --pad-callout-tone: var(--red); }
 .reading [data-pad-callout="warning"] { --pad-callout-tone: var(--pad-amber); }
-.reading [data-pad-callout] { color: var(--text); padding: var(--space-3); background: var(--sunken); border: var(--hairline-width) solid var(--hairline); border-inline-start: calc(var(--hairline-width) * 2) solid var(--pad-callout-tone); }
+.reading [data-pad-callout] { color: var(--text); padding: var(--space-3); background: var(--sunken); border: var(--hairline-width) solid var(--hairline); border-inline-start: var(--stroke-width) solid var(--pad-callout-tone); }
 .pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); color: var(--pad-callout-tone); }
 
 /* U7312c: the For Agents fold sits last under a hairline, its summary 12/500 grey, in Pads, Todo bodies and comments. */
