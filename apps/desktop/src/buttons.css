@@ -64,6 +64,7 @@ button {
 [data-button="icon"] {
   --button-radius: 0;
   display: inline-flex;
+  gap: var(--space-1);
   align-items: center;
   justify-content: center;
   width: var(--space-5);

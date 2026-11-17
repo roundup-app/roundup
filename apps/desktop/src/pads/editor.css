@@ -480,9 +480,17 @@ details[data-pad-agents] input {
   vertical-align: baseline;
 }
 
-/* U7310a: in the maximised Drawer a heading's fold mark hangs in the gutter, so the heading's text keeps the column edge. */
-[data-maximised="true"] details[data-pad-heading] {
-  margin-inline-start: calc((var(--space-4) + var(--space-2)) * -1);
+/* U7310a: in the maximised Drawer a heading's fold mark hangs in the gutter, so the heading's text keeps the column edge: the heading's first line starts one mark and gap early. */
+[data-maximised="true"] {
+  --pad-heading-hang: calc((var(--space-4) + var(--space-2)) * -1);
+}
+
+:is(h1, h2, h3, h4, h5, h6):has(> details[data-pad-heading]) {
+  text-indent: var(--pad-heading-hang, var(--length-zero));
+}
+
+details[data-pad-heading] {
+  text-indent: var(--length-zero);
 }
 
 details[data-pad-heading] summary {

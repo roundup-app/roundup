@@ -13,7 +13,7 @@
   flex-wrap: wrap;
 }
 
-.app-toast-body :is(.ink, .reserved-status) {
+.app-toast-body :is(p.ink[role="alert"], .ink, .reserved-status) {
   white-space: normal;
   overflow: visible;
 }
