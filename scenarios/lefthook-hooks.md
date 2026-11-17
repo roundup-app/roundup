@@ -1,6 +1,6 @@
 # Pre-commit hooks by lefthook
 
-Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5496a, T6011a, T6011b, T6011c. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
+Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5496a, T6011a, T6011b, T6011c, T7331a, T7331b, T7331c, T7331d, T7331e. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
 
 **T3210 a plain install turns the pre-commit hook on.** Given a clean clone, when `pnpm install` runs, then:
 
@@ -91,3 +91,34 @@ Source: #7095. Build tooling only: no product path or Principles gate changes. G
 Policy — `package.json`'s `lint-staged` entry runs `tools/oxlint/staged.mjs` on the staged files: Oxlint's safe `--fix` (T5456a), a second Oxlint run for the diagnostics, then `git diff HEAD -U0 -M` read by `parse-diff` (rule 9). An error fails the commit when its span meets a line the diff adds. A warning never fails; nor does an error on an old line, in any file, whether or not `debt.json` records it; a renamed file keeps the errors its old path held. The hook lints the staged files only and scans no tree, so T5456c's bound holds. This supersedes T5456a's "all lint rules" only for errors on old lines: CI's `pnpm lint` and `tools/lint/scan.py oxlint` still judge the whole tree (T5456b, T3797a).
 
 Implementation scope: `package.json` (`lint-staged`, `devDependencies.parse-diff`), regenerated `pnpm-lock.yaml`, `tools/oxlint/staged.mjs` and `tools/oxlint/pre-commit.test.mjs`. Verification: `node --test tools/oxlint/pre-commit.test.mjs`.
+
+
+## The hook checks a push before CI does
+
+Source: #7331. Build tooling only: no product path or Principles gate changes. Gate: does a lint or type error a push adds fail the push on the author's machine, within the time CI's `pre` would have taken to say so, and does an error the push leaves alone stay quiet? Observer: a real `git push` to a bare remote in an isolated repository. The type checker is the TypeScript 7 one that #7324 puts in `apps/desktop`; this specification stands after it.
+
+**T7331a a pushed lint error on an added line fails the push.** Given installed dependencies and the repository's installed lefthook hook, when a push carries a commit that adds a line with an Oxlint error to a web file, then the push exits 1 before the remote receives it, and stderr names the file, the line and the rule. Test: `t7331a_push_fails_on_a_lint_error_on_an_added_line` in `tools/oxlint/pre-push.test.mjs`.
+
+Policy — the hook runs Oxlint without `--fix` on the web files the pushed commits change, so it never edits the working tree. The files are those changed between the remote's ref and the pushed commit; a new branch compares against `origin/main`.
+
+**T7331b a pushed type error fails the push.** Given the same hook and a changed file in a TypeScript project, when the push carries a commit that adds a type error to that file, then the push exits 1 and stderr names the file and the line. A push of clean files exits 0 and the remote receives it. Tests: `t7331b_push_fails_on_a_type_error` and `t7331b_push_of_clean_files_passes` in `tools/oxlint/pre-push.test.mjs`.
+
+Policy — the hook type checks each TypeScript project a changed file belongs to, by the nearest `tsconfig.json`, with the TypeScript 7 checker, and no project no changed file belongs to. A type error in a file the push does not change but whose project it belongs to still fails, as the project's check does in CI.
+
+**T7331c a push does not fail on an error it does not add.** Given a tracked web file that holds an Oxlint error on one line, committed before the hook saw it, when a push carries an edit to a different line of that file, then the push exits 0. Test: `t7331c_push_ignores_a_lint_error_on_a_line_it_does_not_add` in `tools/oxlint/pre-push.test.mjs`.
+
+Policy — the hook judges Oxlint's errors as T5456d judges them for a commit: one function takes the diagnostics and the diff, and `tools/oxlint/staged.mjs` and the push hook both call it, so there is one copy of the added-line rule. A warning never fails.
+
+**T7331d the hook stays within the bar and leaves the tree alone.** Given a push of 20 changed `apps/desktop/src` files, when the hook runs on a Mac with lefthook, then it takes under 9000 ms, and the working tree and index hold the bytes they held before the push. The PR that implements this names the `hyperfine` result. Test: `t7331d_push_hook_leaves_the_tree_as_it_was` in `tools/oxlint/pre-push.test.mjs` for the bytes; the time is a Mac observation (policy), since CI's runner differs.
+
+Policy — the hook runs neither `lint-web` as a whole nor any Rust lint, and no stylelint, cycle or test run; those stay in CI. No workflow changes and no money is spent.
+
+**T7331e the pre-commit hook is as it was.** Given the added `pre-push` hook, when T5456a to T5456d, T5496a and T6011b run, then they pass unchanged: `pre-commit` keeps `lint-web` and `file-stays-under-a-size-cap` and still runs Oxlint's safe `--fix`. Test: those scenarios' tests in `tools/oxlint/pre-commit.test.mjs`, run unchanged.
+
+Checks already on main:
+
+10. `lefthook.yml`, `pre-commit.commands.lint-web` and `pre-commit.commands.file-stays-under-a-size-cap`: the commit hook the push hook sits beside.
+11. `tools/oxlint/staged.mjs`, `addsLine`: the added-line judgment the shared function takes over.
+12. `tools/oxlint/pre-commit.test.mjs`, `t5456d_hook_fails_only_on_errors_in_added_lines`: the commit-side regression of the same judgment.
+
+Implementation scope: `lefthook.yml`, `tools/oxlint/staged.mjs`, a shared module beside it, `tools/oxlint/pre-push.test.mjs` and `package.json` only if a script needs it. Verification: `node --test tools/oxlint/pre-push.test.mjs tools/oxlint/pre-commit.test.mjs`. Specification only here; #7331 remains open for implementation.
