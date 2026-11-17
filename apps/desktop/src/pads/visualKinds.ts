@@ -33,6 +33,9 @@ export const bundledRenderers: Renderers = {
       convertToExcalidrawElements: (skeleton, options) => module.convertToExcalidrawElements(skeleton as never, options),
       // SAFETY: stored elements are Excalidraw's own output, and restoring them keeps `id` and `version`.
       restoreElements: (elements) => module.restoreElements(elements as never, null) as never,
+      exportToSvg: async (elements) =>
+        // SAFETY: the elements are Excalidraw's own output, as in `restoreElements`.
+        new XMLSerializer().serializeToString(await module.exportToSvg({ elements: elements as never, appState: { exportBackground: true, viewBackgroundColor: "#ffffff" }, files: null })),
     };
   },
 };
@@ -60,6 +63,9 @@ export const useRenderers = (next: Renderers) => {
 
 /** The empty Drawing the `/` menu inserts. */
 export const emptyDrawing = { language: "excalidraw", body: '{"type":"excalidraw","version":2,"elements":[]}' };
+
+/** The renderers in use, for the export of a Pad's blocks. */
+export const currentRenderers = () => renderers;
 
 export const visualKinds = () =>
   new Map<string, VisualKind>([

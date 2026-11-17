@@ -23,6 +23,8 @@ export type CanvasApi = {
   convertToExcalidrawElements(skeleton: Skeleton[], options: { regenerateIds: false }): CanvasElement[];
   /** Loads full elements a stored scene holds, keeping their bindings; converting them again would detach every arrow. */
   restoreElements(elements: Skeleton[]): CanvasElement[];
+  /** Excalidraw's own SVG export of the elements: the drawing alone, with no tool bars. */
+  exportToSvg(elements: CanvasElement[]): Promise<string>;
 };
 
 export type Skeleton = { type: string; id?: string | undefined; version?: number | undefined };
@@ -41,6 +43,14 @@ const parse = (text: string) => {
 const isStored = (elements: Skeleton[]) => elements.length > 0 && elements.every((element) => element.version !== undefined);
 
 const signature = (elements: readonly CanvasElement[]) => elements.map((element) => `${element.id}:${element.version}`).join(",");
+
+/** U7415a: a stored scene as an SVG document; rejects when the text is not a scene. */
+export const exportDrawing = async (canvas: CanvasApi, text: string) => {
+  const skeleton = parse(text);
+  const elements = isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false });
+
+  return canvas.exportToSvg(elements.filter((element) => !element.isDeleted));
+};
 
 /** U149: an Excalidraw scene on a canvas, editable unless the Pad is read-only. */
 export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, readonly, replace }) => {

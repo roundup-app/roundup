@@ -224,15 +224,48 @@ impl Pads {
                 format!("export path must be absolute: {}", p.path),
             ));
         }
+        let images = p.images.as_deref().unwrap_or_default();
+        let folder = if images.is_empty() {
+            None
+        } else {
+            let Some(stem) = p.path.strip_suffix(".md") else {
+                return Err(Error::new(
+                    rpc::code::INVALID_PARAMS,
+                    format!("export path must end in .md to hold images: {}", p.path),
+                ));
+            };
+            for image in images {
+                let plain = image.name.len() > ".svg".len()
+                    && image.name.ends_with(".svg")
+                    && !image.name.contains(['/', '\\', '\0']);
+                if !plain || image.name.starts_with("..") {
+                    return Err(Error::new(
+                        rpc::code::INVALID_PARAMS,
+                        format!("image name must be a plain .svg file name: {}", image.name),
+                    ));
+                }
+            }
+            Some(stem)
+        };
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
-        std::fs::write(&p.path, &pad.text).map_err(|err| {
+        let failed = |what: &str, err: std::io::Error| {
             let code = match err.kind() {
                 std::io::ErrorKind::NotFound => rpc::code::INVALID_PARAMS,
                 _ => rpc::code::INTERNAL,
             };
-            Error::new(code, format!("cannot export to {}: {err}", p.path))
-        })?;
+            Error::new(code, format!("cannot export to {what}: {err}"))
+        };
+        std::fs::write(&p.path, p.text.as_deref().unwrap_or(&pad.text))
+            .map_err(|err| failed(&p.path, err))?;
+        if let Some(folder) = folder {
+            std::fs::create_dir_all(folder).map_err(|err| failed(folder, err))?;
+            for image in images {
+                let target = Path::new(folder).join(&image.name);
+                std::fs::write(&target, &image.svg)
+                    .map_err(|err| failed(&target.to_string_lossy(), err))?;
+            }
+        }
         ctx.touch(Verb::Read, &item(&pad.name))?;
         Ok(())
     }

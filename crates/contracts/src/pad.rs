@@ -71,6 +71,21 @@ pub struct AppendSectionParams {
 pub struct ExportParams {
     pub name: String,
     pub path: String,
+    /// Written to `path` in place of the Pad's text.
+    #[serde(default)]
+    #[specta(optional, type = String)]
+    pub text: Option<String>,
+    /// Each written to the folder named by `path` without its `.md` suffix, created only when this is non-empty.
+    #[serde(default)]
+    #[specta(optional, type = Vec<ExportImage>)]
+    pub images: Option<Vec<ExportImage>>,
+}
+
+/// One image of an export: a plain file name ending `.svg`, and the SVG document.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ExportImage {
+    pub name: String,
+    pub svg: String,
 }
 
 /// Project-wide. `true` mirrors every Pad to `pads/<name>.md` in the Project's data folder (N1); the app database stays the source of truth.

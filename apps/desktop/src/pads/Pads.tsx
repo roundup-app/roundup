@@ -1,6 +1,7 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { applied, applying } from "../app/pending";
 import { Age } from "../shelf/Age";
+import { exportPad } from "./padExport";
 import { queueFocus } from "../keys/focus";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { CHORD_ROWS } from "../keys/chords";
@@ -164,9 +165,7 @@ export const Pads = (props: {
       const name = pad.name;
 
       const message = await failureOf(async () => {
-        const path = await connected.app.chooseSavePath([name, ".md"].join(""));
-
-        if (path !== null) await connected.app.rpc("pad.export", { name, path });
+        await exportPad(connected.app, name);
       });
 
       if (message !== null) reportItemFailure(pad, message, copy.exportMd);

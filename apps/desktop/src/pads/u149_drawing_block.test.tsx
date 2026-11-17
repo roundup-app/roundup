@@ -17,6 +17,7 @@ let loads: unknown[] = [];
 const fake: CanvasApi = {
   // The skeleton expands to full elements.
   convertToExcalidrawElements: (skeleton, options) => (loads.push(options), skeleton).map((element, index) => ({ id: String(element.id ?? `e${index}`), version: 1 })),
+  exportToSvg: async () => "",
   restoreElements: (stored) => (loads.push("restored"), stored).map((element) => ({ id: String(element.id), version: element.version ?? 1 })),
   Excalidraw: (next) => {
     props = next;

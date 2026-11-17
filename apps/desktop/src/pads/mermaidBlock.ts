@@ -14,7 +14,8 @@ let counter = 0;
 /** The error's first line: Mermaid's own message continues with a code frame. */
 const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy.invalidDiagram;
 
-const render = async (mermaid: MermaidApi, text: string) => {
+/** The diagram as SVG text; rejects with Mermaid's error when the text is invalid. */
+export const renderMermaid = async (mermaid: MermaidApi, text: string) => {
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
@@ -42,7 +43,7 @@ export const mountMermaid = (mermaid: MermaidApi): VisualMount => (host, { text 
   let live = true;
 
   host.classList.add("visual-mermaid");
-  void render(mermaid, text).then(
+  void renderMermaid(mermaid, text).then(
     (svg) => {
       // Mermaid's `strict` level has already sanitized the SVG.
       if (live) host.innerHTML = svg;
