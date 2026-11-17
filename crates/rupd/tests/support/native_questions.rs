@@ -570,9 +570,14 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             u32::try_from(sent["id"].as_u64().unwrap()).unwrap(),
         )
         .await;
-        signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
-        // The Stop delivers the note; the fake then reports the final text. Release the lead's
+        // The fake reports the final text and its Stop as it takes the note. Release the lead's
         // Digest only after that turn ended, so no later `working`/`idle` Digest replaces it.
+        // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
+        let status = if text == "Publishing is complete" {
+            "builder is idle"
+        } else {
+            "builder is needs-you"
+        };
         let expected = if text == "Publishing is complete" {
             "idle"
         } else {
@@ -585,10 +590,18 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
                 .unwrap()
                 .iter()
                 .find(|n| n["id"] == child.id)?;
-            (!child.dir.join("final-reply.txt").exists()
-                && node["status"]["kind"] == expected
-                && node["status"]["label"] != "")
-                .then_some(())
+            if node["status"]["kind"] == expected {
+                return Some(());
+            }
+            // The note's record reads as a tool call after the fake's Stop and turns the child
+            // `working`; end that turn with the final text, as the replayed Stop does below.
+            signal(
+                &run,
+                &child,
+                json!({"hook_event_name":"Stop","last_assistant_message":text}),
+            )
+            .await;
+            None
         })
         .await;
         let last = format!("last: {}", &text[..text.len().min(100)]);
@@ -602,7 +615,7 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             let digest = entries.iter().find(|e| {
                 e["message"]["content"]
                     .as_str()
-                    .is_some_and(|s| s.contains(&last))
+                    .is_some_and(|s| s.contains(&last) && s.contains(status))
             });
             if digest.is_some() {
                 return digest.cloned();
@@ -636,12 +649,6 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             .unwrap();
         let body = digest["body"].as_str().unwrap();
         assert_eq!(digest["kind"], "note");
-        // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
-        let status = if text == "Publishing is complete" {
-            "builder is idle"
-        } else {
-            "builder is needs-you"
-        };
         let delivered = receive(&run, &lead, id).await;
         assert!(delivered.contains(status), "{delivered}");
         assert!(body.contains(status), "{body}");
