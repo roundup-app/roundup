@@ -74,6 +74,7 @@
   overflow-wrap: anywhere;
   padding: var(--space-3);
   background: var(--sunken);
+  border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius-control);
 }
 
@@ -103,11 +104,11 @@
   --reading-gutter: var(--space-4);
 }
 
-[data-pad-color="blue"], .reading [data-pad-callout="note"] { color: var(--pad-blue); }
-[data-pad-color="green"], .reading [data-pad-callout="tip"] { color: var(--pad-green); }
-[data-pad-color="purple"], .reading [data-pad-callout="important"] { color: var(--pad-purple); }
-[data-pad-color="red"], .reading [data-pad-callout="caution"] { color: var(--red); }
-[data-pad-color="amber"], .reading [data-pad-callout="warning"] { color: var(--pad-amber); }
+[data-pad-color="blue"] { color: var(--pad-blue); }
+[data-pad-color="green"] { color: var(--pad-green); }
+[data-pad-color="purple"] { color: var(--pad-purple); }
+[data-pad-color="red"] { color: var(--red); }
+[data-pad-color="amber"] { color: var(--pad-amber); }
 .reading mark { color: var(--pad-highlight-ink); background: var(--pad-highlight); }
 
 /* Either nesting order retains the authored colour with readable ink on highlight. */
@@ -116,8 +117,18 @@ mark[data-pad-color="green"], mark [data-pad-color="green"], [data-pad-color="gr
 mark[data-pad-color="purple"], mark [data-pad-color="purple"], [data-pad-color="purple"] mark { color: var(--purple-12); }
 mark[data-pad-color="red"], mark [data-pad-color="red"], [data-pad-color="red"] mark { color: var(--red-12); }
 mark[data-pad-color="amber"], mark [data-pad-color="amber"], [data-pad-color="amber"] mark { color: var(--amber-12); }
-.reading [data-pad-callout] { border: 0; padding: var(--space-3); background: var(--sunken); }
-.pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); }
+/* U7312c: a callout's text is ink; its tone colours only its label and its leading rule. */
+.reading [data-pad-callout="note"] { --pad-callout-tone: var(--pad-blue); }
+.reading [data-pad-callout="tip"] { --pad-callout-tone: var(--pad-green); }
+.reading [data-pad-callout="important"] { --pad-callout-tone: var(--pad-purple); }
+.reading [data-pad-callout="caution"] { --pad-callout-tone: var(--red); }
+.reading [data-pad-callout="warning"] { --pad-callout-tone: var(--pad-amber); }
+.reading [data-pad-callout] { color: var(--text); padding: var(--space-3); background: var(--sunken); border: var(--hairline-width) solid var(--hairline); border-inline-start: calc(var(--hairline-width) * 2) solid var(--pad-callout-tone); }
+.pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); color: var(--pad-callout-tone); }
+
+/* U7312c: the For Agents fold sits last under a hairline, its summary 12/500 grey, in Pads, Todo bodies and comments. */
+details[data-pad-agents] { border-block-start: var(--hairline-width) solid var(--hairline); padding-block-start: var(--space-2); }
+details[data-pad-agents] summary { font-size: var(--text-small); font-weight: 500; color: var(--grey); cursor: pointer; }
 
 /* U5574: Pad documents only. The shared editor also serves Todo bodies. U7310a: the scroller spans the Drawer, so its scrollbar runs along the Drawer's edge; the document keeps the Pad's column. */
 .pad-body {

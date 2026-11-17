@@ -32,8 +32,7 @@ def evaluate(script):
 setup = r"""(async () => {
   const f=window.__fake;
   f.actAs({kind:'agent',id:'tokens',parent:null});
-  const body=[1,2,3].map(n=>'::status Step '+n+': ran\n  detail '+n+' line a\n  detail '+n+' line b').join('\n');
-  await f.app.rpc('todo.comment',{id:5,body});
+  for (const n of [1,2,3]) await f.app.rpc('todo.comment',{id:5,body:'Step '+n+': ran\n\n<details><summary>For Agents</summary>\n\ndetail '+n+' line a\ndetail '+n+' line b\n\n</details>'});
   f.actAs({kind:'user',id:'you',parent:null});
 })()"""
 
@@ -50,14 +49,14 @@ try:
     browser('wait', '.shelf [data-todo="5"] .todo-open')
     evaluate(setup)
     browser('click', '.shelf [data-todo="5"] .todo-open')
-    browser('wait', '--fn', 'document.querySelectorAll(".todo-status-summary").length===3')
+    browser('wait', '--fn', 'document.querySelectorAll(".todo-comment details").length===3')
     evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));document.querySelector(".todo-comments").scrollIntoView({block:"start"})})()')
     directory = Path(target)
     directory.mkdir(parents=True, exist_ok=True)
     browser('screenshot', str(directory / 'thread-closed-1512-dark.png'))
     (directory / 'thread-closed-1512-dark.checks.json').write_text(json.dumps(evaluate('window.__checks()'), ensure_ascii=False) + '\n')
-    evaluate('document.querySelector(".todo-status-summary").click()')
-    browser('wait', '--fn', 'document.querySelector(".todo-status-summary").getAttribute("aria-expanded")==="true"')
+    evaluate('document.querySelector(".todo-comment summary").click()')
+    browser('wait', '--fn', 'document.querySelector(".todo-comment details").open')
     browser('screenshot', str(directory / 'thread-1512-dark.png'))
     (directory / 'thread-1512-dark.checks.json').write_text(json.dumps(evaluate('window.__checks()'), ensure_ascii=False) + '\n')
     print('ok')

@@ -1,10 +1,7 @@
 import { $node, $remark, $view } from "@milkdown/kit/utils";
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { copy } from "./copy";
-
-const opening = /^<details>\s*<summary>([^\r\n]*)<\/summary>\s*$/;
-
-const closing = /^<\/details>\s*$/;
+import { foldClosing as closing, foldOpening as opening } from "../plain/fold";
 
 /** U5561: retain each attribute-free toggle as one opaque, source-preserving block. */
 export const agentDetailsRemark = $remark("pad-agent-details", () => () => (tree, file) => {

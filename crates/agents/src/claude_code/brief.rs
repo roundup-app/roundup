@@ -511,15 +511,17 @@ Keep fenced-code language labels for syntax colour. These inline Pad wrappers ar
 
 ";
 
-/// Q5561: fixed guidance for both Pad-writing roles and tool modes.
+/// Q5561: fixed guidance for both writing roles and tool modes: Pads, Todo bodies and comments (#7312).
 const PAD_RULE: &str = "\
-## Pads
+## Pads and Todos
 
-When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, \
-write only what the user needs to read in the Pad body, verdict first. \
+When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, or writing a Todo's body with `todo_create` or `todo_update`, \
+write only what the user needs to read in the body, verdict first in one line. \
+Put depth below it: a table for five numbers or fewer, and a chart only for a trend or a comparison, its value axis from 0. \
 Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: \
 use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. \
 On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. \
+A comment with `todo_comment` is the verdict in its one line; any Agent-only details go after it in the same closing `For Agents` section. \
 Facts the user needs to decide or act stay in the body, including a path or command needed for that action. \
 Write the Pad for a reader who opened it from a link, and put each fact the user needs to decide or act in the message that points to the Pad as well: a Pad never carries it alone. \
 When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up. \

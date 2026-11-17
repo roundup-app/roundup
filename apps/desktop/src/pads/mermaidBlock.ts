@@ -4,12 +4,18 @@ import type { VisualMount } from "./visualBlocks";
 
 /** The calls the Pad makes of Mermaid. */
 export type MermaidApi = {
-  initialize(config: { startOnLoad: boolean; securityLevel: "strict"; theme: "base"; themeVariables: Record<string, string> }): void;
+  initialize(config: { startOnLoad: boolean; securityLevel: "strict"; theme: "base"; themeVariables: Record<string, string | Record<string, string>>; xyChart: { height: number } }): void;
   parse(text: string): Promise<void>;
   render(id: string, text: string): Promise<{ svg: string }>;
 };
 
 let counter = 0;
+
+/** U7312c: the five Pad colours, in the order a pie's slices take them. */
+const padTones = ["--pad-blue", "--pad-green", "--pad-amber", "--pad-purple", "--red"];
+
+/** U7312c: a chart's height in px. */
+const CHART_HEIGHT = 240;
 
 /** The error's first line: Mermaid's own message continues with a code frame. */
 const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy.invalidDiagram;
@@ -29,7 +35,26 @@ const render = async (mermaid: MermaidApi, text: string) => {
       tertiaryColor: tokenColour("--ground"),
       textColor: tokenColour("--text"),
       fontFamily: tokenValue("--font-ui"),
+      // U7312c: pie slices take the five Pad colours, labels are grey and lines are hairlines.
+      ...Object.fromEntries(padTones.map((tone, at) => [`pie${at + 1}`, tokenColour(tone)])),
+      pieStrokeColor: tokenColour("--ground"),
+      pieOuterStrokeColor: tokenColour("--hairline"),
+      pieSectionTextColor: tokenColour("--ground"),
+      pieLegendTextColor: tokenColour("--grey"),
+      pieTitleTextColor: tokenColour("--text"),
+      xyChart: {
+        backgroundColor: tokenColour("--ground"),
+        titleColor: tokenColour("--text"),
+        plotColorPalette: tokenColour("--pad-blue"),
+        ...Object.fromEntries(["x", "y"].flatMap(axis => [
+          [`${axis}AxisLabelColor`, tokenColour("--grey")],
+          [`${axis}AxisTitleColor`, tokenColour("--grey")],
+          [`${axis}AxisTickColor`, tokenColour("--hairline")],
+          [`${axis}AxisLineColor`, tokenColour("--hairline")],
+        ])),
+      },
     },
+    xyChart: { height: CHART_HEIGHT },
   });
   // `parse` first: a failed `render` leaves its error diagram in the document.
   await mermaid.parse(text);

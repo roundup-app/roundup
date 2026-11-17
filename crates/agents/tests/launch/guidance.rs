@@ -287,9 +287,19 @@ fn q5561_pad_guidance_reaches_each_writer() {
                 })
                 .unwrap();
             let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+            // #7312: one rule, in its own section, for Pads, Todo bodies and comments.
+            let rule = text
+                .split("## Pads and Todos")
+                .nth(1)
+                .and_then(|rest| rest.split("\n## ").next())
+                .unwrap_or_else(|| panic!("{role:?} {mcp}: no Pads and Todos section"));
             for instruction in [
                 "only what the user needs to read",
-                "verdict first",
+                "verdict first in one line",
+                "a table for five numbers or fewer",
+                "a chart only for a trend or a comparison, its value axis from 0",
+                "is the verdict in its one line",
+                "the same closing `For Agents` section",
                 "paths, commands, ids, logs and raw evidence",
                 "one final folded section named `For Agents`",
                 "<details><summary>For Agents</summary>",
@@ -297,9 +307,17 @@ fn q5561_pad_guidance_reaches_each_writer() {
                 "inside the same trailing section",
                 "Facts the user needs to decide or act stay in the body",
             ] {
-                assert!(text.contains(instruction), "{role:?} {mcp}: {instruction}");
+                assert!(rule.contains(instruction), "{role:?} {mcp}: {instruction}");
             }
-            for tool in ["pad_create", "pad_write", "pad_append", "pad_appendSection"] {
+            for tool in [
+                "pad_create",
+                "pad_write",
+                "pad_append",
+                "pad_appendSection",
+                "todo_create",
+                "todo_update",
+                "todo_comment",
+            ] {
                 let name = if mcp {
                     tool.to_owned()
                 } else {
@@ -308,7 +326,7 @@ fn q5561_pad_guidance_reaches_each_writer() {
                         _ => format!("rup {}", tool.replacen("_", " ", 1)),
                     }
                 };
-                assert!(text.contains(&name), "{role:?} {mcp}: {name}");
+                assert!(rule.contains(&name), "{role:?} {mcp}: {name}");
             }
         }
     }

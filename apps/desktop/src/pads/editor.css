@@ -418,6 +418,9 @@
 .pad-rich-editor .pad-syntax-string { color: var(--accent); }
 .pad-rich-editor .pad-syntax-number { color: var(--pad-amber); }
 .pad-rich-editor .pad-syntax-comment { color: var(--grey); }
+/* U7312c: a `diff` or `patch` fence colours removed lines red and added lines green. */
+.pad-rich-editor .pad-syntax-deleted { color: var(--red); }
+.pad-rich-editor .pad-syntax-inserted { color: var(--pad-green); }
 
 .pad-rich-editor details[data-pad-agents] {
   margin-block: var(--space-4);
@@ -425,8 +428,6 @@
 
 details[data-pad-agents] summary {
   min-height: var(--space-5);
-  cursor: pointer;
-  color: var(--grey);
 }
 
 details[data-pad-agents] textarea {

@@ -119,7 +119,20 @@ async fn t21_a_long_or_multi_line_agent_comment_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     made(&h, json!({"title": "t"})).await;
-    for body in ["x".repeat(281), "one\ntwo".to_string()] {
+    let fold = |inner: &str| format!("<details><summary>For Agents</summary>\n\n{inner}\n\n</details>");
+    let long = "x".repeat(281);
+    for body in [
+        long.clone(),
+        "one\ntwo".to_string(),
+        // The shown line stays one line of at most 280 characters when a fold follows it.
+        format!("{long}\n\n{}", fold("a")),
+        format!("one\ntwo\n\n{}", fold("a")),
+        // One closed fold, last: a second fold, text after it or an open one is refused.
+        format!("one\n\n{}\n\n{}", fold("a"), fold("b")),
+        format!("one\n\n{}\nafter", fold("a")),
+        "one\n\n<details open><summary>For Agents</summary>\n\na\n\n</details>".to_string(),
+        format!("one\n\n{}", fold(&"y".repeat(4096))),
+    ] {
         let err = h
             .call_as(agent("a"), "todo.comment", json!({"id": 1, "body": body}))
             .await
@@ -130,6 +143,14 @@ async fn t21_a_long_or_multi_line_agent_comment_is_rejected() {
         agent("a"),
         "todo.comment",
         json!({"id": 1, "body": "x".repeat(280)}),
+    )
+    .await
+    .unwrap();
+    // Agent-only details ride in one closing fold, with newlines and room for a log.
+    h.call_as(
+        agent("a"),
+        "todo.comment",
+        json!({"id": 1, "body": format!("{}\n\n{}", "x".repeat(280), fold(&format!("- `just check`\n\n| lane | time |\n|---|---|\n| web | 4 min |\n{}", "z".repeat(3800))))}),
     )
     .await
     .unwrap();
@@ -147,7 +168,7 @@ async fn t21_a_long_or_multi_line_agent_comment_is_rejected() {
             .as_array()
             .unwrap()
             .len(),
-        2
+        3
     );
 }
 

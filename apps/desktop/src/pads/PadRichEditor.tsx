@@ -363,12 +363,11 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
       ),
     );
 
-    if (!props.label) {
-      crepe.editor.use(padFormatMarkdown).use(padCallout).use(padHighlight).use(padColour);
-      crepe.editor.use($prose(() => codeColours()));
-      crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
-      crepe.editor.use($prose(headingFolds));
-    }
+    // U7312b: a Todo body renders every Pad block; U5631 keeps its menu and toolbar narrower.
+    crepe.editor.use(padFormatMarkdown).use(padCallout).use(padHighlight).use(padColour);
+    crepe.editor.use($prose(() => codeColours()));
+    crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
+    crepe.editor.use($prose(headingFolds));
 
     crepe.editor.use($prose(() => visualBlocks(visualKinds(), () => props.readonly)));
 

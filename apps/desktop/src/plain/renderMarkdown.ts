@@ -1,6 +1,7 @@
 // Reuse: marked 16.4.2 (pinned; latest 18.1.1, modified 2026-10-12) renders GFM to HTML through the renderer overrides below.
 // Milkdown's remark-parse/remark-gfm stop at mdast: HTML needs mdast-util-to-hast plus a sanitizer, neither a direct dependency.
 import { Marked, type Tokens } from "marked";
+import { foldClosing, foldOpening } from "./fold";
 
 const safeTarget = /^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i;
 
@@ -25,6 +26,27 @@ markdown.use({
     // An image is not drawn from generated text: it shows its alt text.
     image: ({ text }: Tokens.Image) => escaped(text),
   },
+  // U7312a: a fold renders closed, its summary as text and its body as Markdown; one holding a second `<details>` stays text, as in a Pad (U5561).
+  extensions: [{
+    name: "fold",
+    level: "block",
+    start: (src: string) => src.match(/^<details>/m)?.index,
+    tokenizer(src: string) {
+      const lines = src.split("\n");
+      const label = foldOpening.exec(lines[0] ?? "")?.[1];
+
+      if (label === undefined) return undefined;
+      const end = lines.findIndex((line, at) => at > 0 && foldClosing.test(line));
+      const body = lines.slice(1, end).join("\n");
+
+      if (end < 0 || body.includes("<details>")) return undefined;
+
+      return { type: "fold", raw: lines.slice(0, end + 1).join("\n"), label, tokens: this.lexer.blockTokens(body, []) };
+    },
+    renderer(token: Tokens.Generic) {
+      return `<details data-pad-agents><summary>${escaped(String(token["label"]))}</summary>${this.parser.parse(token.tokens ?? [])}</details>`;
+    },
+  }],
 });
 
 const isRow = (line: string) => /^\s*\|.*\|\s*$/.test(line);
