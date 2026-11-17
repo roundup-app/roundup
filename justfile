@@ -112,16 +112,7 @@ test-rust-lane profile base *args:
     shift 2
     selection=$(python3 loop/affected.py rust-lane {{quote(profile)}} {{quote(base)}})
     if [ -z "$selection" ]; then echo "no test of {{profile}} reaches the diff since {{base}}"; exit 0; fi
-    # On macOS, where the cached dependencies keep full debug info, the workspace's own crates build with line tables
-    # only: backtraces keep file and line, and the 3-core build takes a quarter less (run 43982531080). Linux lanes
-    # build with none (CI5330e/f); line tables there cost rust 1 44% more build time.
-    lines=()
-    if [ "$(uname)" = Darwin ]; then
-        for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
-            lines+=(--config "profile.test.package.$crate.debug=\"line-tables-only\"")
-        done
-    fi
-    exec cargo nextest run $selection "${lines[@]}" --profile {{quote(profile)}} {{ if base == "" { "" } else { "--no-tests pass" } }} "$@"
+    exec cargo nextest run $selection --profile {{quote(profile)}} {{ if base == "" { "" } else { "--no-tests pass" } }} "$@"
 
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
 [script('loop/keep-going.sh')]
