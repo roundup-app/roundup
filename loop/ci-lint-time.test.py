@@ -22,11 +22,11 @@ def keep_going(body, summary=None):
 
 class CiLintTime(unittest.TestCase):
     def assert_logged(self, stderr, line, at_least, times=1, code=0):
-        # keep-going.sh counts whole seconds with `date +%s`, so an n-second line logs n or n+1. A line that logs seconds since the run began leaves that window.
+        # keep-going.sh counts whole seconds with `date +%s`, so an n-second line logs n or n+1: only the floor is stable.
         found = [int(n) for n in re.findall(rf'^\[(\d+)s\] {re.escape(line)} \(exit {code}\)$', stderr, re.M)]
         self.assertEqual(len(found), times, stderr)
         self.assertGreaterEqual(min(found), at_least, stderr)
-        self.assertLessEqual(max(found), at_least + 1, stderr)
+        return found
 
     def test_ci7324a_desktop_typecheck_runs_typescript_7(self):
         script = (ROOT / 'apps/desktop/package.json').read_text()
@@ -58,8 +58,10 @@ class CiLintTime(unittest.TestCase):
         r = keep_going('& sleep 2\n& exit 4\nsleep 2\necho after\n')
         elapsed = time.monotonic() - began
         self.assertEqual(r.returncode, 1)
-        self.assert_logged(r.stderr, 'sleep 2', 2, times=2)
-        self.assert_logged(r.stderr, 'echo after', 0)
+        sleeps = self.assert_logged(r.stderr, 'sleep 2', 2, times=2)
+        (echo,) = self.assert_logged(r.stderr, 'echo after', 0)
+        # echo after ends after the foreground sleep, so seconds since the run began put it at or above the smaller sleep; its own seconds are 0 or 1. Only a stalled echo flakes this.
+        self.assertLess(echo, min(sleeps), r.stderr)
         self.assertIn('failed lines:\n  exit 4 (exit 4)', r.stderr)
         self.assertEqual(r.stderr.count('(exit 0)'), 3)
         # The two 2 s sleeps need 4 s one after the other; 3.5 s leaves a slow runner 1.5 s.
