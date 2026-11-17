@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
+import { ToastHost } from "./toastHost";
 import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "./fakeApp";
 import { node, workstream, event } from "./nodes";
@@ -19,7 +20,7 @@ it("u2744a_shelf_scope_no_scope_button", async () => {
     const frame = createShelfFrame(() => null, () => true, () => {});
     const tabs = createShelfTabs(frame);
 
-    return <ConnectedProjectContext value={connected}><Tabs.RootProvider value={tabs}><Shelf open={() => true} /></Tabs.RootProvider></ConnectedProjectContext>;
+    return <ToastHost><ConnectedProjectContext value={connected}><Tabs.RootProvider value={tabs}><Shelf open={() => true} /></Tabs.RootProvider></ConnectedProjectContext></ToastHost>;
   });
 
   for (const selected of [null, "w", "a", "r"]) {

@@ -1,10 +1,13 @@
 import { captureFocus } from "../keys/focus";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { lazy, createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
-import { activationSource } from "../keys/registry";
+import { Icon } from "../ink/Icon";
+import { contextMenu, linkEntries } from "../ui/contextMenu";
+import { createRowMenu } from "../ui/rowMenu";
+import { activationSource, type ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { createCutTitle } from "../ui/cutTitle";
 import { changeFailureOf, doesClearTodoFailure, failureOf } from "../app/failureOf";
@@ -14,7 +17,7 @@ const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default
 
 /** U3760: the Todo's Pad links in the order added. An `ok` one opens its Pad; a `missing` one is text. An Agent's change shows without reopening. */
 export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: () => void }) => {
-  const { app, drawer, events, project } = useConnectedProject();
+  const { app, drawer, events, project, rail } = useConnectedProject();
   const [refs, setRefs] = createSignal<readonly Ref[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [actionFailure, setActionFailure] = createSignal<string | null>(null);
@@ -83,10 +86,29 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
     });
   };
 
-  return <>
-    <ReservedLine message={actionFailure() ?? failure()} recover={{ run: () => refresh(), label: copy.padRefRetry }} dismiss={() => { setActionFailure(null); setFailure(null); }} />
-    <Show when={refs().length > 0}>
-    <section class="todo-refs" aria-label={copy.padRefsHeading(refs().length)}>
+  const openPad = (target: ReturnType<typeof refTarget>, source: ActivationSource) => drawer.open(() => <PadHost name={target.name} heading={target.heading ?? undefined} />, source, { kind: "pad", project: project.path });
+
+  // U7310e: a Pad ref's row opens Open, the Pad's link entries and Unlink in the native menu; a missing Pad's only Unlink.
+  let section: HTMLElement | undefined;
+
+  const refMenu = createRowMenu(() => section, "[data-ref]", (row, x, y) => {
+    const ref = refs().find(item => item.url === row.dataset.ref);
+
+    if (!ref) return;
+    const target = refTarget(ref.url);
+
+    void contextMenu(app, [
+      ...(ref.state === "ok" ? [{ id: "open", label: copy.openDraft, run: () => openPad(target, "pointer") },
+        ...linkEntries(app, { kind: "pad", id: target.name }, rail.nodes, node => rail.exitOf(node) === null, setActionFailure, () => setActionFailure(null))] : []),
+      { id: "remove", label: copy.removePadRef(target.name), run: () => remove(ref.url, row) },
+    ], x, y);
+  });
+
+  // U7310d: a failed read or unlink shows as a toast.
+  createMessageToast({ get message() { return actionFailure() ?? failure(); }, recover: { run: () => refresh(), label: copy.padRefRetry }, dismiss: () => { setActionFailure(null); setFailure(null); } });
+
+  return <Show when={refs().length > 0}>
+    <section class="todo-refs" aria-label={copy.padRefsHeading(refs().length)} ref={section} onContextMenu={refMenu}>
       <h3>{copy.padRefsHeading(refs().length)}</h3>
 
         <For each={refs()}>{(ref) => {
@@ -94,13 +116,13 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
           const linkCut = createCutTitle(() => target.name);
           const label = <>{target.name}{target.heading !== null && <span class="todo-ref-heading light">{copy.padRefHeading(target.heading)}</span>}</>;
 
-          return <div class="todo-ref" data-state={ref.state}>
+          return <div class="todo-ref" data-state={ref.state} data-ref={ref.url}>
             <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
-              <button {...linkCut.attrs()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadHost name={target.name} heading={target.heading ?? undefined} />, activationSource(event), { kind: "pad", project: project.path })}>{label}</button>
+              <button {...linkCut.attrs()} data-button="quiet" data-reads="text" type="button" role="link" class="word todo-ref-link" onClick={(event) => openPad(target, activationSource(event))}>{label}</button>
             </Show>
-            <BusyButton kind="quiet" class="word light" busyLabel={copy.removing} aria-label={copy.removePadRef(target.name)} onClick={event => remove(ref.url, event.currentTarget)}>{copy.remove}</BusyButton>
+            <BusyButton kind="icon" class="word todo-ref-remove" busyLabel={copy.removing} aria-label={copy.removePadRef(target.name)} onClick={event => remove(ref.url, event.currentTarget)}><Icon name="unlink" /></BusyButton>
           </div>;
         }}</For>
     </section>
-  </Show></>;
+  </Show>;
 };

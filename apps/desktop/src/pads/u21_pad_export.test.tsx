@@ -63,7 +63,7 @@ describe("u21 export", () => {
 
     expect([
       line.textContent,
-      screen.getByLabelText("Drawer").contains(line),
+      screen.getByRole("region", { name: "Updates" }).contains(line),
     ]).toEqual(["directory /gone does not exist", true]);
   });
 });

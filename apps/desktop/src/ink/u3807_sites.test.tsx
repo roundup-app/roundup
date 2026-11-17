@@ -17,6 +17,8 @@ import { TodoComments } from "../todos/TodoComments";
 import { TodoRefs } from "../todos/TodoRefs";
 import { mountAskBar, input, openAsk, press } from "../ask/askFixture";
 import { mountTodos, todo } from "../todos/testHarness";
+import { ToastHost } from "../testing/toastHost";
+import { notice, notices } from "../testing/notices";
 
 import { createBulkDelete } from "../shelf/BulkDelete";
 import { ProjectTab } from "../header/ProjectTab";
@@ -58,7 +60,7 @@ const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.g
 it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site", async (site) => {
   const mounted = await mountTodos([todo(1)]);
 
-  const view = render(() => <ConnectedProjectContext value={mounted.connected}><section>{site.render()}</section></ConnectedProjectContext>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><ToastHost><section>{site.render()}</section></ToastHost></ConnectedProjectContext>);
 
   if (site.method === "todo.unread") await within(view.container).findByText(copy.inboxEmpty);
 
@@ -129,13 +131,13 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () 
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
 });
 
-/** The owning surface exposes the failure and clears it after recovery. */
+/** The owning surface exposes the failure and clears it after recovery; the Toast region's empty live regions are no failure. */
 const cycle = async <Shown, Cleared,>(surface: HTMLElement, show: () => Shown, hide: () => Cleared, role: "alert" | "status" = "alert") => {
-  expect(within(surface).queryByRole(role)).toBeNull();
+  expect(notices(role, surface)).toEqual([]);
   await show();
-  await within(surface).findByRole(role);
+  await waitFor(() => notice(role, surface));
   await hide();
-  await waitFor(() => expect(within(surface).queryByRole(role)).toBeNull());
+  await waitFor(() => expect(notices(role, surface)).toEqual([]));
 };
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async () => {
@@ -197,7 +199,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectSettings", as
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo drawer", async () => {
   const mounted = await mountTodos([todo(1)]);
-  const view = render(() => <ConnectedProjectContext value={mounted.connected}><TodoDrawer id={1} todos={mounted.todos} /></ConnectedProjectContext>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><ToastHost><TodoDrawer id={1} todos={mounted.todos} /></ToastHost></ConnectedProjectContext>);
   await within(view.container).findByRole("region", { name: "Activity" });
   const box = within(view.container).getByRole("checkbox", { name: "Complete todo 1" });
   const original = mounted.app.handlers["todo.complete"]!;
@@ -323,7 +325,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal pane-failur
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo field recovery and retry", async () => {
   const mounted = await mountTodos([todo(1)]);
-  const view = render(() => <ConnectedProjectContext value={mounted.connected}><TodoDraftRecovery object="1" active /></ConnectedProjectContext>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><ToastHost><TodoDraftRecovery object="1" active /></ToastHost></ConnectedProjectContext>);
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
   mounted.connected.drafts.edit({ surface: "todos", object: "1", recipient: "title" }, { title: "retained" }, null, "ordinary");
   const place = (await within(view.container).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;

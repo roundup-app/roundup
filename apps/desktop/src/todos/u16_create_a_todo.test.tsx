@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
+import { notice } from "../testing/notices";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
 afterEach(cleanup);
@@ -153,7 +154,7 @@ describe("u16 create a Todo", () => {
 
     await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
     expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "second thought");
-    expect((await screen.findByRole("alert")).textContent).toContain(refusal.message);
+    expect((await waitFor(() => notice("alert"))).textContent).toContain(refusal.message);
   });
 
   it("u16_the_next_enter_clears_a_shown_failure", async () => {

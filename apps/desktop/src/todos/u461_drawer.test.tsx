@@ -2,6 +2,7 @@ import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
+import { notices } from "../testing/notices";
 import { TodoDrawer } from "./TodoDrawer";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo, todoEvent } from "./testHarness";
@@ -26,7 +27,7 @@ it("u461_completion_failure_keeps_focus", async () => {
   app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32003, "Try again"));
   const box = within(panel()).getByRole<HTMLInputElement>("checkbox", { name: "Complete Ship" });
   box.focus(); fireEvent.click(box);
-  await within(panel()).findByText("Try again");
+  await screen.findByText("Try again");
   expect(box.checked).toBe(false); expect(document.activeElement).toBe(box);
 });
 
@@ -137,13 +138,13 @@ for (const surface of ["fold", "drawer", "agent"] as const) {
       expect(box.checked).toBe(true);
       await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1}]));
       reject(new RpcError(-32003, "Cannot reopen yet"));
-      await within(area).findByText("Cannot reopen yet");
+      await screen.findByText("Cannot reopen yet");
       expect(box.checked).toBe(true);
       expect(document.activeElement).toBe(box);
       mounted.app.handlers["todo.reopen"] = reopen;
       activate();
       await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1},{id:1}]));
-      await waitFor(() => expect(within(area).queryByRole("alert")).toBeNull());
+      await waitFor(() => expect(notices("alert")).toEqual([]));
     });
   }
 }

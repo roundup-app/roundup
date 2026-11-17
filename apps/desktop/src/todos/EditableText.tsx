@@ -14,6 +14,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField, type Sent } from "../state/draftField";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { createEffect, createMemo, createSignal, For, lazy, Loading, onCleanup, Show, untrack } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
@@ -86,10 +87,12 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
   );
 
-  return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
-    if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
-  }}>
-    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? problemLine.message()} status={records().length > 0 ? label(records()[records().length - 1]!) : null} dismiss={() => failure() ? setFailure(null) : problemLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} action={<>
+  const line = {
+    get message() { return failure() ?? problemLine.message(); },
+    get status() { return records().length > 0 ? label(records()[records().length - 1]!) : null; },
+    dismiss: () => failure() ? setFailure(null) : problemLine.dismiss(),
+    get recover() { return problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined; },
+    get action() { return <>
     <For each={records().map(draft => draft.revision)}>{revision => {
       const draft = () => records().find(record => record.revision === revision);
 
@@ -107,9 +110,22 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
         </div>
       </div>}</Show>;
     }}</For>
-    </>} />
+    </>; },
+  };
+
+  // U7310d: in the Drawer a failure is a toast and the kept drafts stay a line at the view's end; beside the list both share one line.
+  createMessageToast({ get message() { return props.inDrawer && line.message; }, dismiss: line.dismiss, get recover() { return line.recover; } });
+
+  return <Show when={props.inDrawer ? line.status : !drawer.content()}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
+    if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
+  }}>
+    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} {...line} message={!props.inDrawer && line.message} />
   </section></Show>;
 };
+
+/** U7310d: a change made elsewhere to the field being edited is a status above it while it holds; a toast holds failures only. */
+const ChangedElsewhere = (props: { editing: Editing | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body" }) =>
+  <Show when={props.editing}>{started => <Show when={(props.captured && props.captured.seq !== started().form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started().form.base)}><ReservedLine status={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
 
 /** The form a new edit starts from: the captured change's values, else the Todo's own. */
 const formFrom = (todo: Todo, name: "title" | "body", change: Change | undefined): Editing["form"] => {
@@ -447,12 +463,12 @@ export const EditableText = (props: {
       }} /></Loading></div>;
   };
 
+  // U7310d: a failed save shows as a toast.
+  createMessageToast({ get message() { return retentionFailure() || (!props.onFailure && failure()); }, dismiss: () => retentionFailure() ? setRetentionFailure(null) : setFailure(null) });
+
   return (
     <div class="todo-editable" ref={container}>
-    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} dismiss={() => retentionFailure() ? setRetentionFailure(null) : setFailure(null)} />
-    <Show when={editing()} keyed>
-      {(started) => <ReservedLine status={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />}
-    </Show>
+    <ChangedElsewhere editing={editing()} captured={props.captured()} revision={props.revision} todo={props.todo} name={props.name} />
     <Show when={props.multiline} fallback={<TitleField />}>
       <Show
         when={editing()}

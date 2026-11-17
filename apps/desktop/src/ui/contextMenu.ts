@@ -48,7 +48,7 @@ const find = (entries: MenuEntry[], id: string): MenuEntry | undefined => {
 
 // U4322a: stable action ids, shared by every producer; child order remains the producer's.
 const groups = [
-  ["open", "dismiss", "recover"],
+  ["open", "reply", "dismiss", "recover"],
   ["start-now", "dequeue", "move-up", "move-down"],
   ["start", "restart", "normal", "yolo", "hand-off", "stop", "resume"],
   ["complete"],

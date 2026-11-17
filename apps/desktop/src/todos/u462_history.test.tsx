@@ -51,13 +51,13 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   m.app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32003, "History unavailable"));
   { const focusedRow = await screen.findByRole("button", { name: "Idle #1 todo 1" }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
-  await within(panel()).findByText("History unavailable");
+  await screen.findByText("History unavailable");
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   fireEvent.dblClick(within(panel()).getByText("todo 1", { selector: ":not(.todo-breadcrumb-title)" }));
   const field = await within(panel()).findByLabelText("Title");
   await waitFor(() => expect(document.activeElement).toBe(field));
   m.app.handlers["todo.getHistory"] = original;
-  fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry history" }));
   fireEvent.click(await within(panel()).findByRole("button", { name: /^\d+ changes?$/ }));
   await within(panel()).findByText(/^Created todo 1( · |$)/);
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
@@ -115,10 +115,10 @@ it("u3728_failed_read_retries_without_consuming_unread", async () => {
   const original = m.app.handlers["todo.readHistory"]!;
   m.app.handlers["todo.readHistory"] = () => Promise.reject(new RpcError(-32003, "Read unavailable"));
   await open(m);
-  await within(panel()).findByText("Read unavailable");
+  await screen.findByText("Read unavailable");
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1);
   m.app.handlers["todo.readHistory"] = original;
-  fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry history" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2);
 });
