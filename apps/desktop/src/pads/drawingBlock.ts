@@ -23,6 +23,8 @@ export type CanvasApi = {
   convertToExcalidrawElements(skeleton: Skeleton[], options: { regenerateIds: false }): CanvasElement[];
   /** Loads full elements a stored scene holds, keeping their bindings; converting them again would detach every arrow. */
   restoreElements(elements: Skeleton[]): CanvasElement[];
+  /** Lays out Mermaid flowchart or sequence source as an editable scene. The converter loads on the first call, so a Pad without a Mermaid Drawing never requests it. */
+  fromMermaid(text: string): Promise<CanvasElement[]>;
 };
 
 export type Skeleton = { type: string; id?: string | undefined; version?: number | undefined };
@@ -32,7 +34,7 @@ const Scene = v.object({ type: v.literal("excalidraw"), elements: v.array(v.loos
 const parse = (text: string) => {
   const scene = v.safeParse(Scene, JSON.parse(text));
 
-  if (!scene.success) throw new Error(copy.notAnExcalidrawScene);
+  if (!scene.success) throw new Error("not a scene");
 
   return scene.output.elements;
 };
@@ -48,6 +50,7 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   let stopAppearance: (() => void) | undefined;
   // Loading may touch versions; only the user's own gesture counts as an edit.
   let touched = false;
+  let live = true;
 
   const down = () => {
     touched = true;
@@ -57,9 +60,18 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   host.addEventListener("pointerdown", down);
   host.addEventListener("keydown", () => (touched = true));
 
-  try {
-    const skeleton = parse(text);
-    const elements = isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false });
+  const fail = () => {
+    const source = document.createElement("pre");
+    const line = document.createElement("p");
+
+    source.textContent = text;
+    line.className = "visual-error";
+    line.setAttribute("role", "alert");
+    line.textContent = copy.notAnExcalidrawScene;
+    host.replaceChildren(source, line);
+  };
+
+  const show = (elements: CanvasElement[]) => {
     let last = signature(elements);
 
     const initialData = { elements, scrollToContent: true };
@@ -92,18 +104,30 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
 
     render();
     stopAppearance = followAppAppearance(render);
-  } catch (error) {
-    const source = document.createElement("pre");
-    const line = document.createElement("p");
+  };
 
-    source.textContent = text;
-    line.className = "visual-error";
-    line.setAttribute("role", "alert");
-    line.textContent = copy.drawing(error instanceof Error ? error.message : String(error));
-    host.replaceChildren(source, line);
+  // A scene is JSON; any other body is Mermaid source.
+  if (text.trimStart().startsWith("{")) {
+    try {
+      const skeleton = parse(text);
+
+      show(isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false }));
+    } catch {
+      fail();
+    }
+  } else {
+    canvas.fromMermaid(text).then(
+      (elements) => {
+        if (live) show(elements);
+      },
+      () => {
+        if (live) fail();
+      },
+    );
   }
 
   return () => {
+    live = false;
     stopAppearance?.();
     // Unmounting during React's own render pass throws; defer it.
     queueMicrotask(() => root?.unmount());

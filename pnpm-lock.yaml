@@ -127,6 +127,9 @@ importers:
       '@excalidraw/excalidraw':
         specifier: ^0.18.1
         version: 0.18.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@excalidraw/mermaid-to-excalidraw':
+        specifier: 2.2.2
+        version: 2.2.2
       '@lezer/highlight':
         specifier: 1.2.5
         version: 1.2.5

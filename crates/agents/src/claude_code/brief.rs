@@ -525,6 +525,11 @@ Write the Pad for a reader who opened it from a link, and put each fact the user
 When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up. \
 Where you would send a Pad's sections one by one, give the Pad's walk link instead: its `link` with `pad` replaced by `walk` (`roundup://walk/<pad>?project=<key>`), never made up; one click plays the Pad as a walk, one step per top-level heading.
 
+Drawings: a drawing lives only in a Pad, as a fenced `excalidraw` block; a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one. \
+For a flow or a sequence, write Mermaid flowchart or sequence source as the block's body and place no coordinates. \
+For a free sketch Mermaid cannot lay out, such as a screen or a box-and-arrow map, write the skeleton form: a shape with a `label`, an arrow with `start` and `end` ids. \
+Draw only when the drawing explains structure or flow faster than a table; at most about 12 shapes; one idea per drawing; labels in plain words.
+
 ";
 
 /// PL3: the places a user can be sent to, as links the user clicks.

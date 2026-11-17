@@ -17,6 +17,7 @@ let loads: unknown[] = [];
 const fake: CanvasApi = {
   // The skeleton expands to full elements.
   convertToExcalidrawElements: (skeleton, options) => (loads.push(options), skeleton).map((element, index) => ({ id: String(element.id ?? `e${index}`), version: 1 })),
+  fromMermaid: async () => [],
   restoreElements: (stored) => (loads.push("restored"), stored).map((element) => ({ id: String(element.id), version: element.version ?? 1 })),
   Excalidraw: (next) => {
     props = next;
@@ -120,7 +121,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     await openPad("note");
 
     await waitFor(() => expect(document.querySelectorAll(".visual-error")).toHaveLength(1));
-    expect(document.querySelector(".visual-error")?.textContent).toBe(copy.drawing(copy.notAnExcalidrawScene));
+    expect(document.querySelector(".visual-error")?.textContent).toBe(copy.notAnExcalidrawScene);
   });
 
   it("u149_a_pad_changed_with_a_new_drawing_renders_it", async () => {

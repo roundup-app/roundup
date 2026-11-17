@@ -296,6 +296,10 @@ fn q5561_pad_guidance_reaches_each_writer() {
                 "closing `</details>`, without `open`",
                 "inside the same trailing section",
                 "Facts the user needs to decide or act stay in the body",
+                "a drawing lives only in a Pad, as a fenced `excalidraw` block",
+                "write Mermaid flowchart or sequence source as the block's body and place no coordinates",
+                "write the skeleton form: a shape with a `label`, an arrow with `start` and `end` ids",
+                "at most about 12 shapes; one idea per drawing; labels in plain words",
             ] {
                 assert!(text.contains(instruction), "{role:?} {mcp}: {instruction}");
             }
@@ -312,6 +316,14 @@ fn q5561_pad_guidance_reaches_each_writer() {
             }
         }
     }
+}
+
+#[test]
+fn u7416b_the_drawing_rule_is_absent_from_a_brief_without_pad_tools() {
+    let s = setup();
+
+    assert!(!brief(&s, "7", Role::Scout).contains("`excalidraw`"));
+    assert!(brief(&s, "7", Role::Agent).contains("`excalidraw`"));
 }
 
 #[test]

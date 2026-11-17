@@ -23,6 +23,7 @@ it("u3805_open_drawings_receive_the_app_theme_without_replacing_their_editor", a
   const canvas: CanvasApi = {
     convertToExcalidrawElements: () => [],
     restoreElements: () => [],
+    fromMermaid: async () => [],
     Excalidraw: props => {
       const [draft, setDraft] = useState("");
       themes.push(props.theme);

@@ -589,6 +589,26 @@ async fn u149_a_drawing_written_through_the_tools_is_stored_byte_exact() {
     );
 }
 
+#[tokio::test]
+async fn u7416a_a_mermaid_drawing_written_through_the_tools_is_stored_byte_exact() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let flow = "```excalidraw\nflowchart TD\n  A[Plan] --> B[Ship]\n```\n";
+    let user = client_as(&project.socket, Actor::user()).await;
+
+    for (tool, twice) in [("pad_create", 1), ("pad_append", 2)] {
+        let reply = shim
+            .call(tool, json!({ "name": "notes", "text": flow }))
+            .await;
+        assert_eq!(reply.is_error, Some(false));
+        let read = user
+            .request("pad.read", json!({ "name": "notes" }))
+            .await
+            .unwrap();
+        assert_eq!(read["text"].as_str().unwrap(), flow.repeat(twice));
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn a28_an_mcp_spawn_with_a_name_shows_it_on_the_rail() {
     let served = Served::start("#!/bin/sh\nsleep 30\n", &[]).await;

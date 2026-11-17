@@ -33,6 +33,13 @@ export const bundledRenderers: Renderers = {
       convertToExcalidrawElements: (skeleton, options) => module.convertToExcalidrawElements(skeleton as never, options),
       // SAFETY: stored elements are Excalidraw's own output, and restoring them keeps `id` and `version`.
       restoreElements: (elements) => module.restoreElements(elements as never, null) as never,
+      fromMermaid: async (text) => {
+        const { parseMermaidToExcalidraw } = await import("@excalidraw/mermaid-to-excalidraw");
+        const { elements } = await parseMermaidToExcalidraw(text);
+
+        // SAFETY: the converter's output is a skeleton, and Excalidraw's own expansion gives it ids and versions.
+        return module.convertToExcalidrawElements(elements as never, { regenerateIds: false });
+      },
     };
   },
 };
