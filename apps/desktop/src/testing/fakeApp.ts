@@ -28,6 +28,7 @@ const emptyReads: Handlers = {
   "machine.sshHosts": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "agent.ownedChanges": () => ({ groups: [] }),
+  "agent.links": () => ({ entries: [] }),
   "project.compareRefs": () => ({ refs: [] }),
   "terminal.list": () => [],
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),
