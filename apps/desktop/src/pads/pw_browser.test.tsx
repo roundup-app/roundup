@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
+import type { RailNode } from "@contracts/agent/RailNode";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { OpenRequest } from "../window/nativeOpen";
 import { walkSteps } from "./walkSteps";
@@ -13,13 +14,12 @@ const KEY = "project-0000000000000000";
 
 const TEXT = (n: number) => Array.from({ length: n }, (_, i) => `# Part ${i + 1}\nBody ${i + 1}`).join("\n\n");
 
-/** A Project "/project" holding Agent `chosen` and the Pads `notes` (3 steps) and `plan` (3 steps); `click` is a plain click on a walk link of a Pad, from the Terminal `from`. */
-const mount = async () => {
+/** A Project "/project" holding `nodes` (Agent `chosen` by default) and the Pads `notes` and `plan` (3 steps each) unless `pads` gives other text; `click` is a plain click on a walk link of a Pad, from a Terminal. */
+const mount = async ({ pads: texts = {}, nodes = [agent("chosen", "idle", "ready")] }: { pads?: Record<string, string>; nodes?: RailNode[] } = {}) => {
   const app = createFakeApp();
   app.add("/project");
-  const target = agent("chosen", "idle", "ready");
-  const pads = new Map([["notes", TEXT(3)], ["plan", TEXT(3)]]);
-  app.handlers["rail.tree"] = () => [target];
+  const pads = new Map([["notes", TEXT(3)], ["plan", TEXT(3)], ...Object.entries(texts)]);
+  app.handlers["rail.tree"] = () => nodes;
   app.handlers["terminal.list"] = () => [];
   // SAFETY: the Message reply is unread.
   app.handlers["message.send"] = () => ({}) as never;
@@ -149,6 +149,20 @@ it("pw4_the_step_survives_a_restart_per_pad", async () => {
 
   const fourth = await mount();
   fourth.click("plan");
+  expect(await step()).toEqual([2, 3]);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Finish" }));
+  await waitFor(() => expect(walkEl()).toBeNull());
+  cleanup();
+
+  const fifth = await mount();
+  fifth.click("plan");
+  expect(await step()).toEqual([1, 3]);
+  cleanup();
+
+  const shrunk = await mount({ pads: { notes: TEXT(2) } });
+  shrunk.click("notes");
+  expect(await step()).toEqual([2, 2]);
 });
 
 it("pw5_finish_focuses_the_senders_terminal_and_sends_one_message", async () => {
@@ -170,6 +184,17 @@ it("pw5_finish_focuses_the_senders_terminal_and_sends_one_message", async () => 
   fireEvent.keyDown(again, { key: "ArrowRight" });
   fireEvent.keyDown(again, { key: "Enter" });
   await waitFor(() => expect(m.messages()).toHaveLength(2));
+});
+
+it("pw5_a_walk_from_the_doors_terminal_finishes_there", async () => {
+  const m = await mount({ nodes: [door("door", "idle", "ready")] });
+  m.click("notes", "t-door");
+  const walk = await shown();
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  fireEvent.keyDown(walk, { key: "Enter" });
+  await waitFor(() => expect(m.connected.rail.selected()).toBe("door"));
+  expect(m.messages().map(message => message.to)).toEqual(["door"]);
 });
 
 it("pw5_a_walk_opened_without_a_link_returns_focus_and_sends_nothing", async () => {

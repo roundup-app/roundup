@@ -1,25 +1,21 @@
+import { lexer } from "marked";
+
 export type WalkStep = { title: string; text: string };
 
-const FENCE = /^\s*(```|~~~)/;
-
-const TOP_HEADING = /^#[ \t]+(\S.*?)[ \t#]*$/;
-
-/** PW1: a Pad's steps. Each top-level `#` heading with its text up to the next one is a step; text before the first heading joins step 1; a Pad with none is one step named `name`. A heading in a fenced code block does not split. */
+/** PW1: a Pad's steps. Each top-level `#` heading with its text up to the next one is a step; text before the first heading joins step 1; a Pad with none is one step named `name`. A heading in a fenced code block does not split, because `marked` reads it as code. */
 export const walkSteps = (text: string, name: string): WalkStep[] => {
-  const steps: { title: string; lines: string[] }[] = [];
-  let before: string[] = [];
-  let fenced = false;
+  const steps: { title: string; raw: string }[] = [];
+  let before = "";
 
-  for (const line of text.split("\n")) {
-    if (FENCE.test(line)) fenced = !fenced;
+  for (const token of lexer(text)) {
+    const last = steps.at(-1);
 
-    const heading = fenced ? null : TOP_HEADING.exec(line);
-
-    if (heading) steps.push({ title: heading[1] ?? name, lines: steps.length === 0 ? [...before, line] : [line] });
-    else (steps.at(-1)?.lines ?? before).push(line);
+    if (token.type === "heading" && token.depth === 1) steps.push({ title: token.text || name, raw: last ? token.raw : before + token.raw });
+    else if (last) last.raw += token.raw;
+    else before += token.raw;
   }
 
   if (steps.length === 0) return [{ title: name, text }];
 
-  return steps.map(step => ({ title: step.title, text: step.lines.join("\n") }));
+  return steps.map(step => ({ title: step.title, text: step.raw.trimEnd() }));
 };
