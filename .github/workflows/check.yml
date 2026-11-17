@@ -259,6 +259,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           experiment-cache: ${{ env.CI3781_CACHE }}
+          node-cache: 'true'
+          save-node: 'true'
       - name: C4 addition and freshness observers
         # The observers rebuild the workspace after each contract edit; incremental builds reuse the first one's work.
         env:
@@ -489,6 +491,7 @@ jobs:
         with:
           vendored-cache: release
           save-vendored: 'true'
+          node-cache: 'true'
           save-node: 'true'
       - name: C9b native release size
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -738,7 +741,6 @@ jobs:
           rust: 'false'
           browser: 'true'
           tracer: 'true'
-          save-node: 'true'
       - name: CI5330a disk before tests
         run: bash .github/actions/setup/disk.sh report before
       # This must be the runner's first browser command, before any warmup or regression fixture.
