@@ -81,7 +81,7 @@ HELPER_CRATES = ('rupd', 'rup', 'terminal')
 # CI7295a: a full web run in this many shards keeps each one's modelled time under 190 s (`shardCount` of
 # apps/desktop/src/testing/shardSequencer.ts), a test step near 220 s on the runner (run 43967384873); it caps a PR's
 # count, which check's `plan` sizes by measured time.
-MAX_SHARDS = 24
+MAX_SHARDS = 28
 
 
 def shards(count):

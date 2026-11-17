@@ -145,13 +145,12 @@ jobs:
           import { relative } from 'node:path';
           import { createVitest } from 'vitest/node';
           import durations from './src/testing/shardDurations.json' with { type: 'json' };
-          import { shardCount } from './src/testing/shardSequencer.ts';
+          import { serialFiles, shardCount } from './src/testing/shardSequencer.ts';
           const ctx = await createVitest({ related: process.env.SOURCES.split('\n'), watch: false, run: true });
           try {
             const specs = await ctx.getRelevantTestSpecifications();
             const file = (spec) => relative(ctx.config.root, spec.moduleId);
-            const serial = new Set(specs.filter((spec) => spec.project.config.maxWorkers === 1).map(file));
-            console.log(shardCount(specs.map(file), durations, Number(process.env.BUDGET), Number(process.env.MAX), serial));
+            console.log(shardCount(specs.map(file), durations, Number(process.env.BUDGET), Number(process.env.MAX), serialFiles(specs, ctx.config.root)));
           } finally {
             await ctx.close();
           }
@@ -560,7 +559,7 @@ jobs:
           FILES: ${{ needs.plan.outputs.first }}
         run: python3 loop/app-data.py pnpm --filter desktop exec vitest run --project app --project webkit-guards --passWithNoTests ${FILES//apps\/desktop\//}
 
-  # L89: the web tests in up to 24 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
+  # L89: the web tests in up to 28 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.
@@ -700,8 +699,10 @@ jobs:
       # This must be the runner's first browser command, before any warmup or regression fixture.
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold.jsonl"
-      - name: R3800 startup artifact checker observers
-        run: node --test apps/desktop/budgets/*.test.mjs
+      # CI7295g: the support tests (copy guard, reporting, R3800 startup artifact checker observers) run once a run, here,
+      # not in each web shard, where they cost every shard about 10 s.
+      - name: Support tests
+        run: pnpm --filter desktop test:support
       # A failed build or checker fails this job, and `check` needs it to succeed.
       - name: R3800 production entry budget
         run: |
