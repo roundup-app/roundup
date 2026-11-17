@@ -46,6 +46,8 @@ pub struct PrChecks {
     /// `owner/name`, so two repositories sharing a PR number never mix.
     pub repository: String,
     pub number: u64,
+    /// `gh`'s `isDraft`; `None` when it gave none.
+    pub draft: Option<bool>,
     pub head: String,
     pub checks: Vec<Check>,
     /// Seconds since the Unix epoch when the facts were read.
@@ -87,6 +89,8 @@ struct View {
     #[serde(rename = "headRefOid")]
     head: String,
     url: String,
+    #[serde(default, rename = "isDraft")]
+    draft: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -153,6 +157,7 @@ fn collect(gh: &Path, dir: &Path, deadline: Instant) -> Result<Evidence, Gap> {
         host,
         repository,
         number: before.number,
+        draft: before.draft,
         head: before.head,
         checks: if pending { Vec::new() } else { checks },
         read_at,
@@ -168,7 +173,7 @@ fn view(gh: &Path, dir: &Path, deadline: Instant) -> Result<View, Gap> {
     let out = run(
         gh,
         dir,
-        &["pr", "view", "--json", "number,headRefOid,url"],
+        &["pr", "view", "--json", "number,headRefOid,url,isDraft"],
         deadline,
     )?;
     match out.code {
