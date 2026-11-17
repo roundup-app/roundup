@@ -55,6 +55,12 @@ def take(conn):
                 seen_ids.add(entry['msg_id'])
                 last_entry = content
                 with open(taken_path, 'a') as out: out.write(line)
+            if os.path.exists(here + '/final-reply.txt'):
+                text = open(here + '/final-reply.txt').read()
+                os.unlink(here + '/final-reply.txt')
+                hook('PreToolUse', {'tool_name': 'Read'})
+                print(text, flush=True)
+                threading.Thread(target=hook, args=('Stop', {'last_assistant_message': text}), daemon=True).start()
 def serve():
     while True:
         conn, _ = server.accept()
@@ -69,17 +75,6 @@ def hook(event, fields):
     for group in settings['hooks'][event]:
         for item in group['hooks']:
             subprocess.run(item['command'], shell=True, input=json.dumps(fields), text=True, check=True, stdout=subprocess.DEVNULL)
-# A `final-reply.txt` file ends a turn as Claude Code does: its text on the Terminal and
-# its Stop carrying `last_assistant_message`, in order from this one source.
-def final_reply():
-    while True:
-        if os.path.exists(here + '/final-reply.txt'):
-            text = open(here + '/final-reply.txt').read()
-            os.unlink(here + '/final-reply.txt')
-            print(text, flush=True)
-            hook('Stop', {'last_assistant_message': text})
-        time.sleep(0.02)
-threading.Thread(target=final_reply, daemon=True).start()
 # A `bg-shell` marker beside it starts a tool shell as Claude Code runs one: it outlives every Stop.
 def tool_shell():
     while not os.path.exists(root + '/bg-shell'):

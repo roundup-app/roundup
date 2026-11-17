@@ -547,13 +547,20 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         // Each completion case has its own B22 window; this observes A5482c, not the push cap.
         let (mut run, lead, child) = family().await;
         let typed = (lead.typed(), child.typed());
-        // The fake `claude` ends a turn itself when this file appears: its tool use, its text on the
-        // Terminal and its Stop carrying `last_assistant_message`, in order from one source.
+        // The fake `claude` ends the turn itself once it takes the Message: its tool use, its text on
+        // the Terminal and its Stop carrying `last_assistant_message`, in that order from one source.
         std::fs::write(child.dir.join("final-reply.txt"), &text).unwrap();
+        run.user
+            .request(
+                "message.send",
+                json!({"to":child.id,"kind":"note","body":format!("Complete turn: {text}")}),
+            )
+            .await
+            .unwrap();
         // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
         // DTC4 may fold the Digest `message.list` shows into a later one, so wait for the lead's
         // inbox to take the entry holding the text, whichever Digest id carries it.
-        let marker = format!("last: {}", &text[..text.len().min(40)]);
+        let marker = format!("last: {}", &text[..text.len().min(100)]);
         let entry = until("final text Digest", async || {
             run.user
                 .request(
@@ -563,13 +570,11 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
                 .await
                 .unwrap();
             signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
-            let f = lead.entries().into_iter().find(|e| {
+            lead.entries().into_iter().find(|e| {
                 e["message"]["content"]
                     .as_str()
                     .is_some_and(|s| s.contains(&marker))
-            });
-            if f.is_none() { let _ = std::fs::copy(run.dir.path().join("rupd.err"), "/tmp/rupd.err"); let _ = std::fs::copy(lead.dir.join("taken.jsonl"), "/tmp/taken.jsonl"); let _ = std::fs::copy(lead.dir.join("transcript.jsonl"), "/tmp/transcript.jsonl"); while let Ok(Some(event)) = tokio::time::timeout(Duration::from_millis(50), run.watcher.next_event()).await { if let EventData::AgentStatus(st) = event.data { eprintln!("EV {} {:?} {}", st.id, st.status.kind, st.status.label); } } let m = run.user.request("message.list", json!({})).await.unwrap(); eprintln!("DBG {}", m.as_array().unwrap().iter().take(8).map(|m| format!("{}>{} {} {} {} {} {}", m["from"]["id"], m["to"], m["id"], m["status"], m["reason"], m["waiting"], m["body"])).collect::<Vec<_>>().join(" || ")); eprintln!("ENT {}", lead.entries().iter().map(|e| e["message"]["content"].to_string()).collect::<Vec<_>>().join(" || ")); }
-            f
+            })
         })
         .await;
         let body = entry["message"]["content"].as_str().unwrap().to_owned();
