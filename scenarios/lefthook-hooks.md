@@ -1,6 +1,6 @@
 # Pre-commit hooks by lefthook
 
-Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5496a, T6011a, T6011b, T6011c, T7331a, T7331b, T7331c, T7331d, T7331e. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
+Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5496a, T6011a, T6011b, T6011c, T7331a, T7331b, T7331c, T7331d, T7331e, T7357a. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
 
 **T3210 a plain install turns the pre-commit hook on.** Given a clean clone, when `pnpm install` runs, then:
 
@@ -122,3 +122,13 @@ Checks already on main:
 12. `tools/oxlint/pre-commit.test.mjs`, `t5456d_hook_fails_only_on_errors_in_added_lines`: the commit-side regression of the same judgment.
 
 Implementation scope: `lefthook.yml`, `tools/oxlint/staged.mjs`, a shared module beside it, `tools/oxlint/pre-push.test.mjs` and `package.json` only if a script needs it. Verification: `node --test tools/oxlint/pre-push.test.mjs tools/oxlint/pre-commit.test.mjs`. Specification only here; #7331 remains open for implementation.
+
+## The push hook judges the pushed commit
+
+Source: #7357, found in review of #7356. Build tooling only: no product path or Principles gate changes. Gate: does the hook lint and type check the bytes the push carries, whatever the checkout holds? Observer: a real `git push` to a bare remote in an isolated repository.
+
+**T7357a the push judges the pushed commit, not the working tree.** Given the T7331 hook, when a push carries a commit that adds an Oxlint error to a web file, or a type error to a file of a TypeScript project, and the checkout holds an uncommitted edit that removes the error, then the push exits 1 and stderr names the file and the line. When the pushed branch is not the checked-out one, then the push is judged by the pushed commit's bytes the same way. When the commit is clean and the checkout holds an uncommitted edit that adds an error, then the push exits 0. In each case the working tree and index hold the bytes they held before the push. Tests: `t7357a_push_judges_the_commit_not_the_working_tree` and `t7357a_push_of_an_unchecked_out_branch_is_judged_by_its_commit` in `tools/oxlint/pre-push.test.mjs`.
+
+Policy — the hook reads the pushed commit's files and diff (`git diff <base> <sha>`), from a temporary worktree or an archive of that commit that it removes afterwards, and never stashes or checks out in the user's tree.
+
+Implementation scope: `tools/oxlint/pre-push.mjs`, `tools/oxlint/pre-push.test.mjs`. Verification: `node --test tools/oxlint/pre-push.test.mjs`.
