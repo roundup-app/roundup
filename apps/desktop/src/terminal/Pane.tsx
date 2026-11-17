@@ -307,8 +307,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
-        <div class="pane-over" style={overStyle(screens.rows(terminalId()))}>{props.over}</div>
-        {props.header}
+        <div class="pane-over" style={overStyle(screens.rows(terminalId()))}>{props.over}</div>{props.header}
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
