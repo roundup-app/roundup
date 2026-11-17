@@ -358,8 +358,6 @@ Work order: [#7310](https://github.com/roundup-app/roundup/issues/7310). The own
 
 **U7310f keyboard focus shows the hover tint.** Given keyboard focus on any control in either view (header buttons, meta chips, toolbar operations, row icons, Pad rows), then it draws the same tint as its hover and no ring (U3528). Policy, design critic.
 
-**U7310g Tab moves focus outside lists, code and tables.** Given an editable Todo body or Pad with the caret in a paragraph, heading or quote, when the user presses Tab or Shift+Tab, then focus moves to the next or previous control, and the document text and its saved bytes stay unchanged. In a list item Tab nests the item and Shift+Tab lifts it; in a code block Tab inserts the indent; in a table cell Tab moves to the next cell. Test: `u7310g_tab_leaves_a_paragraph_without_writing` in `apps/desktop/src/pads/`.
-
 **U7310h each paragraph takes its own direction.** Given a Todo whose title, body and a comment are Arabic, and a Pad with Arabic and English paragraphs, then each title, paragraph, list item, heading, table cell and comment starts on the side its first strong character reads from, and its end punctuation sits at its end. Policy, design critic.
 
 ## Narrowing and test retirement (policy)

@@ -87,11 +87,12 @@ button {
   color: var(--red);
 }
 
-button:hover:not([aria-disabled="true"]),
-[data-button="quiet"]:hover:not([aria-disabled="true"]),
-[data-button="row-action"]:hover:not([aria-disabled="true"]),
-[data-button="icon"]:hover:not([aria-disabled="true"]),
-[data-button="add"]:hover:not([aria-disabled="true"]) {
+/* U7310f: keyboard focus shows the hover ink; no control draws a ring (U3528). */
+button:is(:hover, :focus-visible):not([aria-disabled="true"]),
+[data-button="quiet"]:is(:hover, :focus-visible):not([aria-disabled="true"]),
+[data-button="row-action"]:is(:hover, :focus-visible):not([aria-disabled="true"]),
+[data-button="icon"]:is(:hover, :focus-visible):not([aria-disabled="true"]),
+[data-button="add"]:is(:hover, :focus-visible):not([aria-disabled="true"]) {
   color: var(--text);
 }
 
@@ -212,8 +213,11 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
   font-family: var(--font-mono); /* taste-skill-ignore: design-system.md requires mono for action captions. */
 }
 
-/* A content name keeps the same face inside an action or navigation control. */
-.tab-name, .tab-name *, .shelf-group-name, .overview-name {
+/* A content name keeps the same face inside an action or navigation control; U7310b narrows U5557c the same way for a Todo's meta values, Pad names and change count. */
+.tab-name, .tab-name *, .shelf-group-name, .overview-name,
+.todo-meta [data-button], .todo-meta [data-button] *,
+[data-button].todo-ref-link, [data-button].todo-ref-link *,
+.todo-history-line [data-button], .todo-history-line [data-button] * {
   font-family: var(--font-ui);
 }
 

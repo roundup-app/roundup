@@ -429,17 +429,6 @@ p {
   top: var(--space-2);
 }
 
-/* Todo CSS loads with its lazy chunk, after this file: the header Drawer rule ties on specificity, so this one outranks it. */
-.drawer[data-maximised="true"] .todo-detail,
-.drawer[data-maximised="true"]:has(.todo-header) .todo-detail {
-  width: min(100%, var(--measure));
-  align-self: center;
-}
-
-.drawer[data-maximised="true"] .todo-comments-send {
-  justify-content: flex-start;
-}
-
 .header .ink:not(.tab-mark):not(.strip-edge) {
   display: inline;
 }

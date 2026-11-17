@@ -18,12 +18,14 @@
   padding-inline: var(--reading-gutter);
 }
 
+/* U7310b: the Pad's name is the title role, as a Todo's: 24/600. */
 .pad-head-name {
   flex: 0 1 auto;
   min-width: 0;
   font-size: var(--text-pad-heading);
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
@@ -80,7 +82,7 @@
 
 .pad-rich-editor .milkdown-top-bar {
   background: var(--ground);
-  border-bottom: var(--hairline-width) solid var(--hairline);
+  font-size: var(--text-small);
   padding-block: 0;
   min-height: 0;
   display: flex;
@@ -92,6 +94,22 @@
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+/* U7310a: the toolbar's ground covers the scroller while it sticks; its rule ends with the text column. */
+.pad-rich-editor .milkdown-top-bar::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--reading-gutter);
+  bottom: 0;
+  border-bottom: var(--hairline-width) solid var(--hairline);
+  pointer-events: none;
+}
+
+/* U7310a: a Pad's scroller spans the Drawer's width; the head, document and footer keep the Pad's column. */
+.drawer:has(> .pad-body) {
+  padding-inline: 0;
+  padding-bottom: 0;
 }
 
 /* U431: one row at the Drawer's width: icons only, no wrap. The heading menu shows only its chevron; its options keep their words. */
