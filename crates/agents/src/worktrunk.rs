@@ -40,6 +40,8 @@ pub(super) struct Identity {
 pub(super) struct Facts {
     pub ci: Option<(String, bool)>,
     pub pr: Option<(u64, bool)>,
+    /// U7371b: worktrunk's `display.state` is `integrated`.
+    pub integrated: bool,
     /// NR10: the PR's required checks and whether the read has gone stale.
     pub evidence: Option<(Evidence, bool)>,
 }
@@ -63,6 +65,11 @@ struct Row {
     worktree: Option<Location>,
     checks: Option<Checks>,
     pr: Option<Pr>,
+    display: Option<Display>,
+}
+#[derive(Deserialize)]
+struct Display {
+    state: Option<String>,
 }
 #[derive(Deserialize)]
 struct Location {
@@ -137,6 +144,10 @@ impl Row {
                 .as_ref()
                 .and_then(|pr| pr.number)
                 .map(|number| (number.get(), false)),
+            integrated: self
+                .display
+                .as_ref()
+                .is_some_and(|display| display.state.as_deref() == Some("integrated")),
             evidence: None,
         }
     }
@@ -383,7 +394,7 @@ fn publish(
         Ok(results) => {
             for id in current {
                 match results.get(&id) {
-                    Some(facts) if facts.ci.is_some() || facts.pr.is_some() => {
+                    Some(facts) if facts.ci.is_some() || facts.pr.is_some() || facts.integrated => {
                         state.facts.insert(
                             id,
                             Cached {

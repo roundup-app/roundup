@@ -498,6 +498,10 @@
     display: none;
   }
 }
+/* U7371b: a finished row recedes by text colour alone, a Token that keeps D5 contrast. */
+.rail-row[data-finished="true"] .name {
+  color: var(--grey);
+}
 .worktree-chip[data-stale="true"] {
   color: var(--grey);
 }

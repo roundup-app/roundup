@@ -62,6 +62,12 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
 
   return {
     read: (id: string): Read | undefined => current(id)?.read(),
+    /** U7371b: the Worktree is in main and holds nothing else; no Worktree or no collected state is never finished. */
+    finished: (id: string): boolean => {
+      const read = current(id)?.read();
+
+      return read?.failure === null && read.state.integrated === true && !read.state.dirty && read.state.ahead === 0;
+    },
     refresh: (id: string): Promise<Read> => {
       const entry = current(id);
 

@@ -161,6 +161,10 @@ pub struct WorktreeState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = WorktreePr)]
     pub pr: Option<WorktreePr>,
+    /// U7371b: worktrunk reports the branch as in main. Omitted when not collected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = bool)]
+    pub integrated: Option<bool>,
     // NR10: the required checks of `pr`, bound to its repository and head.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = WorktreeEvidence)]
@@ -246,6 +250,10 @@ pub struct WorktreePr {
     #[specta(type = specta_typescript::Number)]
     pub number: std::num::NonZeroU64,
     pub stale: bool,
+    /// U7371a: `gh`'s `isDraft`. Omitted when `gh` did not say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = bool)]
+    pub draft: Option<bool>,
 }
 
 /// How a Changed file differs from the Agent's Base (U2539a).
