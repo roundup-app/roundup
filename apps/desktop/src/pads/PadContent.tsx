@@ -18,7 +18,7 @@ import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { createMessageToast } from "../toasts/messageToast";
+import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";

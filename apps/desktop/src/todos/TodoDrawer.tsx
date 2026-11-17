@@ -11,7 +11,7 @@ import { createEffect, createMemo, createRoot, createSignal, onCleanup, Show, un
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createMessageToast } from "../toasts/messageToast";
+import { createMessageToast } from "../ink/messageToast";
 import { TodoComments } from "./TodoComments";
 import { TodoRefs } from "./TodoRefs";
 import "./drawer.styles.css";

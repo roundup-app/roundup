@@ -1,5 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { createMessageToast } from "../toasts/messageToast";
+import { createMessageToast } from "../ink/messageToast";
 import { lazy, createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
 import { copy } from "./copy";

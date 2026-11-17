@@ -14,7 +14,7 @@ import { contextMenu } from "../ui/contextMenu";
 import { createRowMenu } from "../ui/rowMenu";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createMessageToast } from "../toasts/messageToast";
+import { createMessageToast } from "../ink/messageToast";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";

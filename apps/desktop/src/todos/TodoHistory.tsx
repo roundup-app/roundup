@@ -1,6 +1,6 @@
 import { CopyButton } from "../ui/CopyButton";
 import { Icon } from "../ink/Icon";
-import { createMessageToast } from "../toasts/messageToast";
+import { createMessageToast } from "../ink/messageToast";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Event } from "@contracts/Event";

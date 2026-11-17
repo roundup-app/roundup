@@ -1,8 +1,8 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { createEventListener } from "@solid-primitives/event-listener";
-import { createContext, createMemo, createSignal, getOwner, runWithOwner, useContext, type Accessor } from "solid-js";
-import type { JSX } from "@solidjs/web";
+import { createMemo, createSignal, getOwner, runWithOwner, type Accessor } from "solid-js";
+import type { MessageCard } from "../ink/messageToast";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "./copy";
 import { createToast } from "../ui/Toast";
@@ -59,18 +59,6 @@ export type ToastQueue = {
   message(card: MessageCard): () => void;
 };
 
-/** U7310d: a message card has no time; `closed` answers the user closing the card. */
-export type MessageCard = { id: string; body: () => JSX.Element; closed: () => void };
-
-export const ToastQueueContext = createContext<ToastQueue | null>(null);
-
-export const useToastQueue = (): ToastQueue => {
-  const queue = useContext(ToastQueueContext);
-
-  if (!queue) throw new Error("no toast region: a view showed a message outside the App's Toast queue");
-
-  return queue;
-};
 
 /** U410 to U414. Event policy lives here: queued Toasts while away, coalescing by Agent, the summary card and the one-per-second sound. Lifetimes belong to the shared Toast; with nothing pushed, nothing runs. */
 export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () => number = Date.now): ToastQueue => {

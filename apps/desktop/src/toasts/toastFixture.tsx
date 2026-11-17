@@ -11,7 +11,8 @@ import { ConnectedProjectContext, connectProject } from "../state/connectedProje
 import { todoHandlers } from "../testing/stores";
 import { createFakeApp } from "../testing/fakeApp";
 import { event, NOW } from "../testing/nodes";
-import { createToastQueue, ToastQueueContext } from "./queue";
+import { createToastQueue } from "./queue";
+import { ToastQueueContext } from "../ink/messageToast";
 import { Toasts } from "./Toasts";
 import { watchProject } from "./watch";
 import { createStateAlerts } from "../rail/stateAlerts";

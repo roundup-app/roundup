@@ -9,7 +9,7 @@ import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsOf } from "../keys/chords";
 import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
-import { createMessageToast } from "../toasts/messageToast";
+import { createMessageToast } from "../ink/messageToast";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onSettled, untrack, useContext } from "solid-js";
 import { Portal } from "@solidjs/web";

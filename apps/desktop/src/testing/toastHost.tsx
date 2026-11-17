@@ -1,5 +1,6 @@
 import type { JSX } from "@solidjs/web";
-import { createToastQueue, ToastQueueContext } from "../toasts/queue";
+import { createToastQueue } from "../toasts/queue";
+import { ToastQueueContext } from "../ink/messageToast";
 import { Toasts } from "../toasts/Toasts";
 
 /** The App's Toast queue and region around a harness whose views show their messages as Toasts (U7310d). */
