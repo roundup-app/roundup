@@ -9,4 +9,15 @@ export const copy = {
   moreName: (count: number) => `${count} more links`,
   lessName: "Show fewer links",
   region: "Links",
-};
+  iconDescription: "An icon button",
+  rowDescription: "The header row",
+  moreDescription: "Hidden icon count",
+  minus: "−",
+  rowType: "links-row",
+  editorType: "editor-icon",
+  terminalType: "terminal-icon",
+  moreType: "more-count",
+  editorId: "editor",
+  terminalId: "terminal",
+  linkId: "link",
+} as const;

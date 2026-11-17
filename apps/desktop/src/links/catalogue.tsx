@@ -17,19 +17,19 @@ import { copy } from "./copy";
 
 export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
 
-const icon = { props: z.object({ tooltip: z.string(), url: z.string().optional() }), description: "An icon button" };
+const icon = { props: z.object({ tooltip: z.string(), url: z.string().optional() }), description: copy.iconDescription };
 
 /** LH2, LH8: the fixed catalogue; a spec element of any other type renders nothing. */
 const catalog = defineCatalog(schema, {
   components: {
-    Links: { props: z.object({}), description: "The header row" },
-    Editor: icon,
-    Terminal: icon,
+    [copy.rowType]: { props: z.object({}), description: copy.rowDescription },
+    [copy.editorType]: icon,
+    [copy.terminalType]: icon,
     pr: icon,
     tracker: icon,
     "dev-server": icon,
     asked: icon,
-    More: { props: z.object({ count: z.number(), open: z.boolean() }), description: "The +N count of the icons past the sixth" },
+    [copy.moreType]: { props: z.object({ count: z.number(), open: z.boolean() }), description: copy.moreDescription },
   },
   actions: {},
 });
@@ -42,12 +42,12 @@ export const specOf = (set: LinkSet | undefined): Spec => {
   const entries = set?.entries ?? [];
 
   const elements: Spec["elements"] = {
-    header: { type: "Links", props: {}, children: ["editor", "terminal", ...entries.map((_, index) => `link${index}`)] },
-    editor: { type: "Editor", props: { tooltip: copy.editor }, children: [] },
-    terminal: { type: "Terminal", props: { tooltip: copy.terminal }, children: [] },
+    header: { type: copy.rowType, props: {}, children: [copy.editorId, copy.terminalId, ...entries.map((_, index) => `${copy.linkId}${index}`)] },
+    [copy.editorId]: { type: copy.editorType, props: { tooltip: copy.editor }, children: [] },
+    [copy.terminalId]: { type: copy.terminalType, props: { tooltip: copy.terminal }, children: [] },
   };
 
-  entries.forEach((entry, index) => { elements[`link${index}`] = { type: entry.kind, props: { url: entry.url, tooltip: entry.tooltip }, children: [] }; });
+  entries.forEach((entry, index) => { elements[`${copy.linkId}${index}`] = { type: entry.kind, props: { url: entry.url, tooltip: entry.tooltip }, children: [] }; });
 
   return { root: "header", elements };
 };
@@ -59,7 +59,7 @@ const cut = (spec: Spec, open: boolean): Spec => {
 
   if (!root || children.length <= SHOWN) return spec;
 
-  const more = { type: "More", props: { count: children.length - SHOWN, open }, children: [] };
+  const more = { type: copy.moreType, props: { count: children.length - SHOWN, open }, children: [] };
 
   return { ...spec, elements: { ...spec.elements, [spec.root]: { ...root, children: [...(open ? children : children.slice(0, SHOWN)), "more"] }, more } };
 };
@@ -73,18 +73,18 @@ export const LinksView = (props: { spec: Spec; env: Env }) => {
   type Ctx = { props: { tooltip: string; url?: string | undefined } };
 
   const iconOf = (Icon: Icon, type: string, run: (env: Env, url: string) => void) => (ctx: Ctx) =>
-    <IconButton aria-label={ctx.props.tooltip} data-link={type} action={type === "Terminal" ? "terminal.new" : undefined} onClick={() => run(props.env, ctx.props.url ?? "")}><Icon size={16} aria-hidden="true" /></IconButton>;
+    <IconButton aria-label={ctx.props.tooltip} data-link={type} action={type === copy.terminalType ? "terminal.new" : undefined} onClick={() => run(props.env, ctx.props.url ?? "")}><Icon size={16} aria-hidden="true" /></IconButton>;
 
   const { registry } = defineRegistry(catalog, {
     components: {
-      Links: ctx => <>{ctx.children}</>,
-      Editor: iconOf(Code, "Editor", env => env.editor()),
-      Terminal: iconOf(SquareTerminal, "Terminal", env => env.terminal()),
+      [copy.rowType]: ctx => <>{ctx.children}</>,
+      [copy.editorType]: iconOf(Code, copy.editorType, env => env.editor()),
+      [copy.terminalType]: iconOf(SquareTerminal, copy.terminalType, env => env.terminal()),
       pr: iconOf(GitPullRequest, "pr", (env, url) => env.open(url)),
       tracker: iconOf(Ticket, "tracker", (env, url) => env.open(url)),
       "dev-server": iconOf(Server, "dev-server", (env, url) => env.open(url)),
       asked: iconOf(Link, "asked", (env, url) => env.open(url)),
-      More: ctx => <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? "−" : `+${ctx.props.count}`}</IconButton>,
+      [copy.moreType]: ctx => <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? copy.minus : `+${ctx.props.count}`}</IconButton>,
     },
   });
 
