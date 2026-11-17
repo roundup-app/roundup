@@ -80,6 +80,11 @@ class CiLintTime(unittest.TestCase):
         # The two 2 s sleeps need 4 s one after the other; 3.5 s leaves a slow runner 1.5 s.
         self.assertLess(elapsed, 3.5, r.stderr)
 
+    def test_ci7324b_background_groups_match_the_background_lines(self):
+        self.assertEqual(keep_going('echo only\n').stderr.count('::group::background line'), 0)
+        r = keep_going('& echo a\n& echo b\necho c\n')
+        self.assertEqual(re.findall(r'^::group::background line (\d+)$', r.stderr, re.M), ['1', '2'], r.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()
