@@ -6,7 +6,7 @@ Prints `all` when no base is given or the diff since <base> can move any test; e
 the cargo selection of the tests to run (`-p <crate>` runs a crate's whole suite; `-p <crate> --test <binary>` compiles
 only that binary, for a diff of test files alone; T7188b), for `web` the files that still exist, as absolute paths, to pass
 `vitest related`. The `boxd` selector prints `all` only for runner, integration or package-configuration changes, and
-the `ping` selector (CI7295h) only when the diff reaches the `mac` lane's ping round trip or its guard observers. The diff
+the `ping` selector (CI7295h) only when the diff reaches `mac-clippy`'s ping round trip or its guard observers. The diff
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
 counts. The `first` selector (CI7297b) prints the web test files the diff changes, existing ones only, and nothing else.
 No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
@@ -55,7 +55,7 @@ BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
               'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
               'AGENTS.md', 'scenarios/loop-boxd.md')
 
-# CI7295h: the `mac` lane's `rup ping` round trip and the N7/N8 guard observers after it start the `rupd` and `rup` the lane
+# CI7295h: `mac-clippy`'s `rup ping` round trip and the N7/N8 guard observers after it start the `rupd` and `rup` the job
 # builds, which `desktop` starts and bundles as the App, and read these files.
 PING_CRATES = {'rupd', 'rup', 'desktop'}
 PING_READS = ('loop/ci-ping.sh', 'loop/app-data.py', 'loop/app-data.test.py', 'loop/launch-sites.test.py',
@@ -405,7 +405,9 @@ def main(argv):
         if args := lane_args(argv[2], changed_since(base) if base else None, metadata(), ROOT, resolved_features()):
             print(args)
         return 0
-    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd', 'ping', 'first'):
+    selectors = {'rust': lambda changed: rust(changed, metadata(), ROOT), 'web': web, 'boxd': boxd,
+                 'ping': lambda changed: ping(changed, workspace(metadata())), 'first': first}
+    if len(argv) not in (2, 3) or argv[1] not in selectors:
         print(__doc__, file=sys.stderr)
         return 2
     lane, base = argv[1], argv[2] if len(argv) == 3 else ''
@@ -413,16 +415,12 @@ def main(argv):
         print('' if lane == 'first' else 'all')
         return 0
     changed = changed_since(base)
-    if lane == 'first':
-        if files := first(changed):
-            print('\n'.join(files))
-        return 0
-    selected = {'rust': lambda: rust(changed, metadata(), ROOT), 'web': lambda: web(changed),
-                'boxd': lambda: boxd(changed), 'ping': lambda: ping(changed, workspace(metadata()))}[lane]()
+    selected = selectors[lane](changed)
     if selected != 'all' and lane == 'web':
         selected = sorted(set(selected) | set(app_scans(changed)))
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]
-    print(selected if selected == 'all' else '\n'.join(selected))
+    if selected:
+        print(selected if selected == 'all' else '\n'.join(selected))
     return 0
 
 

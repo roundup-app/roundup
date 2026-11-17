@@ -2,6 +2,7 @@ import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { languages } from "./codeColours";
 import PadRichEditor from "./PadRichEditor";
+import { ToastHost } from "../testing/toastHost";
 import type { PadEditorHandle } from "./PadRichEditor";
 
 Range.prototype.getClientRects ??= () => document.body.getClientRects();
@@ -16,7 +17,7 @@ it("u5562c_language_loads_on_use", async () => {
   const tsLoad = vi.spyOn(ts, "load");
   const pythonLoad = vi.spyOn(python, "load");
   let handle: PadEditorHandle | undefined;
-  render(() => <PadRichEditor text="plain" readonly={false} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { handle = ready; }} />);
+  render(() => <ToastHost><PadRichEditor text="plain" readonly={false} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { handle = ready; }} /></ToastHost>);
   await waitFor(() => expect(handle).toBeDefined());
   expect(languages.every(language => !language.support)).toBe(true);
   handle!.setText("```\nunlabelled\n```\n");

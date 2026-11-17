@@ -56,7 +56,7 @@ it.each(["list", "agent-list", "drawer"].flatMap(surface => [false].map(done => 
   expect(callsTo(app, method)).toEqual([{ method, params: { id: 1 } }]);
   expect(box.checked).toBe(done);
   reject(new RpcError(-32003, "Cannot reopen"));
-  await area.findByText("Cannot reopen");
+  await screen.findByText("Cannot reopen");
   expect(box.checked).toBe(done);
   expect(document.activeElement).toBe(box);
   app.handlers[method] = () => new Promise(() => {});

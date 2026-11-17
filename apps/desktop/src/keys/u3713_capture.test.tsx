@@ -1,4 +1,5 @@
 import { copy as recoveryCopy } from "../sharedCopy";
+import { ToastHost } from "../testing/toastHost";
 import { DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
@@ -36,7 +37,7 @@ const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () 
     createLeader(connected);
 
     return (
-      <DisplayClockContext value={() => () => 0}>
+      <DisplayClockContext value={() => () => 0}><ToastHost>
         <ConnectedProjectContext value={connected}>
           <button data-testid="before">before</button>
           <Todos />
@@ -44,7 +45,7 @@ const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () 
           <Capture onFile={onFile} />
           <Help />
         </ConnectedProjectContext>
-      </DisplayClockContext>
+      </ToastHost></DisplayClockContext>
     );
   });
 

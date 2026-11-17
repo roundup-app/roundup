@@ -80,6 +80,12 @@ async fn ready_peer(run: &Run, node: Value) -> Peer {
         .request("daemon.identify", json!({"actor":{"kind":"agent","id":id}}))
         .await
         .unwrap();
+    // The fake `claude` starts no `rup mcp`, so it never calls `agent.channelUp` (E6) and the Daemon
+    // keeps a Door's Messages back for the 15 s deadline, as long as `BOUND`; call it as `rup mcp` does.
+    client
+        .request("agent.channelUp", json!({"id":id}))
+        .await
+        .unwrap();
     Peer {
         id,
         terminal: node["terminal_id"].clone(),
@@ -374,6 +380,9 @@ async fn signal(run: &Run, peer: &Peer, payload: Value) {
 
 async fn receive(run: &Run, peer: &Peer, id: u32) -> String {
     let content = until("inbox Message", async || {
+        // TS1: a Message the Daemon holds for a busy Agent is written once its turn ends, and the
+        // delivery of an earlier one starts a turn; end it as Claude Code does, until this one lands.
+        signal(run, peer, json!({"hook_event_name":"Stop"})).await;
         peer.entries().into_iter().find(|e| {
             e["msg_id"] == format!("00000000-0000-4000-8000-{id:012x}")
                 || e["message"]["content"]
@@ -538,12 +547,8 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         // Each completion case has its own B22 window; this observes A5482c, not the push cap.
         let (mut run, lead, child) = family().await;
         let typed = (lead.typed(), child.typed());
-        signal(
-            &run,
-            &child,
-            json!({"hook_event_name":"PreToolUse","tool_name":"Read"}),
-        )
-        .await;
+        // The fake `claude` ends the turn itself once it takes the Message: its tool use, its text on
+        // the Terminal and its Stop carrying `last_assistant_message`, in that order from one source.
         std::fs::write(child.dir.join("final-reply.txt"), &text).unwrap();
         run.user
             .request(
@@ -552,9 +557,12 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             )
             .await
             .unwrap();
-        signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
-        let digest = until("final text Digest", async || {
-            // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
+        // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
+        // DTC4 folds the Digest `message.list` shows into a later one, and B50(d) cuts an inbox entry at
+        // 200 bytes in all, so a Rollup's header leaves `last` 22 bytes fewer than a lone Digest's: wait
+        // for the lead's inbox to take the entry holding the head of the text, whichever Digest id carries it.
+        let marker = format!("last: {}", &text[..text.len().min(40)]);
+        let entry = until("final text Digest", async || {
             run.user
                 .request(
                     "message.send",
@@ -563,27 +571,27 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
                 .await
                 .unwrap();
             signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
-            let messages = run
-                .user
-                .request("message.list", json!({"to":lead.id}))
-                .await
-                .unwrap();
-            messages
-                .as_array()
-                .unwrap()
-                .iter()
-                .rev()
-                .find(|m| {
-                    m["body"].as_str().is_some_and(|s| {
-                        s.contains(&format!("last: {}", &text[..text.len().min(100)]))
-                    })
-                })
-                .cloned()
+            lead.entries().into_iter().find(|e| {
+                e["message"]["content"]
+                    .as_str()
+                    .is_some_and(|s| s.contains(&marker))
+            })
         })
         .await;
-        let body = digest["body"].as_str().unwrap();
+        let id = u32::from_str_radix(&entry["msg_id"].as_str().unwrap()[24..], 16).unwrap();
+        let sent = run
+            .user
+            .request("message.list", json!({"to":lead.id}))
+            .await
+            .unwrap();
+        let digest = sent
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["id"] == id)
+            .unwrap();
         assert_eq!(digest["kind"], "note");
-        let id = u32::try_from(digest["id"].as_u64().unwrap()).unwrap();
+        let body = digest["body"].as_str().unwrap();
         // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
         let status = if text == "Publishing is complete" {
             "builder is idle"

@@ -15,6 +15,7 @@
     Method { name: "agent.compareFile", params: "agent_CompareFileParams", result: "agent_FileComparison" },
     Method { name: "agent.land", params: "agent_NodeId", result: "agent_Landed" },
     Method { name: "agent.discard", params: "agent_NodeId", result: "null" },
+    Method { name: "agent.links", params: "agent_NodeId", result: "links_LinkSet" },
     Method { name: "agent.spawnPrompt", params: "agent_NodeId", result: "agent_SpawnPrompt" },
     Method { name: "agent.setOrder", params: "agent_SetOrderParams", result: "agent_RailNode" },
     Method { name: "agent.setVisibility", params: "agent_SetVisibilityParams", result: "agent_RailNode" },

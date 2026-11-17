@@ -10,11 +10,26 @@ inputs:
   save-cache:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target and clippy's checks sets it (L84).
     default: 'false'
+  vendored-cache:
+    description: 'macOS only: `debug` or `release` restores the build output of the path crates in `vendor/` and `crates/desktop/vendor/` for that profile (CI7323a); empty restores none.'
+    default: ''
+  save-vendored:
+    description: On a push to main, save the vendored crates' build output this job built (CI7323c).
+    default: 'false'
   experiment-cache:
     description: Opt-in isolated CI3781 Rust cache namespace; honored only on hosted Linux pull requests. A new namespace prepares an empty cache, and subsequent runs restore its saved entry.
     default: ''
   node:
     description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
+    default: 'true'
+  node-cache:
+    description: Restore `node_modules` from the keyed cache (CI7325); only a lane whose restore beats today's setup-node store restore plus `pnpm install` by 5 s sets it (CI7325e).
+    default: 'false'
+  save-node:
+    description: On a push to main, save the `node_modules` cache after a miss installed it (CI7325c); one job per OS sets it, since every lane of a run misses together.
+    default: 'false'
+  machete:
+    description: Install cargo-machete, which only `just lint` runs; a `check` lane sets `false` (CI7297a).
     default: 'true'
   tracer:
     description: Install bpftrace and FUSE, which U26's file-fault tracer runs under, on a hosted Linux runner.
@@ -109,11 +124,27 @@ runs:
       run: |
         digest=$(printf '%s' "$NAMESPACE" | sha256sum)
         echo "namespace=${digest%% *}" >>"$GITHUB_OUTPUT"
+    # CI7295o: rust-cache keeps the first entry saved under a key, and hashes a root `.cargo/config.toml` into the key's
+    # last part. This file holds the hash of the macOS jobs' build plan, so a changed plan saves a fresh entry on `main`
+    # while a restore still falls back to the newest one. The step after the restore removes it: rust-cache's post step
+    # reads its saved state, and `affected.py` would count the file as a change.
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS'
+      name: Rust cache key holds the build plan
+      shell: bash
+      env:
+        PLAN: ${{ hashFiles('.github/workflows/check.yml', '.config/nextest.toml') }}
+      run: |
+        mkdir .cargo
+        echo "# rust-cache build plan $PLAN" >.cargo/config.toml
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', steps.experiment.outputs.namespace) || format('check-{0}', runner.os) }}
         save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS'
+      name: Remove the build plan key
+      shell: bash
+      run: rm -r .cargo
     # The build takes about 150 s from cold: it runs in the background while Node installs, and `Wait for daemon build`
     # joins it. Only check's `daemon` job builds this way, once per Rust source tree (T7295).
     - if: runner.environment != 'self-hosted' && inputs.rust == 'build'
@@ -123,7 +154,7 @@ runs:
         setsid bash -c 'cargo build -p rupd -p rup -p terminal --features terminal/test-support; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: taiki-e/install-action@nextest
-    - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && inputs.machete != 'false'
       uses: taiki-e/install-action@cargo-machete
     - uses: actions/setup-python@v6
       if: runner.environment != 'self-hosted'
@@ -131,7 +162,32 @@ runs:
         python-version: '3.12'
     - if: runner.environment != 'self-hosted' && inputs.node != 'false'
       uses: pnpm/action-setup@v5
-    - if: runner.environment != 'self-hosted' && inputs.node != 'false'
+    # CI7325: every workspace package's `node_modules`, the `postinstall` output (`claude.exe`) included, restores from one
+    # entry whose key hashes every input of the install (CI7325b): the lockfile, the workspace file with its overrides,
+    # `patches/`, every workspace `package.json`, Node's major, the OS and the architecture. Only `main` saves, right after
+    # the install, before a lane's tests write caches into the tree. A hit runs neither the pnpm store's restore nor `pnpm install`.
+    # Run 44143327846 (a hit) timed the restore at 17 to 22 s for 790 MB, so beside today's 22 s `web`, `rust`, `chromium`
+    # and `observers` gain under 5 s or lose; only `contracts` (27 s before, 18 s after) and `mac-package` set `node-cache` (CI7325e).
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && inputs.node-cache == 'true'
+      id: node-modules
+      name: Restore node_modules
+      uses: actions/cache/restore@v5
+      with:
+        path: |
+          node_modules
+          tools/lint/node_modules
+          apps/*/node_modules
+          site/node_modules
+          crates/agents/sidecar/node_modules
+          loop/agent-runners/node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'patches/**', 'package.json', 'tools/lint/package.json', 'apps/*/package.json', 'site/package.json', 'crates/agents/sidecar/package.json', 'loop/agent-runners/package.json', '.npmrc') }}
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit == 'true'
+      uses: actions/setup-node@v5
+      with:
+        node-version: 22
+        # v5 turns the pnpm store cache on by itself when `packageManager` names pnpm; a hit installs nothing from it (CI7325a).
+        package-manager-cache: false
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit != 'true'
       uses: actions/setup-node@v5
       with:
         node-version: 22
@@ -142,11 +198,85 @@ runs:
       run: |
         brew install coreutils jq
         echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+    # On macOS, where the cached dependencies keep full debug info, the workspace's own crates build with line tables only
+    # in every build: backtraces keep file and line, and the 3-core build takes a quarter less (run 43982531080). Linux
+    # lanes build with none (CI5330e/f); line tables there cost rust 1 44% more build time. `$CARGO_HOME` holds the
+    # setting, outside the cache key, so the cached dependencies stay valid.
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS'
+      name: Workspace crates keep line tables
+      shell: bash
+      run: |
+        mkdir -p "$CARGO_HOME"
+        for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+          printf '[profile.%s.package.%s]\ndebug = "line-tables-only"\n' dev "$crate" test "$crate"
+        done >>"$CARGO_HOME/config.toml"
+    # CI7323: rust-cache stores no path dependency's build, so the six crates in `vendor/` and four in
+    # `crates/desktop/vendor/` compiled on every macOS lane. This entry holds their artifacts for one profile. Cargo calls a
+    # path crate fresh when its dep-info is newer than its sources, so the sources take a fixed old mtime before the build
+    # (a checkout stamps them with now). The key hashes the vendored trees, `Cargo.lock`, the manifest's profiles, the
+    # toolchain, the profile and the cargo config the line-tables step wrote; a feature set it does not name changes
+    # the artifacts' hashes, so cargo misses them and builds, as today.
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS' && inputs.vendored-cache != ''
+      id: vendored
+      name: Vendored crates' cache key
+      shell: bash
+      env:
+        PROFILE: ${{ inputs.vendored-cache }}
+      run: |
+        find vendor crates/desktop/vendor -exec touch -h -t 200001010000 {} +
+        key=$(
+          {
+            git rev-parse HEAD:vendor HEAD:crates/desktop/vendor
+            cat Cargo.lock Cargo.toml rust-toolchain.toml "$CARGO_HOME/config.toml"
+            rustc -vV
+            env | sort | grep -E '^(CARGO_PROFILE_|CARGO_ENCODED_RUSTFLAGS=|RUSTFLAGS=)' || true
+          } | shasum -a 256
+        )
+        echo "key=vendored-$RUNNER_OS-$RUNNER_ARCH-$PROFILE-${key%% *}" >>"$GITHUB_OUTPUT"
+        if [ "$PROFILE" = release ]; then dirs="target/release target/*/release"; else dirs=target/debug; fi
+        {
+          echo "paths<<EOF"
+          for dir in $dirs; do
+            for crate in vendor/* crates/desktop/vendor/*; do
+              name=$(basename "$crate")
+              name=${name%-[0-9]*}
+              echo "$dir/.fingerprint/$name-*"
+              echo "$dir/build/$name-*"
+              echo "$dir/deps/*${name//-/_}-*"
+            done
+          done
+          echo EOF
+        } >>"$GITHUB_OUTPUT"
+    - if: steps.vendored.outcome == 'success' && !(inputs.save-vendored == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main')
+      name: Restore vendored crates' build
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.vendored.outputs.paths }}
+        key: ${{ steps.vendored.outputs.key }}
+    # The post step saves on a miss and logs the entry's size (CI7323c).
+    - if: steps.vendored.outcome == 'success' && inputs.save-vendored == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      name: Restore vendored crates' build, saved after the job
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.vendored.outputs.paths }}
+        key: ${{ steps.vendored.outputs.key }}
     - uses: taiki-e/install-action@just
       if: runner.environment != 'self-hosted'
-    - if: inputs.node != 'false'
+    - if: inputs.node != 'false' && (runner.environment == 'self-hosted' || steps.node-modules.outputs.cache-hit != 'true')
       shell: bash
       run: pnpm install --frozen-lockfile
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit != 'true' && inputs.save-node == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      name: Save node_modules
+      uses: actions/cache/save@v5
+      with:
+        path: |
+          node_modules
+          tools/lint/node_modules
+          apps/*/node_modules
+          site/node_modules
+          crates/agents/sidecar/node_modules
+          loop/agent-runners/node_modules
+        key: ${{ steps.node-modules.outputs.cache-primary-key }}
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       name: Wait for Tauri packages
       shell: bash

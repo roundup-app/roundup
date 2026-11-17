@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { Editor, EditorStatus } from "@milkdown/kit/core";
 import { afterEach, expect, it, vi } from "vitest";
 import PadRichEditor from "./PadRichEditor";
+import { ToastHost } from "../testing/toastHost";
 import { notices } from "../testing/notices";
 
 afterEach(() => {
@@ -14,7 +15,7 @@ it("u67_a_failed_editor_reports_creation_failure_without_destroying", async () =
   vi.spyOn(Editor, "make").mockReturnValue(editor);
   const create = vi.spyOn(editor, "create").mockRejectedValue(new Error("Editor could not open"));
   const destroy = vi.spyOn(editor, "destroy");
-  const view = render(() => <PadRichEditor text="" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={vi.fn()} />);
+  const view = render(() => <ToastHost><PadRichEditor text="" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={vi.fn()} /></ToastHost>);
 
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   // U6249d E2: the editor is mounted once more before the failure shows, and no more than once.
@@ -28,7 +29,7 @@ it("u6249d_an_editor_that_opens_on_the_second_mount_shows_no_failure", async () 
   vi.spyOn(Editor, "make").mockReturnValue(editor);
   vi.spyOn(editor, "create").mockRejectedValueOnce(new Error("Editor could not open"));
   const onReady = vi.fn();
-  const view = render(() => <PadRichEditor text="# Heading" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={onReady} />);
+  const view = render(() => <ToastHost><PadRichEditor text="# Heading" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={onReady} /></ToastHost>);
 
   try {
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
@@ -44,7 +45,7 @@ it.each([false, true])("u67_unmount_disposes_the_editor_without_a_retry_timer_re
   const create = vi.spyOn(editor, "create");
   const destroy = vi.spyOn(editor, "destroy");
   const onReady = vi.fn();
-  const view = render(() => <PadRichEditor text="# Heading" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={onReady} />);
+  const view = render(() => <ToastHost><PadRichEditor text="# Heading" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={onReady} /></ToastHost>);
 
   try {
     if (ready) await create.mock.results[0]?.value;

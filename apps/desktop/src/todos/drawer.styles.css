@@ -1,19 +1,18 @@
+/* U7310a: every row inherits one font size, so `--reading-width`'s `ch` resolves alike on each and all rows share one edge. */
 .todo-detail {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   font-family: var(--font-ui);
+  font-size: var(--text-title);
   overflow-wrap: anywhere;
 }
 .todo-detail-title {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  font-size: var(--text-title);
-  font-weight: 600;
   min-width: 0;
 }
-.todo-detail-title .todo-editable { flex: 0 1 auto; min-width: 0; }
 .todo-history { display: flex; flex-direction: column; gap: var(--space-2); }
 .todo-history-line { display: flex; align-items: center; gap: var(--space-1); align-self: flex-start; }
 .todo-history-count { font-weight: 600; }
@@ -21,20 +20,23 @@
 .todo-history-count[data-state="read"] { color: var(--grey); }
 .todo-change { white-space: pre-wrap; overflow-wrap: anywhere; }
 .todo-refs { display: flex; flex-direction: column; gap: var(--space-2); }
-.todo-refs h3 { font: inherit; font-weight: 600; margin: 0; }
+/* U7310b: a section label is 13/600 ink. */
+.todo-refs h3 { font: inherit; font-size: var(--text-body); font-weight: 600; margin: 0 0 var(--space-2); }
 .todo-ref { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); min-width: 0; }
 .todo-ref-link, .todo-ref-text { min-width: 0; overflow-wrap: anywhere; text-align: start; }
-.todo-ref button:last-child { flex: none; }
+/* U7310e: Unlink shows while its row is hovered or holds focus, and while it works. */
+.todo-ref-remove { flex: none; opacity: 0; }
+.todo-ref:is(:hover, :focus-within) .todo-ref-remove, .todo-ref-remove[aria-busy="true"] { opacity: 1; }
 .todo-ref-link { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .todo-ref-text { opacity: 0.7; }
 .todo-comments { position: relative; display: flex; flex-direction: column; gap: var(--space-3); }
-.todo-comments h3 { font: inherit; font-weight: 600; margin: 0; }
+.todo-comments h3 { font: inherit; font-size: var(--text-body); font-weight: 600; margin: 0; }
 .todo-comment { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo-comment p { margin: 0; }
 .todo-comment-parts { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo-comment-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Visually hidden, still announced. */
-.todo-comments-live { position: absolute; width: var(--hairline-width); height: var(--hairline-width); overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
+.todo-comments .todo-comments-live { position: absolute; width: var(--hairline-width); height: var(--hairline-width); overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
 /* U3775: a status line is a quiet button; its details show as plain text beneath it. */
 .todo-status { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo-status-summary { align-self: flex-start; text-align: start; line-height: inherit; color: var(--text); margin-block: 0; }
@@ -46,10 +48,10 @@
 }
 
 .todo-comment-head { display: flex; align-items: center; gap: var(--space-2); min-height: var(--space-5); }
-.todo-comment-author { color: var(--text); }
+.todo-comment-author { color: var(--text); font-weight: 500; }
 .todo-comment-glyph-gap { width: var(--space-4); flex-shrink: 0; }
 .todo-comment-head time { color: var(--grey); white-space: nowrap; flex-shrink: 0; }
-.todo-comment-head button { margin-inline-start: auto; white-space: nowrap; flex-shrink: 0; }
+.todo-comment-actions { display: inline-flex; margin-inline-start: auto; flex-shrink: 0; }
 .todo-comment-author { min-width: 0; overflow-wrap: anywhere; }
 .todo-comments-send { display: flex; justify-content: flex-end; }
 
@@ -92,75 +94,78 @@
 
 .todo-draft-recovery { font-size: var(--text-body); font-weight: 400; }
 .todo-draft-label { flex-basis: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.todo-detail + .todo-draft-recovery { margin-left: var(--space-5); margin-top: var(--space-5); }
 
 .todo-draft-actions button { font-size: inherit; }
 
-/* Reserve both lines before refusal, keeping the retained form stationary. */
-.reserved-line.todo-delete-feedback {
-  block-size: calc(var(--line) * 2);
-  max-block-size: calc(var(--line) * 2);
-  align-items: flex-start;
-}
-.todo-delete-feedback .reserved-content { align-items: baseline; }
-.todo-delete-feedback .ink[data-tone] {
-  display: flex;
-  align-items: baseline;
-  white-space: normal;
-  overflow: visible;
-}
-.todo-delete-feedback .reserved-status { white-space: normal; }
-
-/* U4698d: the header owns navigation; document content follows one reading edge. */
+/* U4698d, U7310a: the header and the scroller span the Drawer, so the scrollbar runs along its edge; document rows sit in one column at `--reading-width`, and nothing scrolls sideways. */
 .drawer:has(.todo-header) { padding: 0; overflow: hidden; }
-.drawer:has(.todo-header) .todo-detail { width: 100%; max-width: none; align-self: stretch; overflow: auto; overscroll-behavior: contain; align-items: center; min-height: 0; gap: var(--space-4); padding-bottom: var(--space-5); }
-.todo-header { position: sticky; top: 0; z-index: var(--layer-drawer); display: flex; align-items: center; gap: var(--space-3); min-height: calc(var(--space-6) + var(--space-2)); padding: var(--space-2) var(--space-6) var(--space-2) var(--reading-gutter); padding-inline-end: var(--space-4); background: var(--ground); border-bottom: var(--hairline-width) solid var(--hairline); }
+.drawer:has(.todo-header) .todo-detail { width: 100%; max-width: none; align-self: stretch; overflow: hidden auto; overscroll-behavior: contain; align-items: center; min-height: 0; gap: 0; padding-bottom: var(--space-6); }
+/* The header's text starts at the reading gutter; its end clears the Drawer's two controls. */
+.todo-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-drawer);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  align-self: stretch;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-height: calc(var(--space-6) + var(--space-2));
+  padding-block: var(--space-2);
+  padding-inline: var(--reading-gutter) var(--space-4);
+  background: var(--ground);
+  border-bottom: var(--hairline-width) solid var(--hairline);
+}
+.todo-header::after { content: ""; flex: none; width: calc(var(--space-5) * 2 + var(--space-2)); }
 .todo-breadcrumb { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; color: var(--grey); font-size: var(--text-small); }
 .todo-breadcrumb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.todo-header::after { content: ""; flex: none; width: calc(var(--space-5) * 2 + var(--space-2)); }
 .todo-header-actions { display: flex; flex: none; align-items: center; gap: var(--space-2); }
-.todo-detail-title { font-size: var(--text-pad-heading); line-height: 1.3; font-weight: 600; padding-top: var(--space-5); }
-.todo-detail-title .todo-editable { width: 100%; }
-.todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-refs, .todo-comments, .todo-history) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
-.todo-meta { display: flex; align-items: center; gap: var(--space-4); overflow-x: auto; overscroll-behavior: contain; flex-shrink: 0; padding-bottom: var(--space-2); }
-.todo-meta :is(button, label) { white-space: nowrap; flex-shrink: 0; }
+.todo-header-actions [data-button="quiet"] { font-size: var(--text-small); }
+/* U7310b: the title is 24/600 on whole pixels. */
+.todo-detail-title { padding-top: var(--space-6); }
+.todo-detail-title .todo-editable { width: 100%; text-wrap: pretty; }
+.todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-refs, .todo-comments, .todo-history, .todo-delete-feedback) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
+/* U7310c: the meta row wraps instead of scrolling; a long name shrinks to its "…" and the rest keep their width. */
+.todo-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); flex-shrink: 0; color: var(--grey); }
+.todo-meta :is(button, label) { flex-shrink: 1; min-width: 0; max-width: 100%; font-size: var(--text-body); }
 .todo-meta-chip, .todo-meta-state { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-body); }
-.todo-detail .todo-delete-feedback { align-self: stretch; flex-shrink: 0; padding-inline: var(--reading-gutter); block-size: auto; max-block-size: none; min-height: calc(var(--line) * 2); }
-.todo-detail-body { font-size: var(--text-title); line-height: var(--line); }
-.todo-detail + .todo-draft-recovery { margin: 0; }
+.todo-meta svg { flex: none; }
+.todo-meta-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-detail-body { line-height: var(--line); }
+/* U7310a: a kept draft's row follows the document, in its reading column. */
+.todo-draft-recovery[data-in-drawer] .reserved-line { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); align-self: center; }
+/* U3787h: the restore-pending status wraps in the column and shows only while it holds (U7310d). */
+.todo-detail .reserved-line.todo-delete-feedback { flex-shrink: 0; block-size: auto; max-block-size: none; }
+.todo-delete-feedback .reserved-status { white-space: normal; }
 
 .todo-breadcrumb span:first-child { white-space: nowrap; max-width: 30%; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; }
-.todo-detail-title { font-size: var(--text-title); font-weight: 400; }
-.todo-detail-title .todo-editable { font-size: var(--text-pad-heading); line-height: 1.3; font-weight: 600; }
-.todo-meta { font-size: var(--text-title); }
-.todo-header { align-self: stretch; flex-shrink: 0; box-sizing: border-box; padding-inline-start: var(--reading-gutter); }
 
 /* The shared editor scrolls with the document; its toolbar clears the sticky header. */
-.todo-detail .todo-detail-body { padding-inline: 0; flex-shrink: 0; }
+.todo-detail .todo-detail-body { margin-top: var(--space-5); padding-inline: 0; flex-shrink: 0; }
+.todo-detail-body .ProseMirror { padding-bottom: 0; }
 .todo-detail-body .pad-editor { overflow: visible; }
 .todo-detail-body .milkdown-top-bar { top: calc(var(--space-6) + var(--space-2)); z-index: 1; }
 .todo-detail-body .todo-add-notes { margin-inline: var(--reading-gutter); }
 
 .drawer:has(.todo-header) .drawer-controls { z-index: var(--layer-popover); }
 
+.todo-detail .todo-refs, .todo-detail .todo-comments { margin-top: var(--space-6); }
+.todo-detail .todo-refs { gap: var(--space-1); }
+
 .todo-activity-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
-.todo-activity-entries { display: flex; flex-direction: column; gap: var(--space-5); }
+.todo-activity-entries { display: flex; flex-direction: column; gap: var(--space-4); }
 .todo-activity-entries[hidden] { display: none; }
-.todo-change { display: flex; align-items: baseline; gap: var(--space-3); color: var(--grey); font-size: var(--text-small); }
+.todo-change { display: flex; align-items: baseline; gap: var(--space-3); color: var(--grey); font-size: var(--text-body); }
 .todo-change p { margin: 0; }
 .todo-activity-dot { display: inline-block; flex: none; width: var(--space-1); height: var(--space-1); border-radius: var(--radius-round); background: var(--grey); margin-inline: var(--space-1); }
-.todo-comment { padding-inline-start: var(--space-5); }
 .todo-comment-head { font-size: var(--text-small); }
-.todo-comment-parts { font-size: var(--text-body); line-height: var(--line); }
-.todo-composer { display: flex; gap: var(--space-3); align-items: flex-start; margin-top: var(--space-3); }
+.todo-comment-parts { line-height: var(--line); }
+.todo-composer { display: flex; gap: var(--space-3); align-items: flex-start; margin-top: var(--space-2); }
+/* U7310a: in the maximised Drawer an Agent's glyph and the composer's mark hang in the gutter, so names and text keep the column edge. */
+[data-maximised="true"] .todo-comment-head:has(.glyph, .todo-comment-glyph-gap) { position: relative; inset-inline-start: calc((var(--space-4) + var(--space-2)) * -1); inline-size: calc(100% + var(--space-4) + var(--space-2)); }
+.drawer[data-maximised="true"] .todo-composer { position: relative; inset-inline-start: calc((var(--space-4) + var(--space-3)) * -1); inline-size: calc(100% + var(--space-4) + var(--space-3)); }
 .todo-composer-actor { flex: none; color: var(--grey); font-size: var(--text-small); padding-top: var(--space-2); }
 .todo-comment-field { min-width: 0; min-height: calc(var(--line) * 3); line-height: var(--line); }
-.todo-comments .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
 .todo-comments .ink[data-tone] { white-space: normal; overflow: visible; }
-.todo-comments { font-size: var(--text-title); }
-.todo-activity-head h3 { font-size: var(--text-body); }
 .todo-comment-head button { margin-inline-start: var(--space-3); }
-
-/* Recovery belongs after the composer, so it cannot cover a send failure. */
-.todo-draft-recovery[data-in-drawer] .reserved-line { max-width: var(--reading-width); padding-inline: var(--reading-gutter); }
-.todo-comments .reserved-content { align-items: flex-start; }

@@ -171,7 +171,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
     await browser("press", "Control+End");
     await browser("keyboard", "type", "Retained review draft");
     await browser("click", ".pad-head-name");
-    await browser("wait", "--fn", "document.querySelector('.pad-body [role=alert]')?.textContent.includes('Free space and retry.')");
+    await browser("wait", "--fn", "document.querySelector('.app-toast [role=alert]')?.textContent.includes('Free space and retry.')");
     await browser("screenshot", join(recoveryOutput, "rejected-save-restored.png"));
     writeFileSync(join(recoveryOutput, "rejected-save-restored.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
   }

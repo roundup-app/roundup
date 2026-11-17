@@ -1,4 +1,5 @@
 import { questionDialog, answerQuestion } from "../../shelf/bulkQuestionHarness";
+import { notice } from "../../testing/notices";
 import { questionProbe } from "../../testing/menuProbe";
 import { mountCentre } from "../../testing/centreFixture";
 import { stubDialogLayout } from "../../shelf/bulkQuestionHarness";
@@ -159,7 +160,7 @@ describe("u2694 the Rail's menu actions", () => {
     await app.pickMenu("Remove");
     await answerQuestion(true);
 
-    expect(await screen.findByRole("alert")).toBeDefined();
+    expect(await waitFor(() => notice("alert"))).toBeDefined();
   });
 
   it("u2694c_a_failed_send_shows_the_failure_line", async () => {

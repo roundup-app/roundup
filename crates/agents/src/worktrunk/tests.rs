@@ -2,6 +2,8 @@ use super::*;
 use serde_json::{Value, json};
 use std::os::unix::fs::PermissionsExt;
 
+mod u7371;
+
 const LOCAL: &[u8] = include_bytes!("../../tests/fixtures/worktrunk-v0.80.0/local.json");
 const FULL: &[u8] = include_bytes!("../../tests/fixtures/worktrunk-v0.80.0/full.json");
 
@@ -61,6 +63,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: Some(("passed".into(), false)),
                 pr: Some((42, false)),
+                integrated: false,
                 evidence: None
             }
         );
@@ -72,6 +75,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: None,
                 pr: None,
+                integrated: false,
                 evidence: None,
             },
         ),
@@ -81,6 +85,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: None,
                 pr: None,
+                integrated: false,
                 evidence: None,
             },
         ),
@@ -90,6 +95,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: Some(("passed".into(), true)),
                 pr: Some((42, false)),
+                integrated: false,
                 evidence: None,
             },
         ),
@@ -99,6 +105,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: Some(("unknown".into(), false)),
                 pr: Some((8, false)),
+                integrated: false,
                 evidence: None,
             },
         ),
@@ -108,6 +115,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: Some(("conflicts".into(), true)),
                 pr: Some((9, false)),
+                integrated: false,
                 evidence: None,
             },
         ),
@@ -117,6 +125,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: None,
                 pr: None,
+                integrated: false,
                 evidence: None,
             },
         ),
@@ -282,6 +291,7 @@ fn u2556b_failures_preserve_local_state() {
     let facts = Facts {
         ci: Some(("passed".into(), false)),
         pr: Some((4, false)),
+        integrated: false,
         evidence: None,
     };
     publish(
@@ -298,6 +308,7 @@ fn u2556b_failures_preserve_local_state() {
         Facts {
             ci: Some(("passed".into(), true)),
             pr: Some((4, true)),
+            integrated: false,
             evidence: None
         }
     );
@@ -314,6 +325,7 @@ fn u2556b_failures_preserve_local_state() {
         Facts {
             ci: Some(("passed".into(), true)),
             pr: Some((4, true)),
+            integrated: false,
             evidence: None
         }
     );
@@ -386,6 +398,7 @@ fn u2556b_late_results_do_not_cross_identity() {
                 Facts {
                     ci: None,
                     pr: Some((1, false)),
+                    integrated: false,
                     evidence: None,
                 },
             )])),

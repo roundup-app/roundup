@@ -22,6 +22,7 @@ import { AlertSettings } from "./AlertSettings";
 import { ResetWarnings } from "./ResetWarnings";
 import { MachinesSettings } from "./MachinesSettings";
 import { settingsEntries } from "./entries";
+import { markControls, registerSettingsPlace } from "./place";
 import { UpdateRow } from "./UpdateRow";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 
@@ -245,7 +246,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const lineHeightControl = () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint);
   const letterSpacingControl = () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint);
 
-  const controls = {
+  const controls = markControls({
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.settingsDefault },
@@ -308,8 +309,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     focusMarkers: () => (
         <Switch description={copy.focusMarkersHint} checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
     ),
-  };
-
+  });
 
   const entries = () => settingsEntries({ project: props.project, updates, numericFields });
 
@@ -317,7 +317,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const [query, setQuery] = createSignal("");
   const searching = () => query().trim() !== "";
   const results = createMemo(() => searching() ? fuzzysort.go(query().trim(), entries(), { keys: ["label", "description", "page", "group"] }).map(result => result.obj) : []);
-  let searchInput: HTMLInputElement | undefined;
+  onCleanup(registerSettingsPlace({ entries, setQuery, setSection, show: () => show() }));
 
   return <>
     <Show when={view.open()}>
@@ -331,7 +331,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <h2 class="settings-title">{copy.settings}</h2>
         <Field.Root class="settings-search">
           <Field.Label class="settings-search-label">{copy.settingsSearch}</Field.Label>
-          <Field.Input ref={searchInput} type="search" placeholder={copy.settingsSearch} value={query()} spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"
+          <Field.Input type="search" placeholder={copy.settingsSearch} value={query()} spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"
             onInput={event => setQuery(event.currentTarget.value)}
             onKeyDown={event => {
               if (event.isComposing) return;

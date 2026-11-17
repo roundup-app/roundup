@@ -35,6 +35,24 @@ wt JSON local / full reads ──────┴→ Daemon cache → agent.workt
 
 **U2556d the Worktree view and Rail agree.** Given U2539b's Worktree view and a Rail row for the same Agent, both read the same client cache entry keyed by Project, Agent and Worktree identity. The view retains branch, Base, behind, dirty and changed-file behavior and adds the same ahead, CI and PR facts, including unavailable/stale explanations. A refresh updates both consumers from one result; opening the view does not start an independent enrichment pipeline. Selecting another Agent or switching Projects never flashes the former Agent's network facts. Planned test: `u2556d_both_views_share_facts_and_identity` in the Worktree view's Vitest suite. Policy: the rendered observer above includes both views and U2539b's open/close/focus interaction; this specification claims no implemented view or native Mac observation.
 
+## Finished work on the Rail (U7371a to U7371c)
+
+Work Issue: #7371. Builds on U2556c's Chips. The Rail answers which Worktree holds finished work. `WorktreePr` gains a `draft` boolean and the contract, regenerated clients, fake App and every caller change together (rule 4). PR facts come from the user's own `gh`, never worktrunk: `isDraft` joins the `gh` read in `crates/agents/src/pr_checks.rs`. Whether a branch is in main comes from worktrunk's `display.state` (`integrated`), read through U2556a's identity mapping. No new RPC method, App seam command or Token; no browser, webview or action on the dimmed row.
+
+**U7371a the `#<number>` Chip shows a PR as draft or open.** Given an Agent whose Worktree has a known PR, when its Rail row renders:
+
+- The Chip reads `#<number>` with the state in text (`draft` or `open`), `data-state` of `draft` or `open` and an accessible description naming both, distinguishable without colour; it stays a state Chip as U2556c requires. Planned test: `u7371a_chip_shows_draft_and_open` in the Rail's Vitest suite.
+- The `gh` read returns `isDraft`; `true` gives `draft`, `false` gives `open`. A missing or null value omits the state and the Chip reads `#<number>` alone, never `open`. Planned test: `u7371a_gh_is_draft_reaches_the_contract` in `crates/agents/tests/scenarios/worktree_state.rs`.
+
+**U7371b a row dims once its Worktree holds nothing but main's work.** Given an Agent row with a Worktree, when the Daemon reports its facts:
+
+- The row dims when worktrunk's `display.state` is `integrated`, and `dirty` is false, `ahead` is 0 and the Worktree is not diverged. It does not dim for `empty` (a fresh Worktree), nor when `integrated` with `dirty`, nonzero `ahead` or diverged. A row with no Worktree or no collected state does not dim. Planned tests: `u7371b_integrated_clean_row_dims` in the Rail's Vitest suite; `u7371b_integrated_state_reaches_the_contract` in the Rust file above.
+- Dimming changes no Kind, Glyph, Status, selection, focus, keyboard navigation or row action, and the row keeps contrast the design critic accepts for text. It never authorizes Landing or removal. Policy: design observer as U2556c, dark, at 1512×950, with an `integrated` row beside an `empty` one on the densest seed; Moves D2, D5 and D6.
+
+**U7371c a Workstream dims once every Worktree under it does.** Given a Workstream row with Agents under it, when their facts change:
+
+- The Workstream row dims only when it has at least one Worktree and every Worktree under it dims by U7371b; one Agent without a Worktree, or with a Worktree that does not dim, keeps it undimmed. A Workstream with no Worktree does not dim. Planned test: `u7371c_workstream_dims_only_when_all_rows_do` in the Rail's Vitest suite.
+
 ## Regression checks on origin/main
 
 These are existing evidence anchors, not claims that the planned U2556 tests already exist. Checked against `5f6f90674`.

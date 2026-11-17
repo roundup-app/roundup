@@ -2,6 +2,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { createEventListener } from "@solid-primitives/event-listener";
 import { createMemo, createSignal, getOwner, runWithOwner, type Accessor } from "solid-js";
+import type { MessageCard } from "../ink/messageToast";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "./copy";
 import { createToast } from "../ui/Toast";
@@ -54,7 +55,10 @@ export type ToastQueue = {
   suppress(key: string): void;
   /** A Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
   notify(candidate: Candidate): void;
+  /** U7310d: the card of a message a view shows beside its content, in place of a line in the view. The returned call takes the card down when the message clears. */
+  message(card: MessageCard): () => void;
 };
+
 
 /** U410 to U414. Event policy lives here: queued Toasts while away, coalescing by Agent, the summary card and the one-per-second sound. Lifetimes belong to the shared Toast; with nothing pushed, nothing runs. */
 export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () => number = Date.now): ToastQueue => {
@@ -71,6 +75,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
   const [failure, setFailure] = createSignal<string | null>(null);
   const failures = new Map<string, { item: string; message: string }>();
+  const messages = new Map<string, () => void>();
   const kept = new Map<string, Candidate>();
   // Entries whose card is closing stay findable until the next push, for the activation that closed them.
   const known = new Map<string, Entry>();
@@ -83,6 +88,15 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     limit: MOST_SHOWN,
     newestFirst: true,
     onDismiss: (id) => {
+      const closed = messages.get(id);
+
+      if (closed) {
+        messages.delete(id);
+        closed();
+
+        return;
+      }
+
       if (failures.delete(id)) {
         setFailure([...failures.values()].at(-1)?.message ?? null);
 
@@ -219,6 +233,16 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     },
     notify: (candidate) => {
       show(candidate);
+    },
+    message: ({ id, body, closed }) => {
+      toast.remove(id);
+      messages.set(id, closed);
+      toast.show({ id, name: "", content: "", body, extra: true, duration: NO_TIME });
+
+      return () => {
+        messages.delete(id);
+        toast.remove(id);
+      };
     },
     push: (candidate) => {
       if (inFront()) {

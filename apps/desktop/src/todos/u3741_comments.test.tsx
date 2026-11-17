@@ -48,7 +48,7 @@ it("u3741_a_comment_is_sent_once_and_kept_on_failure", async () => {
   m.app.handlers["todo.comment"] = () => Promise.reject(new RpcError(-32003, "Daemon said no"));
   fireEvent.input(field, { target: { value: "keep me" } });
   fireEvent.click(within(panel()).getByRole("button", { name: "Comment" }));
-  await within(panel()).findByText("Daemon said no");
+  await screen.findByText("Daemon said no");
   expect(field.value).toBe("keep me");
   m.app.handlers["todo.comment"] = original;
   fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });

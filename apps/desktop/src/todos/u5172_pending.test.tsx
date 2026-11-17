@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
+import { notices } from "../testing/notices";
 import { AGENT, openShelf, padOf } from "../pads/padsFixture";
 import { mountTodos, todo } from "./testHarness";
 import { reorderChange } from "./state";
@@ -19,7 +20,7 @@ it("u5172a_unanswered_todo_toggle_shows_the_asked_state_marked_applying", async 
   fireEvent.click(box);
   await waitFor(() => expect(box.getAttribute("aria-busy")).toBe("true"));
   expect(box.checked).toBe(true);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 it("u5172a_unanswered_pad_rename_shows_the_asked_name_marked_applying", async () => {

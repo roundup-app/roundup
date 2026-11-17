@@ -17,7 +17,8 @@ import { PadDrawer } from "./PadDrawer";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
-import { notices } from "../testing/notices";
+import { notice, notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -612,7 +613,7 @@ it("p2544d_failed_conflict_reload_surfaces_reload_failure", async () => {
   await screen.findByText("Use theirs");
   await waitForReload(app);
 
-  await within(screen.getByLabelText("Drawer")).findByText(/reload unavailable/);
+  await screen.findByText(/reload unavailable/);
 
   expect(screen.queryByText(/stale revision/)).toBeNull();
   expect(field.value).toBe("draft");
@@ -699,17 +700,16 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
 
   fireEvent.input(field, { target: { value: "recoverable é 🪁" } });
   flush();
-  const body = within(document.querySelector<HTMLElement>(".pad-body")!);
-  await body.findByRole("alert");
+  await waitFor(() => notice("alert"));
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(stored);
   const clipboard = vi.fn(async () => {});
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
-  fireEvent.click(body.getByRole("button", { name: "Copy source" }));
+  fireEvent.click(screen.getByRole("button", { name: "Copy source" }));
   flush();
   expect(clipboard).toHaveBeenCalledWith("recoverable é 🪁");
   writes.mockRestore();
   const before = app.calls.filter(call => call.method === "pad.write").length;
-  fireEvent.click(body.getByRole("button", { name: "Retry storage only" }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(connected.drafts.problem()).toBeNull());
   expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.at(-1).value.source).toBe("recoverable é 🪁");
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(before);
@@ -722,7 +722,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
 
   fireEvent.input(field, { target: { value: "selected" } });
   flush();
-  fireEvent.click(await body.findByRole("button", { name: recoveryCopy.discardRevision }));
+  fireEvent.click(await screen.findByRole("button", { name: recoveryCopy.discardRevision }));
   flush();
   expect(connected.drafts.list()).toEqual([]);
   expect(field.value).toBe("base");
@@ -776,7 +776,7 @@ it("u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write", async ()
   await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
   await openPad("unknown");
   fireEvent.click(screen.getByRole("button", { name: "Resume" }));
-  await within(screen.getByLabelText("Drawer")).findByRole("alert");
+  await waitFor(() => notice("alert"));
   expect(connected.drafts.list()).toEqual([snapshot]);
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
   expect(state.pads[0]?.text).toBe("submitted é");
@@ -799,7 +799,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const retained = structuredClone(connected.drafts.list());
   // Recovery can mount with loaded facts after the ordinary Shelf has gone away.
   cleanup();
-  render(() => <ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
   const calls = [...app.calls];
   const field = await openPad(original.name, { connected, pads: [original], revision: a.revision });
   expect(field.value).toBe("A 🌱 é\nsecond");

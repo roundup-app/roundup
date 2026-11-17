@@ -19,6 +19,7 @@ export const CONTRACT = {
     "agent.instructions": "656ce925870a23fd",
     "agent.interrupt": "14f2a58ce154f8c5",
     "agent.land": "5aba65a94dd09a2a",
+    "agent.links": "d908b9e1dcd0624e",
     "agent.makeWorkstream": "b0bf88e3e19a3664",
     "agent.ownedChanges": "87a1a536ad077489",
     "agent.prompt": "827059ae7d416823",

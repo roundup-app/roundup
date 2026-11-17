@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PadRichEditor from "./PadRichEditor";
+import { ToastHost } from "../testing/toastHost";
 import { openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import { bundledRenderers, useRenderers } from "./visualKinds";
@@ -73,7 +74,7 @@ describe("u149 the canvas loads only when a Drawing is present", () => {
 
       const onReady = vi.fn();
 
-      render(() => <PadRichEditor item={item} text="" readonly={readonly} onChange={noop} onText={noop} onBlur={noop} onReady={onReady} />);
+      render(() => <ToastHost><PadRichEditor item={item} text="" readonly={readonly} onChange={noop} onText={noop} onBlur={noop} onReady={onReady} /></ToastHost>);
       await waitFor(() => expect(onReady).toHaveBeenCalled());
 
       const field = document.querySelector<HTMLElement>(".ProseMirror")!;

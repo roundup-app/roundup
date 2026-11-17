@@ -42,6 +42,9 @@ it("u471_copy_modules_belong_to_their_surfaces", () => {
 
       if (file === "sharedCopy.ts") expect(node.importKind, node.source.value).toBe("type");
 
+      // A package module (an icon named copy) is no surface's catalogue.
+      if (!node.source.value.startsWith(".")) return;
+
       if (!catalogue(target)) return;
 
       if (target === "sharedCopy.ts") {
@@ -110,6 +113,7 @@ const STRUCTURE = new Set([
   'input, textarea, select, [contenteditable="true"]', "select, input, button",
   "input, textarea, select, [contenteditable], .todo-blocker", "visual-source is-open",
   'ui-monospace, "SF Mono", Menlo, monospace', "no open Project: a region read the ConnectedProject outside one",
+  "no toast region: a view showed a message outside the App's Toast queue",
   "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ",
 ]);
 

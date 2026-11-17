@@ -7,6 +7,7 @@ import { openRecovery } from "../testing/recovery";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { ItemDrawer } from "./ItemDrawer";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => {
   cleanup();
@@ -81,7 +82,7 @@ it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   const draft = connected.drafts.edit({ surface: "orders", object: "other", recipient: "b" }, { ask: "  unfinished é\n雪  " }, null, "ordinary").draft;
   const [item, setItem] = createSignal("original");
-  render(() => <ConnectedProjectContext value={connected}>
+  render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <ItemDrawer item={item()} read={async () => {
       if (item() === "original" && failure === "read" && !fixed) throw new Error("opening refused");
 
@@ -93,7 +94,7 @@ it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map
         return <p>{value}</p>;
       }}
     </ItemDrawer>
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
   await screen.findByText("opening refused");
 
   if (action === "retry") {

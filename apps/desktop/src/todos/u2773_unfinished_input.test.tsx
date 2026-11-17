@@ -1,5 +1,6 @@
 import { flush } from "solid-js";
 import { copy as recoveryCopy } from "../sharedCopy";
+import { notice } from "../testing/notices";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
@@ -8,6 +9,7 @@ import { Todos } from "./Todos";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TodoDrawer } from "./TodoDrawer";
 import { historyLoaded, mountTodos, titleClosed, todo, todoCallsTo } from "./testHarness";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -160,7 +162,7 @@ it.each(["creation", "comment"])("u2773e_todos_recovery_actions_keep_surface_dra
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   fireEvent.input(field, { target: { value: "  exact 🧪  " } });
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith("  exact 🧪  ");
   expect(localStorage.getItem(`roundup:drafts:${connected.project.path}`)).toBe(stored);
@@ -417,7 +419,7 @@ it("u3021c_todo_title_enter_on_an_unknown_revision_keeps_the_field_and_its_text"
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   fireEvent.keyDown(field, { key: "Enter" });
-  await waitFor(() => expect(document.querySelector(".todo-title-feedback")?.getAttribute("title")).toBe(recoveryCopy.draftStatus.unknown));
+  await screen.findByRole("alert", { name: recoveryCopy.draftStatus.unknown });
   expect(field.style.visibility).not.toBe("hidden");
   expect(field.value).toBe(form.text);
   expect(app.calls.slice(calls.length)).toEqual([]);
@@ -435,9 +437,9 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const before = connected.drafts.list();
   const calls = [...app.calls];
 
-  const opened = render(() => <ConnectedProjectContext value={connected}>
+  const opened = render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
 
   flush();
 
@@ -451,9 +453,9 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
 
   const changedSelection = { start: 7, end: 12, direction: "forward" as const };
 
-  const reopen = () => render(() => <ConnectedProjectContext value={connected}>
+  const reopen = () => render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
 
   flush();
 
@@ -483,9 +485,9 @@ it("u3021c_todo_creation_discard_from_another_control_closes_the_selected_editor
   const b = connected.drafts.edit(destination, { title: "keep B", home: null }, null, "ordinary").draft;
   const calls = [...app.calls];
 
-  const opened = render(() => <ConnectedProjectContext value={connected}>
+  const opened = render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
 
   flush();
 
@@ -563,7 +565,7 @@ it.each(["failed", "unknown"] as const)("u3021c_todo_selected_creation_save_keep
   const b = connected.drafts.edit(destination, { title: "newer B", home: "a" }, null, "ordinary").draft;
   connected.rail.select("b");
   const calls = [...app.calls];
-  render(() => <ConnectedProjectContext value={connected}><Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} /></ConnectedProjectContext></ToastHost>);
   flush();
   const field = screen.getByRole("textbox", { name: "New Todo title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
@@ -603,7 +605,7 @@ it.each(["project", "facts-project", "object", "home", "removed"] as const)("u30
     { title: "never retarget", home: mismatch === "home" ? "b" : mismatch === "removed" ? "gone-home" : "a" }, null, "ordinary").draft;
 
   const calls = [...app.calls];
-  render(() => <ConnectedProjectContext value={connected}><Todos recovery={{ project: mismatch === "project" ? "/other-project" : connected.project.path, revision: a.revision, list: mismatch === "facts-project" ? { ...todos, project: "/other-project" } : todos }} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><Todos recovery={{ project: mismatch === "project" ? "/other-project" : connected.project.path, revision: a.revision, list: mismatch === "facts-project" ? { ...todos, project: "/other-project" } : todos }} /></ConnectedProjectContext></ToastHost>);
   flush();
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(app.calls).toEqual(calls);
