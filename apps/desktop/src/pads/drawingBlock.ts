@@ -14,6 +14,8 @@ export type CanvasProps = {
   theme: "light" | "dark";
   UIOptions: { canvasActions: Record<string, boolean> };
   onChange(elements: readonly CanvasElement[]): void;
+  /** Called once with the canvas handle; the Pad fits the scene to the canvas through it. */
+  excalidrawAPI(api: { scrollToContent(target: readonly CanvasElement[], options: { fitToViewport: boolean; viewportZoomFactor: number }): void }): void;
 };
 
 /** The calls the Pad makes of Excalidraw. */
@@ -84,6 +86,8 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
         viewModeEnabled: readonly,
         theme: appDark() ? "dark" : "light",
         UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } },
+        // Leaves the toolbar, tool column and footer clear: the scene fills 70% of the canvas.
+        excalidrawAPI: (api) => api.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.7 }),
         onChange: (current) => {
           if (readonly) return;
 
