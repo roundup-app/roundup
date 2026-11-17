@@ -1,3 +1,4 @@
+import { durationMs, easingOut } from "./reorderMotion";
 import { createEffect, createSignal, onCleanup, untrack, type Accessor } from "solid-js";
 
 export type SlideLifetime = {
@@ -97,8 +98,6 @@ export const createMaximiseSlide = (element: Accessor<HTMLElement | undefined>, 
       const hidden = Math.abs(after - before);
 
       if (hidden < 1) return;
-      const style = getComputedStyle(host);
-      const duration = style.getPropertyValue(key ? "--duration-key" : "--duration-drawer").trim();
       const grows = after > before;
 
       if (!grows) host.style.minWidth = `${before}px`;
@@ -108,7 +107,7 @@ export const createMaximiseSlide = (element: Accessor<HTMLElement | undefined>, 
       const current = host.animate([
         { clipPath: inset(grows ? hidden : 0) },
         { clipPath: inset(grows ? 0 : hidden) },
-      ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
+      ], { duration: durationMs(key ? "--duration-key" : "--duration-drawer", host), easing: easingOut(host) });
 
       slide = current;
 

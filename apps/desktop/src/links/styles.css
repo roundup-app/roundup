@@ -1,0 +1,17 @@
+/* LH6: the header floats over the Terminal's top edge, out of the layout flow, so showing, hiding or changing it resizes nothing. */
+.links-header {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-2);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-1);
+  max-inline-size: calc(100% - 2 * var(--space-2));
+}
+
+/* LH10: collapsed, the handle alone stays; it sits quiet until hovered or focused. */
+.links-header:not([data-open]) .links-handle { opacity: 0.5; }
+.links-header .links-handle:is(:hover, :focus-visible) { opacity: 1; }

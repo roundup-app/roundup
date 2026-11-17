@@ -36,6 +36,7 @@ import { sourceForDocument } from "./sourceForDocument";
 import { insertBlock, visualBlocks } from "./visualBlocks";
 import { agentDetailsRemark, agentDetailsNode, agentDetailsView } from "./agentDetails";
 import { headingFolds } from "./headingFolds";
+import { indentOnlyInCode } from "./indentOnlyInCode";
 import { emptyDrawing, visualKinds } from "./visualKinds";
 import "./editor.css";
 import "../ui/reading.styles.css";
@@ -281,11 +282,11 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
       },
     } as BlockEditFeatureConfig;
 
-    crepe = new CrepeBuilder({
+    crepe = indentOnlyInCode(new CrepeBuilder({
       root: host,
       // The text this mount began with: reading a ternary prop here would make a memo after setup, which Solid 2 refuses.
       defaultValue: original,
-    })
+    }))
       .setReadonly(props.readonly)
       .addFeature(blockEdit, blockConfig)
       .addFeature(listItem)
