@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { flush } from "solid-js";
+import { children, flush, onCleanup, type ChildrenReturn } from "solid-js";
 import { copy } from "./copy";
 import type { Entry } from "./entries";
 
@@ -21,7 +21,8 @@ type Live = { entries: () => Entry[]; setQuery: (query: string) => void; setSect
 
 let live: Live | undefined;
 
-const marks = new Map<string, HTMLElement>();
+/** The rendered control of each entry id, until it unmounts. */
+const marks = new Map<string, ChildrenReturn>();
 
 export const registerSettingsPlace = (next: Live) => {
   live = next;
@@ -29,17 +30,25 @@ export const registerSettingsPlace = (next: Live) => {
   return () => { if (live === next) live = undefined; };
 };
 
-/** PL2: each entry's control carries a mark, in a page and in a search result alike; the mark has no box of its own. */
+/** PL2: each entry's control is known by its id, in a page and in a search result alike; the control stays the element it was, so it keeps its place among its siblings. */
 export const markControls = <K extends string>(renders: Record<K, () => JSX.Element>) => {
   // SAFETY: the map keeps every key and returns one render per key.
-  return Object.fromEntries(Object.entries<() => JSX.Element>(renders).map(([id, render]) => [id, () => <div class="settings-control" ref={element => marks.set(id, element)}>{render()}</div>])) as Record<K, () => JSX.Element>;
+  return Object.fromEntries(Object.entries<() => JSX.Element>(renders).map(([id, render]) => [id, () => {
+    const control = render();
+    const nodes = children(() => control);
+
+    marks.set(id, nodes);
+    onCleanup(() => { if (marks.get(id) === nodes) marks.delete(id); });
+
+    return control;
+  }])) as Record<K, () => JSX.Element>;
 };
 
 /** Deferred controls mount after their page, so the focus waits for the control a short while. */
 const focusControl = (id: string) => {
   const reach = (target: HTMLElement) => { target.focus(); target.scrollIntoView({ block: "nearest" }); };
 
-  const find = () => marks.get(id)?.querySelector<HTMLElement>(":is(input, button, [role=combobox], [role=radio], [role=switch], textarea)");
+  const find = () => marks.get(id)?.toArray().map(node => node instanceof Element ? node.querySelector<HTMLElement>("input, button, [role=combobox], [role=radio], [role=switch], textarea") : null).find(target => target !== null);
   const now = find();
 
   if (now) return reach(now);

@@ -329,9 +329,6 @@
 .settings-rows :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview):not(:first-child) {
   border-top: var(--hairline-width) solid var(--hairline);
 }
-.settings-control:not(:first-child) :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview) {
-  border-top: var(--hairline-width) solid var(--hairline);
-}
 /* MC70: a Machine row is its name, its state beside it and Remove at the trailing edge; a long name ends in an ellipsis before the state. */
 .settings-machines { list-style: none; margin: 0; padding: 0; }
 .settings-machine {
@@ -447,7 +444,3 @@
 .add-machine-host { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; }
 .add-machine-entry { display: flex; gap: var(--space-2); align-items: center; }
 .add-machine-entry input { flex: 1; min-width: 0; }
-
-.settings-control {
-  display: contents;
-}
