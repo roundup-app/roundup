@@ -83,10 +83,10 @@ fn observe(
         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             // Tauri emits Ready after setup finishes constructing the webview;
             // the earlier restore event alone does not make it discoverable yet.
-            // Ready follows AppKit and WebKit process start, which the runner's load
-            // stretches past the restore bound (6.7 s measured on a loaded runner), so
-            // Ready has its own bound, well above that; a hung start still fails.
-            startup.recv_timeout(Duration::from_secs(30)).unwrap();
+            // Ready follows AppKit and WebKit process start, whose time depends on the
+            // runner's load, so it is awaited outside any bound (the test runner's
+            // timeout ends a hung start); the restore bound below starts after it.
+            startup.recv().unwrap();
             let (visible_before_reveal, normal_bounds) =
                 restored.recv_timeout(Duration::from_secs(5)).unwrap();
             assert!(!visible_before_reveal);
