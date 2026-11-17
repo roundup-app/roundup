@@ -80,12 +80,6 @@ async fn ready_peer(run: &Run, node: Value) -> Peer {
         .request("daemon.identify", json!({"actor":{"kind":"agent","id":id}}))
         .await
         .unwrap();
-    // E6: the fake `claude` starts no `rup mcp`, so its Channel stays `pending` for the 15 s
-    // deadline, the whole of `BOUND`, and the Daemon holds each Message for the lead until then.
-    client
-        .request("agent.channelUp", json!({"id":id}))
-        .await
-        .unwrap();
     Peer {
         id,
         terminal: node["terminal_id"].clone(),
@@ -378,6 +372,26 @@ async fn signal(run: &Run, peer: &Peer, payload: Value) {
         .unwrap();
 }
 
+async fn receive_digest(run: &Run, peer: &Peer, last: &str, status: &str) -> String {
+    let entry = until("inbox Digest", async || {
+        signal(run, peer, json!({"hook_event_name":"Stop"})).await;
+        peer.entries().into_iter().find(|e| {
+            e["message"]["content"]
+                .as_str()
+                .is_some_and(|s| s.contains("[digest]") && s.contains(last) && s.contains(status))
+        })
+    })
+    .await;
+    let msg_id = entry["msg_id"].as_str().unwrap();
+    let id = u32::try_from(i64::from_str_radix(&msg_id[msg_id.len() - 12..], 16).unwrap()).unwrap();
+    peer.record(run, id).await;
+    until("inbox receipt", async || {
+        (run.status(id).await.0 == "delivered").then_some(())
+    })
+    .await;
+    entry["message"]["content"].as_str().unwrap().to_owned()
+}
+
 async fn receive(run: &Run, peer: &Peer, id: u32) -> String {
     let content = until("inbox Message", async || {
         // TS1: a Message the Daemon holds for a busy Agent is written once its turn ends, and the
@@ -554,88 +568,54 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         )
         .await;
         std::fs::write(child.dir.join("final-reply.txt"), &text).unwrap();
-        let sent = run
-            .user
+        run.user
             .request(
                 "message.send",
                 json!({"to":child.id,"kind":"note","body":format!("Complete turn: {text}")}),
             )
             .await
             .unwrap();
+        signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
+        let digest = until("final text Digest", async || {
+            // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
+            run.user
+                .request(
+                    "message.send",
+                    json!({"to":lead.id,"kind":"note","body":"release the Digest"}),
+                )
+                .await
+                .unwrap();
+            signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
+            let messages = run
+                .user
+                .request("message.list", json!({"to":lead.id}))
+                .await
+                .unwrap();
+            messages
+                .as_array()
+                .unwrap()
+                .iter()
+                .rev()
+                .find(|m| {
+                    m["body"].as_str().is_some_and(|s| {
+                        s.contains(&format!("last: {}", &text[..text.len().min(100)]))
+                    })
+                })
+                .cloned()
+        })
+        .await;
+        assert_eq!(digest["kind"], "note");
+        // A status or text flip may merge the listed Digest into a later one before the lead takes it,
+        // so the Digest observed is the one the lead's inbox took.
         // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
         let status = if text == "Publishing is complete" {
             "builder is idle"
         } else {
             "builder is needs-you"
         };
-        // Release the note the child holds for its busy turn; the fake takes it, reports the final
-        // text and signals its Stop. The test signals nothing else for the child until that Stop is
-        // taken, so no Stop of its own makes the child's Kind flip and no stale Digest follows.
-        signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
-        until("the child's final text Stop", async || {
-            child.dir.join("final-stop").exists().then_some(())
-        })
-        .await;
-        // The child records the note as Claude Code does, which opens a turn; its final text ends
-        // that turn, so the lead's Digest holds the final status, not `working`.
-        let sent = u32::try_from(sent["id"].as_u64().unwrap()).unwrap();
-        child.record(&run, sent).await;
-        until("inbox receipt", async || {
-            (run.status(sent).await.0 == "delivered").then_some(())
-        })
-        .await;
-        signal(
-            &run,
-            &child,
-            json!({"hook_event_name":"Stop","last_assistant_message":text}),
-        )
-        .await;
         let last = format!("last: {}", &text[..text.len().min(100)]);
-        // A later Digest may replace a held one, so the Digest is the one the lead's inbox took.
-        let mut releases = 0;
-        let mut recorded = 0;
-        let taken = until("final text Digest", async || {
-            // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
-            // The lead records each release as Claude Code does, which lets the next Message in.
-            let entries = lead.entries();
-            let digest = entries.iter().find(|e| {
-                e["message"]["content"]
-                    .as_str()
-                    .is_some_and(|s| s.contains(&last) && s.contains(status))
-            });
-            if digest.is_some() {
-                return digest.cloned();
-            }
-            for entry in &entries[recorded..] {
-                let msg_id = entry["msg_id"].as_str().unwrap();
-                lead.record(&run, u32::from_str_radix(&msg_id[msg_id.len() - 8..], 16).unwrap())
-                    .await;
-            }
-            recorded = entries.len();
-            // The Daemon drops a Message equal to the last inbox entry, so each release differs.
-            releases += 1;
-            run.user
-                .request(
-                    "message.send",
-                    json!({"to":lead.id,"kind":"note","body":format!("release the Digest {releases}")}),
-                )
-                .await
-                .unwrap();
-            signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
-            None
-        })
-        .await;
-        let msg_id = taken["msg_id"].as_str().unwrap();
-        let id =
-            u32::try_from(i64::from_str_radix(&msg_id[msg_id.len() - 12..], 16).unwrap()).unwrap();
-        let digest = run
-            .user
-            .request("message.get", json!({"id":id}))
-            .await
-            .unwrap();
-        let body = digest["body"].as_str().unwrap();
-        assert_eq!(digest["kind"], "note");
-        let delivered = receive(&run, &lead, id).await;
+        let delivered = receive_digest(&run, &lead, &last, status).await;
+        let body = delivered.as_str();
         assert!(delivered.contains(status), "{delivered}");
         assert!(body.contains(status), "{body}");
         if text.contains('\n') {
@@ -670,14 +650,6 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             .request("message.list", json!({"to":lead.id}))
             .await
             .unwrap();
-        if before != after {
-            let all = run.user.request("message.list", json!({})).await.unwrap();
-            for m in all.as_array().unwrap() { eprintln!("DBG msg {} to={} {} {} {}", m["id"], m["to"], m["status"], m["reason"], m["body"].as_str().unwrap_or("").replace('\n'," | ")); }
-            for e in child.entries() { eprintln!("DBG child entry {}", e["message"]["content"].as_str().unwrap_or("").replace('\n'," | ")); }
-            while let Ok(Some(event)) = tokio::time::timeout(Duration::from_millis(300), run.watcher.next_event()).await {
-                if let EventData::AgentStatus(st) = event.data { eprintln!("DBG ev agent {} {:?} {:?}", st.id, st.status.kind, st.status.label); }
-            }
-        }
         assert_eq!(before, after, "replayed completion duplicated fallback");
         if text != "Publishing is complete" {
             let reply = lead
