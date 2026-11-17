@@ -20,6 +20,7 @@ pub mod feedback;
 pub mod github;
 pub mod identity;
 pub mod link;
+pub mod links;
 pub mod machine;
 pub mod message;
 pub mod methods;

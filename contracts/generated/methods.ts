@@ -81,6 +81,7 @@ import type { SetBodyParams as github_SetBodyParams } from "./github/SetBodyPara
 import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { ShortcutFileExport as link_ShortcutFileExport } from "./link/ShortcutFileExport";
+import type { LinkSet as links_LinkSet } from "./links/LinkSet";
 import type { AddParams as machine_AddParams } from "./machine/AddParams";
 import type { Machine as machine_Machine } from "./machine/Machine";
 import type { MachineList as machine_MachineList } from "./machine/MachineList";
@@ -207,6 +208,7 @@ export type RpcMethods = {
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.discard": { params: agent_NodeId; result: null };
+  "agent.links": { params: agent_NodeId; result: links_LinkSet };
   "agent.spawnPrompt": { params: agent_NodeId; result: agent_SpawnPrompt };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
   "agent.setVisibility": { params: agent_SetVisibilityParams; result: agent_RailNode };
