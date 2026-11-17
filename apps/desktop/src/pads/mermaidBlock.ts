@@ -43,6 +43,8 @@ const render = async (mermaid: MermaidApi, text: string) => {
       fontFamily: tokenValue("--font-ui"),
       // U7312c: pie slices take the five Pad colours, labels are grey and lines are hairlines.
       ...Object.fromEntries(padTones.map((tone, at) => [`pie${at + 1}`, tokenColour(tone)])),
+      // Mermaid draws slices at 0.7 opacity by default, which dulls the Pad colours.
+      pieOpacity: "1",
       pieStrokeColor: tokenColour("--ground"),
       pieOuterStrokeColor: hairline,
       pieSectionTextColor: tokenColour("--ground"),
