@@ -372,26 +372,6 @@ async fn signal(run: &Run, peer: &Peer, payload: Value) {
         .unwrap();
 }
 
-async fn receive_digest(run: &Run, peer: &Peer, last: &str, status: &str) -> String {
-    let entry = until("inbox Digest", async || {
-        signal(run, peer, json!({"hook_event_name":"Stop"})).await;
-        peer.entries().into_iter().find(|e| {
-            e["message"]["content"]
-                .as_str()
-                .is_some_and(|s| s.contains("[digest]") && s.contains(last) && s.contains(status))
-        })
-    })
-    .await;
-    let msg_id = entry["msg_id"].as_str().unwrap();
-    let id = u32::try_from(i64::from_str_radix(&msg_id[msg_id.len() - 12..], 16).unwrap()).unwrap();
-    peer.record(run, id).await;
-    until("inbox receipt", async || {
-        (run.status(id).await.0 == "delivered").then_some(())
-    })
-    .await;
-    entry["message"]["content"].as_str().unwrap().to_owned()
-}
-
 async fn receive(run: &Run, peer: &Peer, id: u32) -> String {
     let content = until("inbox Message", async || {
         // TS1: a Message the Daemon holds for a busy Agent is written once its turn ends, and the
@@ -604,18 +584,16 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
                 .cloned()
         })
         .await;
+        let body = digest["body"].as_str().unwrap();
         assert_eq!(digest["kind"], "note");
-        // A status or text flip may merge the listed Digest into a later one before the lead takes it,
-        // so the Digest observed is the one the lead's inbox took.
+        let id = u32::try_from(digest["id"].as_u64().unwrap()).unwrap();
         // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
         let status = if text == "Publishing is complete" {
             "builder is idle"
         } else {
             "builder is needs-you"
         };
-        let last = format!("last: {}", &text[..text.len().min(100)]);
-        let delivered = receive_digest(&run, &lead, &last, status).await;
-        let body = delivered.as_str();
+        let delivered = receive(&run, &lead, id).await;
         assert!(delivered.contains(status), "{delivered}");
         assert!(body.contains(status), "{body}");
         if text.contains('\n') {
