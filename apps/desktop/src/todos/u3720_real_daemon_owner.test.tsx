@@ -232,7 +232,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await lane.browser("fill", "textarea[aria-label=Title]", "Release notes revised");
     await lane.evaluate("window.__failure = {method:'todo.update',message:'Save unavailable; retry your retained edit'}");
     await lane.browser("press", "Tab");
-    await lane.until("!!document.querySelector('.todo-detail [role=alert]')");
+    await lane.until("document.querySelector('.app-toast [role=alert]')?.textContent.includes('Save unavailable')");
     expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: actor(agents[0]!.id), ...saved.get(moved.id) });
     await capture("save-failure");
     await lane.until(titleEditing);
