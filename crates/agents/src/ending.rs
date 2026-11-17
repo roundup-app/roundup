@@ -238,6 +238,7 @@ impl Shared {
             if remove {
                 // A failed delete keeps the node, so its facts stay with it.
                 if result.is_ok() {
+                    self.events.links.forget(id);
                     runs.forget(id);
                 } else {
                     runs.take(id);

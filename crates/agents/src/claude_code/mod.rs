@@ -13,6 +13,7 @@ pub mod inbox;
 mod launch;
 mod launch_files;
 mod launch_lean;
+pub(crate) mod links;
 mod models;
 mod one_shot;
 mod overview_cache;
@@ -20,6 +21,7 @@ mod placement;
 mod profiles;
 mod rewind;
 pub mod toolcall;
+pub use links::Call as LinksCall;
 pub use placement::Call as PlacementCall;
 pub use stop::Call as StopCall;
 pub mod plugins;
@@ -865,5 +867,7 @@ pub(super) fn is_uuid(id: &str) -> bool {
             .all(|(i, b)| matches!(i, 8 | 13 | 18 | 23) || b.is_ascii_hexdigit())
 }
 
+#[cfg(test)]
+mod links_tests;
 #[cfg(test)]
 mod status_tests;

@@ -254,6 +254,8 @@ type AutomaticChanges = { name: "deliverable.changed" }
   | { name: "agent.completed"; data: { maker: string; attempt: string; turn: string } }
   | { name: "deliverable.published"; data: { record: Before["deliverable/Deliverable"]; completion: { maker: string; attempt: string; turn: string } | null } }
   // MC40, MC41 add the Config's two Events.
+  // LH4 adds the links event.
+  | { name: "agent.links"; data: { id: string; set: { entries: { kind: "pr" | "tracker" | "dev-server" | "asked"; url: string; tooltip: string }[] } } }
   | { name: "config.changed" }
   | { name: "config.problem"; data: { file: string; cause: string } };
 

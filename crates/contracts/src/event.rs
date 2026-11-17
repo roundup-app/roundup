@@ -75,6 +75,9 @@ pub enum EventData {
     AgentStray(agent::StrayEvent),
     #[serde(rename = "agent.toolCall")]
     AgentToolCall(Box<agent::ToolCallEvent>),
+    /// LH4: the Agent's link set changed; read `agent.links`.
+    #[serde(rename = "agent.links")]
+    AgentLinks(Box<crate::links::LinksEvent>),
     /// U504: a matched completed turn, independent of Kind or final text contents.
     #[serde(rename = "agent.completed")]
     AgentCompleted(Completion),
