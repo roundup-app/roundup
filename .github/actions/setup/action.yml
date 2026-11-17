@@ -28,6 +28,9 @@ inputs:
   save-node:
     description: On a push to main, save the `node_modules` cache after a miss installed it (CI7325c); one job per OS sets it, since every lane of a run misses together.
     default: 'false'
+  machete:
+    description: Install cargo-machete, which only `just lint` runs; a `check` lane sets `false` (CI7297a).
+    default: 'true'
   tracer:
     description: Install bpftrace and FUSE, which U26's file-fault tracer runs under, on a hosted Linux runner.
     default: 'false'
@@ -151,7 +154,7 @@ runs:
         setsid bash -c 'cargo build -p rupd -p rup -p terminal --features terminal/test-support; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: taiki-e/install-action@nextest
-    - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && inputs.machete != 'false'
       uses: taiki-e/install-action@cargo-machete
     - uses: actions/setup-python@v6
       if: runner.environment != 'self-hosted'
