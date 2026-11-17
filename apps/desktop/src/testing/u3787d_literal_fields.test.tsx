@@ -27,7 +27,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
   if (opening === "Project query") app.add(path("other"));
   const daemon = app.of(path("p"));
-  daemon.handlers["rail.tree"] = () => [workstream("home", { name: "Home" }), mode("mode", "Saved", { name: "Mode" }), agent("a", "idle", "ready", { name: "Original", worktree: { path: "/p/work", base: "main", branch: "work" } })];
+  daemon.handlers["rail.tree"] = () => [workstream("home", { name: "Home" }), mode("mode", "Saved", { name: "Mode" }), agent("a", "idle", "ready", { name: "Original", worktree: { path: "/p/work", base: "main", branch: "work", adopted: false } })];
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Original" }), todo(2, { title: "Other" })] }, () => {}), padHandlers({ pads: [padOf("Original", USER)], history: [] }, () => {}));
   daemon.handlers["project.importDiscover"] = () => ({ candidates: [], excluded: [] });
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });

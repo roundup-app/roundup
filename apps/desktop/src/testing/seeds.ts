@@ -586,7 +586,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", overview: { program: "Claude Code", id: "earlier-session", name: "Recipe notebook", used: 84000, limit: 200000, card: { intent: "Collect household recipes", facts: ["Recipes stay local"], outcome: "Notebook saved" } }, terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
       : name === "resources"
       ? [
-        agent("worktree-agent", "working", "building", { name: "worktree agent", status: statusAt(now, "working", "building", 1), worktree: { path: "/p/.roundup/worktree-agent", branch: "roundup/worktree-agent", base: "main" } }),
+        agent("worktree-agent", "working", "building", { name: "worktree agent", status: statusAt(now, "working", "building", 1), worktree: { path: "/p/.roundup/worktree-agent", branch: "roundup/worktree-agent", base: "main", adopted: false } }),
         agent("bare-agent", "idle", "idle", { name: "bare agent", order: 1, status: statusAt(now, "idle", "idle", 2) }),
         agent("finished-agent", "done", "finished", { name: "finished agent", order: 2, terminal_id: null, status: statusAt(now, "done", "finished", 3) }),
       ]

@@ -106,7 +106,7 @@ const shadow = () => document.querySelector("file-tree-container")?.shadowRoot;
 const changedRows = () => [...(shadow()?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [])];
 
 const openChanges = async (opening: string) => {
-  const { app } = renderTabs({ p: [agent("a", "idle", "ready", { worktree: { path: "/p/work", branch: "work", base: "main" } })] });
+  const { app } = renderTabs({ p: [agent("a", "idle", "ready", { worktree: { path: "/p/work", branch: "work", base: "main", adopted: false } })] });
   const daemon = app.of(path("p"));
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
   daemon.handlers["agent.changedFiles"] = () => ({ files });

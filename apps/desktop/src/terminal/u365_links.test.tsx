@@ -95,7 +95,7 @@ describe("u365 the provider", () => {
 });
 
 describe("u365 opening", () => {
-  const mount = async (tree = [node("a", { worktree: { path: "/w/a", branch: "b", base: "main" } }), door("d", "working", "x"), node("n")]) => {
+  const mount = async (tree = [node("a", { worktree: { path: "/w/a", branch: "b", base: "main", adopted: false } }), door("d", "working", "x"), node("n")]) => {
     const mounted = await mountPane(tree, [info("t-a"), info("t-d"), info("t-n")]);
 
     for (const id of ["n", "d", "a"]) {

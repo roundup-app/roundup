@@ -19,6 +19,8 @@ pub struct Worktree {
     pub path: PathBuf,
     pub branch: String,
     pub base: String,
+    /// G11: the user's own worktree an Agent was started in; no path deletes its branch.
+    pub adopted: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -34,6 +36,7 @@ impl From<&contracts::agent::Worktree> for Worktree {
             path: PathBuf::from(&record.path),
             branch: record.branch.clone(),
             base: record.base.clone(),
+            adopted: record.adopted,
         }
     }
 }
@@ -162,6 +165,7 @@ impl Git {
             path: worktree_path(project, id),
             branch: format!("roundup/agent-{id}"),
             base,
+            adopted: false,
         };
         if self.exists(&worktree.path)
             || self
@@ -417,6 +421,10 @@ impl Git {
     }
 
     pub fn require_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+        // G12: an adopted Worktree loses nothing when its Agent goes, so nothing is unlanded.
+        if worktree.adopted {
+            return Ok(());
+        }
         let (dirty, ahead) = self.unlanded(project, worktree)?;
         if dirty != 0 || ahead != 0 {
             return Err(WorktreeError::Unlanded { dirty, ahead }.into());
@@ -428,6 +436,10 @@ impl Git {
     /// gone is not an error, and only git's record of it is removed.
     pub fn discard(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         self.refuse_in_fork()?;
+        // G12: the user's own directory, branch and commits stay.
+        if worktree.adopted {
+            return Ok(());
+        }
         if self.is_enrolled(&worktree.path) {
             return self.discard_prepared(project, worktree);
         }
@@ -502,6 +514,11 @@ impl Git {
         };
         let result = (|| {
             for worktree in worktrees {
+                // G12: no backup, no move, no deletion for an adopted Worktree.
+                if worktree.adopted {
+                    removal.entries.push((worktree.clone(), None, None));
+                    continue;
+                }
                 if scope == RemoveScope::This {
                     self.require_landed(project, worktree)?;
                 }
@@ -556,6 +573,9 @@ impl Git {
 
     pub fn remove_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         self.refuse_in_fork()?;
+        if worktree.adopted {
+            return Ok(());
+        }
         let reference = format!("refs/heads/{}", worktree.branch);
         let expected = self.reference(project, &reference)?;
         self.remove_at_tip(project, worktree, expected.as_deref(), RemoveScope::This)
@@ -568,6 +588,9 @@ impl Git {
         expected: Option<&str>,
         scope: RemoveScope,
     ) -> Result<(), RpcError> {
+        if worktree.adopted {
+            return Ok(());
+        }
         let reference = format!("refs/heads/{}", worktree.branch);
         if scope == RemoveScope::This {
             self.require_landed(project, worktree)?;
@@ -871,6 +894,8 @@ mod prepared;
 #[path = "../../tests/scenarios/g9.rs"]
 mod g9;
 
+mod adopt;
+pub use adopt::Claims;
 mod comparison;
 mod endpoints;
 mod owned;

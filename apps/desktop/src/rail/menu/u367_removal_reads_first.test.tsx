@@ -9,7 +9,7 @@ it("u367_removal_states_what_goes_and_what_stays", async () => {
   const { app } = await mountRail([
     workstream("chosen"),
     agent("running", "working", "busy", { parent: "chosen" }),
-    agent("finished", "done", "finished", { parent: "chosen", worktree: { path: "/p/finished", branch: "finished", base: "main" } }),
+    agent("finished", "done", "finished", { parent: "chosen", worktree: { path: "/p/finished", branch: "finished", base: "main", adopted: false } }),
   ]);
 
   let read!: () => void;

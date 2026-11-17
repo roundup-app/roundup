@@ -7,7 +7,7 @@ import { WorktreeControl } from "../changes/WorktreeControl";
 import { copy as changesCopy } from "../changes/copy";
 import { mountRail, rowOf, rowGlyph as glyphOf, settled } from "./railFixture";
 
-const worktree = { path: "/p/a", branch: "topic", base: "base" };
+const worktree = { path: "/p/a", branch: "topic", base: "base", adopted: false };
 
 afterEach(cleanup);
 

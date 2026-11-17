@@ -9,7 +9,7 @@ afterEach(cleanup);
 
 
 
-const worktree = { path: "/p/.wt/a", branch: "a", base: "main" };
+const worktree = { path: "/p/.wt/a", branch: "a", base: "main", adopted: false };
 
 describe("u428 an Agent row's icons", () => {
   it("u428_stop_confirms_a_working_agent_as_the_menu_does", async () => {

@@ -45,7 +45,7 @@ fn word(value: &impl serde::Serialize) -> Result<String, StoreError> {
 /// Mode's `mode_prompt`: Project migrations only add (MG1), so the column keeps its first name.
 pub(super) const COLUMNS: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort,
-                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, start_attribution, visibility, machine FROM nodes";
+                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, start_attribution, visibility, machine, worktree_adopted FROM nodes";
 
 /// One stored node, before live Agent facts are applied.
 pub(super) struct NodeRow {
@@ -77,7 +77,12 @@ impl NodeRow {
             row.get::<_, Option<String>>(8)?,
             row.get::<_, Option<String>>(9)?,
         ) {
-            (Some(path), Some(branch), Some(base)) => Some(Worktree { path, branch, base }),
+            (Some(path), Some(branch), Some(base)) => Some(Worktree {
+                path,
+                branch,
+                base,
+                adopted: row.get(22)?,
+            }),
             _ => None,
         };
         Ok(Self {

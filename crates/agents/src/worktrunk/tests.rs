@@ -322,6 +322,7 @@ fn u2556b_failures_preserve_local_state() {
         path: repo.path().to_owned(),
         branch: "main".into(),
         base: "main".into(),
+        adopted: false,
     };
     let state = git_read.state(repo.path(), &worktree).unwrap();
     assert_eq!((state.ahead, state.behind, state.dirty), (0, 0, false));
@@ -339,6 +340,7 @@ fn u2556b_late_results_do_not_cross_identity() {
             path: dir.path().to_string_lossy().into_owned(),
             branch: "main".into(),
             base: "main".into(),
+            adopted: false,
         };
         shared
             .rail()
@@ -577,6 +579,7 @@ async fn u2556b_117_worktrees_share_collectors_without_blocking_git_and_close_ca
                 path: path.to_string_lossy().into_owned(),
                 branch,
                 base: "main".into(),
+                adopted: false,
             },
         )
         .unwrap();
@@ -689,6 +692,7 @@ async fn u2556a_base_state_is_authoritative_with_optional_wire_facts() {
                 path: repo.path().to_string_lossy().into_owned(),
                 branch: "main".into(),
                 base: "base".into(),
+                adopted: false,
             },
         )
         .unwrap();
@@ -791,6 +795,7 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
                 path: repo.path().to_string_lossy().into_owned(),
                 branch: "main".into(),
                 base: "base".into(),
+                adopted: false,
             },
         )
         .unwrap();

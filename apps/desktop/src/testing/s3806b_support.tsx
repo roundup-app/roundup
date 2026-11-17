@@ -608,7 +608,7 @@ export const reviewLocalCases = reviewCases.filter(({ readPath }) => readPath ==
 
 export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, readPath }: (typeof reviewCases)[number]) => {
   const { app, connected, other } = await mountApp();
-  const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", base: "main" } });
+  const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", base: "main", adopted: false } });
   let tree = [workstream("ops"), reviewed];
   app.handlers["rail.tree"] = () => tree;
   // The shared resource has not answered yet: the real panel falls back to changedFiles.

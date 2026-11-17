@@ -468,6 +468,7 @@ fn rb3798c_a_resume_of_a_missing_worktree_is_not_found() {
         path: dir.path().join("gone"),
         branch: "b".into(),
         base: "main".into(),
+        adopted: false,
     };
 
     let err = Git::from_env()

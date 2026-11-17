@@ -15,7 +15,7 @@ describe("u427 a Workstream row's icons", () => {
 
   });
 
-  it.each([null, { path: "/p/.wt/d", branch: "d", base: "main" }])("u427_open_folder_opens_the_doors_directory_%s", async worktree => {
+  it.each([null, { path: "/p/.wt/d", branch: "d", base: "main", adopted: false }])("u427_open_folder_opens_the_doors_directory_%s", async worktree => {
     const mounted = await mountRail([workstream("selected"), door("d", "idle", "i", { worktree })]);
     mounted.rail.select("selected");
     await chooseAction(mounted.app, "d", "Open directory");
@@ -32,7 +32,7 @@ describe("u427 a Workstream row's icons", () => {
     expect((await screen.findByText("gone")).className).toBe("ink");
   });
 
-  it.each([null, { path: "/p/.wt/d", branch: "d", base: "main" }])("u427_open_in_editor_sends_the_same_directory_%s", async worktree => {
+  it.each([null, { path: "/p/.wt/d", branch: "d", base: "main", adopted: false }])("u427_open_in_editor_sends_the_same_directory_%s", async worktree => {
     const mounted = await mountRail([door("g", "idle", "i", { worktree })]);
 
     await chooseAction(mounted.app, "g", "Open in editor");

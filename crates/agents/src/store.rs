@@ -86,6 +86,17 @@ impl Agents {
                 ),
             }
         }
+        // G11: an adoption interrupted before its Agent started removes only the row; the
+        // directory, the branch and the commits are the user's and stay.
+        for id in rail.adopting()?.into_iter().filter(|_| !forked) {
+            Launcher::discard(dir, &id).map_err(RpcError::internal)?;
+            rail.remove(crate::rail::agent_id(&id)?)?;
+        }
+        for node in rail.tree()? {
+            if let Some(worktree) = node.worktree().filter(|worktree| worktree.adopted) {
+                launcher.trust_adopted(Path::new(&worktree.path));
+            }
+        }
         for (node, plan, ready) in rail.provisioning()?.into_iter().filter(|_| !forked) {
             // Refused unpublished resources stay hidden and reserved, even when readiness
             // completed before interruption. Only source recovery may reclaim them.

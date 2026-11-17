@@ -130,6 +130,17 @@ impl Agents {
         params: SpawnParams,
         takes: Option<&Takes>,
     ) -> Result<RailNode, RpcError> {
+        self.spawn_with(ctx, params, takes, None).await
+    }
+
+    /// `spawn_in`, starting the Agent in `adopted`, a worktree the user made (G11), when given.
+    pub(super) async fn spawn_with(
+        &self,
+        ctx: &Ctx,
+        params: SpawnParams,
+        takes: Option<&Takes>,
+        adopted: Option<&contracts::agent::Worktree>,
+    ) -> Result<RailNode, RpcError> {
         let named = params.machine.clone();
         let mut request = self.spawn_request(ctx, params)?;
         if let Some(takes) = takes {
@@ -147,6 +158,19 @@ impl Agents {
             }
         }
         let (id, attempt) = self.insert_spawned(&request)?;
+        if let Some(worktree) = adopted
+            && let Err(err) = self
+                .shared
+                .rail()
+                .set_adopted(crate::rail::agent_id(&id)?, worktree)
+        {
+            report_undo(
+                "remove the Agent from the Rail",
+                self.shared.rail().remove(crate::rail::agent_id(&id)?),
+            );
+            self.shared.runs().forget(&id);
+            return Err(err.into());
+        }
         // U6000e: the starting row is published before the worktree, config and launch steps.
         ctx.emit(EventData::RailChanged);
         match self
@@ -173,7 +197,10 @@ impl Agents {
                 if runs.slot(&id).is_some_and(|slot| slot.attempt() == attempt) {
                     runs.forget(&id);
                     self.shared.events.observed.notify_waiters();
-                    if rail.node(crate::rail::agent_id(&id)?)?.worktree().is_none() {
+                    // G12: a failed adoption removes the row and leaves the user's worktree.
+                    if adopted.is_some()
+                        || rail.node(crate::rail::agent_id(&id)?)?.worktree().is_none()
+                    {
                         report_undo(
                             "remove the Agent from the Rail",
                             rail.remove(crate::rail::agent_id(&id)?),

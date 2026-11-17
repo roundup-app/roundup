@@ -225,6 +225,10 @@ impl Agents {
     /// Commit provisioning without starting a program. Mark ready before releasing the git
     /// proof so restart completes retention rather than reclaiming the assigned Worktree.
     pub(super) async fn retain_worktree(&self, id: &str) -> Result<(), RpcError> {
+        // G11: an adopted worktree has no ownership proof; its Agent is about to start.
+        self.shared
+            .rail()
+            .finish_adoption(crate::rail::agent_id(id)?)?;
         let pending = self
             .shared
             .rail()
@@ -737,6 +741,7 @@ mod tests {
                     path: made.path.to_string_lossy().into_owned(),
                     branch: made.branch,
                     base: made.base,
+                    adopted: false,
                 },
             )
             .unwrap();

@@ -15,7 +15,7 @@ export const open = async (seed: SeedName = "tree-40", rows: readonly string[] =
   if (seed === "tree-40") {
     const tree = await controls.app.rpc("rail.tree", null);
 
-    if (withWorktree) for (const node of tree) if (isDoor(node)) node.worktree = {path: `/Users/you/harness/.roundup/worktrees/${node.id}`, branch: node.id, base: "main"};
+    if (withWorktree) for (const node of tree) if (isDoor(node)) node.worktree = {path: `/Users/you/harness/.roundup/worktrees/${node.id}`, branch: node.id, base: "main", adopted: false};
     controls.app.handlers["rail.tree"] = () => tree.filter(node => rows.includes(node.id));
   }
 

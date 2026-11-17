@@ -79,17 +79,17 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
       createEffect(() => visible() && !daemonExit() ? rail.nodes.flatMap(node => {
         const worktree = isDoor(node) ? node.worktree : null;
 
-        return worktree ? [{ id: node.id, path: worktree.path, branch: worktree.branch, base: worktree.base }] : [];
+        return worktree ? [{ id: node.id, path: worktree.path, branch: worktree.branch, base: worktree.base, adopted: worktree.adopted }] : [];
       }) : [], identities => {
         const live = new Set<string>();
         let replaced = false;
 
-        for (const { id, path, branch, base } of identities) {
+        for (const { id, path, branch, base, adopted } of identities) {
           live.add(id);
           const existing = entries.get(id);
 
-          if (existing && existing.identity.path === path && existing.identity.branch === branch && existing.identity.base === base) continue;
-          entries.set(id, openEntry(id, { path, branch, base }));
+          if (existing && existing.identity.path === path && existing.identity.branch === branch && existing.identity.base === base && existing.identity.adopted === adopted) continue;
+          entries.set(id, openEntry(id, { path, branch, base, adopted }));
           replaced = true;
         }
 

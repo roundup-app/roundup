@@ -234,6 +234,10 @@ impl Shared {
         let Some(worktree) = node.worktree() else {
             return Ok(None);
         };
+        // G12: removing an adopted Agent keeps its directory and branch, so nothing is lost.
+        if worktree.adopted {
+            return Ok(None);
+        }
         let git = self.git.bounded();
         let project = self.project_dir.clone();
         let worktree = worktree::Worktree::from(&worktree);

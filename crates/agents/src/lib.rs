@@ -34,6 +34,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::oneshot;
 use tokio::time::{Instant, sleep_until};
 
+mod adopt;
 mod agent;
 mod asks;
 mod auto;

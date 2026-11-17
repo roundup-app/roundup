@@ -35,7 +35,7 @@ const status = (app: FakeApp, id: string, kind: Kind) => {
 
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
-const mount = async (nodes: RailNode[] = [door("a", "working", "building", { worktree: { path: "/p/a", branch: "a", base: "main" } })], setup?: (app: FakeApp) => void, createEmulator?: EmulatorFactory) => {
+const mount = async (nodes: RailNode[] = [door("a", "working", "building", { worktree: { path: "/p/a", branch: "a", base: "main", adopted: false } })], setup?: (app: FakeApp) => void, createEmulator?: EmulatorFactory) => {
   // R17 observes absent display demand; the visible Board now subscribes even with idle Agents.
   localStorage.setItem("roundup:viewer", JSON.stringify({ frame: { open: false } }));
   const app = createFakeApp();
@@ -164,7 +164,7 @@ it("r17_blur_is_not_hide", async () => {
 });
 
 it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
-  const { app } = await mount([door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } })]);
+  const { app } = await mount([door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main", adopted: false } })]);
   const reads = () => app.calls.filter((call) => call.method === "agent.worktreeState").length;
   expect(reads()).toBe(1);
   fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
@@ -222,7 +222,7 @@ it("u3308_idle_display_clock_demand_never_enables_periodic_rpcs", async () => {
   let board: (() => number) | undefined;
 
   const { app, clock, view } = await mount([
-    door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } }),
+    door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main", adopted: false } }),
   ], undefined, (id) => {
     board = useDisplayNow(active);
 

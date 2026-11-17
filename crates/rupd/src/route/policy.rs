@@ -145,6 +145,8 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.handoff", Policy { actor: Actor::Caller, ..PLAIN }),
     ("agent.instructions", Policy { actor: Actor::Caller, inputs: Inputs::Id, ..PLAIN }),
     ("agent.interrupt", Policy { actor: Actor::Caller, observed: true, inputs: Inputs::Id, ..PLAIN }),
+    ("agent.adoptable", Policy { actor: Actor::Caller, gate: Gate::UserOnly, ..PLAIN }),
+    ("agent.adopt", Policy { actor: Actor::Caller, gate: Gate::UserOnly, ..PLAIN }),
     ("agent.land", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.makeWorkstream", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.ownedChanges", Policy { inputs: Inputs::Id, ..PLAIN }),

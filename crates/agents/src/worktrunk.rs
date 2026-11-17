@@ -650,6 +650,7 @@ impl super::Agents {
                     path: path.to_string_lossy().into_owned(),
                     branch: "main".into(),
                     base: "base".into(),
+                    adopted: false,
                 },
             )
             .map_err(|err| format!("cannot set Worktree: {err:?}"))?;

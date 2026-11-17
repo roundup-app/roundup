@@ -5,6 +5,8 @@ export const CONTRACT = {
     "action.run": "da0dc992e6d8031d",
     "action.serve": "b1884dbf434a796c",
     "action.userList": "55efecfe3769d20c",
+    "agent.adopt": "89276f7472c24052",
+    "agent.adoptable": "83b14304db628115",
     "agent.brief": "578d4809b6cafc1b",
     "agent.changedFiles": "fe8a92641bddec69",
     "agent.channelUp": "f25fe63dfa04b01a",

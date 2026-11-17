@@ -187,6 +187,21 @@ impl Agents {
         }
     }
 
+    async fn agent_adoptable(
+        &self,
+        _ctx: &Ctx,
+    ) -> Result<contracts::agent::AdoptableList, RpcError> {
+        self.adoptable().await
+    }
+
+    async fn agent_adopt(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::AdoptParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.adopt(ctx, p).await
+    }
+
     async fn agent_land(
         &self,
         ctx: &Ctx,

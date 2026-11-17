@@ -2,6 +2,8 @@
 import type { ActionRow as action_ActionRow } from "./action/ActionRow";
 import type { RunParams as action_RunParams } from "./action/RunParams";
 import type { RunResult as action_RunResult } from "./action/RunResult";
+import type { AdoptParams as agent_AdoptParams } from "./agent/AdoptParams";
+import type { AdoptableList as agent_AdoptableList } from "./agent/AdoptableList";
 import type { Brief as agent_Brief } from "./agent/Brief";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
 import type { ChangedFilesParams as agent_ChangedFilesParams } from "./agent/ChangedFilesParams";
@@ -205,6 +207,8 @@ export type RpcMethods = {
   "agent.changedFiles": { params: agent_ChangedFilesParams; result: agent_ChangedFiles };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
+  "agent.adoptable": { params: null; result: agent_AdoptableList };
+  "agent.adopt": { params: agent_AdoptParams; result: agent_RailNode };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.spawnPrompt": { params: agent_NodeId; result: agent_SpawnPrompt };

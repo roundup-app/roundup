@@ -113,7 +113,7 @@ it.each([
 
 it("u5690d_mixed_losses_are_named_once_and_consent_uses_default_scopes", async () => {
   const tree = nodes();
-  tree[0]!.worktree = { path: "/p/a", branch: "a", base: "main" };
+  tree[0]!.worktree = { path: "/p/a", branch: "a", base: "main", adopted: false };
   tree[2]!.terminal_id = "t-c";
   const { app, connected } = await mountRail(tree);
   await select("e", "c", "a");

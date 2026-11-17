@@ -76,6 +76,9 @@ pub struct Launcher {
     /// The user's home folder, never trusted: Claude never saves trust for it, and a saved one
     /// would trust every non-git folder below it.
     home: Option<PathBuf>,
+    /// G10: worktrees the user chose to start an Agent in; their cwd is trusted though it is not
+    /// inside the Project folder. Shared by every clone.
+    adopted: Arc<std::sync::RwLock<Vec<PathBuf>>>,
     /// User shell values take precedence over roundup defaults.
     user_defaults: BTreeSet<&'static str>,
     /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
@@ -157,6 +160,22 @@ pub struct Request<'a> {
 }
 
 impl Launcher {
+    /// G10: trust `path`, a worktree the user adopted, as a cwd beside the Project folder.
+    pub fn trust_adopted(&self, path: &Path) {
+        let path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+        let mut adopted = self.adopted.write().unwrap_or_else(|err| err.into_inner());
+        if !adopted.contains(&path) {
+            adopted.push(path);
+        }
+    }
+
+    /// G10: stop trusting `path` once its adoption failed.
+    pub fn forget_adopted(&self, path: &Path) {
+        let path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+        let mut adopted = self.adopted.write().unwrap_or_else(|err| err.into_inner());
+        adopted.retain(|kept| *kept != path);
+    }
+
     /// A39 uses the same binary as every launch, through its own Placement seam.
     pub fn placement(&self) -> super::PlacementCall {
         super::PlacementCall {
@@ -202,6 +221,7 @@ impl Launcher {
             claude_json,
             door_file: home.as_ref().map(|home| home.join(".roundup/door.md")),
             door_refusal: |_| None,
+            adopted: Arc::default(),
             door_accepted: Arc::default(),
             rup,
             home,

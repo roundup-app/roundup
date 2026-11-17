@@ -16,7 +16,7 @@ it("u365_ask_row_links_open_once", async () => {
   const text = "open src/a.ts:42 and https://example.com.";
 
   const { app, connected } = await mountAskBar([ask("links", 1, [{ text, state: "typed", placement: { kind: "routed", workstream: "lead" } }])], null,
-    [door("lead", "idle", "ready", { worktree: { path: "/work/lead", branch: "b", base: "main" } })]);
+    [door("lead", "idle", "ready", { worktree: { path: "/work/lead", branch: "b", base: "main", adopted: false } })]);
 
   await openAsk();
 

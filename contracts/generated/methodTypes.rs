@@ -13,6 +13,8 @@
     Method { name: "agent.changedFiles", params: "agent_ChangedFilesParams", result: "agent_ChangedFiles" },
     Method { name: "agent.ownedChanges", params: "agent_NodeId", result: "agent_OwnedChanges" },
     Method { name: "agent.compareFile", params: "agent_CompareFileParams", result: "agent_FileComparison" },
+    Method { name: "agent.adoptable", params: "null", result: "agent_AdoptableList" },
+    Method { name: "agent.adopt", params: "agent_AdoptParams", result: "agent_RailNode" },
     Method { name: "agent.land", params: "agent_NodeId", result: "agent_Landed" },
     Method { name: "agent.discard", params: "agent_NodeId", result: "null" },
     Method { name: "agent.spawnPrompt", params: "agent_NodeId", result: "agent_SpawnPrompt" },

@@ -34,8 +34,8 @@ it("u4601_the_native_request_uses_the_plan", async () => {
   const { app } = await mountRail([
     workstream("chosen"),
     agent("running", "working", "busy", { parent: "chosen" }),
-    agent("dirty", "done", "finished", { parent: "chosen", worktree: { path: "/p/dirty", branch: "dirty", base: "main" } }),
-    agent("ahead", "done", "finished", { parent: "chosen", worktree: { path: "/p/ahead", branch: "ahead", base: "main" } }),
+    agent("dirty", "done", "finished", { parent: "chosen", worktree: { path: "/p/dirty", branch: "dirty", base: "main", adopted: false } }),
+    agent("ahead", "done", "finished", { parent: "chosen", worktree: { path: "/p/ahead", branch: "ahead", base: "main", adopted: false } }),
   ], [info("live-shell", { owner: "chosen" })]);
 
   app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "dirty", ahead: id === "ahead" ? 2 : 0, behind: 0 });
@@ -157,7 +157,7 @@ it("u4601_the_lists_follow_the_removal_plan", async () => {
     workstream("group", { parent: "chosen" }),
     agent("finished", "done", "finished", { parent: "group" }),
     agent("running", "working", "busy", { parent: "group" }),
-    ...["dirty", "ahead"].map(id => agent(id, "done", "finished", { parent: "group", worktree: { path: `/p/${id}`, branch: id, base: "main" } })),
+    ...["dirty", "ahead"].map(id => agent(id, "done", "finished", { parent: "group", worktree: { path: `/p/${id}`, branch: id, base: "main", adopted: false } })),
   ], "chosen");
 
   expect([goesLine(plan, "chosen"), staysLine(plan)]).toEqual([

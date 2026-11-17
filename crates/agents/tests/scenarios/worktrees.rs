@@ -222,6 +222,9 @@ mod provisioning;
 #[path = "worktrees/recovery.rs"]
 mod recovery;
 
+#[path = "worktrees/adoption.rs"]
+mod adoption;
+
 // G2542a–G2542d: prepared directories (`scenarios/worktrees.md`).
 mod prepared {
     use std::collections::BTreeMap;

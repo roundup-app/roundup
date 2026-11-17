@@ -89,7 +89,13 @@ impl Launcher {
         let project = project
             .canonicalize()
             .map_err(|err| RpcError::internal(format!("{}: {err}", project.display())))?;
-        if !cwd.starts_with(&project) {
+        let adopted = self
+            .adopted
+            .read()
+            .unwrap_or_else(|err| err.into_inner())
+            .iter()
+            .any(|path| cwd.starts_with(path));
+        if !cwd.starts_with(&project) && !adopted {
             return Err(invalid(format!(
                 "cwd {} is outside the project folder {}",
                 cwd.display(),

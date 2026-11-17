@@ -31,12 +31,39 @@ pub enum NodeKind {
     Agent,
 }
 /// The git worktree Provisioning made for a node's Agent (G2, `scenarios/worktrees.md`).
-/// `base` is the branch that was checked out in the Project when it was made.
+/// `base` is the branch that was checked out in the Project when it was made. `adopted` is true
+/// for a worktree the user made and an Agent was started in (G11): nothing deletes its branch.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Worktree {
     pub path: String,
     pub branch: String,
     pub base: String,
+    pub adopted: bool,
+}
+
+/// One row of `agent.adoptable` (G10): a git worktree of the Project's repository other than the
+/// primary checkout. `refusal` is `null` when the user may adopt it, else the first failing name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct Adoptable {
+    pub path: String,
+    pub branch: String,
+    pub ahead: u32,
+    pub dirty: bool,
+    pub refusal: Option<String>,
+}
+
+/// What `agent.adoptable` returns (G10).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct AdoptableList {
+    pub rows: Vec<Adoptable>,
+}
+
+/// `agent.adopt` (G10): the user's consent to start an Agent in the worktree at `path`, which
+/// had `branch` checked out when the user picked it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct AdoptParams {
+    pub path: String,
+    pub branch: String,
 }
 /// A34: what a Workstream's removal took off the Rail, the Todos and the Pads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]

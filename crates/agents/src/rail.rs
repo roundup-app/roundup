@@ -535,10 +535,51 @@ impl Rail {
         let path = worktree.path.as_str();
         self.db.execute(
             "UPDATE nodes SET worktree_path = ?, worktree_branch = ?, worktree_base = ?,
-                    worktree_state = 'ready' WHERE id = ?",
-            params![path, worktree.branch, worktree.base, id.get()],
+                    worktree_adopted = ?, worktree_state = 'ready' WHERE id = ?",
+            params![path, worktree.branch, worktree.base, worktree.adopted, id.get()],
         )?;
         Ok(())
+    }
+
+    /// G11: record the worktree an adoption starts `id` in. It stays `adopting` until the Agent's
+    /// Terminal is about to start, so a restart can tell an interrupted adoption.
+    pub fn set_adopted(&mut self, id: AgentId, worktree: &Worktree) -> Result<(), StoreError> {
+        self.db.execute(
+            "UPDATE nodes SET worktree_path = ?, worktree_branch = ?, worktree_base = ?,
+                    worktree_adopted = 1, worktree_state = 'adopting' WHERE id = ?",
+            params![worktree.path, worktree.branch, worktree.base, id.get()],
+        )?;
+        Ok(())
+    }
+
+    /// G11: the adoption of `id` reached its Agent's start; `false` when it was not adopting.
+    pub fn finish_adoption(&mut self, id: AgentId) -> Result<bool, StoreError> {
+        Ok(self.db.execute(
+            "UPDATE nodes SET worktree_state = 'ready' WHERE id = ? AND worktree_state = 'adopting'",
+            [id.get()],
+        )? == 1)
+    }
+
+    /// G11: the Agents whose adoption was interrupted before their start.
+    pub fn adopting(&self) -> Result<Vec<String>, StoreError> {
+        let mut statement = self
+            .db
+            .prepare("SELECT id FROM nodes WHERE worktree_state = 'adopting'")?;
+        let ids = statement
+            .query_map([], |row| row.get::<_, i64>(0).map(|id| id.to_string()))?
+            .collect::<Result<_, _>>()?;
+        Ok(ids)
+    }
+
+    /// Every node's Worktree path, whatever its state.
+    pub fn worktree_paths(&self) -> Result<Vec<String>, StoreError> {
+        let mut statement = self
+            .db
+            .prepare("SELECT worktree_path FROM nodes WHERE worktree_path IS NOT NULL")?;
+        let paths = statement
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        Ok(paths)
     }
 
     /// Undo `mark_worktree_provisioning`/`set_worktree` for a node that keeps its place on the
@@ -547,7 +588,7 @@ impl Rail {
         self.db
             .execute(
                 "UPDATE nodes SET worktree_path = NULL, worktree_branch = NULL,
-                    worktree_base = NULL, worktree_state = NULL, worktree_owner=NULL, worktree_commit=NULL WHERE id = ?",
+                    worktree_base = NULL, worktree_adopted = 0, worktree_state = NULL, worktree_owner=NULL, worktree_commit=NULL WHERE id = ?",
                 params![id.get()],
             )
             ?;
