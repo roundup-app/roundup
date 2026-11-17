@@ -42,7 +42,7 @@ Scope: `check` gives a PR its verdict within 5 minutes of the push. Source: #729
 
 **CI7325b the key hashes every input of the install.** Given the `node_modules` cache, when its key is computed, then it hashes `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/`, every workspace `package.json`, the Node version, the OS and the architecture, so a change to any of them misses and nothing stale restores (policy; observer: the key in the restore line of a run whose `pnpm-lock.yaml` changed, which misses).
 
-**CI7325c a miss installs as today and passes.** Given a lane whose key has no entry, when it sets up, then it runs `setup-node` with the pnpm-store cache and `pnpm install --frozen-lockfile`, passes every test a hit passes, and `main` saves the new entry; a PR saves none, so a PR never fills the repository's cache budget (policy; observer: the PR's first run, whose lanes pass after a miss).
+**CI7325c a miss installs as today and passes.** Given a lane whose key has no entry, when it sets up, then it runs `setup-node` with the pnpm-store cache and `pnpm install --frozen-lockfile`, passes every test a hit passes, and `main` saves the new entry (policy; observer: the PR's first run, whose lanes pass after a miss).
 
 **CI7325d a lane that reads no Node package installs none.** Given `cache`, `daemon`, `mac` and `mac-clippy`, when they set up, then each passes `node: 'false'`, runs neither step, and its job passes, and every other lane's reader is named in the Issue's table (policy; observer: the setup step list of the `cache`, `daemon`, `mac` and `mac-clippy` jobs).
 
