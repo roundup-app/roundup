@@ -53,6 +53,7 @@ jobs:
     outputs:
       rust: ${{ steps.plan.outputs.rust }}
       web: ${{ steps.plan.outputs.web }}
+      first: ${{ steps.plan.outputs.first }}
       web_shards: ${{ steps.shards.outputs.web_shards }}
     steps:
       - uses: actions/checkout@v5
@@ -116,6 +117,7 @@ jobs:
           {
             echo "rust=${rust:+true}"
             echo "web=${web:+true}"
+            echo "first=$(python3 loop/affected.py first "$BASE" | tr '\n' ' ')"
             # Only a PR whose diff selects some web tests, not all, counts the files that size the shards.
             echo "count=$([ -n "$web" ] && [ "$web" != all ] && echo true)"
           } >>"$GITHUB_OUTPUT"
@@ -140,13 +142,12 @@ jobs:
           import { relative } from 'node:path';
           import { createVitest } from 'vitest/node';
           import durations from './src/testing/shardDurations.json' with { type: 'json' };
-          import { shardCount } from './src/testing/shardSequencer.ts';
+          import { serialFiles, shardCount } from './src/testing/shardSequencer.ts';
           const ctx = await createVitest({ related: process.env.SOURCES.split('\n'), watch: false, run: true });
           try {
             const specs = await ctx.getRelevantTestSpecifications();
             const file = (spec) => relative(ctx.config.root, spec.moduleId);
-            const serial = new Set(specs.filter((spec) => spec.project.config.maxWorkers === 1).map(file));
-            console.log(shardCount(specs.map(file), durations, Number(process.env.BUDGET), Number(process.env.MAX), serial));
+            console.log(shardCount(specs.map(file), durations, Number(process.env.BUDGET), Number(process.env.MAX), serialFiles(specs, ctx.config.root)));
           } finally {
             await ctx.close();
           }
@@ -538,7 +539,27 @@ jobs:
           path: ${{ env.DAEMON_BINARIES }}
           key: ${{ steps.key.outputs.key }}
 
-  # L89: the web tests in up to 24 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
+  # CI7297b: a PR's changed web test files, and only those, at once after `plan`, so the author reads the failure of their
+  # own test before the full verdict. Only the `app` and `webkit-guards` projects run, which start no Chrome or daemon; the
+  # `web` shards run the rest. Its failure fails `check` at once (CI7295e); the other lanes run to their end.
+  first:
+    needs: plan
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft && needs.plan.outputs.first != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+      - name: CI7297b changed tests
+        env:
+          FILES: ${{ needs.plan.outputs.first }}
+        run: python3 loop/app-data.py pnpm --filter desktop exec vitest run --project app --project webkit-guards --passWithNoTests ${FILES//apps\/desktop\//}
+
+  # L89: the web tests in up to 28 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.
@@ -678,8 +699,10 @@ jobs:
       # This must be the runner's first browser command, before any warmup or regression fixture.
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold.jsonl"
-      - name: R3800 startup artifact checker observers
-        run: node --test apps/desktop/budgets/*.test.mjs
+      # CI7295g: the support tests (copy guard, reporting, R3800 startup artifact checker observers) run once a run, here,
+      # not in each web shard, where they cost every shard about 10 s.
+      - name: Support tests
+        run: pnpm --filter desktop test:support
       # A failed build or checker fails this job, and `check` needs it to succeed.
       - name: R3800 production entry budget
         run: |
@@ -739,7 +762,7 @@ jobs:
   # Every lane's result. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
   # push-only `mac-package` and `cache` skips (CI5915a). Failed or cancelled lanes never pass.
   lanes:
-    needs: [plan, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
+    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -747,7 +770,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
         run: |
-          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and ($event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache"))))))' <<<"$NEEDS"
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache"))))))' <<<"$NEEDS"
 
   # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
   bundle:

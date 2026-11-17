@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base] | shards <count|all>
+"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd|ping|first [base] | shards <count|all>
 | rust-targets <test id>... | rust-helpers [nextest args] | rust-lane <nextest profile> [base]
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
 the cargo selection of the tests to run (`-p <crate>` runs a crate's whole suite; `-p <crate> --test <binary>` compiles
 only that binary, for a diff of test files alone; T7188b), for `web` the files that still exist, as absolute paths, to pass
-`vitest related`. The `boxd` selector prints `all` only for runner, integration or package-configuration changes. The diff
+`vitest related`. The `boxd` selector prints `all` only for runner, integration or package-configuration changes, and
+the `ping` selector (CI7295h) only when the diff reaches the `mac` lane's ping round trip or its guard observers. The diff
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
-counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
+counts. The `first` selector (CI7297b) prints the web test files the diff changes, existing ones only, and nothing else.
+No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
 
 T7188a: `rust-targets` prints the same lines for test ids: `-p <crate> --test <binary>` (`--lib`, `--bin <name>`) for each target
 that holds a `fn` whose name starts with an id, else every crate, with a notice on stderr.
@@ -53,6 +55,12 @@ BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
               'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
               'AGENTS.md', 'scenarios/loop-boxd.md')
 
+# CI7295h: the `mac` lane's `rup ping` round trip and the N7/N8 guard observers after it start the `rupd` and `rup` the lane
+# builds, which `desktop` starts and bundles as the App, and read these files.
+PING_CRATES = {'rupd', 'rup', 'desktop'}
+PING_READS = ('loop/ci-ping.sh', 'loop/app-data.py', 'loop/app-data.test.py', 'loop/launch-sites.test.py',
+              'loop/launch-sites.json', '.github/workflows/pre.yml')
+
 
 # T7188: what a test target's source reads from a helper binary built beside the test binaries (`rupd`, `rup`, the `terminal`
 # test core): one Cargo builds for it (`CARGO_BIN_EXE_`), a sibling of a binary (`with_file_name("rup")`) or a path to one.
@@ -73,7 +81,7 @@ HELPER_CRATES = ('rupd', 'rup', 'terminal')
 # CI7295a: a full web run in this many shards keeps each one's modelled time under 190 s (`shardCount` of
 # apps/desktop/src/testing/shardSequencer.ts), a test step near 220 s on the runner (run 43967384873); it caps a PR's
 # count, which check's `plan` sizes by measured time.
-MAX_SHARDS = 24
+MAX_SHARDS = 28
 
 
 def shards(count):
@@ -116,6 +124,12 @@ def web(changed):
                   ({DAEMON} if any(path.startswith('crates/') for path in changed) else set()))
 
 
+def first(changed):
+    """CI7297b: the changed web test files that still exist, as repository paths, and no other file."""
+    return sorted(path for path in changed if path.startswith(APP + 'src/') and re.search(r'\.test\.tsx?$', path)
+                  and (ROOT / path).is_file())
+
+
 def app_scans(changed):
     """The tests that scan the App's source files as text, when a changed path lies in them: each test file in
     `apps/desktop/src/` that lists a directory and reads a file, as repository paths."""
@@ -128,6 +142,13 @@ def app_scans(changed):
 def boxd(changed):
     """Select the runner regressions only when their code, callers or execution configuration can change."""
     return 'all' if any(under(path, BOXD_READS) for path in changed) else []
+
+
+def ping(changed, workspace):
+    """Select the ping round trip and its guard observers when a crate they start, or one it depends on, or a file they
+    read can change."""
+    reached = crates(changed, workspace)
+    return 'all' if reached == 'all' or PING_CRATES & set(reached) or any(under(path, PING_READS) for path in changed) else []
 
 
 def metadata():
@@ -384,15 +405,20 @@ def main(argv):
         if args := lane_args(argv[2], changed_since(base) if base else None, metadata(), ROOT, resolved_features()):
             print(args)
         return 0
-    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd'):
+    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd', 'ping', 'first'):
         print(__doc__, file=sys.stderr)
         return 2
     lane, base = argv[1], argv[2] if len(argv) == 3 else ''
     if not base:
-        print('all')
+        print('' if lane == 'first' else 'all')
         return 0
     changed = changed_since(base)
-    selected = rust(changed, metadata(), ROOT) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
+    if lane == 'first':
+        if files := first(changed):
+            print('\n'.join(files))
+        return 0
+    selected = {'rust': lambda: rust(changed, metadata(), ROOT), 'web': lambda: web(changed),
+                'boxd': lambda: boxd(changed), 'ping': lambda: ping(changed, workspace(metadata()))}[lane]()
     if selected != 'all' and lane == 'web':
         selected = sorted(set(selected) | set(app_scans(changed)))
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]

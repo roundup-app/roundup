@@ -207,6 +207,29 @@ class RustHelpers(Fixture):
         self.assertEqual(out.getvalue(), "skip\n")
 
 
+class Ping(unittest.TestCase):
+    def test_ci7295h_the_ping_runs_when_the_diff_reaches_a_crate_it_starts_or_a_file_it_reads(self):
+        workspace = {"rupd": ("crates/rupd", {"storage"}), "storage": ("crates/storage", set()),
+                     "todos": ("crates/todos", set())}
+        for path, selected in (("crates/storage/src/lib.rs", "all"), ("loop/ci-ping.sh", "all"),
+                               ("crates/todos/src/lib.rs", []), ("apps/desktop/src/App.tsx", [])):
+            with self.subTest(path=path):
+                self.assertEqual(affected.ping([path], workspace), selected)
+
+
+class First(Fixture):
+    def test_ci7297b_the_changed_test_files_and_none_else_reach_the_lane(self):
+        app = "apps/desktop/src/"
+        for name in ("a.test.ts", "b.test.tsx", "c.ts", "gone.test.ts"):
+            if name != "gone.test.ts":
+                (self.root / app / name).parent.mkdir(parents=True, exist_ok=True)
+                (self.root / app / name).write_text("")
+        changed = [app + n for n in ("a.test.ts", "b.test.tsx", "c.ts", "gone.test.ts")] + ["crates/alpha/tests/one.rs"]
+        with patch.object(affected, "ROOT", self.root):
+            self.assertEqual(affected.first(changed), [app + "a.test.ts", app + "b.test.tsx"])
+            self.assertEqual(affected.first(["crates/alpha/src/lib.rs"]), [])
+
+
 class RustLane(Fixture):
     """CI7295g: a CI lane builds only the test binaries its nextest profile names that the diff reaches."""
 
