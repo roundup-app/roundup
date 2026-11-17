@@ -17,6 +17,7 @@ const mount = async () => {
   app.handlers["rail.tree"] = () => [];
   app.handlers["terminal.list"] = () => [];
   const idle = () => {};
+
   let receive: (request: NativeOpen) => void = idle;
 
   app.onNativeOpen = listener => {
