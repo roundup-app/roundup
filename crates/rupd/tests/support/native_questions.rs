@@ -554,13 +554,22 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         )
         .await;
         std::fs::write(child.dir.join("final-reply.txt"), &text).unwrap();
-        run.user
+        let sent = run
+            .user
             .request(
                 "message.send",
                 json!({"to":child.id,"kind":"note","body":format!("Complete turn: {text}")}),
             )
             .await
             .unwrap();
+        // The child records the note as Claude Code does, or its open delivery turns it `working`
+        // again after the final text and the lead's Digest reads `working`.
+        receive(
+            &run,
+            &child,
+            u32::try_from(sent["id"].as_u64().unwrap()).unwrap(),
+        )
+        .await;
         signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
         // The Stop delivers the note; the fake then reports the final text. Release the lead's
         // Digest only after that turn ended, so no later `working`/`idle` Digest replaces it.
@@ -584,22 +593,37 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         .await;
         let last = format!("last: {}", &text[..text.len().min(100)]);
         // A later Digest may replace a held one, so the Digest is the one the lead's inbox took.
+        let mut releases = 0;
+        let mut recorded = 0;
         let taken = until("final text Digest", async || {
             // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
+            // The lead records each release as Claude Code does, which lets the next Message in.
+            let entries = lead.entries();
+            let digest = entries.iter().find(|e| {
+                e["message"]["content"]
+                    .as_str()
+                    .is_some_and(|s| s.contains(&last))
+            });
+            if digest.is_some() {
+                return digest.cloned();
+            }
+            for entry in &entries[recorded..] {
+                let msg_id = entry["msg_id"].as_str().unwrap();
+                lead.record(&run, u32::from_str_radix(&msg_id[msg_id.len() - 8..], 16).unwrap())
+                    .await;
+            }
+            recorded = entries.len();
+            // The Daemon drops a Message equal to the last inbox entry, so each release differs.
+            releases += 1;
             run.user
                 .request(
                     "message.send",
-                    json!({"to":lead.id,"kind":"note","body":"release the Digest"}),
+                    json!({"to":lead.id,"kind":"note","body":format!("release the Digest {releases}")}),
                 )
                 .await
                 .unwrap();
             signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
-            eprintln!("DBG {text:?} {:?}", lead.entries().iter().map(|e| e["message"]["content"].as_str().unwrap().chars().skip(95).take(230).collect::<String>()).collect::<Vec<_>>());
-            lead.entries().into_iter().find(|e| {
-                e["message"]["content"]
-                    .as_str()
-                    .is_some_and(|s| s.contains(&last))
-            })
+            None
         })
         .await;
         let msg_id = taken["msg_id"].as_str().unwrap();
