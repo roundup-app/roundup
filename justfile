@@ -137,12 +137,14 @@ test-web-since base *args:
         *) exec pnpm --filter desktop exec vitest related --run {{args}} $files ;;
     esac
 
-# L89: rewrites the web shard durations from the vitest reports in the logs of the `web` jobs of a `main` run of check.yml (pick one with `gh run list --branch main --workflow check.yml`).
-web-durations run:
+# L89: rewrites the web shard durations from the vitest reports in the logs of the `web` jobs of one or more full runs of check.yml (pick them with `gh run list --branch main --workflow check.yml`), each file averaged over the runs (CI7295a).
+web-durations +runs:
     #!/usr/bin/env bash
     set -euo pipefail
-    for job in $(gh run view {{run}} --json jobs --jq '.jobs[] | select(.name | startswith("web ")) | .databaseId'); do
-        gh api --allow-escape-sequences "repos/{owner}/{repo}/actions/jobs/$job/logs"
+    for run in {{runs}}; do
+        for job in $(gh run view "$run" --json jobs --jq '.jobs[] | select(.name | startswith("web ")) | .databaseId'); do
+            gh api --allow-escape-sequences "repos/{owner}/{repo}/actions/jobs/$job/logs"
+        done
     done | loop/web-durations.py > apps/desktop/src/testing/shardDurations.json.new
     mv apps/desktop/src/testing/shardDurations.json.new apps/desktop/src/testing/shardDurations.json
 

@@ -2,7 +2,7 @@ name: setup
 description: The toolchain `just check` needs on a macOS or Linux runner, with the workspace's packages installed.
 inputs:
   rust:
-    description: Install the Rust toolchain and native build tools; `build` installs only the toolchain, restores the Rust cache and builds `rupd` and `rup` while Node installs.
+    description: Install the Rust toolchain and native build tools; `build` installs only the toolchain and builds `rupd`, `rup` and the test core while Node installs.
     default: 'true'
   browser:
     description: Install the browser used to inspect the rendered App.
@@ -16,17 +16,29 @@ inputs:
   node:
     description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
     default: 'true'
+  tracer:
+    description: Install bpftrace and FUSE, which U26's file-fault tracer runs under, on a hosted Linux runner.
+    default: 'false'
   builder:
     description: Install Claude Code, which runs a Builder (L23), screens its ask and runs its real-`claude` observers, and Codex, the Builder's fallback.
     default: 'false'
 runs:
   using: composite
   steps:
-    # CI5330: setup unpacks the Rust cache (1.9 GB compressed), pnpm and a browser into a 14 GB runner; free the image's unused toolchains first.
+    # CI5330: setup unpacks the Rust cache (1.9 GB compressed), pnpm and a browser into a 14 GB runner; free the image's unused toolchains.
+    # T7295: the deletion took 201 s of a web lane's setup (run 43959571073): it runs in the background, and only a job that
+    # restores the Rust cache waits for it (`Wait for runner disk`); a lane that restores none fits the 14 GB.
     - if: runner.environment != 'self-hosted' && runner.os == 'Linux'
-      name: Free runner disk
+      name: Start freeing runner disk
       shell: bash
-      run: bash "${{ github.action_path }}/disk.sh" free
+      run: |
+        setsid bash -c 'bash "$1" free; echo $? >"$2"' _ "${{ github.action_path }}/disk.sh" "$RUNNER_TEMP/disk.status" >"$RUNNER_TEMP/disk.log" 2>&1 </dev/null &
+    # T7295: U26's packages take 10 to 30 s of apt; they install in the background and `Wait for tracer packages` joins them.
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux' && inputs.tracer == 'true'
+      name: Start tracer packages
+      shell: bash
+      run: |
+        setsid sudo bash -c 'apt-get update -qq && apt-get install -y -o DPkg::Lock::Timeout=300 bpftrace libfuse3-dev fuse3 pkg-config; echo $? >"$1"' _ "$RUNNER_TEMP/tracer.status" >"$RUNNER_TEMP/tracer.log" 2>&1 </dev/null &
     - if: runner.environment == 'self-hosted'
       name: Verify prepared boxd toolchain
       shell: bash
@@ -72,7 +84,13 @@ runs:
     # and may save it on Linux; GitHub scopes those entries to the PR merge ref, inaccessible from main.
     # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
     # Hash the complete namespace: punctuation stays distinct without entering cache keys.
-    - if: runner.environment != 'self-hosted' && inputs.rust != 'false' && runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != ''
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
+      name: Wait for runner disk
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/disk.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/disk.log"
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != ''
       id: experiment
       shell: bash
       env:
@@ -80,13 +98,13 @@ runs:
       run: |
         digest=$(printf '%s' "$NAMESPACE" | sha256sum)
         echo "namespace=${digest%% *}" >>"$GITHUB_OUTPUT"
-    - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', steps.experiment.outputs.namespace) || format('check-{0}', runner.os) }}
         save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
-    # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
-    # daemon build` joins it.
+    # The build takes about 150 s from cold: it runs in the background while Node installs, and `Wait for daemon build`
+    # joins it. Only check's `daemon` job builds this way, once per Rust source tree (T7295).
     - if: runner.environment != 'self-hosted' && inputs.rust == 'build'
       name: Start daemon build
       shell: bash
@@ -140,6 +158,13 @@ runs:
         if [ "$(uname)" = Linux ] && ldd "$HOME"/.agent-browser/browsers/chrome-*/chrome | grep -q "not found"; then
           agent-browser install --with-deps
         fi
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux' && inputs.tracer == 'true'
+      name: Wait for tracer packages
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/tracer.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/tracer.log"
+        [ "$(cat "$RUNNER_TEMP/tracer.status")" = 0 ]
     - if: runner.environment != 'self-hosted' && inputs.browser == 'true' && inputs.rust != 'true'
       name: Wait for browser
       shell: bash

@@ -57,7 +57,7 @@ This change adds attributes only: existing trim-on-submit contracts stay in thei
 own actions; no input, draft, persistence, normalization or selection owner changes.
 No existing test is deleted. U16/U19 creation tests retain submission semantics;
 U183/U511a retain Enter and click-away rename; U3787c retains cancellation with no
-rename and exact recoverable work. `shelf/u3789_rows.test.tsx`,
+rename and exact recoverable work. `shelf/u3789a_rows.test.tsx`, `shelf/u3789b_rows.test.tsx`, `shelf/u3789cd_rows.test.tsx`,
 `todos/u2773_unfinished_input.test.tsx`, `rail/u2773_drafts.test.tsx`,
 `keys/u3713_capture.test.tsx` and
 `changes/u2540b_notes.test.tsx` retain rejected-submit, revision and identity proofs.

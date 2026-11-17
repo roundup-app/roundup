@@ -11,9 +11,10 @@ interface Shard {
   files: string[];
 }
 
-// A shard's test files run side by side on a 4-vCPU runner: measured on `main`, a shard takes about its longest file, or
-// its summed file time over this many files at once, whichever is longer.
-const PARALLEL_FILES = 2.8;
+// A shard's test files run side by side on a 4-vCPU runner: a shard takes about its longest file, or its summed file time
+// over this many files at once, whichever is longer. CI7295a: in 24 shards, a shard of mostly App files ran two at once
+// (runs 43978648036 and 43980573815): beside Chromium, each took up to half again its measured time.
+const PARALLEL_FILES = 2;
 
 // A file's environment and imports cost this much besides the duration vitest prints for it: on `main`, they took 36%
 // of the time of a shard holding 117 files, about two seconds a file.
@@ -30,10 +31,16 @@ const median = (values: readonly number[]): number => {
 /** Parallel work followed by the serial project's files, in seconds. */
 export const shardTime = (kept: readonly number[], serial: readonly number[] = []): number => Math.max(0, ...kept, kept.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0) / PARALLEL_FILES) + serial.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0);
 
+/** A file's measured duration, or the median for a file without one. */
+const weigh = (measured: Seconds) => {
+  const fallback = median(Object.values(measured));
+
+  return (file: string): number => measured[file] ?? fallback;
+};
+
 /** The files, longest measured duration first (a file without one weighs the median), ties by name. */
 export function longestFirst(files: readonly string[], measured: Seconds): string[] {
-  const fallback = median(Object.values(measured));
-  const weight = (file: string) => measured[file] ?? fallback;
+  const weight = weigh(measured);
 
   return [...files].sort((a, b) => weight(b) - weight(a) || (a < b ? -1 : 1));
 }
@@ -44,8 +51,26 @@ export function longestFirst(files: readonly string[], measured: Seconds): strin
  * the same answer from the same file list, so the shards partition it. Returns, per shard (0-based), the files it runs.
  */
 export function assignShards(files: readonly string[], measured: Seconds, count: number, serial: ReadonlySet<string> = new Set()): string[][] {
-  const fallback = median(Object.values(measured));
-  const weight = (file: string) => measured[file] ?? fallback;
+  return place(files, measured, count, serial).map((shard) => shard.files);
+}
+
+/**
+ * CI7295a: the fewest shards, at most `max`, whose longest takes at most `budget` seconds as `assignShards` places the
+ * files. A budget below the slowest file's own time rises to it, since no count ends that file sooner.
+ */
+export function shardCount(files: readonly string[], measured: Seconds, budget: number, max: number, serial: ReadonlySet<string> = new Set()): number {
+  const weight = weigh(measured);
+  const limit = Math.max(budget, ...files.map((file) => serial.has(file) ? shardTime([], [weight(file)]) : shardTime([weight(file)])));
+
+  for (let count = 1; count < max; count++) {
+    if (place(files, measured, count, serial).every((shard) => shardTime(shard.weights, shard.serial) <= limit)) return count;
+  }
+
+  return max;
+}
+
+function place(files: readonly string[], measured: Seconds, count: number, serial: ReadonlySet<string>): Shard[] {
+  const weight = weigh(measured);
   const shards = Array.from({ length: count }, (): Shard => ({ weights: [], serial: [], files: [] }));
 
   for (const file of longestFirst(files, measured)) {
@@ -63,7 +88,7 @@ export function assignShards(files: readonly string[], measured: Seconds, count:
     soonest.files.push(file);
   }
 
-  return shards.map((shard) => shard.files);
+  return shards;
 }
 
 /** Vitest's `--shard` hook: balances shards by the durations measured on `main` (`just web-durations`), not by path hash. */

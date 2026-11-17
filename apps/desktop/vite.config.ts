@@ -48,7 +48,12 @@ const served = realDaemonFromEnv(process.env);
 // These scenario-prescribed files own no browser or App server, including S3806b when its caller slice lands.
 const webkitGuards = [
   "src/ui/s3806a_interruption.test.tsx",
-  "src/ui/s3806b_actions.test.tsx",
+  "src/ui/s3806b_app_agent_actions.test.tsx",
+  "src/ui/s3806b_app_todo_workstream_actions.test.tsx",
+  "src/ui/s3806b_bubble_actions.test.tsx",
+  "src/ui/s3806b_rail_actions.test.tsx",
+  "src/ui/s3806b_review_local_actions.test.tsx",
+  "src/ui/s3806b_review_shared_actions.test.tsx",
   "src/terminal/s3806c_scale.test.ts",
 ];
 

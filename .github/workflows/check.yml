@@ -28,6 +28,11 @@ env:
   CI3781_CACHE: >-
     ${{ github.event_name == 'pull_request' && startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && format('pr{0}-{1}', github.event.pull_request.number, github.event.pull_request.title) || '' }}
   BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+  # T7295: what the `daemon` job caches and each web lane restores; the paths are part of the cache's version.
+  DAEMON_BINARIES: |
+    target/debug/rupd
+    target/debug/rup
+    target/debug/herdr-core-test
 
 # DF7078a: the workflow default is read-only; only `publish` widens it.
 permissions:
@@ -118,30 +123,37 @@ jobs:
         uses: ./.github/actions/setup
         with:
           rust: 'false'
+      # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. With `plan`'s
+      # 75 s and a lane's 50 s of setup, 165 s of measured tests (about 195 s on the runner) ends the verdict near 5 min.
       - id: shards
         env:
           COUNT: ${{ steps.plan.outputs.count }}
+          BUDGET: '165'
         run: |
-          files=all
+          count=all
           if [ -n "$COUNT" ]; then
-            # Count the same related selection test-web-since runs, including affected.py's source-reading tests.
+            # Size the same related selection test-web-since runs, including affected.py's source-reading tests.
             # Run 40977204278 counted only --changed and timed out both undersized web shards after 15 minutes.
             sources=$(python3 loop/affected.py web "$BASE")
-            SOURCES="$sources" python3 loop/app-data.py pnpm --filter desktop exec node --input-type=module - >"$RUNNER_TEMP/web-files.txt" <<'JS'
+            max=$(python3 loop/affected.py shards all | jq length)
+            count=$(SOURCES="$sources" MAX="$max" python3 loop/app-data.py pnpm --filter desktop exec node --input-type=module - <<'JS' | tail -n 1
+          import { relative } from 'node:path';
           import { createVitest } from 'vitest/node';
+          import durations from './src/testing/shardDurations.json' with { type: 'json' };
+          import { shardCount } from './src/testing/shardSequencer.ts';
           const ctx = await createVitest({ related: process.env.SOURCES.split('\n'), watch: false, run: true });
           try {
-            for (const spec of await ctx.getRelevantTestSpecifications()) console.log(`[${spec.project.name}] ${spec.moduleId}`);
+            const specs = await ctx.getRelevantTestSpecifications();
+            const file = (spec) => relative(ctx.config.root, spec.moduleId);
+            const serial = new Set(specs.filter((spec) => spec.project.config.maxWorkers === 1).map(file));
+            console.log(shardCount(specs.map(file), durations, Number(process.env.BUDGET), Number(process.env.MAX), serial));
           } finally {
             await ctx.close();
           }
           JS
-            files=$(grep -c '\.test\.tsx\?$' "$RUNNER_TEMP/web-files.txt" || true)
-            # Capture metadata reached 70 serial heavy files on #4987: two file-count shards both exceeded
-            # 15 min (run 40970178062). Use the full matrix when Vitest selects its heavy project.
-            if grep -q '^\[heavy\] ' "$RUNNER_TEMP/web-files.txt"; then files=all; fi
+            )
           fi
-          echo "web_shards=$(python3 loop/affected.py shards "$files")" >>"$GITHUB_OUTPUT"
+          echo "web_shards=$(python3 loop/affected.py shards "$count")" >>"$GITHUB_OUTPUT"
 
   # L89: the Rust suite in five lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
   # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 90 s before its
@@ -411,13 +423,57 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # L89: the web tests in nine shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
+  # T7295: the web lanes' `rupd`, `rup` and test core, built once per Rust source tree and cached under that tree's hash. A PR
+  # that changes no Rust restores the build `main` saved, so no web lane installs a toolchain or compiles (154 s of each
+  # lane's setup in run 43959571073); a PR that changes Rust builds once here, not once per lane.
+  daemon:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_TARGET_DIR: target
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/crates/perf/evidence/
+      - id: key
+        run: |
+          tree=$(git ls-tree -r HEAD -- crates Cargo.toml Cargo.lock .github/actions/setup/action.yml | grep -v $'\tcrates/perf/evidence/' | sha256sum)
+          echo "key=daemon-$RUNNER_OS-${tree%% *}" >>"$GITHUB_OUTPUT"
+      - id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DAEMON_BINARIES }}
+          key: ${{ steps.key.outputs.key }}
+          lookup-only: true
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup
+        with:
+          rust: 'build'
+          node: 'false'
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DAEMON_BINARIES }}
+          key: ${{ steps.key.outputs.key }}
+
+  # L89: the web tests in up to 24 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.
   web:
-    needs: plan
+    needs: [plan, daemon]
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
+    # CI7295b reads this run's step times.
+    permissions:
+      contents: read
+      actions: read
     env:
       CARGO_TARGET_DIR: target
     name: web ${{ matrix.partition }}
@@ -445,10 +501,21 @@ jobs:
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
           setsid python3 tools/e14/observe.py memory --output "$RUNNER_TEMP/e14-memory.jsonl" >"$RUNNER_TEMP/e14-memory.log" 2>&1 </dev/null &
+      - name: Daemon binaries
+        if: runner.environment != 'self-hosted'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DAEMON_BINARIES }}
+          key: ${{ needs.daemon.outputs.key }}
+          fail-on-cache-miss: true
+      # `realDaemonFixture.ts` reads this receipt as a finished build and builds nothing itself.
+      - if: runner.environment != 'self-hosted'
+        run: echo 0 >"$RUNNER_TEMP/daemon.status"
       - uses: ./.github/actions/setup
         with:
-          rust: 'build'
+          rust: 'false'
           browser: 'true'
+          tracer: 'true'
       - name: Refresh prepared runtime for this checkout
         if: runner.environment == 'self-hosted'
         run: just build-debug
@@ -484,16 +551,39 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       # U26: the file-fault tracer needs kernel BTF, kprobes and tracepoints, which boxd's kernel lacks, so only a
-      # hosted shard runs its tests under it; U26's cold Chromium command runs on the hosted `chromium` runner.
-      - name: U26 Linux fault observer dependencies
-        if: runner.environment != 'self-hosted'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
+      # hosted shard runs its tests under it (setup's `tracer`); U26's cold Chromium command runs on the hosted `chromium` runner.
       - name: test-web
         timeout-minutes: 15
         run: |
           python3 tools/e14/observe.py run --install-dependencies --lane web${{ matrix.partition }} ${{ runner.environment != 'self-hosted' && format('--fault-log {0}/chromium-faults-{1}.jsonl', runner.temp, matrix.partition) || '' }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+      # CI7295b: on `main`, a web lane whose setup took over 90 s or whose tests took over 5 min fails, and one whose tests
+      # took over 4 min warns, naming itself: file times swing up to half again between runs, and noise must not fail `main`.
+      - name: CI7295b lane time budget
+        if: github.event_name == 'push' && runner.environment != 'self-hosted'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LANE: web ${{ matrix.partition }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
+            --jq '.jobs[] | select(.name == env.LANE) | .steps[] | tojson' | python3 -c '
+          import json, os, sys
+          from datetime import datetime
+          lane = os.environ["LANE"]
+          budgets = {"Run ./.github/actions/setup": ("setup", 90, 90), "test-web": ("test step", 240, 300)}
+          over = []
+          for step in map(json.loads, sys.stdin):
+              if step["name"] in budgets and step["completed_at"]:
+                  seconds = (datetime.fromisoformat(step["completed_at"]) - datetime.fromisoformat(step["started_at"])).total_seconds()
+                  what, aim, limit = budgets[step["name"]]
+                  print(f"{lane}: {what} {seconds:.0f} s, aim {aim} s, limit {limit} s")
+                  if seconds > limit:
+                      over.append(f"{what} took {seconds:.0f} s, over {limit} s")
+                  elif seconds > aim:
+                      print(f"::warning::{lane}: {what} took {seconds:.0f} s, over {aim} s")
+          if over:
+              print(f"::error::{lane}: " + "; ".join(over))
+              sys.exit(1)
+          '
       - name: CI5330a disk after tests
         if: always()
         run: bash .github/actions/setup/disk.sh report after
@@ -529,12 +619,9 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
+          tracer: 'true'
       - name: CI5330a disk before tests
         run: bash .github/actions/setup/disk.sh report before
-      - name: U26 Linux fault observer dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
       # This must be the runner's first browser command, before any warmup or regression fixture.
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold.jsonl"
@@ -572,7 +659,7 @@ jobs:
   # creates its own `check` only after its lanes end, so a skipped draft `check` on the same head let #5430 merge red.
   check:
     name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'check (draft)' || 'check' }}
-    needs: [plan, rust, mac-clippy, mac, mac-package, web, chromium]
+    needs: [plan, rust, mac-clippy, mac, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
