@@ -39,12 +39,6 @@ default-filter = '''
 | binary_id(=rupd::b6_cleanup_completion)
 '''
 
-# U3787e: the saved-window tests await the App's Ready event with no bound of their own, since AppKit and WebKit start
-# in a time that depends on the runner's load. This stops only a start that never ends: no assertion's bound moves.
-[[profile.mac.overrides]]
-filter = 'binary_id(=desktop::s2297a) & test(/^u3787e_/)'
-slow-timeout = { period = "60s", terminate-after = 2 }
-
 # AppKit observers share one desktop: fullscreen changes its work area and can
 # refuse another process's transition. Include panel/focus observers in the same group.
 [test-groups.native-app]
