@@ -1,4 +1,5 @@
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure, StatusNote } from "../ink/MountedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
@@ -307,12 +308,12 @@ export const ProjectTab = (props: {
     <NameDraftRecovery class="header-recovery" open={recovering()} onOpenChange={recover} finalFocusEl={() => button ?? null} panel={element => { panel = element; }}
       identity={props.tab.name} records={records()} current={current()} app={props.app!}
       lines={<>
-        <ReservedLine message={copyFailure()?.message} dismiss={() => failCopy(null)} />
-        <Show when={retention.message()}>{message => <ReservedLine message={message()} dismiss={retention.dismiss} recover={{ run: () => drafts?.retry(), label: copy.storageRetry }} />}</Show>
+        <DialogFailure message={copyFailure()?.message} dismiss={() => failCopy(null)} />
+        <DialogFailure message={retention.message()} dismiss={retention.dismiss} recover={{ run: () => drafts?.retry(), label: copy.storageRetry }} />
       </>}
       label={(draft, index, isCurrent) => copy.draftIdentity(isCurrent ? copy.currentDraft : copy.draftStatus[draft.status], String(index + 1))}
-      solo={(draft, isCurrent) => <ReservedLine aria-label={copy.draftStatus[draft.status]} status={isCurrent ? copy.currentDraft : copy.draftStatus[draft.status]} data-state={draft.status} />}
-      notice={draft => <ReservedLine status={draft.value.base !== props.tab.base ? copy.railDraftConflict : null} />}
+      solo={(draft, isCurrent) => <StatusNote label={copy.draftStatus[draft.status]} text={isCurrent ? copy.currentDraft : copy.draftStatus[draft.status]} />}
+      notice={draft => <StatusNote text={draft.value.base !== props.tab.base ? copy.railDraftConflict : null} />}
       value={draft => String(draft.value.name ?? "")}
       onCopySuccess={() => failCopy(null)}
       onCopyFailure={(draft, error) => failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error.message) })}

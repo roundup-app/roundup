@@ -2,7 +2,8 @@ import * as v from "valibot";
 import { createEffect, createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { Deferred } from "../ui/Deferred";
 import { copy } from "./copy";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
@@ -96,6 +97,8 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
   };
 
   const draftLine = dismissable(() => drafts.problem() ? copy.draftRetention(copy.projectSettings, copy.workstreams, drafts.problem()!.cause) : null);
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
 
   return <SettingsShell heading={copy.projectSettings} onClose={props.onClose}>
     <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
@@ -111,8 +114,6 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
         <span>{copy.workstreamsAtOnce}</span>
       </label>
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
-      <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
-      <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
     </div></SettingsGroup>
   </SettingsShell>;
 };

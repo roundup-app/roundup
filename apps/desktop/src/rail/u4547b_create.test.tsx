@@ -1,3 +1,4 @@
+import { notice, notices } from "../testing/notices";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -53,7 +54,7 @@ it("u4547b_failed_creation_keeps_input_and_retries_create", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: " Review " } });
   fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: " exact\n " } });
   fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   expect(railCallsTo(m.app, "agent.restartMode")).toEqual([]);
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -152,12 +153,12 @@ it("u4547b_start_failure_is_retried_on_the_created_row", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: "Review changes" } });
   fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   expect(document.activeElement).toBe(rowOf("made"));
   const first = railCallsTo(m.app, "agent.restartMode")[0];
   m.app.handlers["agent.restartMode"] = () => tree[1]!;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(railCallsTo(m.app, "agent.restartMode")).toEqual([first, first]));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(railCallsTo(m.app, "agent.createMode")).toHaveLength(1);
 });

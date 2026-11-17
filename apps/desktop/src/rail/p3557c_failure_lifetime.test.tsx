@@ -1,3 +1,4 @@
+import { notice, notices } from "../testing/notices";
 import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -37,12 +38,12 @@ describe("p3557c an item failure in the Rail goes with its item", () => {
     app.handlers["rail.createWorkstream"] = () => { throw new Error("new command failure"); };
 
     await rail.createWorkstream();
-    await screen.findByRole("alert");
+    await waitFor(() => notice("alert"));
     expect(rail.commandFailure.message()).not.toBe(original);
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(notices("alert")).toHaveLength(1);
     drop("a");
     await rail.refresh();
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(notices("alert")).toHaveLength(1);
     expect(connected.drafts.list()).toContainEqual(draft);
   });
 

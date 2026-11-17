@@ -5,7 +5,7 @@ import { BusyButton } from "../ui/BusyButton";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DialogFailure } from "../ink/MountedLine";
 
 /** A5214b: ask for the Mode's name, then `agent.saveAsMode`; the Agent row stays as it was. */
 export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
@@ -44,7 +44,7 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
       <Dialog.Title>{copy.saveAsModeTitle}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={name()} onInput={event => setName(event.currentTarget.value)} /></Field.Root>
-        <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
+        <DialogFailure message={failure()} dismiss={() => setFailure(null)} />
         <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><BusyButton kind="primary" type="submit" busy={busy()} disabled={!name().trim()} busyLabel={copy.saving}>{copy.saveMode}</BusyButton></div>
       </form>
     </Dialog.Content>

@@ -8,6 +8,13 @@ export type MessageCard = { id: string; body: () => JSX.Element; closed: () => v
 /** U7310d: what a view needs of the App's Toast queue: it shows a card, and the returned call takes the card down. */
 export type MessageQueue = { message(card: MessageCard): () => void };
 
+/** A failure's toast for a list of them, one component per failure. */
+export const MessageToast = (props: FailureLine): null => {
+  createMessageToast(props);
+
+  return null;
+};
+
 /** The App's Toast queue, as the views under it reach it. */
 export const ToastQueueContext = createContext<MessageQueue | null>(null);
 

@@ -1,3 +1,4 @@
+import { notice, notices } from "../testing/notices";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, NOW } from "../testing/nodes";
@@ -53,6 +54,6 @@ it("u6249c_gone_target_drops_silently", async () => {
   fireEvent.click(goneRow()!);
 
   await waitFor(() => expect(connected.held.rows().map(row => row.agent)).toEqual(["b"]));
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   expect(rail.commandFailure.message()).toBeNull();
 });

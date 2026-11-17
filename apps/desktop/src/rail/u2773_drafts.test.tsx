@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { notice, notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
@@ -60,7 +62,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     open();
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toEqual([]));
     expect(field().value).toBe(" memory\n😀 ");
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
     cleanup();
@@ -106,7 +108,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   const other = createFakeApp();
   other.handlers["rail.tree"] = () => [workstream("other")];
   const connection = await connectProject(other, { name: "Other", path: "/other" }, () => true, Date.now);
-  render(() => <ConnectedProjectContext value={connection}><Rail /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connection}><Rail /></ConnectedProjectContext></ToastHost>);
   open();
   fireEvent.input(field(), { target: { value: " B\ne\u0301 " } });
   refuse(new RpcError(-32003, "refused original"));
@@ -178,7 +180,7 @@ it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
   fireEvent.input(newer, { target: { value: " C e\u0301 😀 " } });
   const failure = new RpcError(-32003, "older name refused");
   refuseA(failure);
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
+  await waitFor(() => expect(notice("alert").textContent).toContain(failure.message));
   expect(newer.value).toBe(" C e\u0301 😀 ");
   expect(screen.getAllByLabelText<HTMLTextAreaElement>(copy.unfinishedWork).map((entry) => entry.value)).toEqual([" A 😀 "]);
   expect(railCallsTo(mounted.app, "rail.rename")).toEqual([{ id: "a", name: "A 😀" }, { id: "a", name: "B 😀" }]);
@@ -205,7 +207,7 @@ it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
   await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
   const failure = new RpcError(-32003, "original refused");
   refuse(failure);
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
+  await waitFor(() => expect(notice("alert").textContent).toContain(failure.message));
   expect(document.activeElement).toBe(older);
   expect([older.selectionStart, older.selectionEnd, older.selectionDirection]).toEqual([2, 5, "backward"]);
   expect(field().value).toBe(" B\ne\u0301 ");

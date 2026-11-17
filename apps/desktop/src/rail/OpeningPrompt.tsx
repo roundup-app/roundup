@@ -9,7 +9,7 @@ import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { queueFocus } from "../keys/focus";
 import type { RailMenuModel } from "./menu/model";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DialogFailure, StatusNote } from "../ink/MountedLine";
 import { createDraftField } from "../state/draftField";
 
 /** A4452c: the row menu captures the Mode Agent independently of the selected Todo scope. */
@@ -90,8 +90,8 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.modePromptHint}</Field.HelperText>
       </Field.Root>
-      <Show when={draft() && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.modePromptConflict} /></Show>
-      <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => (restartFailed() ? restart() : save()) }} />
+      <StatusNote text={draft() && draft()?.value.base !== (current()?.mode_prompt ?? "") ? copy.modePromptConflict : null} />
+      <DialogFailure message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => (restartFailed() ? restart() : save()) }} />
       <div class="app-dialog-actions">
         <BusyButton kind="quiet" class="word" busyLabel={copy.restarting} busy={restarting()} onClick={restart}>{copy.restart}</BusyButton>
         <Dialog.CloseTrigger data-button="quiet" class="word">{copy.close}</Dialog.CloseTrigger>

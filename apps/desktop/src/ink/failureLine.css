@@ -64,3 +64,13 @@
 .app-mentions [data-slot="command-item-text"]:has(.failure-line) {
   flex-wrap: wrap;
 }
+
+/* U7314a: a line mounted only while it holds: it takes the room it needs and none when absent. */
+.mounted-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-small);
+}

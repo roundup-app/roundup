@@ -1,7 +1,7 @@
 import { createEffect, For, Show } from "solid-js";
 import * as v from "valibot";
 import { CopyButton } from "../ui/CopyButton";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
@@ -51,11 +51,11 @@ export const RailRecovery = (props: {
               return (
                 <details class="rail-recovery-detail" data-revision={entry().revision} open={opened()} onToggle={event => { if (!event.currentTarget.open && opened()) props.setOpen(null); }}>
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
-                  <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
+                  <StatusNote text={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea class="field-frame" aria-label={copy.railDraftRecovered} readonly value={text()} ref={field} />
                   <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>
                   <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
-                  <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
+                  <StatusNote text={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
                   <CopyButton app={connected.app} identity={entry().revision} text={text()} onFailure={error => failure.show(error.message)}>{copy.railDraftCopy}</CopyButton>

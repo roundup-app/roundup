@@ -1,7 +1,9 @@
 import { Disclosure } from "../ui/Disclosure";
 import { KindGlyph } from "../ink/KindGlyph";
 import { createSignal, For, Show } from "solid-js";
-import { dismissable, ReservedLine, type Dismissible } from "../ink/ReservedLine";
+import { dismissable, type Dismissible } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
+import { StatusNote } from "../ink/MountedLine";
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
 import { KeyChip } from "../keys/KeyChip";
@@ -42,6 +44,13 @@ export const RailFooter = (props: {
     return { message: draftLine.message() || null, dismiss: draftLine.dismiss, recover: { run: () => retained.retry(), label: copy.railDraftRetry } };
   };
 
+  createMessageToast({
+    get message() { return line().message; },
+    get content() { return failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined; },
+    dismiss: () => line().dismiss(),
+    get recover() { return line().recover; },
+  });
+
   let footer: HTMLDivElement | undefined;
   const [open, setOpen] = createSignal(false);
   const [pointer, setPointer] = createSignal(false);
@@ -54,9 +63,7 @@ export const RailFooter = (props: {
 
   return (
       <div class="rail-footer" ref={element => { footer = element; }}>
-        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" message={line().message}
-          status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}
-          dismiss={line().dismiss} recover={line().recover} />
+        <StatusNote text={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null} />
         <Show when={held.rows().length}><Disclosure label={copy.held(held.rows().length)}>
           <For each={held.rows()}>{row => <button type="button" data-button="quiet" class="held-row" onClick={() => {
             // U6249d: a held row whose Agent is gone drops without a message.

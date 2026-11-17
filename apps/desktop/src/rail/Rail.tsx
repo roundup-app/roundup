@@ -9,7 +9,7 @@ import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
 import { createEffect, createMemo, createRoot, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
@@ -714,7 +714,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     }}>
     <div class="rail-tree" data-history-region="rail" tabindex="-1" ref={element => { setContainer(element); guardCtrlClick(element); rowKeys(element, () => ({ rows: treeRows(), ...dropRules }), moveTo); trackFocus(element, setFocused); }}>
       <Show when={composing()}>
-        <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
+        <StatusNote text={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
           ref={setField}
           value={draft()}

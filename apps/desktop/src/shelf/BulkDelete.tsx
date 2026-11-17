@@ -8,7 +8,8 @@ import { BusyButton } from "../ui/BusyButton";
 import { createItemFailures } from "../ink/itemFailures";
 import { createContext, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack, useContext, type Accessor } from "solid-js";
 import { type JSX, Portal } from "@solidjs/web";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast, MessageToast } from "../ink/messageToast";
+import { StatusNote } from "../ink/MountedLine";
 import { registerKeys } from "../keys/registry";
 import { strandedFocus } from "../keys/stranded";
 
@@ -200,9 +201,11 @@ export const createBulkDelete = <Id,>(props: {
 
   const clearFailure = (failure: { target: Target<Id> }) => failures.clear(failure.target.id);
 
+  createMessageToast({ get message() { return readFailure(); }, dismiss: () => setReadFailure(null), recover: { run: () => readback?.() } });
+
   const bar = () => (
     <Show when={props.selected().length > 1 || failed().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
-      <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
+      <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion} data-deletion-pending={busy()} aria-busy={busy()}>
         <Show when={props.selected().length > 0}>
           <div class="shelf-bulk-line" hidden={question()?.kind === "question"}>
             <span>{props.selected().length}{copy.selected}</span>
@@ -216,12 +219,8 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().some(owner => owner.live)}>
           <p>{copy.agentsMayStillBeWritingDeletingDoesNot(owners().filter(owner => owner.live).map(owner => owner.name).join(copy.comma))}</p>
         </Show>
-        <ReservedLine data-deletion-pending={busy()} aria-busy={busy()} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}
-          dismiss={() => { if (readFailure() !== null) setReadFailure(null); else if (shown().length > 0) clearFailure(shown()[0]!); }}
-          recover={readFailure() !== null ? { run: () => readback?.() } : undefined} />
-        <For each={shown().slice(1)}>{failure => (
-          <ReservedLine message={failureText(failure)} dismiss={() => clearFailure(failure)} />
-        )}</For>
+        <StatusNote text={question()?.kind === "pending" ? copy.draftStatus.pending : null} />
+        <For each={shown()}>{failure => <MessageToast message={failureText(failure)} dismiss={() => clearFailure(failure)} />}</For>
       </div>
     </Show>
   );

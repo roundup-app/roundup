@@ -241,8 +241,8 @@ for (const owner of ["todos", "pads"] as const) {
       row("first").focus();
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
       // The list's own failure line has its Retry too; this one is the deletion's readback.
-      const deletion = () => within(screen.getByRole("group", { name: "Bench deletion" }));
-      await waitFor(() => deletion().getByRole("button", { name: "Retry" }));
+      const deletion = () => within(screen.getByRole("region", { name: "Updates" }));
+      await waitFor(() => deletion().getAllByRole("button", { name: "Retry" }));
 
       if (listTodos) app.handlers["todo.list"] = listTodos;
 
@@ -257,9 +257,9 @@ for (const owner of ["todos", "pads"] as const) {
       }
 
       await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #3 / : "other" })).toBeNull());
-      expect(within(screen.getByRole("group", { name: "Bench deletion" })).getByRole("alert").textContent).toContain(readbackError.message);
+      expect(deletion().getAllByRole("alert").some(alert => alert.textContent?.includes(readbackError.message))).toBe(true);
       expect(connected.drafts.list()).toEqual(retained);
-      fireEvent.click(deletion().getByRole("button", { name: "Retry" }));
+      fireEvent.click(within(deletion().getAllByRole("alert").find(alert => alert.textContent?.includes(readbackError.message))!.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Retry" }));
       await questionClosed();
       expect(screen.getByText(message("second"))).toBeTruthy();
 
@@ -267,7 +267,7 @@ for (const owner of ["todos", "pads"] as const) {
     }
 
     if (action === "dismissed") {
-      fireEvent.click(screen.getAllByRole("button", { name: "Dismiss" })[0]!);
+      fireEvent.click(within(screen.getByText(message("first")).closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
     } else if (action === "removed-event") {
       if ("store" in fixture) {
         fixture.store.todos = fixture.store.todos.filter(item => item.id !== first);

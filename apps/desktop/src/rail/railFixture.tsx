@@ -1,4 +1,5 @@
 // fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
+import { ToastHost } from "../testing/toastHost";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
 import { createSignal, flush, Show, type Accessor } from "solid-js";
@@ -59,7 +60,7 @@ export const mountRail = async (
     createDockBadge({ app, rails: () => [{ alerts: "all", nodes: attentionHolders(connected.rail.nodes, connected.rail.terminals(), connected.rail.dismissed) }], onFailure: () => {} });
 
     return (
-      <ConnectedProjectContext value={connected}>
+      <ToastHost><ConnectedProjectContext value={connected}>
         <AttentionKey />
         <Rail />
         <Show when={neighbors.pane}>
@@ -69,7 +70,7 @@ export const mountRail = async (
         <Show when={neighbors.drawer}>
           <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
         </Show>
-      </ConnectedProjectContext>
+      </ConnectedProjectContext></ToastHost>
     );
   });
 
