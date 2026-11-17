@@ -225,7 +225,7 @@ jobs:
           observation=()
           if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
           python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      # CI7295b: on `main`, a setup or test step over its time budget warns, naming the lane (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
@@ -429,7 +429,7 @@ jobs:
       # L89: only the test binaries the `mac` profile names that the diff reaches (`just test-rust-lane`).
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE"
-      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      # CI7295b: on `main`, a setup or test step over its time budget warns, naming the lane (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
@@ -669,7 +669,7 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 tools/e14/observe.py run --install-dependencies --lane web${{ matrix.partition }} ${{ runner.environment != 'self-hosted' && format('--fault-log {0}/chromium-faults-{1}.jsonl', runner.temp, matrix.partition) || '' }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      # CI7295b: on `main`, a setup or test step over its time budget warns, naming the lane (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
