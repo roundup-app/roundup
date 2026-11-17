@@ -213,6 +213,25 @@ it("pw5_a_walk_opened_without_a_link_returns_focus_and_sends_nothing", async () 
   await waitFor(() => expect(document.activeElement).toBe(before));
 });
 
+it("pw7_finish_with_the_sender_gone_returns_focus_and_sends_nothing", async () => {
+  const nodes = [agent("chosen", "idle", "ready"), agent("other", "idle", "ready")];
+  const m = await mount({ nodes });
+  m.click("notes", "t-chosen");
+  const before = document.activeElement;
+  const walk = await shown();
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  nodes.splice(0, 1);
+  // SAFETY: the rail reads only the event name.
+  m.app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" } as never);
+  await waitFor(() => expect(m.connected.rail.nodes.some(node => node.id === "chosen")).toBe(false));
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  fireEvent.keyDown(walk, { key: "Enter" });
+  await waitFor(() => expect(walkEl()).toBeNull());
+  expect(m.messages()).toEqual([]);
+  expect(m.connected.rail.selected()).not.toBe("chosen");
+  await waitFor(() => expect(document.activeElement).toBe(before));
+});
+
 it("pw6_the_walk_has_no_answer_box", async () => {
   const m = await mount();
   m.click("notes");
