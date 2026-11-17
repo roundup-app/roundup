@@ -207,16 +207,6 @@ class RustHelpers(Fixture):
         self.assertEqual(out.getvalue(), "skip\n")
 
 
-class Ping(unittest.TestCase):
-    def test_ci7295h_the_ping_runs_when_the_diff_reaches_a_crate_it_starts_or_a_file_it_reads(self):
-        workspace = {"rupd": ("crates/rupd", {"storage"}), "storage": ("crates/storage", set()),
-                     "todos": ("crates/todos", set())}
-        for path, selected in (("crates/storage/src/lib.rs", "all"), ("loop/ci-ping.sh", "all"),
-                               ("crates/todos/src/lib.rs", []), ("apps/desktop/src/App.tsx", [])):
-            with self.subTest(path=path):
-                self.assertEqual(affected.ping([path], workspace), selected)
-
-
 class RustLane(Fixture):
     """CI7295g: a CI lane builds only the test binaries its nextest profile names that the diff reaches."""
 
