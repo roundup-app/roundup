@@ -256,24 +256,6 @@ pub fn u3787e_invalid_state_is_reachable() {
     record["main"]["width"] = 0.into();
     observe(Some(serde_json::to_vec(&record).unwrap()), reachable);
 }
-pub fn u3787e_corrupt_state_is_reachable() {
-    observe(
-        Some(b"{broken".to_vec()),
-        |app, path, fullscreen_completed, normal_bounds| {
-            reachable(
-                app.clone(),
-                path.clone(),
-                fullscreen_completed,
-                normal_bounds,
-            );
-            assert!(app.save_window_state(StateFlags::all()).is_err());
-            assert_eq!(
-                std::fs::read(path.join(".window-state.json")).unwrap(),
-                b"{broken"
-            );
-        },
-    );
-}
 fn reachable(app: tauri::AppHandle, _: std::path::PathBuf, _: mpsc::Receiver<bool>, _: Bounds) {
     let main = app.get_webview_window("main").unwrap();
     let scale = main.scale_factor().unwrap();

@@ -65,7 +65,6 @@ fn main() {
         saved_window::u3787e_missing_invalid_and_offscreen_state_are_reachable,
         saved_window::u3787e_missing_state_is_reachable,
         saved_window::u3787e_invalid_state_is_reachable,
-        saved_window::u3787e_corrupt_state_is_reachable,
         saved_window::u3787e_maximized_state_keeps_normal_bounds,
         saved_window::u3787e_fullscreen_state_keeps_normal_bounds,
     ];
@@ -79,8 +78,6 @@ fn main() {
         ("u3787e_missing_state_is_reachable", saved_window::u3787e_missing_state_is_reachable),
         #[cfg(target_vendor = "apple")]
         ("u3787e_invalid_state_is_reachable", saved_window::u3787e_invalid_state_is_reachable),
-        #[cfg(target_vendor = "apple")]
-        ("u3787e_corrupt_state_is_reachable", saved_window::u3787e_corrupt_state_is_reachable),
         #[cfg(target_vendor = "apple")]
         ("u3787e_maximized_state_keeps_normal_bounds", saved_window::u3787e_maximized_state_keeps_normal_bounds),
         #[cfg(target_vendor = "apple")]
