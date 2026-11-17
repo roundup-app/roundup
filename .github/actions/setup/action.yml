@@ -22,6 +22,9 @@ inputs:
   node:
     description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
     default: 'true'
+  save-node:
+    description: On a push to main, save the `node_modules` cache after a miss installed it (CI7325c); one job per OS sets it, since every lane of a run misses together.
+    default: 'false'
   tracer:
     description: Install bpftrace and FUSE, which U26's file-fault tracer runs under, on a hosted Linux runner.
     default: 'false'
@@ -153,7 +156,28 @@ runs:
         python-version: '3.12'
     - if: runner.environment != 'self-hosted' && inputs.node != 'false'
       uses: pnpm/action-setup@v5
+    # CI7325: every workspace package's `node_modules`, the `postinstall` output (`claude.exe`) included, restores from one
+    # entry whose key hashes every input of the install (CI7325b): the lockfile, the workspace file with its overrides,
+    # `patches/`, every workspace `package.json`, Node's major, the OS and the architecture. Only `main` saves, right after
+    # the install, before a lane's tests write caches into the tree. A hit runs neither the pnpm store's restore nor `pnpm install`.
     - if: runner.environment != 'self-hosted' && inputs.node != 'false'
+      id: node-modules
+      name: Restore node_modules
+      uses: actions/cache/restore@v5
+      with:
+        path: |
+          node_modules
+          tools/lint/node_modules
+          apps/*/node_modules
+          site/node_modules
+          crates/agents/sidecar/node_modules
+          loop/agent-runners/node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'patches/**', 'package.json', 'tools/lint/package.json', 'apps/*/package.json', 'site/package.json', 'crates/agents/sidecar/package.json', 'loop/agent-runners/package.json', '.npmrc') }}
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit == 'true'
+      uses: actions/setup-node@v5
+      with:
+        node-version: 22
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit != 'true'
       uses: actions/setup-node@v5
       with:
         node-version: 22
@@ -228,9 +252,21 @@ runs:
         key: ${{ steps.vendored.outputs.key }}
     - uses: taiki-e/install-action@just
       if: runner.environment != 'self-hosted'
-    - if: inputs.node != 'false'
+    - if: inputs.node != 'false' && (runner.environment == 'self-hosted' || steps.node-modules.outputs.cache-hit != 'true')
       shell: bash
       run: pnpm install --frozen-lockfile
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit != 'true' && inputs.save-node == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      name: Save node_modules
+      uses: actions/cache/save@v5
+      with:
+        path: |
+          node_modules
+          tools/lint/node_modules
+          apps/*/node_modules
+          site/node_modules
+          crates/agents/sidecar/node_modules
+          loop/agent-runners/node_modules
+        key: ${{ steps.node-modules.outputs.cache-primary-key }}
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       name: Wait for Tauri packages
       shell: bash
