@@ -4,6 +4,7 @@ import { debounce } from "@solid-primitives/scheduled";
 import { writeText } from "../app/clipboard";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
+import { durationMs } from "./reorderMotion";
 import { BusyButton } from "./BusyButton";
 
 /** Clipboard feedback belongs to one mounted control and the latest acknowledged attempt. */
@@ -16,8 +17,7 @@ export const createCopyFeedback = () => {
   const reset = () => { revision++; cancelDeadline(); setStatus(null); };
 
   const expire = () => {
-    const duration = getComputedStyle(document.documentElement).getPropertyValue("--duration-copy").trim();
-    const clear = debounce(() => { setStatus(null); }, parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000));
+    const clear = debounce(() => { setStatus(null); }, durationMs("--duration-copy"));
     cancelDeadline = clear.clear;
     clear();
   };

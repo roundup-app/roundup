@@ -3,16 +3,10 @@ import "./styles.css";
 import { createEffect, createSignal, onCleanup, Show, untrack, type Accessor } from "solid-js";
 import { animate } from "motion";
 import { Markdown } from "../plain/Markdown";
+import { durationMs, easingOutCurve } from "../ui/reorderMotion";
 import { copy } from "./copy";
 import { walkSteps } from "./walkSteps";
 import type { walkStorage } from "./walkStorage";
-
-/** M11: the walk's one change reads its distance, time and curve from Tokens where it draws. */
-const curve = (tokens: CSSStyleDeclaration): [number, number, number, number] => {
-  const values = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
-
-  return [Number(values[0]), Number(values[1]), Number(values[2]), Number(values[3])];
-};
 
 /** PW1 to PW6: a Pad read one top-level step at a time, forward and back, read-only. `onFinish` runs once per finish; the caller decides where focus goes (PW5). */
 export const Walk = (props: { name: string; text: string; storage: ReturnType<typeof walkStorage>; reducedMotion: Accessor<boolean>; onFinish: () => void }) => {
@@ -51,11 +45,12 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
     if (props.reducedMotion() || !slide) return;
 
     const tokens = getComputedStyle(slide);
-    const seconds = Number.parseFloat(tokens.getPropertyValue("--duration-layout")) / 1000;
+    // M11: the walk's one change reads its distance, time and curve from Tokens where it draws.
+    const seconds = durationMs("--duration-layout", slide) / 1000;
     const shift = Number.parseFloat(tokens.getPropertyValue("--space-4"));
 
     if (!(seconds > 0)) return;
-    motion = animate(slide, { opacity: [0, 1], transform: [`translateX(${to > from ? shift : -shift}px)`, "translateX(0px)"] }, { duration: seconds, ease: curve(tokens) });
+    motion = animate(slide, { opacity: [0, 1], transform: [`translateX(${to > from ? shift : -shift}px)`, "translateX(0px)"] }, { duration: seconds, ease: easingOutCurve(slide) });
   };
 
   const finish = () => {

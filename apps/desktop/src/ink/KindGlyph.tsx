@@ -3,13 +3,8 @@ import { createEffect, createMemo, createSignal, onCleanup, Show, untrack, useCo
 import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
 import { copy } from "./copy";
 import type { Kind } from "@contracts/Kind";
+import { curveOf, durationMs } from "../ui/reorderMotion";
 import { glyphOf, hasInk } from "./glyph";
-
-const curve = (tokens: CSSStyleDeclaration, name: string): [number, number, number, number] => {
-  const values = tokens.getPropertyValue(name).match(/[\d.]+/g) ?? [];
-
-  return [Number(values[0]), Number(values[1]), Number(values[2]), Number(values[3])];
-};
 
 /** M9/M10: only the current working arc turns; an outgoing arc keeps its displayed angle. */
 const WorkingArc = (props: { frozen?: string | undefined }) => {
@@ -28,17 +23,14 @@ const WorkingArc = (props: { frozen?: string | undefined }) => {
         return;
       }
 
-      const tokens = getComputedStyle(document.documentElement);
-
       if (still) {
         return;
       }
 
-      const duration = tokens.getPropertyValue("--duration-working").trim();
-      const seconds = parseFloat(duration) / (duration.endsWith("ms") ? 1000 : 1);
+      const seconds = durationMs("--duration-working") / 1000;
 
       if (!(seconds > 0)) return;
-      const turn = animate(path, { transform: ["rotate(0deg)", "rotate(360deg)"] }, { duration: seconds, ease: curve(tokens, "--easing-working"), repeat: Infinity });
+      const turn = animate(path, { transform: ["rotate(0deg)", "rotate(360deg)"] }, { duration: seconds, ease: curveOf("--easing-working"), repeat: Infinity });
 
       return () => turn.cancel();
     }
@@ -127,12 +119,11 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
       if (!mark || !outgoing || !current) return;
 
       // Read only when a crossfade runs: a style read in every mounted glyph's first effect forces a style recalculation per row.
-      const tokens = getComputedStyle(document.documentElement);
-      const seconds = parseFloat(tokens.getPropertyValue("--duration-reduced")) / 1000;
+      const seconds = durationMs("--duration-reduced") / 1000;
 
       if (!(seconds > 0)) return setLeaving(undefined);
       // Opaque marks stacked: an eased pair keeps the combined Glyph from dimming at the midpoint.
-      const fades = [animate(current, { opacity: [0, 1] }, { duration: seconds, ease: curve(tokens, "--easing-glyph-in") }), animate(outgoing, { opacity: [mark.from, 0] }, { duration: seconds, ease: curve(tokens, "--easing-glyph-out") })];
+      const fades = [animate(current, { opacity: [0, 1] }, { duration: seconds, ease: curveOf("--easing-glyph-in") }), animate(outgoing, { opacity: [mark.from, 0] }, { duration: seconds, ease: curveOf("--easing-glyph-out") })];
 
       running = fades;
       void fades[1]!.then(() => { if (running === fades) { setLeaving(undefined); running = []; } }, () => {});
