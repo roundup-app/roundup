@@ -25,6 +25,14 @@ class CiLintTime(unittest.TestCase):
         out = subprocess.run([str(ROOT / 'node_modules/.bin/tsc'), '-v'], capture_output=True, text=True, check=True).stdout
         self.assertRegex(out, r'Version 7\.')
 
+    def test_ci7324a_a_planted_type_error_fails_typecheck_with_the_typescript_message(self):
+        planted = ROOT / 'apps/desktop/src/zz_ci7324a_planted.ts'
+        planted.write_text("export const planted: number = 'x';\n")
+        self.addCleanup(planted.unlink, missing_ok=True)
+        r = subprocess.run(['pnpm', 'run', 'typecheck'], cwd=ROOT / 'apps/desktop', capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("error TS2322: Type 'string' is not assignable to type 'number'.", r.stdout + r.stderr)
+
     def test_ci7324b_every_line_logs_seconds_and_a_failure_keeps_going(self):
         with tempfile.TemporaryDirectory() as d:
             summary = Path(d) / 'summary.md'
