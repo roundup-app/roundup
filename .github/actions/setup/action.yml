@@ -177,6 +177,8 @@ runs:
       uses: actions/setup-node@v5
       with:
         node-version: 22
+        # v5 turns the pnpm store cache on by itself when `packageManager` names pnpm; a hit installs nothing from it (CI7325a).
+        package-manager-cache: false
     - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit != 'true'
       uses: actions/setup-node@v5
       with:
