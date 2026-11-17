@@ -46,7 +46,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_set_order`: replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.
 - `message_send`: send a note, question or request to another Agent or the user; it is delivered when the receiver is next idle.
 - `message_progress`: inspect retained instructions, reports, user acceptance and declared verification; reading starts nothing.
-- `message_report`: report your own Attempt's result against a submitted instruction delivery and published output; it is only your claim, never user acceptance or verification; retain the same key on retry.
+- `message_report`: report your own Attempt's result against a submitted instruction delivery and published output; it is only your claim, never user acceptance or verification; retain the same key on retry; leave out `confidence` and `caveats` by default: give `confidence` (`medium` or `low`, with its reason) only when the result rests on something you could not check, and one caveat per limit that changes what your coordinator or the user does next; no note, question or other Message carries either.
 - `message_acceptResult`: record user acceptance of an exact report; only the user may call this.
 - `message_verifyResult`: observe one report's declared authoritative condition without a Model call; unsupported, stale or unavailable evidence stays unknown and a publication digest proves only its bytes.
 - `message_resolveResult`: only the user may authorize a read-only authoritative receipt source for an unknown external effect; never repeat that effect to check it.

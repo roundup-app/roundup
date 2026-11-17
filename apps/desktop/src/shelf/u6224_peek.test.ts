@@ -2,25 +2,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
-import { shelfBrowser } from "./u371Browser";
+import { peekBench } from "./u6224Browser";
 
-const { browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
-
-const STORE = "roundup:viewer";
-
-const calls = (method: string) => evaluate<number>(`window.__fake.app.calls.filter(call => call.method === '${method}').length`);
-
-const saved = () => evaluate<string | null>(`localStorage.getItem('${STORE}')`);
-
-const phase = () => evaluate<string>("document.querySelector('.window').dataset.shelf");
-
-const pause = (ms: number) => evaluate<boolean>(`new Promise(resolve => setTimeout(() => resolve(true), ${ms}))`);
-
-const edge = () => evaluate<number>("document.documentElement.clientWidth - 1");
-
-const toEdge = async () => browser("mouse", "move", String(await edge()), "400");
-
-const toCentre = () => browser("mouse", "move", "500", "400");
+const { browser, evaluate, settle, calls, saved, pause, toEdge, toCentre, waitFor, closedBenchOverATerminal } = peekBench();
 
 /** Records whether the Bench ever peeked: a peek that already slid back must still fail the test. */
 const watchPeeks = () => evaluate<boolean>(`(() => {
@@ -31,28 +15,6 @@ const watchPeeks = () => evaluate<boolean>(`(() => {
 })()`);
 
 const everPeeked = () => evaluate<boolean>("window.__peeked");
-
-/** One event, dispatched at once on the element: the Bench reacts to it alone, with no pointer move around it.
- * The key is ArrowDown: U7158 sends a typed character to the centre Terminal before the Bench hears it. */
-const dispatch = (selector: string, event: string) => evaluate<{ phase: string; prevented: boolean }>(`(async () => {
-  const target = document.querySelector('${selector}');
-  const notPrevented = target.dispatchEvent(new ${event.startsWith("pointer") ? "PointerEvent" : event.startsWith("drag") ? "DragEvent" : "KeyboardEvent"}('${event}', { bubbles: true, cancelable: true, pointerType: 'mouse', key: 'ArrowDown' }));
-  // Solid 2 batches the write the event made: the page holds the new phase from the next microtask.
-  await Promise.resolve();
-  return { phase: document.querySelector('.window').dataset.shelf, prevented: !notPrevented };
-})()`);
-
-const waitFor = (phaseName: string) => browser("wait", "--fn", `document.querySelector('.window').dataset.shelf === '${phaseName}'`);
-
-/** A Terminal selected and focused, the Bench closed, and the counters zeroed. */
-const closedBenchOverATerminal = async () => {
-  await openShelf("agents-10");
-  await evaluate(`document.querySelector('.rail [data-id="agent-4"] .name').click()`);
-  await browser("wait", ".xterm-screen");
-  await toggle();
-  await browser("click", ".xterm-screen");
-  await evaluate("(() => { window.__fake.app.calls.length = 0; return true; })()");
-};
 
 it("u6224_a_rest_at_the_edge_peeks_the_bench_in", async () => {
   await closedBenchOverATerminal();
@@ -130,79 +92,4 @@ it("u6224_a_peek_that_slides_back_saves_nothing_and_resizes_nothing", async () =
   await settle();
   expect(await calls("terminal.resize")).toBe(0);
   expect(await saved()).toBe(before);
-}, 90_000);
-
-it("u6224_leaving_without_use_slides_the_peek_back", async () => {
-  await closedBenchOverATerminal();
-  await toEdge();
-  await waitFor("peek");
-  await toCentre();
-  await browser("wait", "--fn", "document.querySelector('.shelf').hidden");
-  expect(await phase()).toBe("closed");
-}, 90_000);
-
-it("u6224_use_makes_the_peek_the_open_bench", async () => {
-  await closedBenchOverATerminal();
-  await toEdge();
-  await waitFor("peek");
-  await browser("click", ".shelf-area");
-  await waitFor("open");
-  await toCentre();
-  await pause(900);
-  await settle();
-  expect(await phase()).toBe("open");
-  expect(await calls("terminal.resize")).toBe(1);
-  expect(JSON.parse((await saved())!).frame.open).toBe(true);
-}, 90_000);
-
-it("u6224_the_open_shortcut_makes_the_peek_the_open_bench", async () => {
-  await closedBenchOverATerminal();
-  await toEdge();
-  await waitFor("peek");
-  await toggle();
-  expect(await phase()).toBe("open");
-  expect(await calls("terminal.resize")).toBe(1);
-  expect(JSON.parse((await saved())!).frame.open).toBe(true);
-}, 90_000);
-
-it("u6224_a_press_in_the_centre_closes_the_peek_and_reaches_the_terminal", async () => {
-  await closedBenchOverATerminal();
-  await evaluate("document.activeElement.blur()");
-  await toEdge();
-  await waitFor("peek");
-  // Before any pointer move can start the grace: the press alone closes the peek, and it is not swallowed.
-  expect(await dispatch(".xterm-screen", "pointerdown")).toEqual({ phase: "closed", prevented: false });
-  await toCentre();
-  await toEdge();
-  await waitFor("peek");
-  await browser("click", ".xterm-screen");
-  expect(await evaluate("!!document.activeElement.closest('.xterm')")).toBe(true);
-}, 90_000);
-
-it.each(["pointerdown", "keydown", "dragenter"])("u6224_a_%s_inside_the_peek_is_use", async (event) => {
-  await closedBenchOverATerminal();
-  await toEdge();
-  await waitFor("peek");
-  expect((await dispatch(".shelf-area", event)).phase).toBe("open");
-}, 90_000);
-
-it("u6224_the_terminal_keeps_the_keyboard_during_a_peek", async () => {
-  await closedBenchOverATerminal();
-  await toEdge();
-  await waitFor("peek");
-  await browser("press", "a");
-  await pause(100);
-  expect(await phase()).toBe("peek");
-  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'terminal.write').map(call => JSON.stringify(call.params)).join('')")).toContain("a");
-}, 90_000);
-
-it("u6224_escape_closes_a_peek_and_reaches_no_terminal", async () => {
-  await closedBenchOverATerminal();
-  await toEdge();
-  await waitFor("peek");
-  const writes = await calls("terminal.write");
-
-  await browser("press", "Escape");
-  await waitFor("closed");
-  expect(await calls("terminal.write")).toBe(writes);
 }, 90_000);

@@ -104,7 +104,7 @@ it("u7208a_search_finds_each_update_row_with_its_button", async () => {
 it("u7208b_a_failed_install_shows_its_cause_and_keeps_the_button", async () => {
   const app = await mount(BOTH_READY, "updates");
   const press = await screen.findByRole("button", { name: copy.updateRoundup });
-  const cutOff = new RpcError(INTERNAL_CODE, "the download was cut off");
+  const cutOff = new RpcError(INTERNAL_CODE, "broke_off: the download broke off");
   let installs = 0;
   let finish!: () => void;
 
@@ -130,7 +130,8 @@ it("u7208b_a_failed_install_shows_its_cause_and_keeps_the_button", async () => {
   };
 
   fireEvent.click(press);
-  expect(await row(copy.roundup).findByText(cutOff.message)).toBeTruthy();
+  expect(await row(copy.roundup).findByText(copy.updateFailures.broke_off)).toBeTruthy();
+  expect(row(copy.roundup).queryByText(cutOff.message)).toBeNull();
   expect(installs).toBe(2);
   expect(press.matches("[aria-busy]")).toBe(false);
   expect(

@@ -78,9 +78,3 @@ On a fresh hosted Linux runner, run the comma-bearing title with an unused exper
 ### Regression boundary (policy)
 
 Keep CI3781's full Rust experiment workload and observer enabled for comma-bearing titles. Ordinary PR titles and non-PR events retain their existing cache selection and save rules; hosted macOS, self-hosted runners and local builds retain their existing behavior. Experiment entries remain separate from shared main entries and other PR experiments; never delete or overwrite shared caches to observe a miss. Checks 1, 2 and 6 remain in force. Observe the effective settings on each path, rather than only checking guard text. No candidate tool, workload reduction, gate change or performance claim is part of this repair.
-
-## Lanes within five minutes
-
-**CI7295e `check` turns red at the first failed job.** Given a `check` run, when any of its jobs fails or times out, then `check` fails within about 30 s, while every other lane runs to its end, so the run's `completed` event hands one fix run every failure; `check` passes only when `lanes`, which needs every lane, succeeds (policy; observer: the run's job list; run 43979217018 failed `check` at 224 s, 8 s after `observers` failed, while `rust 5` ran to 645 s).
-
-**CI7295f a Rust lane builds only its own tests.** Given a `rust` or `mac` lane, when it builds, then it builds only the test binaries its nextest profile selects, plus the binaries those tests start, under `--workspace` so its features match the shared Rust cache, and a profile the diff misses builds nothing (test: the `test_ci7295f_` cases of `loop/affected.test.py`).

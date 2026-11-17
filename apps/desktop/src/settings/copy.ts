@@ -112,6 +112,17 @@ export const copy = {
   updateKeepsTerminals: sharedCopy.terminals,
   updatesFootnote: "roundup looks for both every hour and tells you in the corner.",
   updateRoundupHint: "Installs the new version and reopens roundup.",
+  /** U7208b: why Update roundup failed, one sentence per kind the App leads its failure with. */
+  updateFailures: {
+    unreachable: "Couldn't reach the update server. Check your connection.",
+    no_build: "There is no build for this Mac yet. Try again later.",
+    replaced: "That build was replaced. Try again in a few minutes.",
+    broke_off: "The download broke off. Press Update roundup again.",
+    refused: "The server refused the download. Try again later.",
+    signature: "The download failed its signature. Try again later.",
+    not_installed: "Couldn't install the update. Press Update roundup again.",
+  },
+  updateFailed: "Couldn't update roundup. Press Update roundup again.",
   updateCoreHint: "Runs herdr-core update.",
   roundup: sharedCopy.roundup,
   herdrCore: sharedCopy.herdrCore,

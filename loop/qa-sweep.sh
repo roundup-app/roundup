@@ -188,7 +188,7 @@ for size in 1280x400 1280x800; do
 
   # The Unassigned group starts collapsed (U3717), so unfold it before the row is reachable.
   # A first mouse click on the row is lost, so the Drawer opens by keyboard.
-  browser eval 'document.querySelector("[aria-label=Todos] [data-shelf-group=unassigned][aria-expanded=false] [data-part=branch-control]")?.click()' >/dev/null || fail "Unassigned group could not unfold at ${width}×${height}"
+  browser eval '(() => { const control = document.querySelector("[aria-label=Todos] [data-shelf-group=unassigned] .shelf-group-control"); if (!control) throw new Error("no Unassigned group control"); if (control.getAttribute("aria-expanded") === "false") control.click(); return true; })()' >/dev/null || fail "Unassigned group could not unfold at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Todos] [data-id=\"1\"] .todo-row-button")?.checkVisibility()' >/dev/null || fail "Todo row did not appear at ${width}×${height}"
   browser focus '[aria-label="Todos"] [data-id="1"] .todo-row-button' >/dev/null && browser press Enter >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
   browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer did not open at ${width}×${height}"

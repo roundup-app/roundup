@@ -51,8 +51,8 @@ pub(crate) fn watch<R: Runtime>(app: &AppHandle<R>, feed: bool, core_feed: Optio
             every.tick().await;
             tokio::join!(
                 async {
-                    if feed {
-                        updater::look(&app).await;
+                    if feed && let Err(why) = updater::look(&app).await {
+                        crate::diagnostics::report("read the update feed", &why.to_string());
                     }
                 },
                 async {
@@ -61,11 +61,16 @@ pub(crate) fn watch<R: Runtime>(app: &AppHandle<R>, feed: bool, core_feed: Optio
                     }
                 },
             );
-            if let Err(error) = app.emit(EVENT, read(&app).await) {
-                crate::diagnostics::failure("send the update facts", &error);
-            }
+            tell(&app).await;
         }
     });
+}
+
+/// Sends `updates-changed` with the facts as they stand.
+pub(crate) async fn tell<R: Runtime>(app: &AppHandle<R>) {
+    if let Err(error) = app.emit(EVENT, read(app).await) {
+        crate::diagnostics::failure("send the update facts", &error);
+    }
 }
 
 async fn look_core<R: Runtime>(app: &AppHandle<R>, url: &str) {

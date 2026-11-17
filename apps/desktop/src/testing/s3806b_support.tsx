@@ -1,29 +1,30 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { expect, vi } from "vitest";
 import * as registry from "../keys/registry";
-import { createSignal, flush } from "solid-js";
+import { createSignal, flush, untrack } from "solid-js";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
-import { questionProbe } from "../testing/menuProbe";
-import { notice } from "../testing/notices";
+import { questionProbe } from "./menuProbe";
+import { notice } from "./notices";
 import type { OpenParams } from "@contracts/terminal/OpenParams";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { RailNode } from "@contracts/agent/RailNode";
-import type { FakeApp } from "../testing/fakeApp";
+import type { FakeApp } from "./fakeApp";
 import { Rail } from "../rail/Rail";
 import { notesFor } from "../changes/notes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { App } from "../App";
-import { createFakeApp } from "../testing/fakeApp";
+import { createFakeApp } from "./fakeApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { tab, path } from "../header/stripFixture";
 import { rowOf, settled } from "../rail/railFixture";
 import type { ConnectedProject } from "../state/connectedProject";
 import { useBrowserStorage } from "../state/storage";
-import { agent, event, info, workstream } from "../testing/nodes";
+import { agent, event, info, workstream } from "./nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
-afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
+/** Each test file registers this as its afterEach hook: Vitest hooks are per file. */
+export const tearDownActionTest = (): void => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); };
 
 type Pending = { resolve: () => void; reject: (error: Error) => void };
 
@@ -173,7 +174,18 @@ const WORKSTREAM_ROW: Row = {
 const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS, CAPTURE_ROW, WORKSTREAM_ROW].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
   (row === CAPTURE_ROW ? ["dismiss", "resolve", "reject"] as const : row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "stale-selection", "removed-target", "unavailable"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
 
-it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
+const casesOf = (rows: Row[]) => cases.filter(({ row }) => rows.includes(row));
+
+export const railCases = casesOf(ROWS);
+
+export const appAgentCases = casesOf(APP_ROWS);
+
+export const appTodoWorkstreamCases = casesOf([CAPTURE_ROW, WORKSTREAM_ROW]);
+
+export const bubbleCases = casesOf(BUBBLE_ROWS);
+
+/** One action of a Switcher, paused at its reply while the surface closes and its owner unmounts; `outcome` says how the reply and the surface end. */
+export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof cases)[number]) => {
   const trace: string[] = [];
   const nativeCalls: undefined[] = [];
   const states: import("../app/seam").CaptureState[] = [];
@@ -186,7 +198,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   } : undefined;
 
   const [daemonExit, setDaemonExit] = createSignal<{ code: number | null } | null>(null);
-  const mounted = row.owner !== "Rail" ? await mountApp(native, row === WORKSTREAM_ROW, !["dismiss", "cancel", "stale-selection", "removed-target", "unavailable"].includes(outcome)) : await mountSwitcher(row.selected, undefined, undefined, daemonExit);
+  // The accessor is handed over unread: connectProject reads it in its own tracked scopes.
+  const mounted = row.owner !== "Rail" ? await mountApp(native, row === WORKSTREAM_ROW, !["dismiss", "cancel", "stale-selection", "removed-target", "unavailable"].includes(outcome)) : await mountSwitcher(row.selected, undefined, undefined, untrack(() => daemonExit));
   const { app, connected } = mounted;
 
   if (native) {
@@ -582,14 +595,18 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   // The query the user typed comes back exactly.
   openSwitcher();
   await waitFor(() => expect(field()?.value).toBe(query));
-});
+};
 
 const reviewCases = (["pointer", "enter"] as const).flatMap(how =>
   (["shared", "local"] as const).flatMap(readPath =>
   (["project", "selection"] as const).flatMap(removal =>
     (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).flatMap(outcome => removal === "selection" || outcome !== "dismiss" && outcome !== "stale-selection" ? [{ how, removal, outcome, readPath }] : []))));
 
-it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $readPath by $how, $removal, $outcome", async ({ how, removal, outcome, readPath }) => {
+export const reviewSharedCases = reviewCases.filter(({ readPath }) => readPath === "shared");
+
+export const reviewLocalCases = reviewCases.filter(({ readPath }) => readPath === "local");
+
+export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, readPath }: (typeof reviewCases)[number]) => {
   const { app, connected, other } = await mountApp();
   const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", base: "main" } });
   let tree = [workstream("ops"), reviewed];
@@ -706,4 +723,4 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
   expect(notes.list("reviewed")).toEqual(originalNotes);
   expect(other!.calls.filter(call => call.method === method)).toEqual([]);
   expect(app.calls.slice(before).filter(call => ["terminal.write", "agent.prompt"].includes(call.method))).toEqual([]);
-});
+};

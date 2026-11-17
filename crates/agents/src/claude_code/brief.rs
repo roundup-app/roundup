@@ -162,7 +162,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "message_report",
-        "report your own Attempt's result against a submitted instruction delivery and published output; it is only your claim, never user acceptance or verification; retain the same key on retry",
+        "report your own Attempt's result against a submitted instruction delivery and published output; it is only your claim, never user acceptance or verification; retain the same key on retry; leave out `confidence` and `caveats` by default: give `confidence` (`medium` or `low`, with its reason) only when the result rests on something you could not check, and one caveat per limit that changes what your coordinator or the user does next; no note, question or other Message carries either",
     ),
     (
         "message_acceptResult",
@@ -436,7 +436,7 @@ When the user gives you the words of a task, write its `order` yourself, call `a
 You write orders only for the Agents you spawn; an Agent the user started writes its own.
 
 Give every child a `role` in `agent_spawn`; a call without one is refused. A `job` owns one outcome: its order names the outcome, the done condition, its report and that it ends after reporting. A `consult` is for questions: its order names the question, and it may rest idle between answers. \
-When an update arrives (an ended Job, changed Todos or a changed Pad), read the authoritative work records with your tools, decide what remains for each Todo and Pad, and reconcile them before you end your turn. Do not treat a question, an earlier Attempt's report or a Terminal's last text as a Job's report. \
+When an update arrives (an ended Job, changed Todos or a changed Pad), read the authoritative work records with your tools, decide what remains for each Todo and Pad, and reconcile them before you end your turn. Do not treat a question, an earlier Attempt's report or a Terminal's last text as a Job's report. Where you read a child's report, read its `confidence` and `caveats` before you read the child's Terminal. \
 A bounded Job reports and ends; a Consult rests until you ask it something, and you never restart one on your own. \
 On a new start you receive the open Jobs; resume only the Jobs you need, each with your own tool call.
 
