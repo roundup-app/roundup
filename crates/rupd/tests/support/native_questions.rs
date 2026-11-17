@@ -374,6 +374,9 @@ async fn signal(run: &Run, peer: &Peer, payload: Value) {
 
 async fn receive(run: &Run, peer: &Peer, id: u32) -> String {
     let content = until("inbox Message", async || {
+        // TS1: a Message the Daemon holds for a busy Agent is written once its turn ends, and the
+        // delivery of an earlier one starts a turn; end it as Claude Code does, until this one lands.
+        signal(run, peer, json!({"hook_event_name":"Stop"})).await;
         peer.entries().into_iter().find(|e| {
             e["msg_id"] == format!("00000000-0000-4000-8000-{id:012x}")
                 || e["message"]["content"]
