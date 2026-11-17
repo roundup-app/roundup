@@ -135,3 +135,38 @@ test("t7331d_push_hook_leaves_the_tree_as_it_was", t => {
   assert.equal(git(cwd, "diff", "--cached"), index);
   assert.equal(git(cwd, "status", "--porcelain"), status);
 });
+
+const typeError = "\nexport const wrong: number = \"text\";\n";
+
+test("t7357a_push_judges_the_commit_not_the_working_tree", t => {
+  const { cwd, remote } = fixture(t);
+  commit(cwd, "src/clean.ts", clean + lintError.replace("bad", "worse") + typeError);
+  write(cwd, "src/clean.ts", clean);
+  const before = git(cwd, "status", "--porcelain");
+  const pushed = push(cwd);
+  assert.equal(pushed.status, 1, pushed.stdout + pushed.stderr);
+  assert.match(pushed.stdout + pushed.stderr, /src\/clean\.ts:4:\d+: error anti-slop\(no-reflect-apply\)/);
+  assert.match(pushed.stdout + pushed.stderr, /src\/clean\.ts\(6,\d+\): error TS2322/);
+  assert.equal(remoteHasFeature(remote), false);
+  assert.equal(readFileSync(resolve(cwd, "src/clean.ts"), "utf8"), clean);
+  assert.equal(git(cwd, "status", "--porcelain"), before);
+
+  git(cwd, "checkout", "--quiet", "--", "src/clean.ts");
+  commit(cwd, "src/clean.ts", clean + "\nexport const third: number = 3;\n");
+  write(cwd, "src/clean.ts", clean + lintError.replace("bad", "worse") + typeError);
+  const dirtied = git(cwd, "status", "--porcelain");
+  const passed = push(cwd);
+  assert.equal(passed.status, 0, passed.stdout + passed.stderr);
+  assert.equal(remoteHasFeature(remote), true);
+  assert.equal(git(cwd, "status", "--porcelain"), dirtied);
+});
+
+test("t7357a_push_of_an_unchecked_out_branch_is_judged_by_its_commit", t => {
+  const { cwd, remote } = fixture(t);
+  commit(cwd, "src/clean.ts", clean + lintError.replace("bad", "worse"));
+  git(cwd, "checkout", "--quiet", "main");
+  const pushed = push(cwd);
+  assert.equal(pushed.status, 1, pushed.stdout + pushed.stderr);
+  assert.match(pushed.stdout + pushed.stderr, /src\/clean\.ts:4:\d+: error anti-slop\(no-reflect-apply\)/);
+  assert.equal(remoteHasFeature(remote), false);
+});
