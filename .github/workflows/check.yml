@@ -879,6 +879,8 @@ jobs:
             /*
             !/crates/perf/evidence/
       - uses: ./.github/actions/setup
+        with:
+          node-cache: 'true'
       - name: Build and sign the bundle
         run: |
           just app-bundle "$CHANNEL" "$RUN_NUMBER"
