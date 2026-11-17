@@ -93,5 +93,9 @@ it("u7310g_tab_leaves_a_paragraph_without_writing", async () => {
   expect(editor.state.selection.from).toBeGreaterThan(cell);
   expect(field.value).toBe(indented);
 
-  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  expect(
+    app.calls.filter(
+      (call) => call.method === "pad.write" || call.method === "todo.update",
+    ),
+  ).toEqual([]);
 });
