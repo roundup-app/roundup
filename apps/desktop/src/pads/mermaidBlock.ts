@@ -14,9 +14,6 @@ let counter = 0;
 /** U7312c: the five Pad colours, in the order a pie's slices take them. */
 const padTones = ["--pad-blue", "--pad-green", "--pad-amber", "--pad-purple", "--red"];
 
-/** U7312c: a chart's height in px. */
-const CHART_HEIGHT = 240;
-
 /** The error's first line: Mermaid's own message continues with a code frame. */
 const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy.invalidDiagram;
 
@@ -54,7 +51,8 @@ const render = async (mermaid: MermaidApi, text: string) => {
         ])),
       },
     },
-    xyChart: { height: CHART_HEIGHT },
+    // U7312c: an xychart's plot is the chart height Token tall.
+    xyChart: { height: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pad-chart-height")) },
   });
   // `parse` first: a failed `render` leaves its error diagram in the document.
   await mermaid.parse(text);

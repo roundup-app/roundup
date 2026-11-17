@@ -73,6 +73,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--rail-menu-min-width` / `--rail-menu-max-width` | `132px` / `252px` | same | Rail context menu limits |
 | `--ask-width` / `--ask-menu-width` | `640px` / `320px` | same | Ask field and its picker |
 | `--pad-editor-height` | `360px` | same | Pad editor preview height |
+| `--pad-chart-height` | `240px` | same | Height of a Mermaid chart's plot (U7312c) |
 | `--switcher-width` / `--capture-width` / `--dialog-min-width` | `480px` / `480px` / `360px` | same | existing switcher, Capture and dialog geometry |
 | `--duration-instant` | `0s` | same | instant press feedback, keyboard paths and reduced motion |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
