@@ -166,6 +166,7 @@ runs:
       name: Workspace crates keep line tables
       shell: bash
       run: |
+        mkdir -p "$CARGO_HOME"
         for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
           printf '[profile.%s.package.%s]\ndebug = "line-tables-only"\n' dev "$crate" test "$crate"
         done >>"$CARGO_HOME/config.toml"
