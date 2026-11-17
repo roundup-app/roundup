@@ -562,47 +562,33 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             )
             .await
             .unwrap();
-        // The child records the note as Claude Code does, or its open delivery turns it `working`
-        // again after the final text and the lead's Digest reads `working`.
-        receive(
-            &run,
-            &child,
-            u32::try_from(sent["id"].as_u64().unwrap()).unwrap(),
-        )
-        .await;
-        // The fake reports the final text and its Stop as it takes the note. Release the lead's
-        // Digest only after that turn ended, so no later `working`/`idle` Digest replaces it.
         // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
         let status = if text == "Publishing is complete" {
             "builder is idle"
         } else {
             "builder is needs-you"
         };
-        let expected = if text == "Publishing is complete" {
-            "idle"
-        } else {
-            "needs-you"
-        };
-        until("child ends its turn with the final text", async || {
-            let tree = run.user.request("rail.tree", Value::Null).await.unwrap();
-            let node = tree
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|n| n["id"] == child.id)?;
-            if node["status"]["kind"] == expected {
-                return Some(());
-            }
-            // The note's record reads as a tool call after the fake's Stop and turns the child
-            // `working`; end that turn with the final text, as the replayed Stop does below.
-            signal(
-                &run,
-                &child,
-                json!({"hook_event_name":"Stop","last_assistant_message":text}),
-            )
-            .await;
-            None
+        // Release the note the child holds for its busy turn; the fake takes it, reports the final
+        // text and signals its Stop. The test signals nothing else for the child until that Stop is
+        // taken, so no Stop of its own makes the child's Kind flip and no stale Digest follows.
+        signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
+        until("the child's final text Stop", async || {
+            child.dir.join("final-stop").exists().then_some(())
         })
+        .await;
+        // The child records the note as Claude Code does, which opens a turn; its final text ends
+        // that turn, so the lead's Digest holds the final status, not `working`.
+        let sent = u32::try_from(sent["id"].as_u64().unwrap()).unwrap();
+        child.record(&run, sent).await;
+        until("inbox receipt", async || {
+            (run.status(sent).await.0 == "delivered").then_some(())
+        })
+        .await;
+        signal(
+            &run,
+            &child,
+            json!({"hook_event_name":"Stop","last_assistant_message":text}),
+        )
         .await;
         let last = format!("last: {}", &text[..text.len().min(100)]);
         // A later Digest may replace a held one, so the Digest is the one the lead's inbox took.
@@ -684,6 +670,14 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             .request("message.list", json!({"to":lead.id}))
             .await
             .unwrap();
+        if before != after {
+            let all = run.user.request("message.list", json!({})).await.unwrap();
+            for m in all.as_array().unwrap() { eprintln!("DBG msg {} to={} {} {} {}", m["id"], m["to"], m["status"], m["reason"], m["body"].as_str().unwrap_or("").replace('\n'," | ")); }
+            for e in child.entries() { eprintln!("DBG child entry {}", e["message"]["content"].as_str().unwrap_or("").replace('\n'," | ")); }
+            while let Ok(Some(event)) = tokio::time::timeout(Duration::from_millis(300), run.watcher.next_event()).await {
+                if let EventData::AgentStatus(st) = event.data { eprintln!("DBG ev agent {} {:?} {:?}", st.id, st.status.kind, st.status.label); }
+            }
+        }
         assert_eq!(before, after, "replayed completion duplicated fallback");
         if text != "Publishing is complete" {
             let reply = lead
