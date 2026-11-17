@@ -1,0 +1,176 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { afterEach, expect, it, vi } from "vitest";
+import { RequestedApp as App } from "../testing/requestedApp";
+import { createFakeApp } from "../testing/fakeApp";
+import { agent } from "../testing/nodes";
+import type { ConnectedProject } from "../state/connectedProject";
+import type { NativeOpen } from "../app/seam";
+import { walkSteps } from "./walkSteps";
+
+afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
+
+const KEY = "project-0000000000000000";
+
+const TEXT = (n: number) => Array.from({ length: n }, (_, i) => `# Part ${i + 1}\nBody ${i + 1}`).join("\n\n");
+
+/** A Project "/project" holding Agent `chosen` and the Pads `notes` (3 steps) and `plan` (3 steps); `click` is a plain click on a walk link of a Pad, from the Terminal `from`. */
+const mount = async () => {
+  const app = createFakeApp();
+  app.add("/project");
+  const target = agent("chosen", "idle", "ready");
+  const pads: Record<string, string> = { notes: TEXT(3), plan: TEXT(3) };
+  app.handlers["rail.tree"] = () => [target];
+  app.handlers["terminal.list"] = () => [];
+  app.handlers["message.send"] = () => ({}) as never;
+  app.handlers["link.read"] = params => {
+    const name = decodeURIComponent(new URL((params as { url: string }).url).pathname.slice(1));
+
+    if (!(name in pads)) throw new Error(`not found: pad ${name}`);
+
+    // SAFETY: the walk reads only `pad.text`.
+    return { kind: "pad", id: name, pad: { name, text: pads[name] }, section: null } as never;
+  };
+  let receive: ((request: NativeOpen) => void) | undefined;
+  app.onNativeOpen = listener => { receive = listener; return () => {}; };
+  let connected!: ConnectedProject;
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open; }} />);
+  await waitFor(() => expect(connected).toBeDefined());
+  await waitFor(() => expect(receive).toBeDefined());
+
+  /** A plain click on a walk link of `pad`; with `terminal`, the click lands in that Terminal, which holds focus. */
+  const click = (pad: string, terminal?: string) => {
+    if (terminal !== undefined) {
+      const screen = document.body.appendChild(document.createElement("div"));
+      screen.dataset.terminal = terminal;
+      screen.tabIndex = 0;
+      screen.focus();
+    }
+
+    receive!({ kind: "link", url: `roundup://walk/${pad}?project=${KEY}`, surface: "/project" });
+  };
+
+  return { app, connected, click, messages: () => app.calls.filter(call => call.method === "message.send").map(call => call.params as { to: string; body: string }) };
+};
+
+const walkEl = () => document.querySelector<HTMLElement>("[data-walk]");
+
+/** The open walk, once it shows. */
+const shown = () => waitFor(() => {
+  const found = walkEl();
+
+  if (!found) throw new Error("no walk is open");
+
+  return found;
+});
+
+/** The step the open walk shows, of its steps. */
+const step = async () => {
+  const walk = await shown();
+
+  return [Number(walk.dataset.step), Number(walk.dataset.steps)];
+};
+
+it("pw1_a_pad_splits_into_steps_by_top_level_heading", () => {
+  expect(walkSteps("intro\n# A\none\n## sub\n# B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["A", "intro\n# A\none\n## sub"], ["B", "# B\ntwo"]]);
+  expect(walkSteps("# A\n```\n# not a heading\n```\n~~~\n# nor this\n~~~\n# B", "p").map(s => s.title)).toEqual(["A", "B"]);
+  expect(walkSteps("just text\n## deeper", "p")).toEqual([{ title: "p", text: "just text\n## deeper" }]);
+});
+
+it("pw2_one_click_on_a_walk_link_opens_step_1", async () => {
+  const m = await mount();
+  m.click("notes");
+  expect(await step()).toEqual([1, 3]);
+  expect(m.app.calls.filter(call => call.method === "link.read").map(call => call.params)).toEqual([{ url: `roundup://walk/notes?project=${KEY}` }]);
+});
+
+it("pw2_a_walk_link_of_a_missing_pad_opens_no_walk", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const m = await mount();
+  m.click("gone");
+  await waitFor(() => expect(m.app.calls.some(call => call.method === "link.read")).toBe(true));
+  expect(walkEl()).toBeNull();
+});
+
+it("pw3_keys_and_buttons_move_one_step", async () => {
+  const m = await mount();
+  m.click("notes");
+  const walk = await shown();
+  fireEvent.keyDown(walk, { key: "ArrowLeft" });
+  expect(await step()).toEqual([1, 3]);
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  expect(await step()).toEqual([2, 3]);
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(await step()).toEqual([3, 3]);
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  expect(await step()).toEqual([3, 3]);
+  fireEvent.keyDown(walk, { key: "ArrowLeft" });
+  expect(await step()).toEqual([2, 3]);
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  expect(await step()).toEqual([1, 3]);
+  expect(m.messages()).toEqual([]);
+});
+
+it("pw4_the_step_survives_a_restart_per_pad", async () => {
+  const first = await mount();
+  first.click("notes");
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  expect(await step()).toEqual([3, 3]);
+  cleanup();
+  const second = await mount();
+  second.click("plan");
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  expect(await step()).toEqual([2, 3]);
+  cleanup();
+
+  const third = await mount();
+  third.click("notes");
+  expect(await step()).toEqual([3, 3]);
+  cleanup();
+
+  const fourth = await mount();
+  fourth.click("plan");
+});
+
+it("pw5_finish_focuses_the_senders_terminal_and_sends_one_message", async () => {
+  const m = await mount();
+  m.click("notes", "t-chosen");
+  const walk = await shown();
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  expect(await step()).toEqual([3, 3]);
+  fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+  await waitFor(() => expect(m.connected.rail.selected()).toBe("chosen"));
+  expect(m.messages().map(message => message.to)).toEqual(["chosen"]);
+  expect(m.messages()[0]!.body).toContain(`roundup://walk/notes?project=${KEY}`);
+  await waitFor(() => expect(walkEl()).toBeNull());
+
+  m.click("notes", "t-chosen");
+  const again = await shown();
+  fireEvent.keyDown(again, { key: "ArrowRight" });
+  fireEvent.keyDown(again, { key: "ArrowRight" });
+  fireEvent.keyDown(again, { key: "Enter" });
+  await waitFor(() => expect(m.messages()).toHaveLength(2));
+});
+
+it("pw5_a_walk_opened_without_a_link_returns_focus_and_sends_nothing", async () => {
+  const m = await mount();
+  const before = document.body.appendChild(document.createElement("button"));
+  before.focus();
+  m.click("notes");
+  const walk = await shown();
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  fireEvent.keyDown(walk, { key: "ArrowRight" });
+  fireEvent.keyDown(walk, { key: "Enter" });
+  await waitFor(() => expect(walkEl()).toBeNull());
+  expect(m.messages()).toEqual([]);
+  await waitFor(() => expect(document.activeElement).toBe(before));
+});
+
+it("pw6_the_walk_has_no_answer_box", async () => {
+  const m = await mount();
+  m.click("notes");
+  const walk = await shown();
+  expect(walk.querySelectorAll("textarea, input, [contenteditable=true], [role=textbox]")).toHaveLength(0);
+  expect(m.messages()).toEqual([]);
+});

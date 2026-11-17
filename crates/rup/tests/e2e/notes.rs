@@ -932,6 +932,29 @@ async fn al6_a_failed_link_lookup_returns_the_reply_without_links() {
 }
 
 #[tokio::test]
+async fn pw2_a_walk_link_is_a_link_form() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let key = user.request("daemon.ping", Value::Null).await.unwrap()["projectKey"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let mut agent = Shim::start(&project, &rail.a).await;
+    agent
+        .call("pad_create", json!({ "name": "plan: v1", "text": "# One\nhi" }))
+        .await;
+
+    let read = agent
+        .call(
+            "link_read",
+            json!({ "url": format!("roundup://walk/plan%3A%20v1?project={key}") }),
+        )
+        .await;
+    assert_eq!(read["pad"]["name"], "plan: v1");
+}
+
+#[tokio::test]
 async fn al7_pad_and_todo_replies_carry_their_link() {
     let project = start(&[]);
     let user = project.client().await;

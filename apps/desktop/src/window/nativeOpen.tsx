@@ -6,7 +6,7 @@ import { RpcError, type App, type NativeOpen } from "../app/seam";
 import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, returnFocus } from "../keys/focus";
 import { inProject, keyOfPath } from "./linkRoute";
 import { isDoor } from "../state/doorNode";
 
@@ -16,16 +16,58 @@ export type OpenRequest = Extract<NativeOpen, { kind: "project" }> | { kind: "li
 const INVALID_PARAMS = -32602;
 
 /** Native open requests stay out of the startup entry; App loads this once mounted, under its own owner, and routes each request to the returned handler. */
-export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item, fail }: {
+export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item, walk, fail }: {
   solid: Pick<typeof Solid, "createEffect" | "createSignal" | "onCleanup" | "untrack">;
   app: App;
   projects: ProjectsState;
   connectionOf: (path: string) => ConnectedProject | undefined;
   /** The Drawer body for a linked Pad or Todo; its Drawers stay in the entry that already holds them. */
   item: (content: LinkContent, fail: (message: string) => void) => JSX.Element;
+  /** PW2: the Drawer body of a walk link; `finish` is PW5's end of the walk. */
+  walk: (content: Extract<LinkContent, { kind: "pad" }>, path: string, finish: () => void) => JSX.Element;
   /** An `action` is the one thing the user can do about the failure; the App shows it beside a dismissal. */
   fail: (message: string | null, action?: { label: string; run: () => void }) => void;
 }) => {
+  /** PW5: where a clicked link came from, by the focus its click captured. */
+  const origins = new WeakMap<object, { url: string; before: Element | null }>();
+
+  /** PW5: the Agent whose Terminal held the clicked link: the Terminal holding focus when it was clicked, as a Door's own or a child Terminal's owner. */
+  const senderOf = (path: string, before: Element | null) => {
+    const rail = connectionOf(path)?.rail;
+    const terminal = before?.closest<HTMLElement>("[data-terminal]")?.dataset.terminal;
+
+    if (!rail || terminal === undefined) return null;
+
+    const owner = rail.nodes.find(node => isDoor(node) && node.terminal_id === terminal)?.id ?? rail.terminals().find(candidate => candidate.id === terminal)?.owner;
+
+    return owner !== undefined && owner !== path && rail.nodes.some(node => node.id === owner) ? owner : null;
+  };
+
+  /** PW5: Finish focuses the sender's Terminal and tells it once; a walk with no sender, or one that is gone, returns focus where it was and tells no one. */
+  const finishWalk = async (path: string, url: string, before: Element | null, name: string) => {
+    const project = connectionOf(path);
+    const sender = senderOf(path, before);
+
+    project?.drawer.close("key");
+
+    if (!project || sender === null) {
+      returnFocus(before);
+
+      return;
+    }
+
+    project.rail.select(sender, "open", captureFocus(true));
+    await project.app.rpc("message.send", { to: sender, kind: "note", body: linkCopy.walkFinished(name, await inProject(project.app, url)), replyTo: null }).catch(error => fail(error instanceof Error ? error.message : String(error)));
+  };
+
+  const bodyOf = (target: { path: string; focus: object }, content: Exclude<LinkContent, { kind: "agent" | "workstream" | "terminal" | "deliverable" }>) => {
+    const origin = origins.get(target.focus);
+
+    return content.kind === "pad" && origin && new URL(origin.url).hostname === "walk"
+      ? walk(content, target.path, () => void finishWalk(target.path, origin.url, origin.before, content.id))
+      : item(content, fail);
+  };
+
   const [linked, setLinked] = createSignal<{ path: string; content: LinkContent; focus: ReturnType<typeof captureFocus> } | null>(null);
   createEffect(() => {
     const target = linked();
@@ -58,7 +100,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
       // The active Project mounts its existing Bubble listener after selection.
       queueMicrotask(() => window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: content.id })));
     } else if (content.kind === "pad" || content.kind === "todo") {
-      open.drawer.open(() => item(content, fail), "key", { kind: content.kind, project: target.path });
+      open.drawer.open(() => bodyOf(target, content), "key", { kind: content.kind, project: target.path });
     }
 
     setLinked(null);
@@ -86,6 +128,9 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
 
   const open = (request: OpenRequest, offer = true) => {
     const focus = captureFocus(true);
+
+    if (request.kind === "link") origins.set(focus, { url: request.url, before: document.activeElement });
+
     pending = pending.then(async () => {
       if (stopped) return;
 

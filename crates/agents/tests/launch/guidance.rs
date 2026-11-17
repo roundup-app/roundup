@@ -348,6 +348,18 @@ fn al7_brief_says_to_copy_pad_and_todo_links() {
     }
 }
 
+#[test]
+fn pw6_brief_says_to_hand_a_walk_link() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        assert!(
+            text.contains("give the Pad's walk link instead"),
+            "{role:?}"
+        );
+    }
+}
+
 fn stand_alone(name: &str) -> String {
     std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR"))
