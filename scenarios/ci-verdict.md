@@ -20,6 +20,12 @@ Scope: `check` gives a PR its verdict within 5 minutes of the push. Source: #729
 
 **CI7295h the `mac` lane pings only what a PR reaches.** Given a PR, when `plan` reads its diff, then the `mac` lane runs the `rup ping` round trip and the N7/N8 guard observers after it only when the diff reaches the `rupd`, `rup` or `desktop` crates, a crate they depend on, or a file those steps read; every `main` push runs them (test: `test_ci7295h_the_ping_runs_when_the_diff_reaches_a_crate_it_starts_or_a_file_it_reads`).
 
+**CI7295j a failing web test turns `check` red within 3 minutes.** Given a PR whose diff adds a failing web test, when it is pushed, then `check` concludes red within 180 s of the push, since the `first` lane of CI7297b fails first and `check` follows within about 30 s (CI7295e); the run is recorded, then the test removed (policy; observer: the run's job list, push time to the `check` conclusion).
+
+**CI7295m no test is cut to save time.** Given a PR of #7295, when a test leaves the suite to shorten a lane, then rule 10 holds for it: the PR names the test that still proves its then-clause, and no test is skipped or deleted otherwise (policy; observer: the review of the PR's diff).
+
+**CI7295n the 5 minutes cost nothing.** Given `check`, when its lanes run, then they use standard GitHub-hosted runners only, no larger paid runner and no new paid service, and the run's concurrent jobs leave the org's runner limit room for loop runs to start (policy; observer: the `runs-on` labels of `.github/workflows/check.yml`).
+
 **CI7295i support tests run once a run.** Given a run that tests the web, when its lanes run, then the support tests (`apps/desktop`'s `test:support`: the copy guard, reporting and R3800 startup budget tests) run once, in the `chromium` lane, and no web shard runs them: in each of 24 shards they cost about 10 s (policy; observer: the `chromium` job log and a web lane's log).
 
 **CI7297a `check` ends within 5 minutes.** Given a PR push, when `check` runs, then it concludes within 300 s of the push whatever the diff reaches, the sum of its slowest path counting: `plan`, the longest lane's setup (CI7295b's 90 s) and test step (240 s), and the verdict job of CI7295e; a lane that cannot fit splits into more shards before the budget grows. `main` logs the run's seconds in `check`'s summary, so a run over 300 s names the lane that made it long (policy; observer: the run's job list beside CI5330's `df` readings and E14's lane measurements).
