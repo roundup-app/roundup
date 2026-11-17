@@ -333,6 +333,11 @@ li[aria-selected="true"] svg {
   pointer-events: auto;
 }
 
+/* Crepe shows the block menu before floating-ui places it, so its first frame sits at the page's corner. It stays hidden until placed, so a pointer resting there (on the block handle's +) picks no item. */
+.pad-block-menu .milkdown-slash-menu:not([style*="left"]) {
+  visibility: hidden;
+}
+
 .pad-block-menu .milkdown-block-handle {
   z-index: var(--layer-menu);
 }
