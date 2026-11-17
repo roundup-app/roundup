@@ -267,7 +267,8 @@ for (const owner of ["todos", "pads"] as const) {
     }
 
     if (action === "dismissed") {
-      fireEvent.click(within(screen.getByText(message("first")).closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
+            const card = document.querySelector<HTMLElement>(`.app-toast [role=alert][aria-label="${message("first")}"]`)!.closest<HTMLElement>(".reserved-line")!;
+      fireEvent.click(card.querySelector("[data-dismiss-failure]")!);
     } else if (action === "removed-event") {
       if ("store" in fixture) {
         fixture.store.todos = fixture.store.todos.filter(item => item.id !== first);

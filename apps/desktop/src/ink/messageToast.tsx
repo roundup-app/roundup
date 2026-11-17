@@ -1,4 +1,4 @@
-import { createContext, createEffect, createMemo, createUniqueId, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createUniqueId, mapArray, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ReservedLine, type Dismissible } from "./ReservedLine";
 
@@ -7,13 +7,6 @@ export type MessageCard = { id: string; body: () => JSX.Element; closed: () => v
 
 /** U7310d: what a view needs of the App's Toast queue: it shows a card, and the returned call takes the card down. */
 export type MessageQueue = { message(card: MessageCard): () => void };
-
-/** A failure's toast for a list of them, one component per failure. */
-export const MessageToast = (props: FailureLine): null => {
-  createMessageToast(props);
-
-  return null;
-};
 
 /** The App's Toast queue, as the views under it reach it. */
 export const ToastQueueContext = createContext<MessageQueue | null>(null);
@@ -43,4 +36,9 @@ export const createMessageToast = (line: FailureLine): void => {
 
     return queue.message(card);
   });
+};
+
+/** A toast per failure in a list, each living as long as its failure is in the list. */
+export const createMessageToasts = <T,>(failures: () => readonly T[], line: (failure: T) => FailureLine): void => {
+  createMemo(mapArray(failures, failure => createMessageToast(line(failure()))));
 };

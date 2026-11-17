@@ -44,9 +44,11 @@ export const RailFooter = (props: {
     return { message: draftLine.message() || null, dismiss: draftLine.dismiss, recover: { run: () => retained.retry(), label: copy.railDraftRetry } };
   };
 
+  const newAgentFailure = () => failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined;
+
   createMessageToast({
     get message() { return line().message; },
-    get content() { return failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined; },
+    get content() { return newAgentFailure(); },
     dismiss: () => line().dismiss(),
     get recover() { return line().recover; },
   });
