@@ -30,6 +30,8 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
   await browser("focus", '.todo-detail-title textarea');
   await browser("press", "Escape");
   await browser("wait", '.todo-detail-title p');
+  // The title's failure stays until the user dismisses it (U7310d).
+  await browser("click", '.app-toast [data-dismiss-failure]');
 
   await browser("click", '.todo-meta [aria-label="Priority"]');
   await browser("wait", '[role="menu"][data-open]');
@@ -49,11 +51,10 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
   await capture("relation-refusal", "Dependency could not be saved");
   await browser("click", '.app-toast [data-dismiss-failure]');
 
-  // The Toast region covers the drawer's top corner while a message shows, so the header's menu opens from the page.
-  await evaluate("document.querySelector('.drawer [aria-label=\"More actions\"]').click(); true");
+  await browser("click", '.drawer [aria-label="More actions"]');
   await browser("wait", '[role="menu"][data-open]');
   await evaluate("window.__fake.failNext(-32003, 'Todo could not be deleted. Keep your work and retry deletion.', 'todo.delete'); true");
-  await evaluate("document.querySelector('[role=\"menuitem\"][data-value=\"delete\"]').click(); true");
+  await browser("click", '[role="menuitem"][data-value="delete"]');
   await capture("delete-refusal", "Todo could not be deleted");
   expect(await evaluate("!!document.querySelector('.drawer .todo-detail-title')")).toBe(true);
 });
