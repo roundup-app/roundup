@@ -4,28 +4,22 @@ import Link from "@lucide/solid/icons/link";
 import Server from "@lucide/solid/icons/server";
 import SquareTerminal from "@lucide/solid/icons/square-terminal";
 import Ticket from "@lucide/solid/icons/ticket";
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, type Component } from "solid-js";
 import { defineCatalog, type Spec } from "@json-render/core";
+// @json-render/solid 0.23.1 targets Solid 1 and has no Solid 2 release; the App runs Solid 2. patches/@json-render__solid@0.23.1.patch
+// ports its dist to Solid 2 (owner, 2026-11-17, #7370) until upstream supports it.
+import { defineRegistry, JSONUIProvider, Renderer } from "@json-render/solid";
 import { schema } from "@json-render/solid/schema";
 import { z } from "zod";
 import type { LinkSet } from "@contracts/links/LinkSet";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 
-/** LH8: the fixed catalogue. A spec element names one of these types; any other type renders nothing. */
-const ICONS = { Editor: Code, Terminal: SquareTerminal, pr: GitPullRequest, tracker: Ticket, "dev-server": Server, asked: Link } as const;
-
-type Type = keyof typeof ICONS;
-
 export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
 
-type Item = { id: string; type: Type; url: string; tooltip: string };
+const icon = { props: z.object({ tooltip: z.string(), url: z.string().optional() }), description: "An icon button" };
 
-const iconProps = z.object({ tooltip: z.string(), url: z.string().optional() });
-
-const icon = { props: iconProps, description: "An icon button" };
-
-/** LH2, LH8: the one definition of the header's elements, validated by the schema. */
+/** LH2, LH8: the fixed catalogue; a spec element of any other type renders nothing. */
 const catalog = defineCatalog(schema, {
   components: {
     Links: { props: z.object({}), description: "The header row" },
@@ -35,13 +29,13 @@ const catalog = defineCatalog(schema, {
     tracker: icon,
     "dev-server": icon,
     asked: icon,
+    More: { props: z.object({ count: z.number(), open: z.boolean() }), description: "The +N count of the icons past the sixth" },
   },
   actions: {},
 });
 
 /** The most icons shown inline (LH9). */
 const SHOWN = 6;
-
 
 /** The header's spec: the App's own two icons, then one element per entry of the set. */
 export const specOf = (set: LinkSet | undefined): Spec => {
@@ -58,43 +52,41 @@ export const specOf = (set: LinkSet | undefined): Spec => {
   return { root: "header", elements };
 };
 
+/** LH9: the root's first six children, then a `More` count of the rest; all of them once the count is open. */
+const cut = (spec: Spec, open: boolean): Spec => {
+  const root = spec.elements[spec.root];
+  const children = root?.children ?? [];
 
-const known = (type: string): type is Type => Object.hasOwn(ICONS, type);
+  if (!root || children.length <= SHOWN) return spec;
 
-/** The items of the header's children that the catalogue accepts: a known type whose props match its schema. */
-const itemsOf = (spec: Spec): Item[] => (spec.elements[spec.root]?.children ?? []).flatMap(id => {
-  const element = spec.elements[id];
+  const more = { type: "More", props: { count: children.length - SHOWN, open }, children: [] };
 
-  if (!element || !known(element.type)) return [];
+  return { ...spec, elements: { ...spec.elements, [spec.root]: { ...root, children: [...(open ? children : children.slice(0, SHOWN)), "more"] }, more } };
+};
 
-  const parsed = catalog.data.components[element.type].props.safeParse(element.props);
-
-  return parsed.success ? [{ id, type: element.type, url: parsed.data.url ?? "", tooltip: parsed.data.tooltip }] : [];
-});
-
-/** LH8, LH9: the icons of a spec, six inline and a `+N` count that reveals the rest; an element outside the catalogue draws nothing. */
+/** LH8, LH9: the icons of a spec through `@json-render/solid`, six inline and a `+N` count that reveals the rest. */
 export const LinksView = (props: { spec: Spec; env: Env }) => {
-  const [all, setAll] = createSignal(false);
-  const items = () => itemsOf(props.spec);
-  const rest = () => Math.max(0, items().length - SHOWN);
-  const shown = () => all() ? items() : items().slice(0, SHOWN);
+  const [open, setOpen] = createSignal(false);
 
-  const run = (item: Item) => {
-    if (item.type === "Editor") props.env.editor();
-    else if (item.type === "Terminal") props.env.terminal();
-    else props.env.open(item.url);
-  };
+  type Icon = Component<{ size?: number; "aria-hidden"?: "true" }>;
 
-  return (
-    <>
-      <For each={shown()}>{item => {
-        const Icon = ICONS[item.type];
+  type Ctx = { props: { tooltip: string; url?: string | undefined } };
 
-        return <IconButton aria-label={item.tooltip} data-link={item.type} action={item.type === "Terminal" ? "terminal.new" : undefined} onClick={() => run(item)}><Icon size={16} aria-hidden="true" /></IconButton>;
-      }}</For>
-      <Show when={rest() > 0}>
-        <IconButton class="links-count" aria-label={all() ? copy.lessName : copy.moreName(rest())} aria-expanded={all() ? "true" : "false"} onClick={() => setAll(now => !now)}>{all() ? "−" : `+${rest()}`}</IconButton>
-      </Show>
-    </>
-  );
+  const iconOf = (Icon: Icon, type: string, run: (env: Env, url: string) => void) => (ctx: Ctx) =>
+    <IconButton aria-label={ctx.props.tooltip} data-link={type} action={type === "Terminal" ? "terminal.new" : undefined} onClick={() => run(props.env, ctx.props.url ?? "")}><Icon size={16} aria-hidden="true" /></IconButton>;
+
+  const { registry } = defineRegistry(catalog, {
+    components: {
+      Links: ctx => <>{ctx.children}</>,
+      Editor: iconOf(Code, "Editor", env => env.editor()),
+      Terminal: iconOf(SquareTerminal, "Terminal", env => env.terminal()),
+      pr: iconOf(GitPullRequest, "pr", (env, url) => env.open(url)),
+      tracker: iconOf(Ticket, "tracker", (env, url) => env.open(url)),
+      "dev-server": iconOf(Server, "dev-server", (env, url) => env.open(url)),
+      asked: iconOf(Link, "asked", (env, url) => env.open(url)),
+      More: ctx => <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? "−" : `+${ctx.props.count}`}</IconButton>,
+    },
+  });
+
+  return <JSONUIProvider registry={registry}><Renderer spec={cut(props.spec, open())} registry={registry} /></JSONUIProvider>;
 };
