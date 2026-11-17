@@ -244,6 +244,8 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     let reported = reported_job(&project, &door).await;
     model_saw(&project, "[stopped]").await;
     begin_second_turn(&project, &job).await;
+    // The resumed Door's history keeps the notes of its first run, snapshot included.
+    let earlier_notes = start_notes(&project).len();
     quit_and_relaunch(&mut project).await;
     let user = project.client().await;
     let node = |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).cloned().unwrap();
@@ -251,7 +253,12 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     let (job_before, reported_before) = (node(&tree, &job), node(&tree, &reported));
 
     start_door_again(&user, &door).await;
-    model_saw(&project, "[open jobs]").await;
+    // Only a note after the earlier ones is the relaunched Door's start note.
+    let start_note = daemon::poll_until("the relaunched Door's start note", async || {
+        let notes = start_notes(&project);
+        (notes.len() > earlier_notes).then(|| notes.last().cloned().unwrap())
+    })
+    .await;
     resume_result(&project).await;
     // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
     daemon::poll_until("the resumed Job's new Attempt", async || {
@@ -264,19 +271,6 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     let reported_after = node(&tree, &reported);
     assert_eq!(reported_after.attempt(), reported_before.attempt());
     assert!(reported_after.terminal_id().is_none());
-    // The Door's history only grows, so earlier requests keep any earlier snapshot; the start
-    // note is the last message that carries one.
-    let start_note = project
-        .model
-        .as_ref()
-        .unwrap()
-        .journal()
-        .iter()
-        .rev()
-        .flat_map(|entry| entry["body"]["messages"].as_array().unwrap().iter().rev())
-        .map(|message| message.to_string())
-        .find(|message| message.contains("[open jobs]"))
-        .expect("the Door's history holds a start note");
     assert!(
         start_note.contains(&format!("- {job} ")),
         "the start note lists the cut-off Job: {start_note}"
@@ -285,6 +279,25 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
         !start_note.contains(&format!("- {reported} ")),
         "the start note names the reported Job: {start_note}"
     );
+}
+
+/// DCR4: the messages of the latest request that has an open-jobs snapshot, oldest first.
+/// The Door's history only grows, so they hold every start note it was given.
+fn start_notes(project: &Project) -> Vec<String> {
+    let journal = project.model.as_ref().unwrap().journal();
+    journal
+        .iter()
+        .rev()
+        .map(|entry| {
+            let messages = entry["body"]["messages"].as_array().unwrap();
+            messages
+                .iter()
+                .map(|message| message.to_string())
+                .filter(|message| message.contains("[open jobs]"))
+                .collect::<Vec<_>>()
+        })
+        .find(|notes| !notes.is_empty())
+        .unwrap_or_default()
 }
 
 /// DCR4: the Job's own process reports from inside its Claude tree, the only place the Daemon
