@@ -37,6 +37,22 @@ class CiLintTime(unittest.TestCase):
             text = summary.read_text()
             self.assertLess(text.index('1 sleep 1'), text.index('0 echo after'))
 
+    def test_ci7324b_background_lines_overlap_and_still_fail_the_run(self):
+        r = keep_going('& sleep 2\n& exit 4\nsleep 2\necho after\n')
+        self.assertEqual(r.returncode, 1)
+        self.assertIn('[2s] sleep 2 (exit 0)', r.stderr)
+        self.assertIn('failed lines:\n  exit 4 (exit 4)', r.stderr)
+        self.assertEqual(r.stderr.count('(exit 0)'), 3)
+        started = subprocess.run(['bash', '-c', 'time (bash "$0" "$1")', str(KEEP_GOING), self._body('& sleep 2\nsleep 2\n')], capture_output=True, text=True)
+        self.assertRegex(started.stderr, r'real\s+0m2\.\d')
+
+    def _body(self, text):
+        f = tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False)
+        self.addCleanup(os.unlink, f.name)
+        f.write(text)
+        f.close()
+        return f.name
+
 
 if __name__ == '__main__':
     unittest.main()
