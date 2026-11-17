@@ -3,6 +3,7 @@ import type { JSX } from "@solidjs/web";
 import type { Event } from "@contracts/Event";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { lastTouchLine, padTouchSentence } from "./touchLine";
 
@@ -61,6 +62,8 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
   onCleanup(() => { latest += 1; });
 
   const historyLine = dismissable(failure);
+  // U7310d: a failed history refresh shows as a toast.
+  createMessageToast({ get message() { return historyLine.message(); }, dismiss: historyLine.dismiss, recover: { run: () => refreshHistory(), label: copy.tryAgain } });
 
   return (
     <Errored fallback={(error, reset) => {
@@ -72,10 +75,9 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
         {(item) => (
           <>
             {props.children(item().value)}
-            <ReservedLine message={historyLine.message()} dismiss={historyLine.dismiss} recover={{ run: () => refreshHistory(), label: copy.tryAgain }} />
             <Show when={newer() ?? item().line}>
               {(line) => (
-                <p class="light" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>
+                <p class="light item-drawer-footer" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>
                   {line()}
                 </p>
               )}

@@ -12,6 +12,13 @@
   padding-inline: var(--reading-gutter);
 }
 
+/* U7310h: each block, title and comment takes its direction from its first strong character. */
+.reading :is(p, li, h1, h2, h3, h4, h5, h6, th, td, blockquote),
+.pad-head-name, .todo-detail-title :is([data-slot="editable-preview"], [data-slot="editable-input"]), .todo-comment-body, .todo-comment-field {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
 .reading .ProseMirror {
   min-height: 100%;
   padding-block: var(--space-4);
@@ -112,16 +119,20 @@ mark[data-pad-color="amber"], mark [data-pad-color="amber"], [data-pad-color="am
 .reading [data-pad-callout] { border: 0; padding: var(--space-3); background: var(--sunken); }
 .pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); }
 
-/* U5574: Pad documents only. The shared editor also serves Todo bodies. */
+/* U5574: Pad documents only. The shared editor also serves Todo bodies. U7310a: the scroller spans the Drawer, so its scrollbar runs along the Drawer's edge; the document keeps the Pad's column. */
 .pad-body {
   font-size: var(--pad-text-body);
-  max-width: var(--pad-reading-width);
   width: 100%;
-  align-self: center;
 }
 
 .pad-body .reading {
+  max-width: none;
+}
+
+.pad-body .pad-editor-host {
+  box-sizing: border-box;
   max-width: var(--pad-reading-width);
+  margin-inline: auto;
 }
 
 .pad-body .ProseMirror {

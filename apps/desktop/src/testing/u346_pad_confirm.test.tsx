@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { expect, it } from "vitest";
 import { openPad, openShelf, waitForReload } from "../pads/padsFixture";
@@ -24,15 +24,14 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
 
   try {
     const field = await openPad("notes");
-    const drawer = within(document.querySelector<HTMLElement>(".drawer")!);
 
     // No pad.changed Event precedes either stale reply.
     app.handlers["pad.list"] = () => [remote];
     fireEvent.input(field, { target: { value: "my draft" } });
     flush();
     fireEvent.focusOut(field);
-    await drawer.findByText("Use theirs");
-    await waitFor(() => expect(drawer.queryByText(/pad notes is at revision/)).toBeNull());
+    await screen.findByText("Use theirs");
+    await waitFor(() => expect(screen.queryByText(/pad notes is at revision/)).toBeNull());
     await waitForReload(app);
     expect(field.value).toBe("my draft");
     expect(calls.filter((call) => call.method === "pad.write")).toEqual([
@@ -41,9 +40,9 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     app.handlers["pad.list"] = () => [intervening];
     app.handlers["pad.write"] = () => { throw new RpcError(-32003, "pad notes is at revision 3"); };
 
-    fireEvent.click(drawer.getByText("Keep mine"));
+    fireEvent.click(screen.getByText("Keep mine"));
     await waitForReload(app, 2);
-    expect(drawer.queryByText(/pad notes is at revision/)).toBeNull();
+    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
     expect(calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
       name: "notes", text: "my draft", expectedRevision: 2, expectedIncarnation: pad.incarnation,
     });
@@ -51,9 +50,9 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     // Observation window: PadDrawer.tsx debounces autosave at 500 ms; a conflict must suppress it.
     await new Promise((done) => setTimeout(done, 550));
     expect(calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
-    fireEvent.click(drawer.getByText("Use theirs"));
+    fireEvent.click(screen.getByText("Use theirs"));
     await waitFor(() => expect(field.value).toBe("original remote intervening"));
-    expect(drawer.queryByText(/pad notes is at revision/)).toBeNull();
+    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
     app.handlers["pad.write"] = () => ({ ...intervening, text: "after choice", revision: 4 });
     fireEvent.input(field, { target: { value: "after choice" } });
     flush();

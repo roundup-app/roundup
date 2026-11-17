@@ -67,6 +67,7 @@ import type { Chime } from "./toasts/chime";
 import { AskBar } from "./ask/AskBar";
 import { Feedback } from "./feedback/Feedback";
 import { createToastQueue } from "./toasts/queue";
+import { ToastQueueContext } from "./ink/messageToast";
 import { Toasts } from "./toasts/Toasts";
 import { UpdatesHost } from "./toasts/UpdatesHost";
 import { watchProject } from "./toasts/watch";
@@ -85,6 +86,8 @@ const ForkSheet = lazy(() => import("./fork/ForkSheet").then(module => ({ defaul
 
 const TodoHost = lazy(() => import("./todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
+const WalkHost = lazy(() => import("./pads/WalkHost").then(module => ({ default: module.WalkHost })));
+
 const PadHost = lazy(() => import("./pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
@@ -93,6 +96,8 @@ const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
 const linkedItem = (content: LinkContent, onLateFailure: (message: string) => void) =>
   content.kind === "pad" ? <PadHost name={content.id} heading={content.section?.heading} onLateFailure={onLateFailure} />
     : content.kind === "todo" ? <TodoHost id={content.todo.id} /> : null;
+
+const linkedWalk = (content: Extract<LinkContent, { kind: "pad" }>, path: string, finish: () => void) => <WalkHost name={content.id} text={content.pad.text} path={path} finish={finish} />;
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
@@ -249,7 +254,7 @@ export const App = (props: {
   onSettled(() => {
     const app = props.app;
 
-    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => owner && isDisposed(owner) ? () => {} : runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
+    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => owner && isDisposed(owner) ? () => {} : runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item: linkedItem, walk: linkedWalk, fail: failNative, openShelf: tab => { settingsView.close(false); openShelf(tab); } }))!);
 
     return app.onNativeOpen?.(routeNativeOpen, cause => failNative(cause));
   });
@@ -436,7 +441,7 @@ export const App = (props: {
   });
 
   return (
-    <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><Show when={projects.loaded()}>
+    <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><ToastQueueContext value={toasts}><Show when={projects.loaded()}>
       <ProjectOpening opening={opening} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
@@ -570,6 +575,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext></DisplayClockContext></ReducedMotionContext>
+    </Show></ToastQueueContext></ProjectDraftsContext></DisplayClockContext></ReducedMotionContext>
   );
 };

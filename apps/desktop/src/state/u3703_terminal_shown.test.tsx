@@ -1,4 +1,5 @@
 import { cleanup } from "@solidjs/testing-library";
+import { notices } from "../testing/notices";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { flush } from "solid-js";
 import { agent, door, event, info } from "../testing/nodes";
@@ -51,7 +52,7 @@ describe("u3703 the App shows a Terminal the Daemon names", () => {
     await connected.rail.settled();
 
     expect(connected.rail.selected()).toBe("workstream");
-    expect(document.querySelector("[role=alert]")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   });
 
   it("u3703_a_repeat_event_keeps_the_selection", async () => {

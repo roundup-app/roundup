@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { ToastHost } from "../testing/toastHost";
 import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
@@ -29,14 +30,14 @@ const mount = async () => {
 
   await showEverything(connected);
   render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <button data-testid="before">before</button>
       <div role="tree" tabindex={0} data-testid="rail" />
       <textarea class="xterm-helper-textarea" data-testid="terminal" />
       <Todos />
       <Capture onFile={undefined} />
       <Help />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   return { app, connected, store };

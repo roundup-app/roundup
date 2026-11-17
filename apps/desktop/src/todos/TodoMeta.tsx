@@ -5,6 +5,7 @@ import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
 import { Menu } from "../ui/Menu";
+import { createCutTitle } from "../ui/cutTitle";
 import { TickBox } from "./TickBox";
 import { BlockerMenu } from "./BlockerMenu";
 import { blockerChoices, type blockerGraph } from "./todoView";
@@ -26,6 +27,8 @@ export const TodoMeta = (props: {
   let blockingButton: HTMLButtonElement | undefined;
   const choices = createMemo(() => blockerChoices(props.todo, props.graph));
   const known = () => props.graph.known;
+  // U7310c: a cut owner name ends in "…" and shows whole on hover.
+  const ownerCut = createCutTitle(() => props.owner);
 
   const priorities = copy.todoPriorities;
 
@@ -57,6 +60,6 @@ export const TodoMeta = (props: {
       onRemove={id => { blockingButton?.focus(); const target = known().get(id);
 
  if (target) props.change("remove", props.todo.id, target); }} />
-    <button data-button="quiet" type="button" class="word todo-meta-chip" disabled={props.todo.done} onClick={event => props.assign(event.currentTarget)}><Icon name="bot" />{props.owner}</button>
+    <button data-button="quiet" type="button" class="word todo-meta-chip" disabled={props.todo.done} onClick={event => props.assign(event.currentTarget)}><Icon name="bot" /><span class="todo-meta-name" {...ownerCut.attrs()}>{props.owner}</span></button>
   </div>;
 };

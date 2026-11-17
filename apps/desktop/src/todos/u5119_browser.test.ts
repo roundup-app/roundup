@@ -67,7 +67,7 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
         })()`);
         await browser("click", '[data-todo="1"] [aria-label="Open todo 1"]');
         await browser("wait", ".todo-comment-field");
-        await browser("wait", ".todo-comments [role=alert]");
+        await browser("wait", ".app-toast [role=alert]");
         await settle();
         await browser("fill", ".todo-comment-field", "Unsent release notes 日本語\n".repeat(10));
         await settle();
@@ -87,14 +87,14 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
           await browser("wait", '.todo-status-summary[aria-expanded="true"]');
         }
 
-        await evaluate("document.querySelector('.todo-comments').querySelector('[role=alert]').scrollIntoView({block:'center'}); true");
+        await evaluate("document.querySelector('.app-toast [role=alert]').scrollIntoView({block:'center'}); true");
         await capture(`${failed}-${expanded ? 'open' : 'closed'}-failure`);
         await evaluate("window.__fake.recoverActivity(); true");
         await browser("focus", ".todo-comment-field");
-        await evaluate("document.querySelector('.todo-comments').querySelector('[role=alert]').scrollIntoView({block:'center'}); true");
+        await evaluate("document.querySelector('.app-toast [role=alert]').scrollIntoView({block:'center'}); true");
         await settle();
-        await browser("click", '.todo-comments > .reserved-line:not([data-empty]) > .reserved-content > .reserved-actions > button:not([data-dismiss-failure])');
-        await browser("wait", "--fn", "!document.querySelector('.todo-comments').querySelector('[role=alert]')");
+        await browser("click", '.app-toast .reserved-actions > button:not([data-dismiss-failure])');
+        await browser("wait", "--fn", "!document.querySelector('.app-toast [role=alert]')");
         expect(await evaluate("document.activeElement === document.querySelector('.todo-comment-field')")).toBe(true);
         await capture(`${failed}-${expanded ? 'open' : 'closed'}-recovered`);
         await evaluate("document.querySelector('.todo-comment-field').scrollIntoView({block:'center'}); true");

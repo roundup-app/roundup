@@ -73,7 +73,7 @@ it("u471_copy_guard_rejects_internal_vocabulary_in_helpers_and_branches", () => 
   }
 });
 
-it.each(["draft", "drafts", "retained work", "revision", "unfinished rail work"])("u471_copy_guard_uses_one_recovery_name_%s", text => {
+it.each(["a draft", "drafts", "retained work", "revision", "unfinished rail work"])("u471_copy_guard_uses_one_recovery_name_%s", text => {
   expect(rules(fixture(`message: () => true ? "Unfinished work" : ${JSON.stringify(text)}`))).toContain("recovery-name");
 });
 

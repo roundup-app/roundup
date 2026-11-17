@@ -6,7 +6,8 @@
   z-index: var(--layer-tooltip);
 }
 
-.app-scrollbar {
+/* U7310a: OverlayScrollbars' own sheet can load after this one and resets every `--os-*` on `.os-scrollbar`; the compound selector outranks it in any order. */
+.os-scrollbar.app-scrollbar {
   --os-size: var(--space-2);
   --os-padding-perpendicular: 0;
   --os-padding-axis: 0;

@@ -358,6 +358,8 @@ p {
 .window[data-shelf-mode="reserved"][data-shelf-shown="true"]:not([data-shelf-maximised="true"]) { --fill-reserve: var(--shelf-span); }
 /* U7192: a shown Shelf holds the top right under the window bar, so the Toast stack ends at its leading edge, clear of its header controls. */
 .window[data-shelf-shown="true"] { --toast-inset: var(--shelf-span); }
+/* U7310d: an open Drawer keeps Close and its item's actions in its head, the close row (its top padding) and one row of icon buttons, so the Toast stack starts below that head. */
+.window:has(.drawer[data-open="true"]) { --toast-top: calc(var(--space-6) + var(--space-5)); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
   --drawer-bottom: var(--rail-actions-height);
@@ -427,17 +429,6 @@ p {
 
 .drawer-controls {
   top: var(--space-2);
-}
-
-/* Todo CSS loads with its lazy chunk, after this file: the header Drawer rule ties on specificity, so this one outranks it. */
-.drawer[data-maximised="true"] .todo-detail,
-.drawer[data-maximised="true"]:has(.todo-header) .todo-detail {
-  width: min(100%, var(--measure));
-  align-self: center;
-}
-
-.drawer[data-maximised="true"] .todo-comments-send {
-  justify-content: flex-start;
 }
 
 .header .ink:not(.tab-mark):not(.strip-edge) {

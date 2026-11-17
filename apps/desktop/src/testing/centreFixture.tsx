@@ -1,4 +1,5 @@
 import { DisplayClockContext } from "../state/clock";
+import { ToastHost } from "./toastHost";
 import type { Accessor } from "solid-js";
 import type { DaemonExit } from "../app/seam";
 import { render } from "@solidjs/testing-library";
@@ -53,7 +54,7 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
   const { factory, made } = fakeEmulators();
 
   const view = render(() => (
-    <DisplayClockContext value={() => () => 0}><ConnectedProjectContext value={connected}>
+    <DisplayClockContext value={() => () => 0}><ToastHost><ConnectedProjectContext value={connected}>
       <div class="window">
         <section class="rail"><Rail /></section>
         <section class="centre">
@@ -63,7 +64,7 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
         </section>
         <section class="shelf"><Todos /><Pads /></section>
       </div>
-    </ConnectedProjectContext></DisplayClockContext>
+    </ConnectedProjectContext></ToastHost></DisplayClockContext>
   ));
 
   await connected.rail.settled();

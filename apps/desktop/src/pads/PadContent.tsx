@@ -18,6 +18,7 @@ import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
@@ -70,6 +71,9 @@ const draftOf = (original: { name: string; base: string; revision: number }, sou
 
   return snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
 };
+
+/** U3729: "Saved" is a quiet caption after the Pad's name while its last write stands; a toast is for a failure the user dismisses (U7310d). */
+const PadSavedStatus = (props: { saved: () => boolean }) => <Show when={props.saved()}><ReservedLine class="pad-head-status" data-state="saved" status={copy.padSaved} /></Show>;
 
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
@@ -460,11 +464,26 @@ const PadBody = (props: {
 
   const nameCut = createCutTitle(() => name);
 
+  // U7310d: the Pad's failures and conflicts show as toasts.
+  createMessageToast({
+    get message() { return actionFailure.message() ?? note.message(); }, dismiss: () => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); },
+    get recover() { return retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined; },
+    get action() { return <>
+        <Show when={retentionProblem()}>
+          <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
+          <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={useTheirs}>{copy.discardRevision}</BusyButton>
+        </Show>
+        <Show when={actionFailure.kind() === "source-mapping"}><CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton></Show>
+        <Show when={awaitingResume() && !retentionProblem()}><BusyButton kind="primary" disabled={resumeBlocked()} busyLabel={copy.resuming} onClick={() => resume()}>{copy.resume}</BusyButton></Show>
+        <Show when={conflictActor()}><button data-button="quiet" type="button" class="word" onClick={() => keepMine()}>{copy.keepMine}</button><BusyButton kind="quiet" class="word" busyLabel={copy.discarding} onClick={useTheirs}>{copy.useTheirs}</BusyButton></Show>
+      </>; } });
+
   return (
     <div class="pad-body" data-pad-width={maximised() ? width() : undefined} data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
+          <PadSavedStatus saved={() => saved() && cycle.save().kind === "clean"} />
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
@@ -483,21 +502,6 @@ const PadBody = (props: {
           </IconButton>
         </Show>
       </div>
-      <ReservedLine data-state={saved() && cycle.save().kind === "clean" ? "saved" : undefined} message={actionFailure.message() ?? note.message()}
-        status={saved() && cycle.save().kind === "clean" ? copy.padSaved : null} dismiss={() => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); }} recover={retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined} action={<>
-        <Show when={retentionProblem()}>
-          <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
-          <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={useTheirs}>{copy.discardRevision}</BusyButton>
-        </Show>
-        <Show when={actionFailure.kind() === "source-mapping"}>
-          <CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton>
-        </Show>
-        <Show when={awaitingResume() && !retentionProblem()}><BusyButton kind="primary" disabled={resumeBlocked()} busyLabel={copy.resuming} onClick={() => resume()}>{copy.resume}</BusyButton></Show>
-        <Show when={conflictActor()}>
-          <button data-button="quiet" type="button" class="word" onClick={() => keepMine()}>{copy.keepMine}</button>
-          <BusyButton kind="quiet" class="word" busyLabel={copy.discarding} onClick={useTheirs}>{copy.useTheirs}</BusyButton>
-        </Show>
-      </>} />
       <Loading>
         <PadRichEditor
           toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}

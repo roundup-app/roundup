@@ -119,11 +119,11 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await browser("wait", '.todo-older[aria-expanded="true"]');
   }
 
-  await evaluate("document.querySelector('.todo-comments .reserved-line:has([role=alert])')?.scrollIntoView({block: 'center'}); true");
+  await evaluate("document.querySelector('.app-toast .reserved-line:has([role=alert])')?.scrollIntoView({block: 'center'}); true");
   await capture("read-failure");
   await browser("focus", ".todo-comment-field");
   await browser("press", "Enter");
-  await browser("wait", "--fn", "document.querySelector('.todo-comments')?.textContent.includes('Comment could not be sent')");
+  await browser("wait", "--fn", "document.querySelector('.app-toast')?.textContent.includes('Comment could not be sent')");
   await evaluate("document.querySelector('.todo-comments-send').scrollIntoView({block: 'end'}); true");
   await capture("rejected-send");
   expect(await evaluate("document.querySelector('.todo-comment-field').value.startsWith('Unsent release notes')")).toBe(true);

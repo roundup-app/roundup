@@ -126,7 +126,7 @@ const WorktreeChips = (props: { id: string }) => {
   return <span class="worktree-chips row-secondary" data-no-drag="">
         <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
         <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={String(ci().stale)} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={String(pr().stale)} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state={pr().draft === undefined ? "pr" : pr().draft ? "draft" : "open"} data-stale={String(pr().stale)} aria-label={pr().draft === undefined ? copy.worktreePrState(pr().number, pr().stale) : [copy.worktreePrState(pr().number, pr().stale), copy.worktreePrKind(pr().draft!)].join(copy.comma)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().draft !== undefined}> {copy.worktreePrKind(pr().draft!)}</Show><Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
         <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
   </span>;
 };
@@ -206,6 +206,16 @@ export const RailRowView = (props: {
   const door = () => isDoor(props.row.node) ? props.row.node : undefined;
   const doorStatus = () => door()?.status;
   const worktree = () => door()?.worktree;
+
+  // U7371b/c: an Agent's Worktree holds only main's work; a Workstream is finished once every Agent under it is.
+  const finished = createMemo(() => {
+    if (!workstream()) return !!worktree() && connected.worktrees.finished(props.row.node.id);
+
+    const agents = descendantsOf(props.topology, props.row.node.id).filter(node => isDoor(node) && !isWorkstream(node));
+
+    return agents.length > 0 && agents.every(node => connected.worktrees.finished(node.id));
+  });
+
   const resumeWait = () => door()?.resume;
   const attribution = () => door()?.start_attribution;
 
@@ -293,6 +303,7 @@ export const RailRowView = (props: {
     "data-multiple": multiple() ? "true" : undefined,
     "data-mode": isMode(props.row.node) ? "true" : undefined,
     "data-worktree": worktree() ? "true" : undefined,
+    "data-finished": finished() ? "true" : undefined,
     "data-editing": String(props.editing), "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": String(props.lifted),
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {

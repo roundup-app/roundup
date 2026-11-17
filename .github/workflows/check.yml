@@ -129,11 +129,11 @@ jobs:
         with:
           rust: 'false'
       # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. With `plan`'s
-      # 75 s and a lane's 50 s of setup, 165 s of measured tests (about 195 s on the runner) ends the verdict near 5 min.
+      # 52 s and a lane's 31 s of setup, 200 s of measured tests (180 s measured ran 153 s in the test step, 238 s a lane in run 44165190898, so about 225 s on the runner, inside CI7297c's 240 s) keeps the verdict near 5 min; every shard fewer saves its 31 s of setup and a runner slot, 7216 job-seconds a run at 20 concurrent jobs (CI7297a).
       - id: shards
         env:
           COUNT: ${{ steps.plan.outputs.count }}
-          BUDGET: '165'
+          BUDGET: '200'
         run: |
           count=all
           if [ -n "$COUNT" ]; then
@@ -206,6 +206,7 @@ jobs:
           setsid python3 tools/e14/observe.py memory --output "$RUNNER_TEMP/e14-memory.jsonl" >"$RUNNER_TEMP/e14-memory.log" 2>&1 </dev/null &
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
       # A4691: the sidecar the agent tests start. The test build makes `rupd`, `rup` and the test core a lane's tests start.
       - name: A4691 debug runtime preparation
@@ -258,6 +259,7 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
           node-cache: 'true'
           save-node: 'true'
@@ -284,6 +286,7 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C9b native release size
         run: |
@@ -335,6 +338,7 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           save-cache: 'true'
           experiment-cache: ${{ env.CI3781_CACHE }}
           node: 'false'
@@ -364,6 +368,7 @@ jobs:
       - id: setup
         uses: ./.github/actions/setup
         with:
+          machete: 'false'
           node: 'false'
           vendored-cache: debug
       # CI7295h: clippy runs on a PR whose diff reaches Rust; the ping only when the diff reaches what it proves.
@@ -425,6 +430,7 @@ jobs:
       - id: setup
         uses: ./.github/actions/setup
         with:
+          machete: 'false'
           save-cache: 'true'
           vendored-cache: debug
           save-vendored: 'true'
@@ -466,6 +472,7 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           node: 'false'
           vendored-cache: debug
       - name: R24 measurement feature
@@ -879,6 +886,8 @@ jobs:
             /*
             !/crates/perf/evidence/
       - uses: ./.github/actions/setup
+        with:
+          node-cache: 'true'
       - name: Build and sign the bundle
         run: |
           just app-bundle "$CHANNEL" "$RUN_NUMBER"

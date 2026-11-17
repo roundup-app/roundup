@@ -2,11 +2,23 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const linkCopy = {
   /** @prose */
+  walkFinished: (pad: string, link: string) => `The user finished the walk of the Pad ${pad}: ${link}`,
+  /** @prose */
   notOpened: (url: string, cause: string) => `link not opened: ${url}: ${cause}`,
   /** The digest the Daemon hashes a Project path with; not shown. */
   keyDigest: "SHA-256",
   /** @prose */
   noOwner: "no running Project owns it",
+  /** @prose */
+  noShelfTab: (tab: string) => `There is no Bench tab "${tab}".`,
+  /** @prose */
+  shelfLinkForm: (tab: string) => `The Bench link for "${tab}" takes only a project.`,
+  /** @prose */
+  settingsLinkForm: (page: string) => `The Settings link for "${page}" takes only a project and a control.`,
+  /** @prose */
+  placeProject: (key: string) => `The Project ${key} is not open.`,
+  /** @prose */
+  placeNoProject: "The link does not name a Project.",
   closed: (project: string) => `${project} is not open.`,
   openProject: sharedCopy.openEvidence,
 } as const;

@@ -39,7 +39,7 @@ pub fn node_link(key: &str, node: &RailNode) -> Option<String> {
     Some(object_link(kind, &node.id, key))
 }
 
-/// `roundup://<kind>/<id>?project=<key>`, `<kind>` one of `pad`, `todo`, `agent`, `workstream`, `terminal`, `deliverable`.
+/// `roundup://<kind>/<id>?project=<key>`, `<kind>` one of `pad`, `walk` (a Pad's name, read as the Pad), `todo`, `agent`, `workstream`, `terminal`, `deliverable`.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct LinkUrl {
     pub url: String,
