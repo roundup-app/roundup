@@ -5,8 +5,9 @@ import { createSignal, flush, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
+import { storageIdle } from "../state/storage";
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(async () => { cleanup(); vi.restoreAllMocks(); await storageIdle(); localStorage.clear(); });
 
 const type = (text: string) => {
   fireEvent.input(field()!, { target: { value: text } });
