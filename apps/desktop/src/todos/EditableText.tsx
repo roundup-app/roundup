@@ -15,7 +15,7 @@ import { createDraftField, type Sent } from "../state/draftField";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { createMessageToast } from "../toasts/messageToast";
-import { createEffect, createMemo, createSignal, For, lazy, Loading, merge, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, Loading, onCleanup, Show, untrack } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
 import "../pads/styles.css";
@@ -113,18 +113,19 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     </>; },
   };
 
-  // U7310d: in the Drawer the line is a card; beside the list it stays a line.
-  createMessageToast(merge(line, {
-    get message() { return props.inDrawer ? line.message : null; },
-    get status() { return props.inDrawer ? line.status : null; },
-  }));
+  // U7310d: in the Drawer a failure is a toast and the kept drafts stay a line at the view's end; beside the list both share one line.
+  createMessageToast({ get message() { return props.inDrawer && line.message; }, dismiss: line.dismiss, get recover() { return line.recover; } });
 
-  return <Show when={!props.inDrawer && !drawer.content()}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
+  return <Show when={props.inDrawer ? line.status : !drawer.content()}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay={props.object !== "new"} {...line} />
+    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} {...line} message={!props.inDrawer && line.message} />
   </section></Show>;
 };
+
+/** U7310d: a change made elsewhere to the field being edited is a status above it while it holds; a toast holds failures only. */
+const ChangedElsewhere = (props: { editing: Editing | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body" }) =>
+  <Show when={props.editing}>{started => <Show when={(props.captured && props.captured.seq !== started().form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started().form.base)}><ReservedLine status={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
 
 /** The form a new edit starts from: the captured change's values, else the Todo's own. */
 const formFrom = (todo: Todo, name: "title" | "body", change: Change | undefined): Editing["form"] => {
@@ -462,12 +463,12 @@ export const EditableText = (props: {
       }} /></Loading></div>;
   };
 
-  // U7310d: a failed save and a change made elsewhere while editing show as toasts.
+  // U7310d: a failed save shows as a toast.
   createMessageToast({ get message() { return retentionFailure() || (!props.onFailure && failure()); }, dismiss: () => retentionFailure() ? setRetentionFailure(null) : setFailure(null) });
-  createMessageToast({ get status() { return editing() && ((props.captured() && props.captured()?.seq !== editing()?.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== editing()?.form.base)) ? copy.changedTodo(props.todo.title) : null; } });
 
   return (
     <div class="todo-editable" ref={container}>
+    <ChangedElsewhere editing={editing()} captured={props.captured()} revision={props.revision} todo={props.todo} name={props.name} />
     <Show when={props.multiline} fallback={<TitleField />}>
       <Show
         when={editing()}

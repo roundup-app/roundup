@@ -42,6 +42,10 @@ export const TodoDrawer = (props: DrawerProps) => <Show when={props.id} keyed>{i
   return <TodoDrawerBody {...props} id={id} navigation={navigation} />;
 }}</Show>;
 
+/** U3787h: a delete refused while a restore runs is a polite status in place, repeated on each refused press; a toast holds failures only (U7310d). */
+const RestorePending = (props: { refusal: string | null; uncertain: boolean; press: number }) =>
+  <Show when={!props.uncertain && props.refusal}>{refusal => <ReservedLine class="todo-delete-feedback" aria-live="polite" aria-atomic="true" status={refusal()} content={<Show when={props.press} keyed>{press => <span>{press > 0 && refusal()}</span>}</Show>} />}</Show>;
+
 /** `navigation` names the header button that had focus when the body was replaced, so the new body returns focus to it. */
 const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const connected = useConnectedProject();
@@ -298,17 +302,17 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     });
   };
 
-  // U7310d: a failed change, a refused delete and a failed title save show as toasts; each refused press repeats the refusal.
+  // U7310d: a failed change, an unconfirmed delete and a failed title save show as toasts; each refused press repeats the refusal.
   const refusalPress = <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show>;
-  createMessageToast({ get "aria-live"() { return drafts.undo.uncertain() ? undefined : "polite"; }, "aria-atomic": "true", dismiss: () => { setDeleteRefused(0); setFailure(null); },
-    get message() { return deletionRefusal() && drafts.undo.uncertain() ? deletionRefusal() : failure(); }, get status() { return deletionRefusal() && !drafts.undo.uncertain() ? deletionRefusal() : null; },
-    get content() { return deletionRefusal() ? refusalPress : undefined; }, get recover() { return deletionRefusal() && drafts.undo.uncertain() ? { run: () => drafts.undo.retryDelete(), label: copy.todoDeleteRetry } : undefined; } });
+  createMessageToast({ dismiss: () => { setDeleteRefused(0); setFailure(null); }, get message() { return deletionRefusal() && drafts.undo.uncertain() ? deletionRefusal() : failure(); },
+    get content() { return deletionRefusal() && drafts.undo.uncertain() ? refusalPress : undefined; }, get recover() { return deletionRefusal() && drafts.undo.uncertain() ? { run: () => drafts.undo.retryDelete(), label: copy.todoDeleteRetry } : undefined; } });
   createMessageToast({ get message() { return titleFailure(); }, dismiss: () => dismissTitle?.() });
 
   return (
     <>
       <div class="todo-detail" tabindex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
         <Show when={todo()}>{current => <TodoHeader navigation={props.navigation} todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
+        <RestorePending refusal={deletionRefusal()} uncertain={drafts.undo.uncertain()} press={deleteRefused()} />
           <Show
             when={todo()}
             fallback={

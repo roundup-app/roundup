@@ -10,8 +10,8 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const toasts = () => screen.getByRole("region", { name: "Updates" });
 
-// The Drawer's lines that would hold a message; the comments' screen-reader announcer is a live region and takes no space.
-const messageLines = () => [...panel().querySelectorAll(".reserved-line:not([aria-live])")];
+// The Drawer's failure or blank lines; the comments' screen-reader announcer takes no space, and a status (the kept draft) holds its text.
+const messageLines = () => [...panel().querySelectorAll(".reserved-line:not([aria-live]):not([role=status])")];
 
 it("u7310d_todo_failures_show_as_toasts", async () => {
   const m = await mountTodos([todo(1)]);

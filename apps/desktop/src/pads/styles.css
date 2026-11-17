@@ -41,8 +41,9 @@
   margin-right: var(--space-2);
 }
 
-/* U3729: the save status is a caption: mono 12 grey. */
-.pad-head-status {
+/* U3729: the save status is a caption: mono 12 grey, as wide as its word. */
+.pad-head-title .pad-head-status {
+  inline-size: auto;
   color: var(--grey);
   font-family: var(--font-mono);
   font-size: var(--text-small);

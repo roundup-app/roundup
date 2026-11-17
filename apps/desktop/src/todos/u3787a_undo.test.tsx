@@ -19,7 +19,6 @@ import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { useBrowserStorage } from "../state/storage";
 import { historyRegion } from "../keys/focus";
 import { alerts } from "../toasts/toastFixture";
-import { notices } from "../testing/notices";
 
 stubDialogLayout();
 
@@ -632,7 +631,7 @@ const unconfirmed = async () => {
 
 it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async () => {
   const { app, connections } = await unconfirmed();
-  const { connected, opening, button, field, drawer } = await openSeventh(connections);
+  const { connected, opening, button, field } = await openSeventh(connections);
   fireEvent.click(button);
   fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await screen.findByText("Deleting #5 is unconfirmed. Check that deletion before trying Delete again.");
@@ -671,7 +670,7 @@ it("u3787a_a_drawer_delete_explains_an_unconfirmed_pad_deletion", async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   await screen.findByRole("button", { name: "Check deletion" });
-  const { drawer, button, field, connected, opening } = await openSeventh(connections);
+  const { button, field, connected, opening } = await openSeventh(connections);
   fireEvent.click(button);
   fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await screen.findByRole("alert", { name: "An earlier deletion is unconfirmed. Check deletion first." });
@@ -684,7 +683,7 @@ it("u3787a_a_drawer_delete_explains_an_unconfirmed_pad_deletion", async () => {
 
 it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async () => {
   const { app, connections, daemon } = await unconfirmed();
-  const { button, drawer, field, connected, opening } = await openSeventh(connections);
+  const { button, field, connected, opening } = await openSeventh(connections);
   fireEvent.click(button);
   fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   const recovery = await waitFor(toastRecovery);
@@ -736,8 +735,8 @@ const restoring = async () => {
 
 it("u3787h_a_drawer_delete_explains_the_pending_restore", async () => {
   const { app, daemon, connected, opening, drawer, button, field } = await restoring();
-  const progress = await screen.findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
-  expect(notices("alert")).toEqual([]);
+  const progress = await within(drawer).findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
+  expect(within(drawer).queryByRole("alert")).toBe(null);
   expect(progress.closest('[role="status"]')?.getAttribute("aria-live")).toBe("polite");
   expect(connected.drawer.content()).toBe(opening);
   expect(document.activeElement).toBe(button);
@@ -751,10 +750,10 @@ it("u3787h_a_drawer_delete_explains_the_pending_restore", async () => {
 
 it("u3787h_restore_completion_requires_a_new_delete", async () => {
   const { daemon, finish, connected, opening, drawer, button, field } = await restoring();
-  await screen.findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
+  await within(drawer).findByText("Restoration is in progress. Wait for it to finish, then try Delete again.");
   const operation = deletions(daemon)[0]!.operation;
   finish({ operation, deleted: [5], missing: [], state: "restored" });
-  await waitFor(() => expect(screen.queryByText("Restoration is in progress. Wait for it to finish, then try Delete again.")).toBe(null));
+  await waitFor(() => expect(within(drawer).queryByText("Restoration is in progress. Wait for it to finish, then try Delete again.")).toBe(null));
   expect(connected.drawer.content()).toBe(opening);
   expect(field.value).toBe(draftBytes);
   expect(document.activeElement).toBe(button);

@@ -125,7 +125,7 @@
 /* U7310b: the title is 24/600 on whole pixels. */
 .todo-detail-title { padding-top: var(--space-6); }
 .todo-detail-title .todo-editable { width: 100%; text-wrap: pretty; }
-.todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-refs, .todo-comments, .todo-history) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
+.todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-refs, .todo-comments, .todo-history, .todo-delete-feedback, .todo-draft-recovery[data-in-drawer]) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
 /* U7310c: the meta row wraps instead of scrolling; a long name shrinks to its "…" and the rest keep their width. */
 .todo-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); flex-shrink: 0; color: var(--grey); }
 .todo-meta :is(button, label) { flex-shrink: 1; min-width: 0; max-width: 100%; font-size: var(--text-body); }
@@ -133,6 +133,9 @@
 .todo-meta svg { flex: none; }
 .todo-meta-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-detail-body { line-height: var(--line); }
+/* U3787h: the restore-pending status wraps in the column and shows only while it holds (U7310d). */
+.todo-detail .reserved-line.todo-delete-feedback { flex-shrink: 0; block-size: auto; max-block-size: none; }
+.todo-delete-feedback .reserved-status { white-space: normal; }
 
 .todo-breadcrumb span:first-child { white-space: nowrap; max-width: 30%; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; }
 

@@ -17,7 +17,7 @@ import { createEffect, createMemo, createSignal, flush as commitWrites, lazy, Lo
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { createMessageToast } from "../toasts/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
@@ -73,7 +73,7 @@ const draftOf = (original: { name: string; base: string; revision: number }, sou
 };
 
 /** U3729: "Saved" is a quiet caption after the Pad's name while its last write stands; a toast is for a failure the user dismisses (U7310d). */
-const PadSavedStatus = (props: { saved: () => boolean }) => <Show when={props.saved()}><span role="status" class="pad-head-status" data-state="saved">{copy.padSaved}</span></Show>;
+const PadSavedStatus = (props: { saved: () => boolean }) => <Show when={props.saved()}><ReservedLine class="pad-head-status" data-state="saved" status={copy.padSaved} /></Show>;
 
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;

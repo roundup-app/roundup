@@ -250,8 +250,7 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
   await screen.findByText("conflict");
-  fireEvent.pointerEnter(screen.getByRole("region", { name: "Updates" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Copy Todo" }));
+  fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
   expect(JSON.parse(writeText.mock.calls[0]![0])).toEqual({ title: "todo 1", body: "", done: false, blockers: ["2"], baseBlockers: [], expected_change: 1,
     home: null, originalTitle: "todo 1", originalBody: "", originalDone: false, originalBlockers: [], originalChange: 1, action: "add", blocker: 2 });
 });
