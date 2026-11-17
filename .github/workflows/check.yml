@@ -54,6 +54,7 @@ jobs:
       rust: ${{ steps.plan.outputs.rust }}
       ping: ${{ steps.plan.outputs.ping }}
       web: ${{ steps.plan.outputs.web }}
+      first: ${{ steps.plan.outputs.first }}
       web_shards: ${{ steps.shards.outputs.web_shards }}
     steps:
       - uses: actions/checkout@v5
@@ -119,6 +120,7 @@ jobs:
             echo "rust=${rust:+true}"
             echo "ping=${ping:+true}"
             echo "web=${web:+true}"
+            echo "first=$(python3 loop/affected.py first "$BASE" | tr '\n' ' ')"
             # Only a PR whose diff selects some web tests, not all, counts the files that size the shards.
             echo "count=$([ -n "$web" ] && [ "$web" != all ] && echo true)"
           } >>"$GITHUB_OUTPUT"
@@ -538,6 +540,25 @@ jobs:
           path: ${{ env.DAEMON_BINARIES }}
           key: ${{ steps.key.outputs.key }}
 
+  # CI7297b: a PR's changed web test files, and only those, at once after `plan`, so the author reads the failure of their
+  # own test before the full verdict. Its failure fails `check` at once (CI7295e); the other lanes run to their end.
+  first:
+    needs: plan
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft && needs.plan.outputs.first != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+      - name: CI7297b changed tests
+        env:
+          FILES: ${{ needs.plan.outputs.first }}
+        run: python3 loop/app-data.py pnpm --filter desktop exec vitest run ${FILES//apps\/desktop\//}
+
   # L89: the web tests in up to 24 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
@@ -739,7 +760,7 @@ jobs:
   # Every lane's result. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
   # push-only `mac-package` and `cache` skips (CI5915a). Failed or cancelled lanes never pass.
   lanes:
-    needs: [plan, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
+    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -747,7 +768,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
         run: |
-          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and ($event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache"))))))' <<<"$NEEDS"
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache"))))))' <<<"$NEEDS"
 
   # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
   bundle:
