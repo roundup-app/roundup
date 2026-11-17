@@ -971,5 +971,10 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/lh4_links.rs": {
+    "cleanup": "Tempdir owns the socket and data; the in-process Daemon serves within the test runtime and ends with it.",
+    "data": "rupd::test_support::daemon_with_links receives an explicit temporary data path; no fallback data resolver.",
+    "kind": "in-process"
   }
 }

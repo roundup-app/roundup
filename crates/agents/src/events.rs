@@ -34,6 +34,9 @@ pub(super) struct State {
     pub(super) inbox: Arc<InboxState>,
     /// A7180b: the one model call that reads a Stop the rules cannot.
     pub(super) stop_model: Arc<dyn crate::StopModel>,
+    /// LH1: the one model call that reads a turn's text for links, and the sets it kept (LH4).
+    pub(super) links_model: Arc<dyn crate::LinksModel>,
+    pub(super) links: crate::links::Links,
 }
 
 impl Drop for State {

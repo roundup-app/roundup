@@ -173,6 +173,13 @@ impl Launcher {
         }
     }
 
+    /// LH2: the links side call, through the same one-shot seam.
+    pub fn links_call(&self) -> super::LinksCall {
+        super::LinksCall {
+            launcher: self.clone(),
+        }
+    }
+
     pub(super) fn one_shot_settings(&self, project: &Path) -> Result<Value, String> {
         user_settings(&self.conversation_dir, project).map_err(|err| err.to_string())
     }
