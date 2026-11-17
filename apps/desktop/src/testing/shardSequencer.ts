@@ -91,6 +91,11 @@ function place(files: readonly string[], measured: Seconds, count: number, seria
   return shards;
 }
 
+/** The specs' files, relative to `root`, whose project runs one file at a time. */
+// Run 41053555900 timed out: heavy files run serially after App work (vite.config.ts), not in its parallel pool.
+export const serialFiles = (specs: readonly TestSpecification[], root: string): Set<string> =>
+  new Set(specs.flatMap((spec) => spec.project.config.maxWorkers === 1 ? relative(root, spec.moduleId) : []));
+
 /** Vitest's `--shard` hook: balances shards by the durations measured on `main` (`just web-durations`), not by path hash. */
 export default class TimedSequencer extends BaseSequencer {
   override async shard(specs: TestSpecification[]): Promise<TestSpecification[]> {
@@ -98,8 +103,7 @@ export default class TimedSequencer extends BaseSequencer {
 
     if (!shard) return specs;
     const byFile = new Map(specs.map((spec) => [relative(root, spec.moduleId), spec]));
-    // Run 41053555900 timed out: heavy files run serially after App work (vite.config.ts), not in its parallel pool.
-    const serial = new Set([...byFile].flatMap(([file, spec]) => spec.project.config.maxWorkers === 1 ? file : []));
+    const serial = serialFiles(specs, root);
     const mine = assignShards([...byFile.keys()], durations, shard.count, serial)[shard.index - 1] ?? [];
 
     return mine.flatMap((file) => byFile.get(file) ?? []);

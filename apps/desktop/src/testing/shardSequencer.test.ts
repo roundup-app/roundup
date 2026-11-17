@@ -44,7 +44,7 @@ test("t_l89_web_shards_balance_serial_files_after_parallel_work", () => {
   // Each heavy file occupies its worker alone, after App work. Putting both on one shard exceeds 250 seconds.
   for (const shard of shards) {
     const parallel = shard.flatMap(file => serial.has(file) ? [] : weights.get(file) ?? 0);
-    const seconds = shardTime(parallel) + shard.reduce((sum, file) => sum + (serial.has(file) ? (weights.get(file) ?? 0) + 2 : 0), 0);
+    const seconds = shardTime(parallel, shard.flatMap(file => serial.has(file) ? weights.get(file) ?? 0 : []));
 
     expect(seconds).toBeLessThan(210);
   }
