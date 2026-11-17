@@ -12,24 +12,25 @@ import { defineRegistry, JSONUIProvider, Renderer } from "@json-render/solid";
 import { schema } from "@json-render/solid/schema";
 import { z } from "zod";
 import type { LinkSet } from "@contracts/links/LinkSet";
+import type { ChordName } from "../keys/chords";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 
 export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
 
-const icon = { props: z.object({ tooltip: z.string(), url: z.string().optional() }), description: copy.iconDescription };
+const icon = { props: z.object({ tooltip: z.string(), url: z.string().optional() }) };
 
-/** LH2, LH8: the fixed catalogue; a spec element of any other type renders nothing. */
+/** LH2, LH8: the fixed catalogue; a spec element of any other type renders nothing. No model reads it, so it carries no descriptions. */
 const catalog = defineCatalog(schema, {
   components: {
-    [copy.rowType]: { props: z.object({}), description: copy.rowDescription },
-    [copy.editorType]: icon,
-    [copy.terminalType]: icon,
+    links: { props: z.object({}) },
+    editor: icon,
+    terminal: icon,
     pr: icon,
     tracker: icon,
     "dev-server": icon,
     asked: icon,
-    [copy.moreType]: { props: z.object({ count: z.number(), open: z.boolean() }), description: copy.moreDescription },
+    more: { props: z.object({ count: z.number(), open: z.boolean() }) },
   },
   actions: {},
 });
@@ -42,26 +43,26 @@ export const specOf = (set: LinkSet | undefined): Spec => {
   const entries = set?.entries ?? [];
 
   const elements: Spec["elements"] = {
-    header: { type: copy.rowType, props: {}, children: [copy.editorId, copy.terminalId, ...entries.map((_, index) => `${copy.linkId}${index}`)] },
-    [copy.editorId]: { type: copy.editorType, props: { tooltip: copy.editor }, children: [] },
-    [copy.terminalId]: { type: copy.terminalType, props: { tooltip: copy.terminal }, children: [] },
+    header: { type: "links", props: {}, children: ["editor", "terminal", ...entries.map((_, index) => `link${index}`)] },
+    editor: { type: "editor", props: { tooltip: copy.editor }, children: [] },
+    terminal: { type: "terminal", props: { tooltip: copy.terminal }, children: [] },
   };
 
-  entries.forEach((entry, index) => { elements[`${copy.linkId}${index}`] = { type: entry.kind, props: { url: entry.url, tooltip: entry.tooltip }, children: [] }; });
+  entries.forEach((entry, index) => { elements[`link${index}`] = { type: entry.kind, props: { url: entry.url, tooltip: entry.tooltip }, children: [] }; });
 
   return { root: "header", elements };
 };
 
-/** LH9: the root's first six children, then a `More` count of the rest; all of them once the count is open. */
+/** LH9: the root's first six children, then a `more` count of the rest; all of them once the count is open. */
 const cut = (spec: Spec, open: boolean): Spec => {
-  const root = spec.elements[spec.root];
-  const children = root?.children ?? [];
+  const head = spec.elements[spec.root];
+  const ids = head?.children ?? [];
 
-  if (!root || children.length <= SHOWN) return spec;
+  if (!head || ids.length <= SHOWN) return spec;
 
-  const more = { type: copy.moreType, props: { count: children.length - SHOWN, open }, children: [] };
+  const more = { type: "more", props: { count: ids.length - SHOWN, open }, children: [] };
 
-  return { ...spec, elements: { ...spec.elements, [spec.root]: { ...root, children: [...(open ? children : children.slice(0, SHOWN)), "more"] }, more } };
+  return { ...spec, elements: { ...spec.elements, [spec.root]: { ...head, children: [...(open ? ids : ids.slice(0, SHOWN)), "more"] }, more } };
 };
 
 /** LH8, LH9: the icons of a spec through `@json-render/solid`, six inline and a `+N` count that reveals the rest. */
@@ -72,19 +73,19 @@ export const LinksView = (props: { spec: Spec; env: Env }) => {
 
   type Ctx = { props: { tooltip: string; url?: string | undefined } };
 
-  const iconOf = (Icon: Icon, type: string, run: (env: Env, url: string) => void) => (ctx: Ctx) =>
-    <IconButton aria-label={ctx.props.tooltip} data-link={type} action={type === copy.terminalType ? "terminal.new" : undefined} onClick={() => run(props.env, ctx.props.url ?? "")}><Icon size={16} aria-hidden="true" /></IconButton>;
+  const iconOf = (Icon: Icon, run: (env: Env, url: string) => void, action?: ChordName) => (ctx: Ctx) =>
+    <IconButton aria-label={ctx.props.tooltip} action={action} onClick={() => run(props.env, ctx.props.url ?? "")}><Icon size={16} aria-hidden="true" /></IconButton>;
 
   const { registry } = defineRegistry(catalog, {
     components: {
-      [copy.rowType]: ctx => <>{ctx.children}</>,
-      [copy.editorType]: iconOf(Code, copy.editorType, env => env.editor()),
-      [copy.terminalType]: iconOf(SquareTerminal, copy.terminalType, env => env.terminal()),
-      pr: iconOf(GitPullRequest, "pr", (env, url) => env.open(url)),
-      tracker: iconOf(Ticket, "tracker", (env, url) => env.open(url)),
-      "dev-server": iconOf(Server, "dev-server", (env, url) => env.open(url)),
-      asked: iconOf(Link, "asked", (env, url) => env.open(url)),
-      [copy.moreType]: ctx => <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? copy.minus : `+${ctx.props.count}`}</IconButton>,
+      links: ctx => <>{ctx.children}</>,
+      editor: iconOf(Code, env => env.editor()),
+      terminal: iconOf(SquareTerminal, env => env.terminal(), "terminal.new"),
+      pr: iconOf(GitPullRequest, (env, url) => env.open(url)),
+      tracker: iconOf(Ticket, (env, url) => env.open(url)),
+      "dev-server": iconOf(Server, (env, url) => env.open(url)),
+      asked: iconOf(Link, (env, url) => env.open(url)),
+      more: ctx => <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</IconButton>,
     },
   });
 
