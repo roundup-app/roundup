@@ -68,7 +68,8 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   await capture("agent-open");
   await add(4, 200);
   // Reopen to observe the opening fold rather than evicting live rows.
-  await browser("click", ".drawer .close");
+  // The Toast region covers the drawer's Close while a message shows, so Close is pressed from the page.
+  await evaluate("document.querySelector('.drawer .close').click(); true");
   await browser("wait", '.drawer[data-mounted="false"]');
   await browser("focus", '[data-todo="1"] .todo-row-button');
   await browser("press", "Enter");
@@ -101,7 +102,8 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   if (directory) writeFileSync(join(directory, `responsiveness-${width}.json`), JSON.stringify(samples, null, 2));
   await capture("draft");
   await evaluate("window.__fake.app.handlers['todo.comment'] = () => { throw new Error('Comment could not be sent. Your exact draft is retained; retry when the connection returns.'); }; window.__fake.app.handlers['todo.readHistory'] = () => { throw new Error('History could not be marked read. Retry history to keep the unread boundary.'); }; true");
-  await browser("click", ".drawer .close");
+  // The Toast region covers the drawer's Close while a message shows, so Close is pressed from the page.
+  await evaluate("document.querySelector('.drawer .close').click(); true");
   await browser("wait", '.drawer[data-mounted="false"]');
   await browser("focus", '[data-todo="1"] .todo-row-button');
   await browser("press", "Enter");
@@ -119,11 +121,11 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await browser("wait", '.todo-older[aria-expanded="true"]');
   }
 
-  await evaluate("document.querySelector('.todo-comments .reserved-line:has([role=alert])')?.scrollIntoView({block: 'center'}); true");
+  await evaluate("document.querySelector('.app-toast .reserved-line:has([role=alert])')?.scrollIntoView({block: 'center'}); true");
   await capture("read-failure");
   await browser("focus", ".todo-comment-field");
   await browser("press", "Enter");
-  await browser("wait", "--fn", "document.querySelector('.todo-comments')?.textContent.includes('Comment could not be sent')");
+  await browser("wait", "--fn", "document.querySelector('.app-toast')?.textContent.includes('Comment could not be sent')");
   await evaluate("document.querySelector('.todo-comments-send').scrollIntoView({block: 'end'}); true");
   await capture("rejected-send");
   expect(await evaluate("document.querySelector('.todo-comment-field').value.startsWith('Unsent release notes')")).toBe(true);

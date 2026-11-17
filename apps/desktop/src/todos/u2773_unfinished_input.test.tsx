@@ -1,5 +1,6 @@
 import { flush } from "solid-js";
 import { copy as recoveryCopy } from "../sharedCopy";
+import { notice } from "../testing/notices";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
@@ -160,7 +161,7 @@ it.each(["creation", "comment"])("u2773e_todos_recovery_actions_keep_surface_dra
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   fireEvent.input(field, { target: { value: "  exact 🧪  " } });
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith("  exact 🧪  ");
   expect(localStorage.getItem(`roundup:drafts:${connected.project.path}`)).toBe(stored);
@@ -248,7 +249,8 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
   await screen.findByText("conflict");
-  fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
+  fireEvent.pointerEnter(screen.getByRole("region", { name: "Updates" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Copy Todo" }));
   expect(JSON.parse(writeText.mock.calls[0]![0])).toEqual({ title: "todo 1", body: "", done: false, blockers: ["2"], baseBlockers: [], expected_change: 1,
     home: null, originalTitle: "todo 1", originalBody: "", originalDone: false, originalBlockers: [], originalChange: 1, action: "add", blocker: 2 });
 });
@@ -417,7 +419,7 @@ it("u3021c_todo_title_enter_on_an_unknown_revision_keeps_the_field_and_its_text"
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   fireEvent.keyDown(field, { key: "Enter" });
-  await waitFor(() => expect(document.querySelector(".todo-title-feedback")?.getAttribute("title")).toBe(recoveryCopy.draftStatus.unknown));
+  await screen.findByRole("alert", { name: recoveryCopy.draftStatus.unknown });
   expect(field.style.visibility).not.toBe("hidden");
   expect(field.value).toBe(form.text);
   expect(app.calls.slice(calls.length)).toEqual([]);

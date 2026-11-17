@@ -1,5 +1,5 @@
 import { CopyButton } from "../ui/CopyButton";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../toasts/messageToast";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Event } from "@contracts/Event";
@@ -89,9 +89,11 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
     if (changesHistory(event, props.id)) history.refetch();
   }));
 
+  // U7310d: a failed read or copy shows as a toast.
+  createMessageToast({ get message() { return copyFailure() ?? failure(); }, dismiss: () => { failCopy(null); dismiss(problem()); }, recover: { run: () => { history.refetch(); read.refetch(); }, label: copy.retryHistory } });
+
   return {
     changes: () => loaded()?.changes,
-    feedback: <ReservedLine message={copyFailure() ?? failure()} dismiss={() => { failCopy(null); dismiss(problem()); }} recover={{ run: () => { history.refetch(); read.refetch(); }, label: copy.retryHistory }} />,
     copy: <Show when={loaded()}>{record => <CopyButton app={app} text={JSON.stringify({
       lines: record().changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())),
       history: record(), failure: failure(),

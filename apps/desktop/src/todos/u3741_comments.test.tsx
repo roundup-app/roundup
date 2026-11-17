@@ -4,6 +4,7 @@ import type { Actor } from "@contracts/Actor";
 import type { Comment } from "@contracts/todo/Comment";
 import { RpcError } from "../app/seam";
 import { agent } from "../testing/nodes";
+import { notice, notices } from "../testing/notices";
 import { mountTodos, todo, todoCallsTo } from "./testHarness";
 
 afterEach(cleanup);
@@ -48,7 +49,7 @@ it("u3741_a_comment_is_sent_once_and_kept_on_failure", async () => {
   m.app.handlers["todo.comment"] = () => Promise.reject(new RpcError(-32003, "Daemon said no"));
   fireEvent.input(field, { target: { value: "keep me" } });
   fireEvent.click(within(panel()).getByRole("button", { name: "Comment" }));
-  await within(panel()).findByText("Daemon said no");
+  await screen.findByText("Daemon said no");
   expect(field.value).toBe("keep me");
   m.app.handlers["todo.comment"] = original;
   fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
@@ -153,14 +154,12 @@ it("u3776_a_new_comment_is_announced_politely_and_the_opening_ones_are_not", asy
   m.store.comments!.set(1, [line(1, AGENT, "old")]);
   await open();
   await within(panel()).findByText("old");
-  const comments = within(panel()).getByRole("region", { name: "Activity" });
-  const live = within(comments).getByRole("status");
-  expect(live.getAttribute("aria-live")).toBe("polite");
-  expect(live.textContent).toBe("");
+  expect(notices("status")).toEqual([]);
   const arrival = line(2, AGENT, "new one");
   m.store.comments!.set(1, [...m.store.comments!.get(1)!, arrival]);
   m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 1 } });
-  await waitFor(() => expect(live.textContent).toBe(`${author}: ${arrival.body}`));
+  await waitFor(() => expect(notice("status").textContent).toBe(`${author}: ${arrival.body}`));
+  expect(notice("status").getAttribute("aria-live")).toBe("polite");
 });
 
 it("u3776_an_arrival_keeps_earlier_rows_and_an_open_status_line", async () => {

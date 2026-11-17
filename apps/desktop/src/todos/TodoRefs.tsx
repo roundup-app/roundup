@@ -1,5 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../toasts/messageToast";
 import { lazy, createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
 import { copy } from "./copy";
@@ -83,9 +83,10 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
     });
   };
 
-  return <>
-    <ReservedLine message={actionFailure() ?? failure()} recover={{ run: () => refresh(), label: copy.padRefRetry }} dismiss={() => { setActionFailure(null); setFailure(null); }} />
-    <Show when={refs().length > 0}>
+  // U7310d: a failed read or unlink shows as a toast.
+  createMessageToast({ get message() { return actionFailure() ?? failure(); }, recover: { run: () => refresh(), label: copy.padRefRetry }, dismiss: () => { setActionFailure(null); setFailure(null); } });
+
+  return <Show when={refs().length > 0}>
     <section class="todo-refs" aria-label={copy.padRefsHeading(refs().length)}>
       <h3>{copy.padRefsHeading(refs().length)}</h3>
 
@@ -96,11 +97,11 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
 
           return <div class="todo-ref" data-state={ref.state}>
             <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
-              <button {...linkCut.attrs()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadHost name={target.name} heading={target.heading ?? undefined} />, activationSource(event), { kind: "pad", project: project.path })}>{label}</button>
+              <button {...linkCut.attrs()} data-button="quiet" data-reads="text" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadHost name={target.name} heading={target.heading ?? undefined} />, activationSource(event), { kind: "pad", project: project.path })}>{label}</button>
             </Show>
             <BusyButton kind="quiet" class="word light" busyLabel={copy.removing} aria-label={copy.removePadRef(target.name)} onClick={event => remove(ref.url, event.currentTarget)}>{copy.remove}</BusyButton>
           </div>;
         }}</For>
     </section>
-  </Show></>;
+  </Show>;
 };

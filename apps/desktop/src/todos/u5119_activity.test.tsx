@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { notice, notices } from "../testing/notices";
 import { mountTodos, todo, todoCallsTo } from "./testHarness";
 
 // U5119 uses the scenario's existing App seam, with independent source failures.
@@ -34,7 +35,7 @@ const opening = async (failed: "comments" | "history", count: number, unread = 1
   const row = await screen.findByRole("button", { name: /^Idle #1 / }); row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   await screen.findByRole("textbox", { name: "Write a comment" });
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
 
   return m;
 };
@@ -77,7 +78,7 @@ it.each((["comments", "history"] as const).flatMap(failed => [0, 3, 30].flatMap(
   if (failed === "comments") m.app.handlers["todo.comments"] = () => recoveredComments;
   else m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: recoveredChanges });
   retry();
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
 
   const visibleComments = failed === "history"
     ? ids("c", expanded || count <= 20 ? 1 : 11, count)
@@ -117,11 +118,11 @@ it("u5119_reads_do_not_wait_for_the_failed_source_comments", async () => {
 
 it("u5119_reads_do_not_wait_for_the_failed_source_history", async () => {
   const m = await opening("history", 30);
-  expect(todoCallsTo(m.app, "todo.markCommentsRead").map(call => call.params)).toEqual([{ id: 1 }]);
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.markCommentsRead").map(call => call.params)).toEqual([{ id: 1 }]));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: changes(1) });
   retry();
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "1 change" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory").map(call => call.params)).toEqual([{ id: 1, through: 1 }]));

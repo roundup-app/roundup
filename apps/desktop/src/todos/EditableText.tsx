@@ -14,7 +14,8 @@ import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField, type Sent } from "../state/draftField";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { createEffect, createMemo, createSignal, For, lazy, Loading, onCleanup, Show, untrack } from "solid-js";
+import { createMessageToast } from "../toasts/messageToast";
+import { createEffect, createMemo, createSignal, For, lazy, Loading, merge, onCleanup, Show, untrack } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
 import "../pads/styles.css";
@@ -86,10 +87,12 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
   );
 
-  return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
-    if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
-  }}>
-    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? problemLine.message()} status={records().length > 0 ? label(records()[records().length - 1]!) : null} dismiss={() => failure() ? setFailure(null) : problemLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} action={<>
+  const line = {
+    get message() { return failure() ?? problemLine.message(); },
+    get status() { return records().length > 0 ? label(records()[records().length - 1]!) : null; },
+    dismiss: () => failure() ? setFailure(null) : problemLine.dismiss(),
+    get recover() { return problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined; },
+    get action() { return <>
     <For each={records().map(draft => draft.revision)}>{revision => {
       const draft = () => records().find(record => record.revision === revision);
 
@@ -107,7 +110,19 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
         </div>
       </div>}</Show>;
     }}</For>
-    </>} />
+    </>; },
+  };
+
+  // U7310d: in the Drawer the line is a card; beside the list it stays a line.
+  createMessageToast(merge(line, {
+    get message() { return props.inDrawer ? line.message : null; },
+    get status() { return props.inDrawer ? line.status : null; },
+  }));
+
+  return <Show when={!props.inDrawer && !drawer.content()}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
+    if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
+  }}>
+    <ReservedLine overlay={props.object !== "new"} {...line} />
   </section></Show>;
 };
 
@@ -447,12 +462,12 @@ export const EditableText = (props: {
       }} /></Loading></div>;
   };
 
+  // U7310d: a failed save and a change made elsewhere while editing show as toasts.
+  createMessageToast({ get message() { return retentionFailure() || (!props.onFailure && failure()); }, dismiss: () => retentionFailure() ? setRetentionFailure(null) : setFailure(null) });
+  createMessageToast({ get status() { return editing() && ((props.captured() && props.captured()?.seq !== editing()?.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== editing()?.form.base)) ? copy.changedTodo(props.todo.title) : null; } });
+
   return (
     <div class="todo-editable" ref={container}>
-    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} dismiss={() => retentionFailure() ? setRetentionFailure(null) : setFailure(null)} />
-    <Show when={editing()} keyed>
-      {(started) => <ReservedLine status={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />}
-    </Show>
     <Show when={props.multiline} fallback={<TitleField />}>
       <Show
         when={editing()}

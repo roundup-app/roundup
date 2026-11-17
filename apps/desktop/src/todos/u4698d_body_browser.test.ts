@@ -17,7 +17,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
   await browser("type", '.drawer .ProseMirror', "Exact body retained after refusal");
   await evaluate(`(() => { window.__fake.failNext(-32003, 'Body could not be saved. Retry with the original work intact.', 'todo.update'); return true; })()`);
   await browser("press", "Control+Enter");
-  await browser("wait", '.todo-detail-body [role="alert"]');
+  await browser("wait", '.app-toast [role="alert"]');
 
   if (output) {
   

@@ -9,6 +9,7 @@ import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../toasts/messageToast";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
@@ -194,10 +195,12 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
         : <p class="todo-comment-body">{part.text}</p>}</For></div>
     </div>;
 
+  // U7310d: the thread's failures show as toasts.
+  createMessageToast({ get message() { return failure(); }, dismiss: () => dismiss(loaded()), recover: { run: () => refetch(), label: copy.commentRetry } });
+  createMessageToast({ get message() { return sendFailure(); }, dismiss: () => setSendFailure(null) });
+
   return <section class="todo-comments" aria-label={copy.activity}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
-    {history.feedback}
-    <ReservedLine message={failure()} dismiss={() => dismiss(loaded())} recover={{ run: () => refetch(), label: copy.commentRetry }} />
     <Show when={(history.changes()?.length ?? 0) > 0}>
       <Collapsible.Root open={historyExpanded()} onOpenChange={open => setHistoryExpanded(open)}>
         <Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={historyExpanded() ? "down" : "right"} />{copy.historyEntries(history.changes()!.length)}</Collapsible.Trigger>
@@ -218,7 +221,6 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} /></div>
-    <ReservedLine message={sendFailure()} dismiss={() => setSendFailure(null)} />
     <p class="todo-comments-send"><BusyButton kind="quiet" class="word" busy={sending()} disabled={text().trim() === ""} busyLabel={copy.sending} onClick={() => send()}>{copy.comment}</BusyButton></p>
   </section>;
 };

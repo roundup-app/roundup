@@ -61,7 +61,8 @@ it("u5562a_insert_each_callout", { retry: 0, timeout: 180000 }, async () => {
     if (kind === "TIP" || kind === "WARNING") await browser("press", "Enter");
     else await browser("click", ".milkdown-slash-menu li[data-index]");
     await browser("keyboard", "type", "Inserted body");
-    await browser("click", ".drawer .close");
+    // The Saved Toast covers the drawer's Close for a moment, so Close is pressed from the page.
+    await evaluate("document.querySelector('.drawer .close').click(); true");
     await settle();
     const writes = await evaluate<{ params: { text: string } }[]>("window.__fake.app.calls.filter(call => call.method === 'pad.write')");
     const final = writes.filter(write => write.params.text.includes("Inserted body"));
@@ -171,7 +172,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
     await browser("press", "Control+End");
     await browser("keyboard", "type", "Retained review draft");
     await browser("click", ".pad-head-name");
-    await browser("wait", "--fn", "document.querySelector('.pad-body [role=alert]')?.textContent.includes('Free space and retry.')");
+    await browser("wait", "--fn", "document.querySelector('.app-toast [role=alert]')?.textContent.includes('Free space and retry.')");
     await browser("screenshot", join(recoveryOutput, "rejected-save-restored.png"));
     writeFileSync(join(recoveryOutput, "rejected-save-restored.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
   }

@@ -18,8 +18,9 @@
   padding-inline: var(--reading-gutter);
 }
 
-/* U7310b: the Pad's name is the title role, as a Todo's: 24/600. */
-.pad-head-name {
+/* U7310b: a Pad's name and a Todo's title are the title role: 24/600. */
+.pad-head-name,
+.todo-detail-title .todo-editable {
   flex: 0 1 auto;
   min-width: 0;
   font-size: var(--text-pad-heading);
@@ -106,16 +107,10 @@
   pointer-events: none;
 }
 
-/* U7310a: a Pad's scroller spans the Drawer's width; the head, status line, document and footer keep the Pad's column. */
+/* U7310a: a Pad's scroller spans the Drawer's width; the head, document and footer keep the Pad's column. */
 .drawer:has(> .pad-body) {
   padding-inline: 0;
   padding-bottom: 0;
-}
-
-.pad-body .reserved-line {
-  max-width: var(--pad-reading-width);
-  margin-inline: auto;
-  padding-inline: var(--reading-gutter);
 }
 
 /* U7310b: the footer is a caption, 12 grey. */
@@ -247,9 +242,6 @@
   fill: var(--text);
 }
 
-.milkdown-slash-menu {
-}
-
 .milkdown-slash-menu li {
   border-radius: var(--pad-block-radius);
 }
@@ -364,10 +356,6 @@ li[aria-selected="true"] svg {
   margin-left: var(--space-2);
 }
 
-/* A save refusal must expose both its cause and its recovery action. */
-.pad-body .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; }
-.pad-body .reserved-content { flex-wrap: wrap; }
-.pad-body .ink[data-kind="error"] { white-space: normal; overflow-wrap: anywhere; overflow: visible; }
 .pad-body[data-pad-width="narrow"] {
   --pad-reading-width: var(--reading-width);
 }

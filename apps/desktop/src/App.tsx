@@ -65,7 +65,7 @@ import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
 import { AskBar } from "./ask/AskBar";
 import { Feedback } from "./feedback/Feedback";
-import { createToastQueue } from "./toasts/queue";
+import { createToastQueue, ToastQueueContext } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { UpdatesHost } from "./toasts/UpdatesHost";
 import { watchProject } from "./toasts/watch";
@@ -435,7 +435,7 @@ export const App = (props: {
   });
 
   return (
-    <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><Show when={projects.loaded()}>
+    <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><ToastQueueContext value={toasts}><Show when={projects.loaded()}>
       <ProjectOpening opening={opening} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
@@ -569,6 +569,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext></DisplayClockContext></ReducedMotionContext>
+    </Show></ToastQueueContext></ProjectDraftsContext></DisplayClockContext></ReducedMotionContext>
   );
 };

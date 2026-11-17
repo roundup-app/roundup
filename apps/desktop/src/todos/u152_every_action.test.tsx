@@ -200,7 +200,7 @@ describe("u152 remove a blocker", () => {
     fireEvent.click(within(drawer()).getByRole("button", { name: /^Blocked by/ }));
     fireEvent.click(await screen.findByRole("option", { name: /#1/ }));
 
-    expect(await within(drawer()).findByRole("alert", { name: /cannot remove/ })).toBeTruthy();
+    expect(await screen.findByRole("alert", { name: /cannot remove/ })).toBeTruthy();
     expect(rowOf(2).getAttribute("aria-level")).toBe("2");
   });
 });
@@ -214,10 +214,10 @@ it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p
   fireEvent.input(field, { target: { value: text } });
   m.app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32003, "Cannot save; retry"));
   fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
-  await within(drawer()).findByRole("alert", { name: "Cannot save; retry" });
+  await screen.findByRole("alert", { name: "Cannot save; retry" });
   const before = [...m.app.calls];
 
-  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action === "save") {
     m.app.handlers["todo.complete"] = () => todo(1, { done: true });
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
@@ -236,11 +236,11 @@ it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
     await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
     await openDrawerOf(2);
-    expect(within(drawer()).queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   } else {
     const stays = action === "unrelated";
     const message = action === "failed-delete" ? "Cannot delete; retry" : "Cannot save; retry";
-    await waitFor(() => expect(within(drawer()).queryByRole("alert", { name: message }) !== null).toBe(stays || action === "failed-delete"));
+    await waitFor(() => expect(screen.queryByRole("alert", { name: message }) !== null).toBe(stays || action === "failed-delete"));
     expect(field.value).toBe(text);
     expect(m.store.todos.map(item => item.id)).toEqual([1, 2]);
 
@@ -293,7 +293,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       fireEvent.click(await within(drawer()).findByRole("button", { name: "Copy" }));
     }
 
-    const region = () => owner.startsWith("open_row") ? within(rowOf(1)) : within(drawer());
+    const region = () => owner.startsWith("open_row") ? within(rowOf(1)) : screen;
     const failure = await region().findByRole("alert", { name: /Item unavailable; retry/ });
     const message = failure.getAttribute("aria-label")!;
     const retained = m.connected.drafts.list();
@@ -346,7 +346,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
       await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
       await openDrawerOf(2);
-      expect(within(drawer()).queryByRole("alert", { name: message })).toBeNull();
+      expect(screen.queryByRole("alert", { name: message })).toBeNull();
       // Removal does not consume recoverable work; reintroducing this original identity restores its comment.
       m.store.todos = [todo(1, { body: "Original body" }), todo(2)];
       m.app.emit(todoEvent("todo.created", m.store.todos[0]!));
@@ -359,7 +359,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
 
       if (field && remains) expect(within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: fieldName }).value).toBe(fieldName === "Title" ? "  e\u0301 🧪 title  " : exactDraft);
 
-      if (action === "failed-delete") { const failed = await within(drawer()).findByRole("alert", { name: deleteRefusal }); expect(drawer().contains(failed)).toBe(true); }
+      if (action === "failed-delete") { const failed = await screen.findByRole("alert", { name: deleteRefusal }); expect(screen.getByRole("region", { name: "Updates" }).contains(failed)).toBe(true); }
     }
 
     expect(m.connected.drafts.list()).toEqual(retained);
@@ -403,27 +403,27 @@ for (const owner of ["todo_comments", "todo_history", "todo_refs"] as const) {
     const original = m.app.handlers[method];
     Object.assign(m.app.handlers, { [method]: () => Promise.reject(new RpcError(-32003, "Read unavailable; retry")) });
     await openDrawerOf(1);
-    await within(drawer()).findByRole("alert", { name: "Read unavailable; retry" });
+    const shown = await screen.findByRole("alert", { name: "Read unavailable; retry" });
     const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
     fireEvent.input(field, { target: { value: exactDraft } });
     m.app.emit(todoEvent("todo.updated", todo(2)));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
-    expect(within(drawer()).getByRole("alert", { name: "Read unavailable; retry" })).toBeTruthy();
+    expect(screen.getAllByRole("alert")).toEqual([shown]);
     // The events above start a read that fails the same way after its 5 attempts (U6249b); Dismiss answers the failure shown, so that read ends first.
     await waitFor(() => expect(callsTo(m.app, method).length % 5).toBe(0));
     await new Promise(resolve => setTimeout(resolve, 0));
     const before = writes(m.app.calls);
 
-    if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
+    if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     else {
       Object.assign(m.app.handlers, { [method]: original });
       const retry = owner === "todo_comments" ? "Retry comments" : owner === "todo_history" ? "Retry history" : "Retry Pads";
-      fireEvent.click(within(drawer()).getByRole("button", { name: retry }));
+      fireEvent.click(screen.getByRole("button", { name: retry }));
     }
 
-    await waitFor(() => expect(within(drawer()).queryByRole("alert", { name: "Read unavailable; retry" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(field.value).toBe(exactDraft);
     expect(writes(m.app.calls)).toEqual(before);
   });
@@ -442,12 +442,12 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
   const retained = m.connected.drafts.list();
   const problem = m.connected.drafts.problem();
   m.app.clipboardWrite = () => Promise.reject(new Error("Clipboard unavailable; retry"));
-  fireEvent.click(within(drawer()).getByRole("button", { name: "Copy Todo" }));
-  await within(drawer()).findByRole("alert", { name: /Clipboard unavailable; retry/ });
+  fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
+  await screen.findByRole("alert", { name: /Clipboard unavailable; retry/ });
   m.app.emit(todoEvent("todo.updated", todo(2)));
-  expect(within(drawer()).getByRole("alert", { name: /Clipboard unavailable; retry/ })).toBeTruthy();
+  expect(screen.getByRole("alert", { name: /Clipboard unavailable; retry/ })).toBeTruthy();
 
-  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action === "save") {
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
@@ -471,7 +471,7 @@ it("p3557c_failure_lifetime_todo_drawer_removed_notice_dismiss", async () => {
   await openDrawerOf(1);
   m.app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32003, "Save refused; retry"));
   fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
-  await within(drawer()).findByRole("alert", { name: "Save refused; retry" });
+  await screen.findByRole("alert", { name: "Save refused; retry" });
   fireEvent.click(within(drawer()).getByRole("button", { name: "Add notes" }));
   const field = await within(drawer()).findByRole("textbox", { name: "Body" });
   fireEvent.input(field, { target: { value: exactDraft } });

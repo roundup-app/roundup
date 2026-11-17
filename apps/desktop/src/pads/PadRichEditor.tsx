@@ -9,7 +9,7 @@ import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsOf } from "../keys/chords";
 import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../toasts/messageToast";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onSettled, untrack, useContext } from "solid-js";
 import { Portal } from "@solidjs/web";
@@ -609,6 +609,9 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
     );
   });
 
+  // U7310d: an editor that failed to load says so in a toast.
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+
   return (
     <>
       <Show when={!props.label && toolbarHost()}>{mount => <Portal mount={mount()}>
@@ -647,7 +650,6 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
       <div
         class={["pad-editor pad-rich-editor reading", { "pad-readonly": props.readonly }]}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
         <div class="pad-editor-host" ref={(element) => (host = element)} />
       </div>
     </>

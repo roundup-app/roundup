@@ -13,7 +13,6 @@
   gap: 0;
   min-width: 0;
 }
-.todo-detail-title .todo-editable { flex: 0 1 auto; min-width: 0; }
 .todo-history { display: flex; flex-direction: column; gap: var(--space-2); }
 .todo-history-line { display: flex; align-items: center; gap: var(--space-1); align-self: flex-start; }
 .todo-history-count { font-weight: 600; }
@@ -93,24 +92,8 @@
 
 .todo-draft-recovery { font-size: var(--text-body); font-weight: 400; }
 .todo-draft-label { flex-basis: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.todo-detail + .todo-draft-recovery { margin-left: var(--space-5); margin-top: var(--space-5); }
 
 .todo-draft-actions button { font-size: inherit; }
-
-/* Reserve both lines before refusal, keeping the retained form stationary. */
-.reserved-line.todo-delete-feedback {
-  block-size: calc(var(--line) * 2);
-  max-block-size: calc(var(--line) * 2);
-  align-items: flex-start;
-}
-.todo-delete-feedback .reserved-content { align-items: baseline; }
-.todo-delete-feedback .ink[data-tone] {
-  display: flex;
-  align-items: baseline;
-  white-space: normal;
-  overflow: visible;
-}
-.todo-delete-feedback .reserved-status { white-space: normal; }
 
 /* U4698d, U7310a: the header and the scroller span the Drawer, so the scrollbar runs along its edge; document rows sit in one column at `--reading-width`, and nothing scrolls sideways. */
 .drawer:has(.todo-header) { padding: 0; overflow: hidden; }
@@ -139,7 +122,7 @@
 .todo-header-actions [data-button="quiet"] { font-size: var(--text-small); }
 /* U7310b: the title is 24/600 on whole pixels. */
 .todo-detail-title { padding-top: var(--space-6); }
-.todo-detail-title .todo-editable { width: 100%; font-size: var(--text-pad-heading); line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; text-wrap: pretty; }
+.todo-detail-title .todo-editable { width: 100%; text-wrap: pretty; }
 .todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-refs, .todo-comments, .todo-history) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
 /* U7310c: the meta row wraps instead of scrolling; a long name shrinks to its "…" and the rest keep their width. */
 .todo-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); flex-shrink: 0; color: var(--grey); }
@@ -147,9 +130,7 @@
 .todo-meta-chip, .todo-meta-state { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-body); }
 .todo-meta svg { flex: none; }
 .todo-meta-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.todo-detail .todo-delete-feedback { align-self: stretch; flex-shrink: 0; padding-inline: var(--reading-gutter); block-size: auto; max-block-size: none; min-height: calc(var(--line) * 2); }
 .todo-detail-body { line-height: var(--line); }
-.todo-detail + .todo-draft-recovery { margin: 0; }
 
 .todo-breadcrumb span:first-child { white-space: nowrap; max-width: 30%; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; }
 
@@ -164,7 +145,6 @@
 
 .todo-detail .todo-refs, .todo-detail .todo-comments { margin-top: var(--space-6); }
 .todo-detail .todo-refs { gap: var(--space-1); }
-.todo-ref .todo-ref-link { color: var(--text); }
 
 .todo-activity-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .todo-activity-entries { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -172,7 +152,6 @@
 .todo-change { display: flex; align-items: baseline; gap: var(--space-3); color: var(--grey); font-size: var(--text-body); }
 .todo-change p { margin: 0; }
 .todo-activity-dot { display: inline-block; flex: none; width: var(--space-1); height: var(--space-1); border-radius: var(--radius-round); background: var(--grey); margin-inline: var(--space-1); }
-.todo-comment { padding-inline-start: 0; }
 .todo-comment-head { font-size: var(--text-small); }
 .todo-comment-parts { line-height: var(--line); }
 .todo-composer { display: flex; gap: var(--space-3); align-items: flex-start; margin-top: var(--space-2); }
@@ -181,10 +160,5 @@
 .drawer[data-maximised="true"] .todo-composer { margin-inline-start: calc((var(--space-4) + var(--space-3)) * -1); }
 .todo-composer-actor { flex: none; color: var(--grey); font-size: var(--text-small); padding-top: var(--space-2); }
 .todo-comment-field { min-width: 0; min-height: calc(var(--line) * 3); line-height: var(--line); }
-.todo-comments .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
 .todo-comments .ink[data-tone] { white-space: normal; overflow: visible; }
 .todo-comment-head button { margin-inline-start: var(--space-3); }
-
-/* Recovery belongs after the composer, so it cannot cover a send failure. */
-.todo-draft-recovery[data-in-drawer] .reserved-line { max-width: var(--reading-width); padding-inline: var(--reading-gutter); }
-.todo-comments .reserved-content { align-items: flex-start; }

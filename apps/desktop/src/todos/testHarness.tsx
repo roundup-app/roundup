@@ -10,6 +10,7 @@ import { Layout } from "../window/Layout";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
 import { event, USER } from "../testing/nodes";
 import { showEverything, withScopeRow } from "../testing/showEverything";
 import { todoHandlers } from "../testing/stores";
@@ -99,7 +100,7 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
     const now = createNow(clock, () => false);
 
     return <DisplayClockContext value={now.subscribe}>
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Layout
         header="roundup"
         rail={renderRail ? <Rail /> : null}
@@ -107,7 +108,7 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
         shelf={<Shelf />}
         overlay={<DrawerHost drawer={connected.drawer} reducedMotion={reduced} />}
       />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   </DisplayClockContext>;
   });
 
