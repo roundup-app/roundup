@@ -22,6 +22,9 @@ inputs:
   node:
     description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
     default: 'true'
+  node-cache:
+    description: Restore `node_modules` from the keyed cache (CI7325); only a lane whose restore beats today's setup-node store restore plus `pnpm install` by 5 s sets it (CI7325e).
+    default: 'false'
   save-node:
     description: On a push to main, save the `node_modules` cache after a miss installed it (CI7325c); one job per OS sets it, since every lane of a run misses together.
     default: 'false'
@@ -160,7 +163,9 @@ runs:
     # entry whose key hashes every input of the install (CI7325b): the lockfile, the workspace file with its overrides,
     # `patches/`, every workspace `package.json`, Node's major, the OS and the architecture. Only `main` saves, right after
     # the install, before a lane's tests write caches into the tree. A hit runs neither the pnpm store's restore nor `pnpm install`.
-    - if: runner.environment != 'self-hosted' && inputs.node != 'false'
+    # Run 44143327846 (a hit) timed the restore at 17 to 22 s for 790 MB, so beside today's 22 s `web`, `rust`, `chromium`
+    # and `observers` gain under 5 s or lose; only `contracts` (27 s before, 18 s after) and `mac-package` set `node-cache` (CI7325e).
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false' && inputs.node-cache == 'true'
       id: node-modules
       name: Restore node_modules
       uses: actions/cache/restore@v5
