@@ -790,10 +790,32 @@ jobs:
             }
           done
 
+  # CI7335: once every saving job has ended, `main` keeps the newest entry of each cache family and no entry of a closed PR
+  # stays; then the guard fails the run if the cache still holds over 9 GB. Only this job writes caches (`actions: write`)
+  # and reads PRs; a failed read of the open PRs deletes nothing and fails the job.
+  cache-sweep:
+    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: loop/cache-sweep.py
+          sparse-checkout-cone-mode: false
+      - run: python3 loop/cache-sweep.py
+
   # Every lane's result. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
   # push-only `mac-package` and `cache` skips (CI5915a). Failed or cancelled lanes never pass.
   lanes:
-    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
+    needs: [plan, first, rust, contracts, observers, cache, cache-sweep, mac-clippy, mac, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -801,7 +823,7 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
         run: |
-          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache"))))))' <<<"$NEEDS"
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache" or .key == "cache-sweep"))))))' <<<"$NEEDS"
 
   # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
   bundle:

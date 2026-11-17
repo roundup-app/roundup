@@ -37,6 +37,8 @@ lint-rust base="": lint-repo
     python3 tools/lint/scan.py rust
     python3 loop/lint-repo.test.py
     python3 loop/affected.test.py
+    python3 loop/cache-sweep.test.py
+    python3 loop/ci-lint-time.test.py
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
     tools/nodes-sql/guard.sh

@@ -140,7 +140,7 @@ async fn dtc4_eight_reports_during_one_turn_cost_one_turn() {
         run.open_todo(&job).await;
         jobs.push(job);
     }
-    run.let_settled_pass().await;
+    run.let_settled_passes(2).await;
     run.calm().await;
     let before = started(&run).len();
     run.hold_turn().await;
