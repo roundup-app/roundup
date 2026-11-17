@@ -10,20 +10,35 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 KEEP_GOING = ROOT / 'loop' / 'keep-going.sh'
+# keep-going.sh counts whole seconds with `date +%s`, so on the wall clock an n-second line logs n or n+1 and an exact assert
+# flakes. A test that needs exact seconds puts this stand-in first on PATH: each call prints the next scripted epoch and removes
+# it from the file named by FAKE_DATE_EPOCHS. A call past the script, or any argument but +%s, fails loud.
+FAKE_DATE = """#!/bin/sh
+[ "$*" = '+%s' ] || { echo "fake date: unexpected arguments: $*" >&2; exit 2; }
+IFS= read -r epoch < "$FAKE_DATE_EPOCHS" || { echo 'fake date: no scripted epoch left' >&2; exit 1; }
+tail -n +2 "$FAKE_DATE_EPOCHS" > "$FAKE_DATE_EPOCHS.next" && mv "$FAKE_DATE_EPOCHS.next" "$FAKE_DATE_EPOCHS"
+echo "$epoch"
+"""
 
 
-def keep_going(body, summary=None):
-    with tempfile.NamedTemporaryFile('w', suffix='.txt') as f:
+def keep_going(body, summary=None, epochs=None):
+    with tempfile.NamedTemporaryFile('w', suffix='.txt') as f, tempfile.TemporaryDirectory() as clock:
         f.write(body)
         f.flush()
         env = {**os.environ, **({'GITHUB_STEP_SUMMARY': str(summary)} if summary else {})}
+        if epochs:
+            fake_date, scripted = Path(clock) / 'date', Path(clock) / 'epochs'
+            fake_date.write_text(FAKE_DATE)
+            fake_date.chmod(0o755)
+            scripted.write_text(''.join(f'{epoch}\n' for epoch in epochs))
+            env.update(PATH=f'{clock}:{env["PATH"]}', FAKE_DATE_EPOCHS=str(scripted))
         return subprocess.run(['bash', str(KEEP_GOING), f.name], capture_output=True, text=True, env=env)
 
 
 class CiLintTime(unittest.TestCase):
-    def assert_logged(self, stderr, line, at_least, times=1, code=0):
-        # keep-going.sh counts whole seconds with `date +%s`, so an n-second line logs n or n+1: only the floor is stable.
-        found = [int(n) for n in re.findall(rf'^\[(\d+)s\] {re.escape(line)} \(exit {code}\)$', stderr, re.M)]
+    def assert_logged(self, stderr, line, at_least, times=1):
+        # On the real clock an n-second line logs n or n+1: only the floor is stable.
+        found = [int(n) for n in re.findall(rf'^\[(\d+)s\] {re.escape(line)} \(exit 0\)$', stderr, re.M)]
         self.assertEqual(len(found), times, stderr)
         self.assertGreaterEqual(min(found), at_least, stderr)
 
@@ -44,13 +59,15 @@ class CiLintTime(unittest.TestCase):
     def test_ci7324b_every_line_logs_seconds_and_a_failure_keeps_going(self):
         with tempfile.TemporaryDirectory() as d:
             summary = Path(d) / 'summary.md'
-            r = keep_going('sleep 1\nexit 3\necho after\n', summary)
-            self.assertEqual(r.returncode, 1)
-            self.assert_logged(r.stderr, 'sleep 1', 1)
-            self.assert_logged(r.stderr, 'exit 3', 0, code=3)
+            # Each line reads the clock at its start and at its end: three (start, end) pairs of 3 s, 1 s and 7 s, with a gap between.
+            r = keep_going('echo first\nexit 3\necho last\n', summary, epochs=[100, 103, 105, 106, 108, 115])
+            self.assertEqual(r.returncode, 1, r.stderr)
+            logged = re.findall(r'^\[\d+s\] .*$', r.stderr, re.M)
+            self.assertEqual(logged, ['[3s] echo first (exit 0)', '[1s] exit 3 (exit 3)', '[7s] echo last (exit 0)'], r.stderr)
+            slowest = '7 echo last\n3 echo first\n1 exit 3\n'
+            self.assertIn(f'slowest lines, seconds first:\n{slowest}', r.stderr)
+            self.assertEqual(summary.read_text(), f'### Slowest lines\n\n```\n{slowest}```\n', r.stderr)
             self.assertIn('failed lines:\n  exit 3 (exit 3)', r.stderr)
-            self.assert_logged(r.stderr, 'echo after', 0)
-            self.assertRegex(summary.read_text(), re.compile(r'^\d+ sleep 1$.*^\d+ echo after$', re.M | re.S))
 
     def test_ci7324b_background_lines_overlap_and_still_fail_the_run(self):
         began = time.monotonic()
