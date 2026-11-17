@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { node } from "../testing/nodes";
 import { RpcError } from "../app/seam";
+import { notices } from "../testing/notices";
 import { beforeOf } from "./beforeOf";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
@@ -110,7 +111,7 @@ for (const unchangedEvent of [false, true]) {
     await mounted.todos.reload();
     expect(order()).toEqual([1, 2, 3]);
     expect(document.activeElement).toBe(focused);
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
     mounted.store.todos = [initial[2]!, initial[0]!, initial[1]!];
     refetch(mounted);
     await waitFor(() => expect(order()).toEqual([3, 1, 2]));

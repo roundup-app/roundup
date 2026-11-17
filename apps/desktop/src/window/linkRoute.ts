@@ -9,6 +9,9 @@ export const keyOfPath = async (path: string): Promise<string> => {
   return `${path.split("/").findLast(Boolean) ?? "root"}-${Array.from(digest.slice(0, 8), byte => byte.toString(16).padStart(2, "0")).join("")}`;
 };
 
+/** PL1, PL2: whether `url` names a place; those links never reach `link.read`. */
+export const isPlaceLink = (url: string) => /^roundup:\/\/(shelf|settings)\//.test(url);
+
 /** U6249c1: a `roundup://` link from a surface of `app`'s Project gains that Project's key when it names none; a link that names a Project, even another, and a published link, which carries its own, stay byte-equal. */
 export const inProject = async (app: AppSeam, url: string): Promise<string> => {
   const link = URL.canParse(url) ? new URL(url) : null;

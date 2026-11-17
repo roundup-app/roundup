@@ -1,4 +1,5 @@
 import { App } from "../App";
+import { ToastHost } from "../testing/toastHost";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { showEverythingInApp } from "../testing/showEverything";
 import { menuProbe, projectMenu } from "../testing/menuProbe";
@@ -43,7 +44,7 @@ it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting
     const receipt = await app.rpc("pad.getDeletion", { operation: request.operation });
     const restored = await app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation });
     expect(restored.pad).toEqual(pad);
-    render(() => <ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
+    render(() => <ToastHost><ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
     await openPad(pad.name, { connected, pads: [restored.pad], revision: draft.revision });
     expect(connected.drafts.list().find(item => item.revision === draft.revision)).toMatchObject({ destination, value: { source: text, originalName: "notes" } });
     expect(await app.rpc("pad.read", { name: "notes" })).toEqual(pad);

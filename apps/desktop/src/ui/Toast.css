@@ -1,7 +1,7 @@
 /* U3792: Notification Stack's folded pile, after AffectUI's MIT CSS (https://www.affectui.com/components/notification-stack). The library sets --toast-index, --toast-offset, --toast-height and the region's --toast-front-height: folded, each card behind the newest is smaller and one gap lower (U7192: the stack hangs from the top edge); fanned out, each rests at its own offset. The region's height covers the gaps, so the pointer stays in the stack between cards. */
 .app-toasts {
   position: fixed;
-  inset: calc(var(--header-height) + var(--space-3)) calc(var(--toast-inset, var(--length-zero)) + var(--space-3)) auto auto;
+  inset: calc(var(--header-height) + var(--toast-top, var(--length-zero)) + var(--space-3)) calc(var(--toast-inset, var(--length-zero)) + var(--space-3)) auto auto;
   z-index: var(--layer-toast);
   width: calc(var(--shelf-width) - var(--space-6));
   max-width: calc(100vw - var(--space-6));

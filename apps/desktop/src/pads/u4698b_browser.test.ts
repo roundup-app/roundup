@@ -169,11 +169,11 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
     await browser("press", "Control+End");
     await evaluate("window.__fake.failNext(-32000, 'The Pad could not be saved', 'pad.write'); true");
     await browser("press", "x");
-    await browser("wait", ".drawer [data-dismiss-failure]");
+    await browser("wait", ".app-toast [data-dismiss-failure]");
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
     await settle();
     await capture(`save-failure-${viewportWidth}`);
-    await browser("click", ".drawer [data-dismiss-failure]");
+    await browser("click", ".app-toast [data-dismiss-failure]");
     await evaluate(`(async () => {
       const pad = await window.__fake.app.rpc('pad.read', {name: ${JSON.stringify(name)}});
       window.__fake.actAs({kind:'agent',id:'agent-3',parent:null});

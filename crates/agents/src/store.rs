@@ -157,6 +157,8 @@ impl Agents {
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
                     stop_model: Arc::new(launcher.stop_judge()),
+                    links_model: Arc::new(launcher.links_call()),
+                    links: Default::default(),
                 },
                 scan: Scan::new(scan_interval_from_env()),
                 wiring,
@@ -187,6 +189,13 @@ impl Agents {
             }
         }
         self.configure(|shared| shared.ending.kill = Arc::new(Kills(kill)))
+    }
+
+    /// LH2: the model the links side call asks, instead of the vendor's. Call it before the first
+    /// call is made.
+    #[must_use]
+    pub fn with_links_model(self, model: impl crate::LinksModel + 'static) -> Self {
+        self.configure(|shared| shared.events.links_model = Arc::new(model))
     }
 
     /// B6: observe a Resume's Terminal before recording its id, after recording it, and
@@ -586,6 +595,8 @@ pub(super) mod tests {
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 stop_model: Arc::new(crate::stop_judge::Absent),
+                links_model: Arc::new(crate::links::Absent),
+                links: Default::default(),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             wiring: crate::Quiet::default().shared(),
@@ -643,6 +654,8 @@ pub(super) mod tests {
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 stop_model: Arc::new(crate::stop_judge::Absent),
+                links_model: Arc::new(crate::links::Absent),
+                links: Default::default(),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             wiring: crate::Quiet::default().shared(),
@@ -734,6 +747,8 @@ pub(super) mod tests {
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 stop_model: Arc::new(crate::stop_judge::Absent),
+                links_model: Arc::new(crate::links::Absent),
+                links: Default::default(),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             wiring: crate::Quiet::default().shared(),

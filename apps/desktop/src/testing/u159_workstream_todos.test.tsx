@@ -1,4 +1,5 @@
 import { createNow, DisplayClockContext } from "../state/clock";
+import { ToastHost } from "./toastHost";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
@@ -41,7 +42,7 @@ const mount = async (withSwitcher = false) => {
     const frame = createShelfFrame(() => null, () => true, () => {});
     const tabs = createShelfTabs(frame);
 
-    return <DisplayClockContext value={now.subscribe}><ConnectedProjectContext value={connected}><Tabs.RootProvider value={tabs} lazyMount><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} />{withSwitcher && <Switcher onFailure={() => {}} onOpen={() => {}} />}</Tabs.RootProvider></ConnectedProjectContext></DisplayClockContext>;
+    return <DisplayClockContext value={now.subscribe}><ToastHost><ConnectedProjectContext value={connected}><Tabs.RootProvider value={tabs} lazyMount><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} />{withSwitcher && <Switcher onFailure={() => {}} onOpen={() => {}} />}</Tabs.RootProvider></ConnectedProjectContext></ToastHost></DisplayClockContext>;
   });
 
   return { app, connected, store, pads, tree };

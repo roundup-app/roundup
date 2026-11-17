@@ -6,11 +6,13 @@ import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
+import { notice, notices } from "../testing/notices";
 import { event } from "../testing/nodes";
 import { mountTodos, todo } from "./testHarness";
 import { Todos } from "./Todos";
 
-const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}>{view()}</DisplayClockContext>);
+const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}><ToastHost>{view()}</ToastHost></DisplayClockContext>);
 
 afterEach(cleanup);
 
@@ -128,18 +130,18 @@ describe("u38 empty Todos", () => {
     ));
     flush();
 
-    const exhausted = await screen.findByRole("alert");
+    const exhausted = await waitFor(() => notice("alert"));
 
     expect(calls).toBe(READ_ATTEMPTS);
 
     app.emit(event({ name: "todo.created", data: todo(1) }));
     await waitFor(() => expect(calls).toBe(READ_ATTEMPTS + 1));
 
-    expect(screen.getByRole("alert")).toBe(exhausted);
+    expect(notice("alert")).toBe(exhausted);
 
     retry.resolve([]);
 
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toEqual([]));
     expect(calls).toBe(READ_ATTEMPTS + 1);
   });
 

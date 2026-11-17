@@ -36,9 +36,13 @@ import X from "@lucide/solid/icons/x";
 import { Dynamic } from "@solidjs/web";
 import Server from "@lucide/solid/icons/server";
 import CornerDownRight from "@lucide/solid/icons/corner-down-right";
+import Copy from "@lucide/solid/icons/copy";
+import Reply from "@lucide/solid/icons/reply";
+import Send from "@lucide/solid/icons/send";
+import Unlink from "@lucide/solid/icons/unlink";
 import "./styles.css";
 
-const icons = { bot: Bot, workflow: Workflow, "layout-dashboard": LayoutDashboard, play: Play, "rotate-cw": RotateCw, check: Check, down: ChevronDown, left: ChevronLeft, "panel-left-close": PanelLeftClose, "panel-left-open": PanelLeftOpen, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, "sticky-note": StickyNote, messages: MessagesSquare, folder: FolderOpen, editor: Code, stop: Square, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil, branch: GitBranch, server: Server, started: CornerDownRight };
+const icons = { bot: Bot, workflow: Workflow, "layout-dashboard": LayoutDashboard, play: Play, "rotate-cw": RotateCw, check: Check, down: ChevronDown, left: ChevronLeft, "panel-left-close": PanelLeftClose, "panel-left-open": PanelLeftOpen, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, "sticky-note": StickyNote, messages: MessagesSquare, folder: FolderOpen, editor: Code, stop: Square, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil, branch: GitBranch, server: Server, started: CornerDownRight, copy: Copy, reply: Reply, send: Send, unlink: Unlink };
 
 export const Icon = (props: { name: keyof typeof icons; filled?: boolean }) => (
   <Dynamic component={icons[props.name]} class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} stroke-linecap="round" stroke-linejoin="round" fill={props.filled ? "currentColor" : "none"} />

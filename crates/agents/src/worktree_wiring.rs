@@ -27,6 +27,12 @@ impl Agents {
         }
         if let Some(facts) = self.worktree_facts(id, &record, head.as_deref()) {
             use contracts::agent::{WorktreeCi, WorktreeCiState, WorktreePr};
+            // U7371a: the draft flag is `gh`'s, read with the evidence, never worktrunk's.
+            let draft = match &facts.evidence {
+                Some((Evidence::Complete(read) | Evidence::Pending(read), _)) => read.draft,
+                _ => None,
+            };
+            state.integrated = facts.integrated.then_some(true);
             state.evidence = facts
                 .evidence
                 .map(|(evidence, stale)| evidence_wire(evidence, stale));
@@ -43,7 +49,11 @@ impl Agents {
                 stale,
             });
             state.pr = facts.pr.and_then(|(number, stale)| {
-                std::num::NonZeroU64::new(number).map(|number| WorktreePr { number, stale })
+                std::num::NonZeroU64::new(number).map(|number| WorktreePr {
+                    number,
+                    stale,
+                    draft,
+                })
             });
         }
         self.shared.worktrunk.refresh(&self.shared);

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { ToastHost } from "../testing/toastHost";
 import { afterEach, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Shelf } from "./Shelf";
@@ -12,12 +13,12 @@ const open = async () => {
   const connected = await connectProject(seedApp("tree-40", 0).app, {name: "harness", path: "/Users/you/harness"}, () => true, () => 0);
   await connected.rail.settled();
   connected.rail.select("backend");
-  render(() => <ConnectedProjectContext value={connected}>
+  render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <Tabs.Root defaultValue="todos">
       <Tabs.List aria-label="Bench"><Tabs.Trigger value="todos">Todos</Tabs.Trigger><Tabs.Trigger value="pads">Pads</Tabs.Trigger></Tabs.List>
       <Shelf open={() => true} />
     </Tabs.Root>
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
   await waitFor(() => expect(document.querySelector('[data-shelf-scope] [role="switch"]')).not.toBeNull());
 };
 

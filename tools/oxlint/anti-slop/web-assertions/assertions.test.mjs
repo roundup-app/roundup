@@ -54,13 +54,12 @@ for (const [name, source, kind] of cases) {
     const file = resolve(dir, "fixture.test.tsx");
     const config = resolve(dir, "config.json");
     writeFileSync(file, 'import { expect, expect as check, test } from "vitest";\ntest("t3779b_fixture", async () => {\n' + source + '\n});');
-    writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
     writeFileSync(config, JSON.stringify({
       jsPlugins: [{ name: "anti-slop", specifier: plugin }],
       rules: { "anti-slop/no-new-web-assertions": "error" },
     }));
     try {
-      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: repo, encoding: "utf8" });
+      const result = spawnSync(process.execPath, [lint, "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, kind ? 1 : 0, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1, "The real lint command must analyze the fixture");
@@ -96,13 +95,12 @@ for (const change of ["unchanged", "removed with entry", "additional", "duplicat
     const baseline = resolve(dir, directory, "baseline.jsonl");
     mkdirSync(resolve(dir, directory), { recursive: true });
     const source = 'import { expect, test } from "vitest"; test("t3779b_fixture", () => { expect(element.scrollWidth).toBe(10); }' + (change === "timeout edited" ? ", 90_000" : "") + ");";
-    const run = () => spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
+    const run = () => spawnSync(process.execPath, [lint, "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
     const git = (...args) => {
       const result = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, 0, result.stdout + result.stderr);
     };
     try {
-      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
       writeFileSync(file, source);
       writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/audit-web-assertions": "error" } }));
       const audit = run();
@@ -169,9 +167,8 @@ for (const [name, source, forbidden] of [
     try {
       writeFileSync(file, "");
       writeFileSync(resolve(dir, "fixture.test.py"), 'raise RuntimeError("Launcher must never execute")\n' + source + "\n");
-      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
       writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/no-new-web-assertions": "error" } }));
-      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
+      const result = spawnSync(process.execPath, [lint, "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, forbidden ? 1 : 0, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1);
@@ -194,8 +191,7 @@ for (const [name, source, forbidden] of [
     const file = resolve(dir, "fixture.test.tsx");
     try {
       writeFileSync(file, 'import { expect, test } from "vitest";\n\ntest("t3779b_fixture", () => {\n  ' + source + '\n});\n');
-      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
-      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", resolve(repo, ".oxlintrc.json"), "--format", "json", file], { cwd: dir, encoding: "utf8" });
+      const result = spawnSync(process.execPath, [lint, "--no-ignore", "--config", resolve(repo, ".oxlintrc.json"), "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, forbidden ? 1 : 0, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1);
@@ -235,7 +231,6 @@ for (const change of ["unchanged", "stale", "edited", "dependency", "dependency 
       assert.equal(audit.status, 0, audit.stderr);
       const row = JSON.parse(audit.stdout);
       writeFileSync(baseline, JSON.stringify({ file: row.file, test: row.test, identity: row.identity }) + "\n");
-      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
       writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/no-new-web-assertions": "error" } }));
       git("init", "-q");
       git("add", ".");
@@ -253,7 +248,7 @@ for (const change of ["unchanged", "stale", "edited", "dependency", "dependency 
       if (change === "moved") { writeFileSync(pythonFile, ""); writeFileSync(resolve(dir, "other.test.py"), source); }
       if (change === "reordered") writeFileSync(pythonFile, source.replace('assert result > 0\nbrowser("click", "button")', 'browser("click", "button")\nassert result > 0'));
       if (change === "control") writeFileSync(pythonFile, source.replace("assert result > 0", "if ready:\n    assert result > 0"));
-      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
+      const result = spawnSync(process.execPath, [lint, "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       const passing = change === "unchanged";
       assert.equal(result.status, passing ? 0 : 1, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
@@ -287,7 +282,6 @@ for (const change of ["dependency", "moved", "mutation"]) {
       assert.equal(audit.status, 0, audit.stderr);
       const row = JSON.parse(audit.stdout);
       writeFileSync(baseline, JSON.stringify({ file: row.file, test: row.test, identity: row.identity }) + "\n");
-      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
       writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/no-new-web-assertions": "error" } }));
       git("init", "-q");
       git("add", ".");
@@ -302,7 +296,7 @@ for (const change of ["dependency", "moved", "mutation"]) {
       if (change === "renamed") writeFileSync(pythonFile, source.replace("t3779b_fixture", "t3779b_other"));
       const allowed = change === "unchanged";
       if (change === "stale") writeFileSync(pythonFile, 'raise RuntimeError("Launcher must never execute")\n');
-      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
+      const result = spawnSync(process.execPath, [lint, "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, allowed ? 0 : 1, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       const errors = report.diagnostics.filter(item => item.severity === "error");
@@ -364,13 +358,12 @@ for (const [change, language, edit, entries, exit, swap] of [
         return result.stdout.split("\n").filter(Boolean).map(line => JSON.parse(line));
       }
       writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/audit-web-assertions": "error" } }));
-      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
+      const result = spawnSync(process.execPath, [lint, "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       return JSON.parse(result.stdout).diagnostics.filter(item => item.code === "anti-slop(audit-web-assertions)").map(item => JSON.parse(item.message));
     };
     const rowsOf = rows => rows.map(row => JSON.stringify({ file: extension, test: row.test, identity: row.identity })).join("\n") + "\n";
     try {
       mkdirSync(resolve(dir, directory), { recursive: true });
-      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
       writeFileSync(resolve(dir, "empty.test.tsx"), "export {};\n");
       const source = swapSources[language].base;
       writeFileSync(file, source);
@@ -388,7 +381,7 @@ for (const [change, language, edit, entries, exit, swap] of [
         writeFileSync(baseline, rowsOf(entries === "first" ? rows.slice(0, 1) : rows));
       }
       writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/no-new-web-assertions": "error" } }));
-      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", resolve(dir, language === "python" ? "empty.test.tsx" : extension)], { cwd: dir, encoding: "utf8" });
+      const result = spawnSync(process.execPath, [lint, "--no-ignore", "--config", config, "--format", "json", resolve(dir, language === "python" ? "empty.test.tsx" : extension)], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, exit, result.stdout + result.stderr);
       const errors = JSON.parse(result.stdout).diagnostics.filter(item => item.severity === "error");
       assert.equal(errors.length === 0, exit === 0, result.stdout);

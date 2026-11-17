@@ -122,7 +122,7 @@ describe("u17 Todo detail", () => {
 
     fireEvent.click(await screen.findByRole("option", { name: /#11/ }));
 
-    expect(await within(drawer()).findByRole("alert", { name: /already waits/ })).toBeTruthy();
+    expect(await screen.findByRole("alert", { name: /already waits/ })).toBeTruthy();
   });
 
   it("u17_complete_calls_todo_complete", async () => {
@@ -205,7 +205,7 @@ describe("u17 Todo detail", () => {
 
     await leaveTitle();
 
-    await within(drawer()).findByRole("alert", { name: /title is empty/ });
+    await screen.findByRole("alert", { name: /title is empty/ });
     expect(within(drawer()).getByRole("textbox", { name: "Title" })).toHaveProperty("value", "typed");
   });
 

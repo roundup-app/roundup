@@ -360,6 +360,7 @@ impl Git {
         Ok(WorktreeState {
             ci: None,
             pr: None,
+            integrated: None,
             evidence: None,
             ahead,
             behind,

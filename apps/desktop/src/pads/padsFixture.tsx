@@ -9,6 +9,7 @@ import type { Pad } from "@contracts/pad/Pad";
 import { RpcError } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
 import type { FakeApp } from "../testing/fakeApp";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { editorViewCtx } from "@milkdown/kit/core";
@@ -119,7 +120,7 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
   render(() => {
     const now = createNow(() => 0, () => false);
 
-    return <DisplayClockContext value={now.subscribe}><ConnectedProjectContext value={connected}><Content /></ConnectedProjectContext></DisplayClockContext>;
+    return <DisplayClockContext value={now.subscribe}><ToastHost><ConnectedProjectContext value={connected}><Content /></ConnectedProjectContext></ToastHost></DisplayClockContext>;
   });
 
   await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));

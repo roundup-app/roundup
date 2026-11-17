@@ -18,12 +18,15 @@
   padding-inline: var(--reading-gutter);
 }
 
-.pad-head-name {
+/* U7310b: a Pad's name and a Todo's title are the title role: 24/600. */
+.pad-head-name,
+.todo-detail-title .todo-editable {
   flex: 0 1 auto;
   min-width: 0;
   font-size: var(--text-pad-heading);
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
@@ -36,6 +39,15 @@
   align-items: baseline;
   gap: var(--space-2);
   margin-right: var(--space-2);
+}
+
+/* U3729: the save status is a caption: mono 12 grey, as wide as its word. */
+.pad-head-title .pad-head-status {
+  inline-size: auto;
+  color: var(--grey);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  white-space: nowrap;
 }
 
 .pad-editor {
@@ -80,7 +92,7 @@
 
 .pad-rich-editor .milkdown-top-bar {
   background: var(--ground);
-  border-bottom: var(--hairline-width) solid var(--hairline);
+  font-size: var(--text-small);
   padding-block: 0;
   min-height: 0;
   display: flex;
@@ -92,6 +104,28 @@
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+/* U7310a: the toolbar's ground covers the scroller while it sticks; its rule ends with the text column. */
+.pad-rich-editor .milkdown-top-bar::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--reading-gutter);
+  bottom: 0;
+  border-bottom: var(--hairline-width) solid var(--hairline);
+  pointer-events: none;
+}
+
+/* U7310a: a Pad's scroller spans the Drawer's width; the head, document and footer keep the Pad's column. */
+.drawer:has(> .pad-body) {
+  padding-inline: 0;
+  padding-bottom: 0;
+}
+
+/* U7310b: the footer is a caption, 12 grey. */
+.item-drawer-footer {
+  padding: var(--space-2) var(--reading-gutter);
+  font-size: var(--text-small);
 }
 
 /* U431: one row at the Drawer's width: icons only, no wrap. The heading menu shows only its chevron; its options keep their words. */
@@ -217,9 +251,6 @@
   fill: var(--text);
 }
 
-.milkdown-slash-menu {
-}
-
 .milkdown-slash-menu li {
   border-radius: var(--pad-block-radius);
 }
@@ -302,6 +333,11 @@ li[aria-selected="true"] svg {
   pointer-events: auto;
 }
 
+/* Crepe shows the block menu before floating-ui places it, so its first frame sits at the page's corner. It stays hidden until placed, so a pointer resting there (on the block handle's +) picks no item. */
+.pad-block-menu .milkdown-slash-menu:not([style*="left"]) {
+  visibility: hidden;
+}
+
 .pad-block-menu .milkdown-block-handle {
   z-index: var(--layer-menu);
 }
@@ -334,10 +370,6 @@ li[aria-selected="true"] svg {
   margin-left: var(--space-2);
 }
 
-/* A save refusal must expose both its cause and its recovery action. */
-.pad-body .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; }
-.pad-body .reserved-content { flex-wrap: wrap; }
-.pad-body .ink[data-kind="error"] { white-space: normal; overflow-wrap: anywhere; overflow: visible; }
 .pad-body[data-pad-width="narrow"] {
   --pad-reading-width: var(--reading-width);
 }
@@ -358,4 +390,61 @@ li[aria-selected="true"] svg {
 
 .pad-toolbar-expand {
   order: 3;
+}
+
+/* PW1 to PW6: the walk of a Pad. */
+.walk {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--pad-reading-width, var(--reading-width));
+  align-self: center;
+  padding: var(--space-5) var(--reading-gutter);
+  outline: none;
+}
+
+.walk-step {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.walk-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.walk-title {
+  margin: 0;
+  font-size: var(--text-pad-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.walk-count {
+  flex: none;
+  color: var(--grey);
+  font-variant-numeric: tabular-nums;
+}
+
+.walk-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.walk-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }

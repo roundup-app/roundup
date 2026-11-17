@@ -13,5 +13,7 @@ export type WorktreeState = {
 	dirty: boolean,
 	ci?: agent$WorktreeCi.WorktreeCi,
 	pr?: agent$WorktreePr.WorktreePr,
+	/**  U7371b: worktrunk reports the branch as in main. Omitted when not collected. */
+	integrated?: boolean,
 	evidence?: agent$WorktreeEvidence.WorktreeEvidence,
 };

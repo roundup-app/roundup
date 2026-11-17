@@ -25,8 +25,8 @@ const product = (left, right, merge) => left.flatMap(a => right.map(b => merge(a
 // Ordered row titles and status lines longer than three words, each named exactly (U5205, U7208b).
 const LONG_LABELS = new Set(['started by ⟦0⟧ (⟦1⟧)', 'Downloading ⟦value⟧ of ⟦value⟧ MB', 'Quick add from any app', '⟦0⟧ belongs to the Terminal', "can't reach ⟦0⟧: ⟦1⟧", 'Pad ⟦0⟧ was deleted', 'Find active and recent Claude Code conversations in this Project']);
 
-// SK10 and U5919a order these labels word for word, including their vocabulary and length.
-const ORDERED_LABELS = new Set(['Teach other Claude Code sessions about roundup', 'New Agent with a Prompt…', 'Jump to What Needs You', 'Open Folder…', 'Door stopped · ⟦0⟧ waiting', 'Close to the Left', 'Close to the Right']);
+// SK10, U5919a and U7371a (`draft`, a pull request's state, not unfinished work) order these labels word for word, including their vocabulary and length.
+const ORDERED_LABELS = new Set(['Teach other Claude Code sessions about roundup', 'New Agent with a Prompt…', 'Jump to What Needs You', 'Open Folder…', 'Door stopped · ⟦0⟧ waiting', 'Close to the Left', 'Close to the Right', 'draft']);
 
 // Babel owns syntax and lexical binding resolution. This layer describes only copy policy.
 

@@ -219,7 +219,8 @@
   --pad-text-h4: calc(var(--pad-text-body) * var(--pad-type-ratio));
   --pad-text-h3: calc(var(--pad-text-h4) * var(--pad-type-ratio));
   --pad-text-h2: calc(var(--pad-text-h3) * var(--pad-type-ratio));
-  --pad-text-h1: calc(var(--pad-text-h2) * var(--pad-type-ratio));
+  /* U7310b: the first-level heading lands on whole pixels, the same 24 px as a title at the default scale. */
+  --pad-text-h1: round(calc(var(--pad-text-h2) * var(--pad-type-ratio)), 1px);
   --pad-rhythm-base: 4px;
   --pad-rhythm: calc(var(--pad-rhythm-base) * var(--interface-scale));
   --pad-gap-item: var(--pad-rhythm);

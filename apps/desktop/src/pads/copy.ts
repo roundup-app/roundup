@@ -74,4 +74,8 @@ export const copy = {
   moveItem: (name: string) => `Move ${name}`,
   blocks: sharedCopy.blocks,
   resume: sharedCopy.resume,
+  walkBack: "Back",
+  walkNext: "Next",
+  walkFinish: "Finish",
+  walkCount: (step: number, steps: number) => `${step} of ${steps}`,
 } as const;

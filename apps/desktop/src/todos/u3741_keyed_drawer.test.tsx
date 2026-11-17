@@ -21,10 +21,10 @@ it("u3741_moving_to_another_todo_shows_no_failure_from_the_previous_one", async 
   const original = m.app.handlers["todo.getHistory"];
   m.app.handlers["todo.getHistory"] = params => params.id === 1 || !original ? Promise.reject(new RpcError(-32003, "History unavailable")) : original(params);
   await open(1);
-  await within(panel()).findByText("History unavailable");
+  await screen.findByText("History unavailable");
   fireEvent.click(next());
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory").map(call => call.params)).toContainEqual({ id: 2 }));
-  await waitFor(() => expect(within(panel()).queryAllByText(/History unavailable/)).toHaveLength(0));
+  await waitFor(() => expect(screen.queryAllByText(/History unavailable/)).toHaveLength(0));
 });
 
 it("u462_history_is_marked_read_once_per_drawer", async () => {
@@ -45,9 +45,9 @@ it("u3741_a_failure_clears_on_the_events_doesClearTodoFailure_names", async () =
   m.app.clipboardWrite = () => Promise.reject(new Error("Clipboard refused"));
   await open(1);
   fireEvent.click(await within(within(panel()).getByRole("region", { name: "Activity" })).findByRole("button", { name: "Copy" }));
-  await within(panel()).findByText(/Clipboard refused/);
+  await screen.findByText(/Clipboard refused/);
   m.app.emit(todoEvent("todo.updated", m.store.todos[0] ?? todo(1)));
-  await waitFor(() => expect(within(panel()).queryAllByText(/Clipboard refused/)).toHaveLength(0));
+  await waitFor(() => expect(screen.queryAllByText(/Clipboard refused/)).toHaveLength(0));
 });
 
 it("u3741_inner_focus_survives_moving_between_todos", async () => {

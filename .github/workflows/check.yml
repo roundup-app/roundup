@@ -129,11 +129,11 @@ jobs:
         with:
           rust: 'false'
       # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. With `plan`'s
-      # 75 s and a lane's 50 s of setup, 165 s of measured tests (about 195 s on the runner) ends the verdict near 5 min.
+      # 52 s and a lane's 31 s of setup, 200 s of measured tests (180 s measured ran 153 s in the test step, 238 s a lane in run 44165190898, so about 225 s on the runner, inside CI7297c's 240 s) keeps the verdict near 5 min; every shard fewer saves its 31 s of setup and a runner slot, 7216 job-seconds a run at 20 concurrent jobs (CI7297a).
       - id: shards
         env:
           COUNT: ${{ steps.plan.outputs.count }}
-          BUDGET: '165'
+          BUDGET: '200'
         run: |
           count=all
           if [ -n "$COUNT" ]; then
@@ -206,6 +206,7 @@ jobs:
           setsid python3 tools/e14/observe.py memory --output "$RUNNER_TEMP/e14-memory.jsonl" >"$RUNNER_TEMP/e14-memory.log" 2>&1 </dev/null &
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
       # A4691: the sidecar the agent tests start. The test build makes `rupd`, `rup` and the test core a lane's tests start.
       - name: A4691 debug runtime preparation
@@ -225,7 +226,7 @@ jobs:
           observation=()
           if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
           python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      # CI7295b: on `main`, a setup or test step over its time budget warns, naming the lane (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
@@ -258,7 +259,10 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
+          node-cache: 'true'
+          save-node: 'true'
       - name: C4 addition and freshness observers
         # The observers rebuild the workspace after each contract edit; incremental builds reuse the first one's work.
         env:
@@ -282,6 +286,7 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C9b native release size
         run: |
@@ -333,8 +338,10 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
         with:
+          machete: 'false'
           save-cache: 'true'
           experiment-cache: ${{ env.CI3781_CACHE }}
+          node: 'false'
       - run: python3 loop/app-data.py cargo test --locked --workspace --no-run
       - run: just contracts
       - run: cargo clippy --all-targets -- -D warnings
@@ -361,7 +368,9 @@ jobs:
       - id: setup
         uses: ./.github/actions/setup
         with:
+          machete: 'false'
           node: 'false'
+          vendored-cache: debug
       # CI7295h: clippy runs on a PR whose diff reaches Rust; the ping only when the diff reaches what it proves.
       - if: github.event_name != 'pull_request' || needs.plan.outputs.rust == 'true'
         run: just clippy
@@ -421,7 +430,10 @@ jobs:
       - id: setup
         uses: ./.github/actions/setup
         with:
+          machete: 'false'
           save-cache: 'true'
+          vendored-cache: debug
+          save-vendored: 'true'
           # CI5458c: run 41349105933 spent 44 s installing Node packages and 50 s saving their cache.
           # S1 packaging installs them in mac-package instead.
           node: 'false'
@@ -429,16 +441,15 @@ jobs:
       # L89: only the test binaries the `mac` profile names that the diff reaches (`just test-rust-lane`).
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE"
-      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      # CI7295b: on `main`, a setup or test step over its time budget warns, naming the lane (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/actions/setup/lane-budget.py "mac" test-rust
-      # R24: compile the opt-in native producer as well as the normal-build exclusion tests above. The same selection
-      # under `--workspace` rebuilds only `desktop`, which the feature changes.
+      # R24: on `main` the opt-in native producer builds here so the saved cache holds it; a PR runs it in `mac-r24`.
       - name: R24 measurement feature
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && github.event_name == 'push' }}
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
       # L84: the macOS cache this job saves on `main` holds clippy's checks and the smoke test's binaries too, so
       # `mac-clippy` builds only the workspace.
@@ -447,6 +458,25 @@ jobs:
         run: |
           cargo clippy --all-targets -- -D warnings
           cargo build --locked --workspace --bin rupd --bin rup
+
+  # CI7297d: R24 compiles the opt-in native producer as well as the normal-build exclusion tests of `mac`. A PR runs it
+  # beside `mac`, not after it, so neither lane passes 300 s; the same selection under `--workspace` rebuilds only `desktop`.
+  mac-r24:
+    needs: plan
+    if: github.event_name != 'push' && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true'))
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          machete: 'false'
+          node: 'false'
+          vendored-cache: debug
+      - name: R24 measurement feature
+        run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
 
   # CI5458d: main-only release builds run beside the full-test lane to keep each macOS job below 25 min.
   mac-package:
@@ -465,6 +495,11 @@ jobs:
             !/crates/perf/evidence/
       - id: setup
         uses: ./.github/actions/setup
+        with:
+          vendored-cache: release
+          save-vendored: 'true'
+          node-cache: 'true'
+          save-node: 'true'
       - name: C9b native release size
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -537,7 +572,9 @@ jobs:
             !/crates/perf/evidence/
       - id: key
         run: |
-          tree=$(git ls-tree -r HEAD -- crates Cargo.toml Cargo.lock .github/actions/setup/action.yml | grep -v $'\tcrates/perf/evidence/' | sha256sum)
+          # CI7295a: the key holds what shapes the binaries (the sources, the toolchain, the build line and profile), not the
+          # whole setup action, which changes with every cache or lane edit and sent most PRs to a 150 s cold build.
+          tree=$({ git ls-tree -r HEAD -- crates Cargo.toml Cargo.lock rust-toolchain.toml | grep -v $'\tcrates/perf/evidence/'; grep -hE 'toolchain: |cargo build -p rupd' .github/actions/setup/action.yml; echo "$CARGO_PROFILE_DEV_DEBUG"; } | sha256sum)
           echo "key=daemon-$RUNNER_OS-${tree%% *}" >>"$GITHUB_OUTPUT"
       - id: cache
         uses: actions/cache/restore@v4
@@ -669,7 +706,7 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 tools/e14/observe.py run --install-dependencies --lane web${{ matrix.partition }} ${{ runner.environment != 'self-hosted' && format('--fault-log {0}/chromium-faults-{1}.jsonl', runner.temp, matrix.partition) || '' }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      # CI7295b: on `main`, the lane's setup and test step keep within their time budgets (`lane-budget.py`).
+      # CI7295b: on `main`, a setup or test step over its time budget warns, naming the lane (`lane-budget.py`).
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
@@ -790,10 +827,32 @@ jobs:
             }
           done
 
+  # CI7335: once every saving job has ended, `main` keeps the newest entry of each cache family and no entry of a closed PR
+  # stays; then the guard fails the run if the cache still holds over 9 GB. Only this job writes caches (`actions: write`)
+  # and reads PRs; a failed read of the open PRs deletes nothing and fails the job.
+  cache-sweep:
+    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-r24, mac-package, daemon, web, chromium]
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: loop/cache-sweep.py
+          sparse-checkout-cone-mode: false
+      - run: python3 loop/cache-sweep.py
+
   # Every lane's result. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
   # push-only `mac-package` and `cache` skips (CI5915a). Failed or cancelled lanes never pass.
   lanes:
-    needs: [plan, first, rust, contracts, observers, cache, mac-clippy, mac, mac-package, daemon, web, chromium]
+    needs: [plan, first, rust, contracts, observers, cache, cache-sweep, mac-clippy, mac, mac-r24, mac-package, daemon, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
@@ -801,12 +860,13 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
         run: |
-          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache"))))))' <<<"$NEEDS"
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and (.key == "first" or .key == "mac-r24" or $event == "pull_request" or ($event == "workflow_dispatch" and (.key == "mac-package" or .key == "cache" or .key == "cache-sweep"))))))' <<<"$NEEDS"
 
   # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
   bundle:
     needs: [lanes, check]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # `first` runs on pull requests only, so its skip reaches every descendant; a status function keeps this job running.
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.lanes.result == 'success' && needs.check.result == 'success' }}
     runs-on: macos-latest
     timeout-minutes: 35
     strategy:
@@ -826,6 +886,8 @@ jobs:
             /*
             !/crates/perf/evidence/
       - uses: ./.github/actions/setup
+        with:
+          node-cache: 'true'
       - name: Build and sign the bundle
         run: |
           just app-bundle "$CHANNEL" "$RUN_NUMBER"
@@ -845,7 +907,7 @@ jobs:
   # DF7078b/c: the Dev feed first, then the Stable artifact for promote. A failed publish leaves `check` as it was.
   publish:
     needs: [bundle]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.bundle.result == 'success' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -868,3 +930,16 @@ jobs:
           path: bundles/bundle-stable/
           if-no-files-found: error
           retention-days: 90
+
+  # DF7078h: a skipped main-only job on a push whose lanes succeeded fails the run, naming the job. Nothing needs this job.
+  main-guard:
+    needs: [lanes, cache, mac-package, cache-sweep, bundle, publish]
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: tools/release
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 tools/release/main_jobs.py <<<"$NEEDS"

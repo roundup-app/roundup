@@ -5,6 +5,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { undo, redo } from "@milkdown/kit/prose/history";
 import PadRichEditor from "./PadRichEditor";
+import { ToastHost } from "../testing/toastHost";
 import type { PadEditorHandle } from "./PadRichEditor";
 
 Range.prototype.getClientRects ??= () => document.body.getClientRects();
@@ -27,7 +28,7 @@ const open = async (source: string) => {
 
     return editor;
   });
-  render(() => <PadRichEditor text={source} readonly={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={(ready) => { handle = ready; }} />);
+  render(() => <ToastHost><PadRichEditor text={source} readonly={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={(ready) => { handle = ready; }} /></ToastHost>);
   await waitFor(() => expect(handle).toBeDefined());
 
   if (!view || !handle || !instance) throw new Error("editor not ready");

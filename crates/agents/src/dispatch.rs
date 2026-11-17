@@ -311,6 +311,7 @@ impl Agents {
                 report: _,
             } = p;
             shared.events.inbox.scan(&id, &payload);
+            shared.read_links(&id, &payload);
             shared.observe(
                 ctx.actor.clone(),
                 &id,
@@ -370,6 +371,16 @@ impl Agents {
                 &shared.project_dir.to_string_lossy(),
             )?)
         }
+    }
+
+    async fn agent_links(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::links::LinkSet, RpcError> {
+        let shared = &self.shared;
+        shared.guard_reach(&ctx.actor, &p.id, true)?;
+        Ok(shared.events.links.get(&p.id))
     }
 
     async fn agent_spawn_prompt(

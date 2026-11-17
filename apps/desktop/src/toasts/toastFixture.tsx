@@ -12,6 +12,7 @@ import { todoHandlers } from "../testing/stores";
 import { createFakeApp } from "../testing/fakeApp";
 import { event, NOW } from "../testing/nodes";
 import { createToastQueue } from "./queue";
+import { ToastQueueContext } from "../ink/messageToast";
 import { Toasts } from "./Toasts";
 import { watchProject } from "./watch";
 import { createStateAlerts } from "../rail/stateAlerts";
@@ -70,10 +71,12 @@ export const mountToasts = async (tree: RailNode[], options: { unreadable?: true
     watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle, createStateAlerts(alert => app.stateAlert(alert), front, message => alertFailures.push(message)), queue.suppress, () => options.project ?? "all");
 
     return (
-      <ConnectedProjectContext value={connected}>
-        <Toasts queue={queue} />
-        <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-      </ConnectedProjectContext>
+      <ToastQueueContext value={queue}>
+        <ConnectedProjectContext value={connected}>
+          <Toasts queue={queue} />
+          <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
+        </ConnectedProjectContext>
+      </ToastQueueContext>
     );
   });
 

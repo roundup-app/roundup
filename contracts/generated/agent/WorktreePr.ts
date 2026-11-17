@@ -3,4 +3,6 @@
 export type WorktreePr = {
 	number: number,
 	stale: boolean,
+	/**  U7371a: `gh`'s `isDraft`. Omitted when `gh` did not say. */
+	draft?: boolean,
 };

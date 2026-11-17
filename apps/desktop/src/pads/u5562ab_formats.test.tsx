@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { openShelf, openPad, padOf } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import PadRichEditor from "./PadRichEditor";
+import { ToastHost } from "../testing/toastHost";
 import type { PadEditorHandle } from "./PadRichEditor";
 
 Range.prototype.getClientRects ??= () => document.body.getClientRects();
@@ -14,7 +15,7 @@ afterEach(cleanup);
 it.each(["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"])("u5562a_callouts_in_each_pad_view: %s", async kind => {
   const source = `> [!${kind}]\n> Keep this\n> and this\n\nOrdinary\n`;
   let editor: PadEditorHandle | undefined;
-  const { container } = render(() => <PadRichEditor text={source} readonly={false} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { editor = ready; }} />);
+  const { container } = render(() => <ToastHost><PadRichEditor text={source} readonly={false} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { editor = ready; }} /></ToastHost>);
   await waitFor(() => expect(editor).toBeDefined());
   expect(container.querySelector(`[data-pad-callout="${kind.toLowerCase()}"]`)).not.toBeNull();
   expect(container.querySelector(".ProseMirror")?.textContent).not.toContain(`[!${kind}]`);
@@ -24,7 +25,7 @@ it.each(["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"])("u5562a_callouts_in_
 it("u5562b_selection_colour_and_highlight", async () => {
   const source = '<mark><span data-pad-color="blue">a *linked* [word](https://example.com)</span></mark>\n';
   let editor: PadEditorHandle | undefined;
-  const { container } = render(() => <PadRichEditor text={source} readonly={false} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { editor = ready; }} />);
+  const { container } = render(() => <ToastHost><PadRichEditor text={source} readonly={false} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { editor = ready; }} /></ToastHost>);
   await waitFor(() => expect(editor).toBeDefined());
   expect(container.querySelector('a mark [data-pad-color="blue"]')).not.toBeNull();
   expect(container.querySelector('em mark')).not.toBeNull();
@@ -76,7 +77,7 @@ it("u5562b_colour_action_saves_and_reopens", async () => {
 it("u5562b_markup_is_inert", async () => {
   const source = '<span data-pad-color="blue" onclick="alert(1)">handler</span> <span data-pad-color="unknown">unknown</span> <mark style="color:red">style</mark> <script>alert(1)</script>\n';
   let editor: PadEditorHandle | undefined;
-  const { container } = render(() => <PadRichEditor text={source} readonly={true} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { editor = ready; }} />);
+  const { container } = render(() => <ToastHost><PadRichEditor text={source} readonly={true} autofocus={false} onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { editor = ready; }} /></ToastHost>);
   await waitFor(() => expect(editor).toBeDefined());
   expect(container.querySelector('script, [onclick], [data-pad-color], mark')).toBeNull();
   expect(editor!.getText()).toBe(source);

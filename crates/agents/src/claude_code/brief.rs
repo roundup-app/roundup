@@ -522,7 +522,19 @@ use `<details><summary>For Agents</summary>`, blank lines around its Markdown co
 On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. \
 Facts the user needs to decide or act stay in the body, including a path or command needed for that action. \
 Write the Pad for a reader who opened it from a link, and put each fact the user needs to decide or act in the message that points to the Pad as well: a Pad never carries it alone. \
-When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up.
+When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up. \
+Where you would send a Pad's sections one by one, give the Pad's walk link instead: its `link` with `pad` replaced by `walk` (`roundup://walk/<pad>?project=<key>`), never made up; one click plays the Pad as a walk, one step per top-level heading.
+
+";
+
+/// PL3: the places a user can be sent to, as links the user clicks.
+const PLACE_RULE: &str = "\
+## Places
+
+When the user must look at a Bench tab or flip a setting, hand the link and change nothing yourself: \
+`roundup://shelf/<tab>?project=<key>` for a Bench tab (`todos` or `pads`), \
+`roundup://settings/<page>?project=<key>#<control>` for a setting (the fragment is optional). \
+Take `<key>` from `daemon.ping`'s `projectKey`, as in every link. A click only moves the user there; you never change a setting.
 
 ";
 
@@ -701,6 +713,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
     text.push_str(REDUCE_RULE);
     if role != Role::Scout {
         text.push_str(PAD_RULE);
+        text.push_str(PLACE_RULE);
     }
     text.push_str(REDUCE);
     text.push('\n');

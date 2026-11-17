@@ -17,6 +17,7 @@ import { PadDrawer } from "./PadDrawer";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
 import { notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => {
   cleanup();
@@ -49,7 +50,7 @@ describe("u20 open and edit", () => {
     const original = padOf("auth-notes", AGENT);
     const { app, connected } = await openShelf([original]);
     cleanup();
-    render(() => <ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
+    render(() => <ToastHost><ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
     const before = app.calls.length;
     connected.drawer.open(() => <PadDrawer name={original.name} pads={() => [original]} onLateFailure={() => {}} />, "key");
     await screen.findByRole("textbox", { name: "Pad body" });
