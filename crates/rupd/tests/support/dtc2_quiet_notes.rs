@@ -30,6 +30,14 @@ impl Run {
     /// The setup's own settled note (DCL6) is a Door turn that carries quiet notes out; it comes
     /// 2 s after the child rests, so it is let pass before the quiet window is counted.
     pub(super) async fn let_settled_pass(&self) {
+        self.let_settled_passes(1).await;
+    }
+
+    /// `n` settled notes are delivered and each one's turn is in the Door's transcript: a settled
+    /// note delivered earlier counts, so a case whose setup draws a second one (after a Job's stop
+    /// note) names how many, and a turn still being written is no later turn of the case.
+    pub(super) async fn let_settled_passes(&self, n: usize) {
+        let settled = |entry: &String| entry.contains("[settled] Every Agent");
         tokio::time::timeout(Duration::from_secs(40), async {
             let mut tick = tokio::time::interval(Duration::from_millis(50));
             loop {
@@ -42,12 +50,17 @@ impl Run {
                     .as_array()
                     .unwrap()
                     .iter()
-                    .any(|m| {
+                    .filter(|m| {
                         m["to"] == self.door
                             && m["status"] == "delivered"
                             && m["body"].as_str().unwrap().starts_with("[settled]")
-                    });
-                if delivered {
+                    })
+                    .count();
+                let written = super::dtc3_one_turn::rupd_turns(self)
+                    .iter()
+                    .filter(|turn| turn.iter().any(settled))
+                    .count();
+                if delivered >= n && written >= n {
                     break;
                 }
             }
