@@ -33,7 +33,7 @@ for (const scheme of ["dark", "light"] as const) {
       expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(1);
       await capture("U6249a", `rail-read-failed-${scheme}`);
       await evaluate("window.__fake.app.handlers['rail.tree'] = window.savedTree; true");
-      await browser("click", ".pane-failure button");
+      await browser("click", ".app-toast button");
       await until("!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     } finally {
       await page.close();
@@ -54,8 +54,8 @@ for (const scheme of ["dark", "light"] as const) {
         document.querySelector('.rail-row[data-id]').click();
         return true;
       })()`);
-      await until("document.querySelector('.pane-failure [role=alert]:not([data-ui-sdk-announcer])')");
-      expect(await evaluate("document.querySelectorAll('.pane-failure [role=alert]:not([data-ui-sdk-announcer])').length")).toBe(1);
+      await until("document.querySelector('.app-toast [role=alert]')");
+      expect(await evaluate("document.querySelectorAll('.app-toast [role=alert]').length")).toBe(1);
       await capture("U6249a", `terminal-failed-${scheme}`);
     } finally {
       await page.close();

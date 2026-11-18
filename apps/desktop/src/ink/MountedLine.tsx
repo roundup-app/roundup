@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ErrorLine } from "./ErrorLine";
 import { RecoveryButtons, type Blocked, type Dismissible } from "./ReservedLine";
 import "./failureLine.css";
@@ -14,6 +15,11 @@ export const DialogFailure = (props: Dismissible & { message: string | null | fa
 /** U7314a: a status or notice that reports no failure, mounted only while it holds. */
 export const StatusNote = (props: { text: string | null | false | undefined; label?: string }) => (
   <Show when={props.text}>{text => <p class="ink mounted-line" role="status" aria-label={props.label}>{text()}</p>}</Show>
+);
+
+/** U7314a: a status that holds controls, mounted only while it holds. */
+export const MountedStatus = (props: { when: boolean; class: string; children: JSX.Element }) => (
+  <Show when={props.when}><div class={`mounted-line ${props.class}`} role="status">{props.children}</div></Show>
 );
 
 /** U7314e: a failure the screen cannot go on without. It is that screen's own view, not a message beside it: no Dismiss, no toast, and no place before or after. */

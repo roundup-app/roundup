@@ -13,7 +13,7 @@ import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { dismissable } from "../ink/ReservedLine";
-import { DialogFailure } from "../ink/MountedLine";
+import { DialogFailure, MountedStatus } from "../ink/MountedLine";
 import { Line } from "../ink/FailureLine";
 import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
@@ -345,7 +345,7 @@ export const AskBar = (props: {
           </span>}</For>
         </div></Show>
         <DialogFailure message={sendLine.message()} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
-        <Show when={records().some(draft => draft.status === "unknown")}><div class="mounted-line ask-send-status" role="status"><For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
+        <MountedStatus when={records().some(draft => draft.status === "unknown")} class="ask-send-status"><For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
 
@@ -362,7 +362,7 @@ export const AskBar = (props: {
               })}>{copy.askCheckAcceptance}</BusyButton>
           </div>;
         }}</For>
-        </div></Show>
+        </MountedStatus>
         </div>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </DialogContent>

@@ -69,7 +69,7 @@ const capture = async (step: string) => {
     shown: [...document.querySelectorAll('.bubble:not([hidden])')].map(bubble => bubble.dataset.bubble),
     root: String(!document.querySelector('.rail-row[data-selected]')),
     calls: window.__fake.app.calls.filter(call => ['terminal.open','terminal.close'].includes(call.method)),
-    failure: document.querySelector('.bubbles [role="alert"]')?.textContent
+    failure: document.querySelector('.app-toast [role="alert"]')?.textContent
   })`);
 
   writeFileSync(join(target, `${step}.checks.json`), JSON.stringify(observed.checks, null, 2));
@@ -161,6 +161,6 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
     window.__fake.app.handlers['terminal.open'] = () => {throw new Error('Cannot open Terminal: shell unavailable. Check the shell path and retry.');};
     document.querySelector('.terminal-new').click();
   })()`);
-  await until("!document.querySelector('.terminal-new').disabled && document.querySelector('.bubbles [role=alert]')?.textContent.includes('Check the shell path and retry.')");
+  await until("!document.querySelector('.terminal-new').disabled && document.querySelector('.app-toast [role=alert]')?.textContent.includes('Check the shell path and retry.')");
   await capture("dense-failure");
 }, 60_000);

@@ -53,7 +53,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(1);
     await capture("U3791c", "read-replaced");
     await evaluate("window.__fake.app.handlers['rail.tree'] = window.savedTree; true");
-    await browser("click", ".pane-failure button");
+    await browser("click", ".app-toast button");
     await until("!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     await evaluate(`(() => {
       window.savedWrite = Storage.prototype.setItem;

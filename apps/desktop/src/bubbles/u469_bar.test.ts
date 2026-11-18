@@ -104,7 +104,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
         document.querySelector('.terminal-tab-pair button:last-of-type').click();
       }`);
       await page.call(`() => window.__fake.app.answerQuestion(true)`);
-      await page.until(`() => document.querySelector('.bubble-failure [role="alert"]')`);
+      await page.until(`() => document.querySelector('.app-toast [role="alert"]')`);
       await record('rejected');
       await page.call(`() => document.querySelector('[data-id="dense"]').click()`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===10`);
