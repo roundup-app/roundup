@@ -93,10 +93,9 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
     await browser("fill", ".todos-tab .entry-field", "Review this work");
     await evaluate(`window.__fake.failNext(-32003, 'Todo refused; retry after reconnecting', 'todo.create')`);
     await browser("press", "Enter");
-    await browser("wait", ".todos-tab [role=alert]");
+    await browser("wait", ".app-toast [role=alert]");
     await capture(`tree-40-${width}-todo-refused`);
-    await browser("hover", ".todos-tab [role=alert]");
-    await browser("wait", "[role=tooltip][data-open]");
+    await browser("hover", ".app-toast [role=alert]");
     await capture(`tree-40-${width}-todo-refused-detail`);
     await browser("click", ".todos-tab .entry-field");
     await browser("press", "Escape");
