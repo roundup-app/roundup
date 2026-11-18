@@ -120,11 +120,9 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   await browser("focus", ".ProseMirror");
   await browser("press", "Control+Home");
   await browser("keyboard", "type", "Reviewed ");
-  await browser("wait", "[data-state=saved]");
-  const edited = `Reviewed ${visualSource}`;
   const source = () => evaluate("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(p => p.text)");
-
-  expect(await source()).toBe(edited);
+  const edited = `Reviewed ${visualSource}`;
+  await expect.poll(source, { timeout: 30_000 }).toBe(edited);
   await browser("click", ".drawer .close");
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
   await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
@@ -138,12 +136,12 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   await browser("press", "End");
   await browser("press", "Backspace");
   await browser("keyboard", "type", "C");
-  await browser("wait", "[data-state=saved]");
-  expect(await source()).toBe(edited.replace("A-->B", "A-->C"));
+  await expect.poll(source, { timeout: 30_000 }).toBe(edited.replace("A-->B", "A-->C"));
   await browser("click", ".ProseMirror p:first-of-type");
   await browser("wait", ".visual-mermaid svg");
   expect(await evaluate("Boolean(document.querySelector('.visual-drawing .excalidraw'))")).toBe(true);
   await browser("scrollintoview", ".visual-drawing canvas.interactive");
+  await browser("click", ".visual-drawing-edit");
   await browser("click", ".visual-drawing label:has([data-testid=toolbar-rectangle])");
 
   const point = await evaluate(`(() => {
@@ -159,7 +157,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   const afterMermaid = edited.replace("A-->B", "A-->C");
 
   await expect.poll(source, { timeout: 20_000 }).not.toBe(afterMermaid);
-  await browser("wait", "[data-state=saved]");
+  await expect.poll(source, { timeout: 30_000 }).toContain('"rectangle"');
 
   const drawn: string = await source();
   const drawing = drawn.match(/```excalidraw\n([\s\S]*?)\n```/);

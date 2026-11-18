@@ -11,6 +11,7 @@ export type CanvasElement = { id: string; version: number; isDeleted?: boolean }
 export type CanvasProps = {
   initialData: { elements: CanvasElement[]; scrollToContent: boolean };
   viewModeEnabled: boolean;
+  zenModeEnabled: boolean;
   theme: "light" | "dark";
   UIOptions: { canvasActions: Record<string, boolean> };
   onChange(elements: readonly CanvasElement[]): void;
@@ -70,6 +71,40 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   let stopAppearance: (() => void) | undefined;
   // Loading may touch versions; only the user's own gesture counts as an edit.
   let touched = false;
+  // U7414c: the drawing shows clean (Excalidraw's view mode, no tool bars) until Edit.
+  let editing = false;
+  let render = () => {};
+
+  const surface = document.createElement("div");
+  surface.className = "visual-drawing-surface";
+  const edit = document.createElement("button");
+
+  const setEditing = (next: boolean) => {
+    if (editing === next) return;
+    editing = next;
+    edit.hidden = next;
+    host.classList.toggle("visual-drawing-editing", next);
+    render();
+
+    // Focus moves into the canvas once React has mounted the editing layers, so Esc reaches this block's capture handler.
+    if (next) requestAnimationFrame(() => host.querySelector<HTMLElement>(".excalidraw")?.focus());
+
+    // listener-owner: removed when Edit ends and on release
+    if (next) document.addEventListener("pointerdown", outside, true);
+    else document.removeEventListener("pointerdown", outside, true);
+  };
+
+  const outside = (event: PointerEvent) => {
+    if (!(event.target instanceof Node) || !host.contains(event.target)) setEditing(false);
+  };
+
+  const escape = (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || !editing) return;
+    event.stopPropagation();
+    setEditing(false);
+    edit.focus();
+  };
+
   let live = true;
 
   const down = () => {
@@ -79,6 +114,19 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   host.classList.add("visual-drawing");
   host.addEventListener("pointerdown", down);
   host.addEventListener("keydown", () => (touched = true));
+  // listener-owner: the mount's release function removes it
+  host.addEventListener("keydown", escape, true);
+
+  edit.type = "button";
+  edit.dataset.button = "quiet";
+  edit.className = "visual-drawing-edit";
+  edit.textContent = copy.editDrawing;
+  edit.hidden = readonly;
+  // listener-owner: the mount's release function removes it
+  edit.addEventListener("click", () => setEditing(true));
+  host.append(surface);
+
+  if (!readonly) host.append(edit);
 
   const fail = () => {
     const source = document.createElement("pre");
@@ -98,12 +146,13 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
 
     const initialData = { elements, scrollToContent: true };
 
-    root = createRoot(host);
+    root = createRoot(surface);
 
-    const render = () => root?.render(
+    render = () => root?.render(
       createElement(canvas.Excalidraw, {
         initialData,
-        viewModeEnabled: readonly,
+        viewModeEnabled: readonly || !editing,
+        zenModeEnabled: readonly || !editing,
         theme: appDark() ? "dark" : "light",
         UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } },
         excalidrawAPI: (api) => (handle ??= fitted ? undefined : api),
@@ -156,6 +205,7 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
 
   return () => {
     live = false;
+    document.removeEventListener("pointerdown", outside, true);
     stopAppearance?.();
     // Unmounting during React's own render pass throws; defer it.
     queueMicrotask(() => root?.unmount());

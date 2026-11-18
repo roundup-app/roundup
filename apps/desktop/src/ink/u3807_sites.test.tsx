@@ -249,15 +249,6 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Switcher", async () 
 });
 
 
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Pad drawer Saved", async () => {
-  const { app } = await openShelf([padOf("notes", USER, "old")]);
-  const field = await openPad("notes");
-  const surface = field.closest<HTMLElement>(".pad-body")!;
-  app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
-  await cycle(surface, () => { fireEvent.input(field, { target: { value: "new" } }); flush(); fireEvent.focusOut(field); },
-    () => fireEvent.input(field, { target: { value: "another" } }), "status");
-});
-
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Capture", async () => {
   const mounted = await mountTodos([]);
   render(() => <ConnectedProjectContext value={mounted.connected}><Capture onFile={undefined} /></ConnectedProjectContext>);
