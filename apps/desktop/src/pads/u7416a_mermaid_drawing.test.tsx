@@ -45,12 +45,28 @@ afterEach(() => {
 const writes = (calls: { method: string; params?: unknown }[]) => calls.filter((call) => call.method === "pad.write");
 
 describe("u7416a a Drawing block holding Mermaid shows an auto-laid-out scene", () => {
-  it("u7416a_a_mermaid_flowchart_block_mounts_labelled_nodes_and_arrows", async () => {
+  it("u7416a_a_mermaid_block_mounts_the_scene_its_converter_returns", async () => {
     await openShelf([padOf("note", AGENT, `\`\`\`excalidraw\n${flow}\n\`\`\`\n`)]);
     await openPad("note");
 
     await screen.findByTestId("canvas");
     expect(props?.initialData.elements).toHaveLength(3);
+    expect(converted).toEqual([flow]);
+  });
+
+  it("u7416a_an_agent_write_of_a_mermaid_block_appears_after_pad_changed", async () => {
+    const { app, state } = await openShelf([padOf("note", AGENT, "plain")]);
+
+    await openPad("note");
+    expect(document.querySelector(".visual-drawing")).toBeNull();
+
+    const pad = state.pads[0];
+
+    if (!pad) throw new Error("no pad");
+    pad.text = `plain\n\n\`\`\`excalidraw\n${flow}\n\`\`\`\n`;
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "note" } });
+
+    await screen.findByTestId("canvas");
     expect(converted).toEqual([flow]);
   });
 
