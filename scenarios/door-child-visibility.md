@@ -51,5 +51,4 @@ Specification validation (policy; report each failing name/id/field as its own r
 |---|---|---|
 | `loop/rules.sh vocab` | exit 0 | exit 1: offending public name/path |
 | `loop/rules.sh scenario-ids` | exit 0 | exit 1: offending id; exit 2: observer failure |
-| `python3 loop/orders.py check <issue-body-file>` | exit 0 | exit 2: malformed field; do not publish |
 | Same Issue checker with unreadable body file | readable, valid file exits 0 | exit 4: read failure; do not publish |

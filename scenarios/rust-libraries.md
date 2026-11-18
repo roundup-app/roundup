@@ -27,7 +27,7 @@ These numbered checks identify current constraints; they are not proof of future
 5. `docs/perf.md`, headings `Perf` and `Perf work and evidence (R25–R27)`: workloads, same-host paired evidence and unchanged regression qualification. RSS is Daemon growth with ten login-shell Terminals, not the sum of external vendor processes.
 6. `crates/agents/src/worktree.rs`, `Git::reference`: an existing shell-backed read candidate for the git spike; mutation operations remain outside it.
 7. `crates/rpc/src/client/frame.rs`, `Parsed::deserialize`: the existing frame parser; `apps/desktop/src/state/noteQueue.ts`, `createNoteQueue`: the existing Message-event reducer and public queue observer.
-8. `AGENTS.md`, heading `The loop`: only `check.yml` is an allowed workflow surface in this run's implementation direction; other loop machinery remains frozen.
+8. `AGENTS.md`, Rules 9 and 10: reuse and test value.
 
 **Z3802a tracing covers RPC dispatch without a performance regression.** Given a Daemon serving parsed RPC calls, when a request or notification traverses dispatch, then its handler executes in one request span identifying its method, including the ping and Rail fast paths, ordinary routed methods and method-not-found replies. Planned test `z3802a_dispatch_emits_one_method_span` in the `rupd` unit-test module uses a scoped subscriber and tabled real dispatch calls; it asserts the captured span's method and lifetime through completion, without starting a process. Concurrent calls retain their own span identity across awaits (`z3802a_concurrent_dispatch_keeps_method_identity`). Captured fields exclude request/reply payloads and sentinel private input (`z3802a_spans_exclude_private_payloads`). Existing socket-envelope tests retain reply/notification behavior.
 

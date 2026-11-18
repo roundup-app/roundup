@@ -53,7 +53,7 @@ No `loop/`, `AGENTS.md` or workflow other than `check.yml` changes. No new scan 
 5. `tools/contracts/test_addition.py`, `Addition.test_c4_one_declaration_reaches_every_surface`; `tools/contracts/test_fresh.py`, `Freshness.test_c4_contracts_fresh_detects_drift`: existing C4 behavioral observers.
 6. `scenarios/contracts-specta.md`, heading C4; `tools/contracts/fresh.py`, functions `drift` and `main`: required addition/freshness acceptance and regeneration with retained drift evidence.
 7. `scenarios/clippy-selection.md`, heading Z4505; `scenarios/awareness.md`, heading E7: Clippy behavior and real injection observation whose acceptance remains after test retirement.
-8. `AGENTS.md`, Rules 2, 9 and 10 and The loop: callers, reuse, test value and frozen machinery.
+8. `AGENTS.md`, Rules 2, 9 and 10: callers, reuse and test value.
 
 ## Principles
 

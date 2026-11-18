@@ -233,6 +233,5 @@ new_repo
 expect_exit 2 'l97_outside_a_checkout_exits_2' loop/rules.sh scenario-ids
 expect pass 'l97_main_passes' bash -c "cd '$(cd "$(dirname "$script")/.." && pwd)' && loop/rules.sh scenario-ids"
 
-# L34 Issue queue behavior is exercised by loop/orders.test.py.
 
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }

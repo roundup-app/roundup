@@ -50,6 +50,5 @@ Implementation validation: `just ready`, changed test files and the named wake/n
 | --- | --- | --- |
 | `loop/rules.sh vocab` | exit 0 | command, exit code, offending name |
 | `loop/rules.sh scenario-ids` | exit 0 | command, exit code, offending heading |
-| `python3 loop/orders.py check <body-file>` | exit 0 before each Issue write | body file, exit code, invalid field |
 
 Policy: report each failed script separately with its actual exit code. Independent review checks that this specification retains the complete deletion direction, the narrow data exception, named behavioral observers and native Issue order. No library machinery is added by this specification; implementation reuses the installed migration and UI/test seams and supplies rule-9 evidence if it adds machinery.

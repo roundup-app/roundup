@@ -63,7 +63,7 @@ Checks on main (numbered references identify existing acceptance, not a claim it
 4. `scenarios/workstream-rewind.md`, **A35 the Door rewinds one or all children to its Checkpoint**: preserve Rewind with no Clear/Iteration dependency.
 5. `scenarios/agents.md`, **A33 the Daemon decides Kind `blocked` from an Agent's Todos**: blocked display and normal Message delivery remain independent.
 
-Specification acceptance (policy): A32/U350 define removal and named behavioral observers; the entry-path and retirement audits cover every Clear path; implementation is split into App #4653, RPC/Handoff #4654 and Iteration storage #4655, each checked with `python3 loop/orders.py check`, App first, natively blocked by this specification and then by their predecessor. This specification PR closes #4542 only; implementation Issues stay open. No library/parser/store/protocol or App seam is added by the specification.
+Specification acceptance (policy): A32/U350 define removal and named behavioral observers; the entry-path and retirement audits cover every Clear path; implementation is split into App #4653, RPC/Handoff #4654 and Iteration storage #4655, App first, natively blocked by this specification and then by their predecessor. This specification PR closes #4542 only; implementation Issues stay open. No library/parser/store/protocol or App seam is added by the specification.
 
 Specification validation (policy): report a failed command on #4542 with its exit code; no failed observer demonstrates acceptance.
 
@@ -71,5 +71,4 @@ Specification validation (policy): report a failed command on #4542 with its exi
 |---|---|---|
 | `loop/rules.sh vocab` | Public vocabulary violates rule 6 | 1 |
 | `loop/rules.sh scenario-ids` | A scenario heading breaks the id inventory | 1 |
-| `python3 loop/orders.py check <body-file>` | A dependent work order is malformed; do not file it | 1 |
 | `just ready` | A required lint, trailer or frozen-boundary check fails | 1 |

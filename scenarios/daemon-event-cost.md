@@ -45,6 +45,5 @@ On a prepared checkout (dependencies and compilation ready), the focused command
 | `cargo nextest run -p rupd --lib -E 'test(owner_told) \| test(auto)'` | exit 0, elapsed < 300 s, all new acceptance tests selected | command, exit code, failed test or missing selection; elapsed >= 300 s separately |
 | `loop/rules.sh vocab` | exit 0 | command, exit code, offending name |
 | `loop/rules.sh scenario-ids` | exit 0 | command, exit code, duplicate heading |
-| `python3 loop/orders.py check <issue-body-file>` | exit 0 before editing the Issue | command, exit code, invalid field |
 
 The shell command is `cargo nextest run -p rupd --lib -E 'test(owner_told) | test(auto)'` (the table escapes pipes for Markdown). This specification supplies acceptance only; implementation evidence and engineering progress belong on the Issue.

@@ -1,6 +1,6 @@
 # Loop QA
 
-Module: `loop/qa-sweep.sh`, `.github/workflows/qa.yml`. L52's cases are its tests in `loop/qa-sweep.test.sh`, which the `rules` job of `.github/workflows/loop.yml` runs; only the live schedule observes L66.
+Module: `loop/qa-sweep.sh`, `.github/workflows/qa.yml`. L52's cases are its tests in `loop/qa-sweep.test.sh`, which the `rules` job of `.github/workflows/rules.yml` runs; only the live schedule observes L66.
 
 **L52 sweep.** `qa-sweep.sh` drives `just harness` in `agent-browser` at 1280×400 and 1280×800 with each Drawer opened and closed, and writes `loop/out/qa/sweep-<UTC>.json`: `{head, started, complete, viewports, scenarios, findings}`, each finding `{id, text, at, scenario, test}`; `complete` is true only when the sweep reached its end, findings or not.
 

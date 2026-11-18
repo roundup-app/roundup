@@ -11,7 +11,7 @@ Scope: web test mounts and queries under `apps/desktop/`, the existing reporting
 3. File timing including hooks: `loop/web-durations.py`, module docstring and stdin parser; `justfile`, `web-durations`. Prefer Vitest's printed file duration, which includes file hooks, to its JSON assertion interval, which omits them.
 4. Existing shard assignment: `apps/desktop/src/testing/shardSequencer.ts`, `TimedSequencer`; `apps/desktop/src/testing/shardDurations.json`; `justfile`, `test-web-since`. A full observation uses an empty base, not a PR's affected selection.
 5. Assertion preservation and library reuse: `AGENTS.md`, Rules 9 and 10. The installed Ark UI and Testing Library capabilities are inspected before introducing machinery; existing test behavior remains acceptance.
-6. Retired with `loop/orders.py`: a Todo's blockers now hold it.
+6. Retired with the old loop's work queue: a Todo's blockers now hold it.
 
 ## Acceptance
 

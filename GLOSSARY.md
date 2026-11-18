@@ -312,21 +312,16 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Signifier | same | — |
 | Button kind | same | — |
 | Check | same | — |
-| Held-out screen | same | — |
 
-### The loop
+### Building roundup
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Work Issue | same | — |
 | Builder | same | — |
 | Design critic | same | — |
-| Screen | same | — |
 | Code PR | same | — |
 | Ready PR | same | — |
-| Parked PR (`park`, `Parked:`) | same | — |
 | Build file | same | — |
-| Loop machinery | same | — |
 | Capture | same | — |
 
 ### Todo history

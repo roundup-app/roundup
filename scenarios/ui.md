@@ -107,7 +107,6 @@ Specification acceptance (policy): this change records acceptance and observer r
 | Validation | Pass | One row per failure |
 |---|---|---|
 | `loop/rules.sh vocab`; `loop/rules.sh scenario-ids` | each exits 0 | command, exit code and offending name or heading |
-| `python3 loop/orders.py check <body-file>` before editing #4649 | exit 0 | command, exit code and each invalid field |
 | `just ready` | exit 0 | command, exit code and each failed check |
 | Changed-file related tests (implementation) | exit 0; all behavioral clauses above asserted | command, exit code and each failed test or missing assertion |
 | `just capture U4649` (implementation) | exit 0; rendered observer and Checks pass | command, exit code and each failed or missing observation, including setup failure |
@@ -163,7 +162,6 @@ Specification acceptance (policy): add acceptance only, keep the work Issue open
 | Validation | Pass | Failure record: one row per failure |
 |---|---|---|
 | `loop/rules.sh vocab`; `loop/rules.sh scenario-ids` | each exits 0 | command, exit code and each offending name/heading |
-| `python3 loop/orders.py check <body-file>` before editing the work Issue | exit 0 | command, exit code and each invalid field |
 | `just ready` | exit 0 | command, exit code and each failed check |
 | Changed-file related tests (implementation) | exit 0; each behavioral clause asserted | command, exit code and each failing test/missing assertion |
 | `just capture U4679` (implementation) | exit 0; rendered observer and Checks pass | command, exit code and each failed/missing observation, including setup failure |

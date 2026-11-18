@@ -23,8 +23,9 @@ description: Use when writing or fixing roundup code or tests - the rules for UI
 
 - Name each test after its scenario (`fn u83_…` proves U83). Land it red, then green (`tdd`).
 - A test stays only if it fails when the behaviour its scenario names breaks, and no other test already fails for that break.
-- Write none of these: a test with no assertion; one that checks only a test double; one that repeats another test's proof; one whose break the compiler, type check or a lint already fails; one that asserts only a value copied from the code it tests; one that starts a process, browser, daemon, PTY or real `claude` when a test that starts none fails for the same break; one over 5 s whose scenario names no real process or clock.
-- Editing a test file cuts such tests from it; name the test that still proves each cut clause.
+- Write none of these: a test with no assertion; one that checks only a test double; one that repeats another test's proof; one that rereads workflow, justfile or prompt text without pinning a token, permission or merge-gate boundary; one whose break the compiler, type check or a lint already fails; one that asserts only a value copied from the code it tests; one that starts a process, browser, daemon, PTY or real `claude` when a test that starts none fails for the same break; one over 5 s whose scenario names no real process or clock.
+- No coverage target exists.
+- Editing a test file cuts such tests from it; name the test that still proves each cut clause, or the scenario's retirement.
 - UI tests check behaviour only: what a key, click, drag, focus move or Message does, plus roles, call counts and contracts. Looks (position, size, gap, overlap, clipping, colour, exact copy) are the design critic's.
 - A test waits on the state it reads with a bounded failure, never on a fixed sleep. Fix a flaky wait; raise no timeout and add no retry.
 

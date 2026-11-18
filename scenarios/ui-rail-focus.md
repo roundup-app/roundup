@@ -60,4 +60,3 @@ Specification validation (policy):
 | Observer | Pass | Failure |
 | --- | --- | --- |
 | `loop/rules.sh vocab` | exit 0 | exit 1: each offending public name/path |
-| `python3 loop/orders.py check <issue-body-file>` | exit 0 | exit 1: malformed work-order field, reported before publishing |

@@ -52,7 +52,7 @@ Inspect the queue rows as well as the command's exit code: a successful queue re
 1. `loop/rules.sh`, `scenario_ids`: rejects duplicate scenario headings across the surviving files.
 2. `loop/rules.sh`, `laws`: validates law-to-observer mappings in surviving scenarios.
 3. `loop/rules.sh`, `vocab`: enforces public-name vocabulary; `AGENTS.md`, Rules, rule 6, remains unchanged.
-4. Retired with `loop/orders.py` and `.agents/data/work.md`: roundup Todos replaced the GitHub work queue.
+4. Retired with the old loop's GitHub work queue: roundup Todos replaced it.
 5. `scenarios/native-questions.md`, heading **Retirement inventory (policy; old names appear here to identify removal)**: existing canonical native-question retirement inventory.
 6. `scenarios/project-store.md`, N20; `scenarios/remove-time-timeline.md`, U4454a–d; `scenarios/ui-scrollbar-overflow.md`, U3530a–c: surviving policies for schema retirement, time removal and scrollbar replacement.
 7. `spikes/hooks-permission/REPORT.md`, heading **H1b macOS**: the six scripts support retained findings 24–32.

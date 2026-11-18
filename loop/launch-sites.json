@@ -644,11 +644,6 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rupd/tests/fixtures/store-migrations/generate.rs": {
-    "cleanup": "In-process Daemon drops before seeding; the caller owns the output folder; no built executable launch.",
-    "data": "Daemon::open receives the caller-given output path; no fallback data resolver.",
-    "kind": "in-process"
-  },
   "crates/rupd/tests/m2219_mcp_setting.rs": {
     "cleanup": "Serves within the test runtime on a TempDir socket; the TempDir is removed on drop.",
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
@@ -698,11 +693,6 @@
     "kind": "reference"
   },
   "crates/rupd/tests/support/dtc4_catch_up.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "crates/rupd/tests/support/schema_tests.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"

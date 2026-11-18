@@ -61,7 +61,6 @@ pnpm --dir apps/desktop exec vitest run src/rail/u520_tree_walk.test.ts src/rail
 | `loop/rules.sh vocab` | exit 0 | exit 1: each offending name/path |
 | `loop/rules.sh scenario-ids` | exit 0 | exit 1: each offending scenario id |
 | `loop/rules.sh scenario-ids`, missing scenarios directory | exit 0 with valid headings | exit 2: observer failure |
-| `python3 loop/orders.py check <issue-body-file>` | exit 0 | exit 2: malformed work order; do not publish |
 | Same Issue checker, unreadable body | readable valid body, exit 0 | exit 4: observer failure; do not publish |
 
 Policy: the specification PR references #5645 without closing it. The canonical Issue retains progress and engineering questions; it gets Key `issue-5645`, Priority `50`, this Specification link, Scenarios `U5645a, U5645b, U5645c`, and Mode `implement`. Implementation becomes eligible only after these headings merge to main. No Work table or implementation evidence is added by this spec.

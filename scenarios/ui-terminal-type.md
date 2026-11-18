@@ -130,7 +130,6 @@ Specification acceptance (policy): this scenario defines the full audit, guard, 
 | Validation | Pass | One row per failure |
 |---|---|---|
 | `loop/rules.sh vocab`; `loop/rules.sh scenario-ids` | each exits 0 | command, exit code and offending name/heading |
-| `python3 loop/orders.py check <body-file>` before filing/editing an Issue | exit 0 | command, exit code and each invalid field |
 | `just ready` and changed-file related tests (implementation includes the rendered guard) | each exits 0 | command, exit code and each failed check/test |
 | `just capture U4590` (implementation) | exit 0 with every required observation and no newly failing Check | command, exit code and each missing/failed observation or Check, including setup failure |
 | Real-Daemon pre-draw observer (implementation) | exit 0 with startup dimensions and output order recorded | exact command, exit code and each size/order/paint failure or observer error |
@@ -180,7 +179,6 @@ Specification acceptance (policy): U4592 fixes tracking, defines diagnosis and c
 | Validation | Pass | One row per failure |
 |---|---|---|
 | `loop/rules.sh vocab`; `loop/rules.sh scenario-ids` | each exits 0 | command, exit code and offending name/heading |
-| `python3 loop/orders.py check <body-file>` before filing/editing an Issue | exit 0 | command, exit code and each invalid field |
 | `just ready`; changed-file related tests (implementation) | each exits 0 | command, exit code and each failed check/test |
 | `just capture U4592` (implementation) | exit 0, paired observations present, critic accepts and no new failed Check | command, exit code and each failed/missing observation or Check |
 | `just perf` (required for a renderer change) | exit 0, all required comparisons measured | command, exit code and each failed metric, missing comparison or setup error |

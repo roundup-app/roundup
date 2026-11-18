@@ -83,7 +83,6 @@ Policy — rendered observer: implementation uses isolated headless Chromium wit
 | Validation | Pass | One row per failure |
 |---|---|---|
 | `loop/rules.sh vocab`; `loop/rules.sh scenario-ids` | each exits 0 | command, exit code and offending name/heading |
-| `python3 loop/orders.py check <body-file>` before editing the Issue | exit 0 | command, exit code and invalid field |
 | `just ready`; tests reached by changed implementation files | each exits 0 | command, exit code and failed check/test |
 | `just capture U4687a U4687b U4687c U4687d` (implementation) | exit 0 with all observations and no newly failing Check | command, exit code and failed/missing observation or Check |
 

@@ -6,7 +6,7 @@ Acceptance for #5939. Ids: G5939a, G5939b. Specification only; implementation ch
 
 1. `AGENTS.md`, **Conventions**: every authored commit carries an `Author-Agent:` trailer in its final trailer block.
 2. `AGENTS.md`, **Rules**, rule 10: a test that asserts only a copied configuration value earns no place.
-3. Retired with `loop/builder.py`: hum now starts Claude Code for loop work.
+3. Retired with the old loop's launcher: hum now starts Claude Code for loop work.
 
 ## Acceptance
 

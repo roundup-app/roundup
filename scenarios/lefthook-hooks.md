@@ -1,6 +1,6 @@
 # Pre-commit hooks by lefthook
 
-Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5496a, T6011a, T6011b, T6011c, T7331a, T7331b, T7331c, T7331d, T7331e, T7357a. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
+Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5496a, T6011a, T6011c, T7331a, T7331b, T7331c, T7331d, T7331e, T7357a. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
 
 **T3210 a plain install turns the pre-commit hook on.** Given a clean clone, when `pnpm install` runs, then:
 
@@ -30,7 +30,7 @@ Policy — the observer creates an isolated temporary Git repository with this c
 
 **T5456b CI rejects spacing violations without changing files.** Given the same otherwise lint-clean source fixture with the blank line missing, when the non-fixing lint entry point used by `lint-web` runs on it, then it exits 1, reports `anti-slop/require-readable-spacing`, and leaves the file bytes unchanged. Running that entry point on the fixed fixture exits 0. Test: planned `t5456b_ci_rejects_unfixed_spacing_without_writing` in `tools/oxlint/pre-commit.test.mjs`. This observes the CI lint seam directly; no hook bypass or push is needed to construct the unfixed fixture.
 
-Policy — `justfile`'s `lint-web` keeps invoking non-fixing lint. No rule is disabled or weakened, no CI lint job writes or pushes fixes (only `fix.yml`'s `lint-push` job pushes what `just fix` changed, T6011a and L82), and no instructions recommend bypassing hooks. No workflow or frozen loop machinery changes are needed.
+Policy — `justfile`'s `lint-web` keeps invoking non-fixing lint. No rule is disabled or weakened, no CI lint job writes or pushes fixes, and no instructions recommend bypassing hooks. No workflow changes are needed.
 
 **T5456c a small commit adds less than five seconds.** Given installed dependencies on a Linux runner and three staged, otherwise lint-clean web source files of at most 100 lines each, one with the T5456a spacing violation, when an ordinary commit runs the installed hook, then the added hook time is strictly below 5000 ms. Test: planned `t5456c_small_commit_hook_stays_under_five_seconds` in `tools/oxlint/pre-commit.test.mjs`.
 
@@ -69,17 +69,15 @@ Implementation scope: `lefthook.yml`, `package.json`, regenerated `pnpm-lock.yam
 
 ## Safe lint fixes everywhere
 
-Source: #6011. Build tooling only: no product path or Principles gate changes. A lint rule with a safe fixer fails no commit a Builder, a fix run or the user makes, and `loop/lint-fix.py` (L82) pushes the same fixes to a PR or `main` that `pre` failed on. CI's non-fixing lints stay the judge (T5456b).
+Source: #6011. Build tooling only: no product path or Principles gate changes. A lint rule with a safe fixer fails no commit an agent or the user makes. CI's non-fixing lints stay the judge (T5456b).
 
 **T6011a `just fix` applies the safe fixes and changes nothing on a second run.** Given a tree whose only violations are T5456a's missing blank line in a web file and unformatted Rust, when `just fix` runs, then the files hold the fixes, the non-fixing lint entry point and `cargo fmt --check` exit 0, and a second `just fix` leaves every byte as it was. Test: `t6011a_fix_applies_the_safe_fixes_and_a_second_run_changes_nothing` in `tools/oxlint/pre-commit.test.mjs`.
 
 Policy — `just fix` runs the lints' own fix modes on the whole tree: Oxlint's safe `--fix` with the repository configuration, and `cargo fmt`. No suggestion or dangerous fix and no rule change. Stylelint enables no rule with a fixer, and ruff's exceptions live in the shrink-only `debt.json`, so neither joins.
 
-**T6011b a Builder's commit gets the hook's fixes, and its merge of `main` commits as git would.** Given `loop/author.sh` set a Builder run's hooks in a checkout with installed dependencies, when the Builder commits a staged web file with T5456a's violation, then `git show HEAD:<file>` holds the fix and the commit keeps its `Author-Agent` trailer. When it finishes a merge of `main` with `git commit`, the merge commits even though `main` brought a file over the size cap. Tests: `t6011b_builder_commit_contains_the_spacing_fix` and `t6011b_builder_merge_commits_main_as_it_is` in `tools/oxlint/pre-commit.test.mjs`.
-
 **T6011c the lint passes in a checkout reached through a symlink.** Given a checkout whose path passes through a symlink, as macOS's `/var` does to `/private/var`, when the `anti-slop` `web-assertions` and `web-timeout` rules run, then they place each file by its real path, and `pnpm lint` on a clean tree exits 0. Test: the baseline fixtures in `tools/oxlint/anti-slop/web-assertions/assertions.test.mjs` and `tools/oxlint/anti-slop/web-timeout/timeout.test.mjs` sit behind a symlink.
 
-Observer: `node --test tools/oxlint/pre-commit.test.mjs`, `python3 loop/lint-fix.test.py` and `just lint-web` on a Mac pass; the first `pre` failure on a fixable lint after merge gets a lint-fix commit and no fix run.
+Observer: `node --test tools/oxlint/pre-commit.test.mjs` and `just lint-web` on a Mac pass.
 
 
 ## The hook fails only on lines a commit adds
@@ -113,7 +111,7 @@ Policy — the hook judges Oxlint's errors as T5456d judges them for a commit: o
 
 Policy — the hook runs neither `lint-web` as a whole nor any Rust lint, and no stylelint, cycle or test run; those stay in CI. No workflow changes and no money is spent.
 
-**T7331e the pre-commit hook is as it was.** Given the added `pre-push` hook, when T5456a to T5456d, T5496a and T6011b run, then they pass unchanged: `pre-commit` keeps `lint-web` and `file-stays-under-a-size-cap` and still runs Oxlint's safe `--fix`. Test: those scenarios' tests in `tools/oxlint/pre-commit.test.mjs`, run unchanged.
+**T7331e the pre-commit hook is as it was.** Given the added `pre-push` hook, when T5456a to T5456d and T5496a run, then they pass unchanged: `pre-commit` keeps `lint-web` and `file-stays-under-a-size-cap` and still runs Oxlint's safe `--fix`. Test: those scenarios' tests in `tools/oxlint/pre-commit.test.mjs`, run unchanged.
 
 Checks already on main:
 

@@ -56,7 +56,6 @@ Policy: implementation may touch Terminal, Bubbles' gesture routing, App event h
 | Observer | Pass | Failure record (one row per failure) |
 | --- | --- | --- |
 | `loop/rules.sh vocab` and `loop/rules.sh scenario-ids` | Each exits 0 | Command, exit code and offending name/id; observer errors are failures |
-| `python3 loop/orders.py check <issue-body-file>` | Exit 0 before updating #3529 | Exit code and invalid field |
 | `just lint-web` and `just lint-rust` | Each exits 0 | Command, exit code and diagnostic |
 | Implementation: related Vitest tests for changed web files and affected Rust tests if any | Exit 0; each then-clause above has its named assertion or rendered/policy observer | Command, exit code and failed clause; missing/skipped observer is incomplete |
 
@@ -90,7 +89,6 @@ Policy: the implementation moves Checks 2, 5 and 6 in `docs/design-system.md`, h
 | --- | --- | --- |
 | `loop/rules.sh vocab` | Exit 0 | Command, exit code, offending name |
 | `loop/rules.sh scenario-ids` | Exit 0 | Command, exit code, offending id |
-| `python3 loop/orders.py check <issue-body-file>` before updating #5515 | Exit 0 | Command, exit code, invalid field |
 | Implementation: `just ready`, then the added/changed test files and each named regression test file | Each exits 0 | One row per failing command/test with exit code, clause and diagnostic; missing/skipped observer is incomplete |
 | Implementation: rendered observer and U5515e native observation | Checks preserve main's passing results; each native step passes | One row per failed Check/native step, commit, surface and observed result; no script exit code for a manual observation |
 
@@ -129,7 +127,6 @@ Existing regression checks on main:
 | --- | --- | --- |
 | `loop/rules.sh vocab` | Exit 0 | Command, exit code, offending name |
 | `loop/rules.sh scenario-ids` | Exit 0 | Command, exit code, offending id |
-| `python3 loop/orders.py check <issue-body-file>` before updating #5549 | Exit 0 | Command, exit code, invalid field |
 | Implementation: `just ready`, changed test files and named failing tests | Each exits 0 | Command/test, exit code, clause and diagnostic; skipped/missing observer is incomplete |
 | Implementation: rendered observer and U5549d | Main's passing Checks preserved; native steps pass | Commit, placement, failed Check or native step and observed result; no script exit code for manual steps |
 
