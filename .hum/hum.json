@@ -71,7 +71,7 @@
 		},
 		{
 			"glob": "docs/**",
-			"level": "low"
+			"level": "medium"
 		},
 		{
 			"glob": "loop/**",
