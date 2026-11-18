@@ -307,6 +307,7 @@ impl Intake {
                         attempt: Some(attempt.to_owned()),
                         revision: None,
                         written: None,
+                        retry_enter: true,
                     }),
                 )
                 .await
@@ -541,6 +542,7 @@ impl Intake {
                                 attempt: None,
                                 revision: None,
                                 written: Some(Arc::new(move |_| intake.emit(&ask_id).map(|_| ()))),
+                                retry_enter: false,
                             }),
                         )
                         .await

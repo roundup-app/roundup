@@ -232,6 +232,7 @@ impl DoorHarness {
             )
             .unwrap()
             .with_steer_bound(bound)
+            .with_receipt_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {
                     Err(rpc::RpcError::not_found("Door ended before write"))
@@ -829,4 +830,49 @@ async fn a41_a_failed_write_or_ended_door_fails_without_sent() {
         assert!(f.bytes.try_recv().is_err());
         f.stop().await;
     }
+}
+
+#[tokio::test]
+async fn a7498a_an_ask_part_without_a_receipt_still_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open_with_program(dir.path(), ASK_BOUND, Some(readiness::PROGRAM));
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask = f.h.send("write the notes").await;
+    f.h.calls
+        .recv()
+        .await
+        .unwrap()
+        .answer
+        .send(vec![AskPart {
+            project: None,
+            text: "write the notes".into(),
+            destination: Destination::New {
+                title: "Notes".into(),
+            },
+        }])
+        .unwrap();
+    let id = loop {
+        let event = tokio::time::timeout(Duration::from_secs(5), events.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        if matches!(event.data, contracts::EventData::RailChanged) {
+            let tree =
+                f.h.agents
+                    .call(&f.h.ctx, "rail.tree", Value::Null)
+                    .await
+                    .unwrap();
+            if tree[0]["terminal_id"].is_string() {
+                break tree[0]["id"].as_str().unwrap().to_owned();
+            }
+        }
+    };
+    readiness::star(&f, dir.path(), &id).await;
+    f.signal(&id, "SessionStart").await;
+    assert_eq!(f.read().await, paste("write the notes"));
+    // No receipt: one Enter alone follows, then nothing, and the part ends failed as before.
+    assert_eq!(f.read_write().await, b"\r");
+    f.changed(&mut events, &ask["id"], "failed").await;
+    assert!(f.bytes.try_recv().is_err());
+    f.stop().await;
 }

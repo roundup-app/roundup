@@ -87,6 +87,45 @@ impl Shared {
     }
 }
 
+impl Shared {
+    /// A7498a: write one `\r` alone to `id`'s Terminal, only while its Kind is still idle and no
+    /// Signal has arrived since its prompt was written; a working Agent may sit at a permission
+    /// prompt that an Enter would answer (H16). A failed write is logged and the wait runs on.
+    async fn press_enter_once(&self, id: &str, terminal_id: &str) {
+        let allowed = match self.runs().slot(id) {
+            Some(Slot::Running(run)) => {
+                run.terminal_id() == terminal_id
+                    && !run.ended()
+                    && !run.closing()
+                    && run
+                        .view()
+                        .status
+                        .as_ref()
+                        .is_some_and(|status| status.kind == Kind::Idle)
+                    && run
+                        .steer()
+                        .is_some_and(|steer| steer.signals == run.signals())
+            }
+            _ => false,
+        };
+        if !allowed {
+            return;
+        }
+        let written = self
+            .terminals
+            .write_with(terminal_id, |writer| {
+                writer
+                    .write_all(b"\r")
+                    .and_then(|()| writer.flush())
+                    .map_err(|err| RpcError::unknown_outcome(format!("Enter not written: {err}")))
+            })
+            .await;
+        if let Err(err) = written {
+            eprintln!("agents: could not write the Enter to terminal {terminal_id}: {err}");
+        }
+    }
+}
+
 impl Agents {
     /// B6: wait through H19's gate, physical input and acknowledgement for this Attempt.
     /// Every completion accounts for its physical effect; none authorizes a retry.
@@ -338,9 +377,14 @@ impl Shared {
                         }));
                     }
                     let (steer, submitted) = oneshot::channel();
-                    let slash_written = (verbatim && first.is_none() && text.starts_with('/'))
-                        .then(|| Arc::new(Mutex::new(false)));
+                    // A7498a: a Mode's first prompt is typed as a Door's is, so a slash command
+                    // counts A2698a's acceptances too.
+                    let slash_written = (verbatim
+                        && (first.is_none() || record.as_ref().is_some_and(|r| r.retry_enter))
+                        && text.starts_with('/'))
+                    .then(|| Arc::new(Mutex::new(false)));
                     run.wait_for_steer(SteerWait {
+                        signals: run.signals(),
                         submitted: steer,
                         slash_written: slash_written.clone(),
                     });
@@ -380,6 +424,7 @@ impl Shared {
         } else {
             claude_code::steer_bytes(text)
         };
+        let retry_enter = record.as_ref().is_some_and(|r| r.retry_enter);
         let before = self.steer.before_steer.clone();
         let agent = id.to_owned();
         // B6: await the physical effect before starting the submit timeout. An enqueue
@@ -440,7 +485,20 @@ impl Shared {
                     // The bytes are already in the Terminal: a failed announcement is uncertain.
                     written(id).map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
                 }
-                match tokio::time::timeout(self.steer_bound, submitted).await {
+                let mut submitted = submitted;
+                // A7498a: a first prompt waits `receipt_bound` for its receipt, presses Enter once,
+                // then waits `receipt_bound` again; any other Steer waits `steer_bound` only.
+                let first_wait = if retry_enter {
+                    self.receipt_bound
+                } else {
+                    self.steer_bound
+                };
+                let mut landed = tokio::time::timeout(first_wait, &mut submitted).await;
+                if retry_enter && landed.is_err() {
+                    self.press_enter_once(id, &terminal_id).await;
+                    landed = tokio::time::timeout(self.receipt_bound, &mut submitted).await;
+                }
+                match landed {
                     Ok(Ok(())) => {
                         if let Some(delivery) = delivery {
                             self.rail()

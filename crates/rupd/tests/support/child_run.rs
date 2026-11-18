@@ -135,6 +135,17 @@ while True:
     if data != b'\x00': pending += data
     if data == b'\r' and (os.path.isfile('order-submit')):
         text = pending.decode().replace('\x1b[200~','').replace('\x1b[201~','').removeprefix('Follow this instruction: ').strip()
+        # Claude Code submits nothing when Enter reaches an empty input line.
+        if not text:
+            pending = b''
+            print('EMPTY-ENTER', flush=True)
+            continue
+        # A7498a: with `drop-first-enter`, the first Enter is dropped and the text stays held.
+        if os.path.isfile('drop-first-enter'):
+            os.remove('drop-first-enter')
+            pending = pending[:-1]
+            print('ENTER-DROPPED', flush=True)
+            continue
         pending = b''
         deadline = time.monotonic() + 10
         while 'occupying steer' in text and os.path.isfile('background-gate'):
