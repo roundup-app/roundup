@@ -1,10 +1,8 @@
 import { captureFocus, focusTarget } from "../keys/focus";
-import { flush, onCleanup, Show, createSignal, type Accessor } from "solid-js";
-import type { JSX } from "@solidjs/web";
+import { flush, onCleanup, createSignal, type Accessor } from "solid-js";
 import { createMessageToast } from "../ink/messageToast";
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
-import { BusyButton } from "../ui/BusyButton";
 import { askOnce } from "../settings/warnings";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { ConnectedProject } from "../state/connectedProject";
