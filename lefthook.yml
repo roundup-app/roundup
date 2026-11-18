@@ -7,6 +7,12 @@ pre-commit:
     file-stays-under-a-size-cap:
       priority: 2
       run: .claude/sound/placement/file-stays-under-a-size-cap.gate --worktree
+    rename-leaves-no-stale-name:
+      priority: 2
+      run: .claude/sound/naming/rename-leaves-no-stale-name.gate
+    no-role-named-modules:
+      priority: 2
+      run: .claude/sound/naming/no-role-named-modules.gate
 
 pre-push:
   commands:
