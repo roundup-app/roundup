@@ -527,8 +527,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     };
 
     if (menu.isRunning(node, exit)) actions.stop = () => menu.requestStop(node, exit);
-    else if (isMode(node)) actions.play = () => menu.playRow(node.id);
-    else if (!actions.restart && isDoor(node) && node.can_resume) actions.play = () => menu.requestRestart(node, exit);
+    else if (isMode(node) || (!actions.restart && isDoor(node) && node.can_resume)) actions.play = () => (isMode(node) ? menu.playRow(node.id) : menu.requestRestart(node, exit));
 
     return actions;
   };
