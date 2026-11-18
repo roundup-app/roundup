@@ -1,5 +1,6 @@
 import type { AppSeam } from "../app/seam";
 import type { ExportImage } from "@contracts/pad/ExportImage";
+import { copy } from "./copy";
 import { exportDrawing } from "./drawingBlock";
 import { renderMermaid } from "./mermaidBlock";
 import { currentRenderers } from "./visualKinds";
@@ -61,7 +62,7 @@ export const exportWithImages = async (stored: string, folder: string): Promise<
     const svg = drawn.value;
     const number = ++counts[block.kind];
     const file = `${block.kind}-${number}.svg`;
-    const label = `${block.kind === "diagram" ? "Diagram" : "Drawing"} ${number}`;
+    const label = `${copy.exportImageLabel[block.kind]} ${number}`;
 
     images.push({ name: file, svg });
     text += `${stored.slice(at, block.start)}![${label}](${folder}/${file})`;
