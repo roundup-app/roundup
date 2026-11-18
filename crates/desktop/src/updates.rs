@@ -44,26 +44,59 @@ pub(crate) fn watch<R: Runtime>(app: &AppHandle<R>, feed: bool, core_feed: Optio
     if !feed && core_feed.is_none() {
         return;
     }
+    app.manage(Feeds {
+        feed,
+        core: core_feed,
+    });
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let mut every = tokio::time::interval(EVERY);
         loop {
             every.tick().await;
-            tokio::join!(
-                async {
-                    if feed && let Err(why) = updater::look(&app).await {
-                        crate::diagnostics::report("read the update feed", &why.to_string());
-                    }
-                },
-                async {
-                    if let Some(url) = &core_feed {
-                        look_core(&app, url).await;
-                    }
-                },
-            );
-            tell(&app).await;
+            if let Err(why) = look(&app).await {
+                crate::diagnostics::report("read the update feeds", &why);
+            }
         }
     });
+}
+
+/// What `watch` reads, kept so a request to look now reads the same.
+struct Feeds {
+    feed: bool,
+    core: Option<String>,
+}
+
+/// U7208g: reads both feeds at once, as the hourly look does, then sends the facts. Fails naming
+/// each feed that could not be read; the facts stay as they were.
+pub(crate) async fn look<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let Some(feeds) = app.try_state::<Feeds>() else {
+        return Ok(());
+    };
+    let (own, core) = tokio::join!(
+        async {
+            if feeds.feed {
+                updater::look(app)
+                    .await
+                    .map(drop)
+                    .map_err(|why| why.to_string())
+            } else {
+                Ok(())
+            }
+        },
+        async {
+            match &feeds.core {
+                Some(url) => look_core(app, url).await,
+                None => Ok(()),
+            }
+        },
+    );
+    tell(app).await;
+    let failed: Vec<String> = [own, core].into_iter().filter_map(Result::err).collect();
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(failed.join("; "))
+    }
 }
 
 /// Sends `updates-changed` with the facts as they stand.
@@ -73,13 +106,10 @@ pub(crate) async fn tell<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-async fn look_core<R: Runtime>(app: &AppHandle<R>, url: &str) {
-    match core_update::newest(url).await {
-        Ok(version) => *app.state::<CoreNewest>().0.lock().unpoisoned() = Some(version),
-        Err(why) => {
-            crate::diagnostics::report("read the herdr-core release feed", &why);
-        }
-    }
+async fn look_core<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
+    let version = core_update::newest(url).await?;
+    *app.state::<CoreNewest>().0.lock().unpoisoned() = Some(version);
+    Ok(())
 }
 
 /// What the last look found. herdr-core's own version is read again each time, so one just

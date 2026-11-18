@@ -39,7 +39,7 @@ const said = (program: string, version: string) =>
   `${copy.updateName(program, version)} ${copy.updateReady}`;
 
 /** One launch: the facts `app` holds raise Toasts; `shown` collects each time a card shows Settings on Updates. */
-const launch = (app = createFakeApp()) => {
+const launch = (app = createFakeApp(), got: (updates: ReturnType<typeof createUpdates>) => void = () => {}) => {
   const notified: Candidate[] = [];
   const shown: string[] = [];
   const sounds: number[] = [];
@@ -51,6 +51,8 @@ const launch = (app = createFakeApp()) => {
     );
 
     const updates = createUpdates(app);
+
+    got(updates);
 
     onCleanup(updates.onShow(() => shown.push("updates")));
     watchUpdates(updates, (candidate) => {
@@ -122,4 +124,22 @@ it("u7208e_a_told_version_stays_told_across_looks_and_launches", async () => {
   await waitFor(() =>
     expect(second.names()).toEqual([said(sharedCopy.herdrCore, "0.1.23")]),
   );
+});
+
+it("u7208g_a_version_found_by_the_button_is_told_once", async () => {
+  const app = createFakeApp();
+  let updates!: ReturnType<typeof createUpdates>;
+
+  app.updateFacts = NONE;
+  app.updateCheckFacts = BOTH;
+
+  const { notified } = launch(app, (found) => { updates = found; });
+
+  await Promise.resolve();
+  await updates.check();
+  await waitFor(() => expect(notified).toHaveLength(2));
+
+  await updates.check();
+  app.emitUpdates(BOTH);
+  expect(notified).toHaveLength(2);
 });
