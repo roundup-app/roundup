@@ -63,7 +63,7 @@ review evidence, not a second list a future method addition must update.
 Checks 1–4 retain their independent behavioral proofs. Budget values,
 measurements, regression thresholds, wire replies, permissions and Message laws
 M1–M10 do not change (policy). `proofs/messages` and `docs/messages.md` remain in
-agreement. Follow the Contract recipe for metadata interfaces and all callers;
+agreement. Follow the Contract change rule for metadata interfaces and all callers;
 regenerate `contracts/generated/`, never hand-edit it. RPC error codes are a
 separate contract: Check 5 stays, including refusal/unknown classification and
 code-to-copy coverage; adding a method using existing codes must need no App edit

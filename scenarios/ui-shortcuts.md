@@ -2,7 +2,7 @@
 
 Policy: U3787b (`scenarios/ui-mac-expectations.md`) adds menu-bar discoverability without widening App key ownership. U3787a owns ⌘Z and ⇧⌘Z for the focused region’s undo/redo outside editors and Terminals; their own undo/redo remains untouched. Empty histories do not fall through to another region; the Edit menu names available actions and Help lists both chords.
 
-The keyboard layer serves the Enter and Intervene stages of `.agents/data/journey.md`: opening Help must not change the user's selected Agent or place in the centre. This specification defines implementation acceptance; it claims no shipped registry.
+The keyboard layer serves the Enter and Intervene stages of `docs/journey.md`: opening Help must not change the user's selected Agent or place in the centre. This specification defines implementation acceptance; it claims no shipped registry.
 
 Scope (policy): `apps/desktop/src/keys/`, `apps/desktop/src/app/`, `apps/desktop/src/App.tsx` and only Help's rules in `apps/desktop/src/styles.css`. Dependency: #1629 supplies `ui/Dialog` and is completed. Its implementation did not install a shortcut library; the registry implementation adds the selected dependency and regenerated lockfile. Other directories' listeners remain their UI lanes' responsibility. No RPC, App seam command or domain model change is required.
 
@@ -48,7 +48,7 @@ Implementation records command results on its Issue, one row per failing command
 
 ## The ⌘K leader (U2238 to U2241)
 
-Direction: Issue #2335, extended by the Ask bar, U2742c/d and U4692 below. roundup keeps U2241’s App-scope chords, including U4692’s `⌃⌘J`, plus the scoped ⌘B switch; every other key reaches the focused Terminal. Bar: Ghostty's default keybinds, Claude Code's keybinding list and Apple's standard Mac shortcuts; ⌘N and ⌘T are the new window and new tab of Mac terminals, so they take nothing from a Terminal. Terms: Agent, Terminal, Bubble, Shelf, Project, Rail (`GLOSSARY.md`). The leader serves the Intervene stage of `.agents/data/journey.md`: the user moves between Agents without roundup taking keys from the Agent's own Terminal. This specification defines implementation acceptance; it claims no shipped leader. The implementation Issue is blocked by this one.
+Direction: Issue #2335, extended by the Ask bar, U2742c/d and U4692 below. roundup keeps U2241’s App-scope chords, including U4692’s `⌃⌘J`, plus the scoped ⌘B switch; every other key reaches the focused Terminal. Bar: Ghostty's default keybinds, Claude Code's keybinding list and Apple's standard Mac shortcuts; ⌘N and ⌘T are the new window and new tab of Mac terminals, so they take nothing from a Terminal. Terms: Agent, Terminal, Bubble, Shelf, Project, Rail (`GLOSSARY.md`). The leader serves the Intervene stage of `docs/journey.md`: the user moves between Agents without roundup taking keys from the Agent's own Terminal. This specification defines implementation acceptance; it claims no shipped leader. The implementation Issue is blocked by this one.
 
 Scope (policy): the same directories as U479, plus `apps/desktop/src/copy.ts` and only the leader panel's rules in `apps/desktop/src/styles.css`. No RPC, App seam command or domain model change is required. The leader builds on U479's registry and U480's table: `keys/chords.ts` holds the leader and its keys.
 

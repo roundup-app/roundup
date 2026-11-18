@@ -1,6 +1,6 @@
 # UI: capture a thought from the keyboard (U3713 to U3716, U3737 to U3740)
 
-Specification for #2898. Owner's goal: seamless, quick thought capturing. Journey stage: Enter (`.agents/data/journey.md`). Implementation acceptance, not shipped behaviour.
+Specification for #2898. Owner's goal: seamless, quick thought capturing. Journey stage: Enter (`docs/journey.md`). Implementation acceptance, not shipped behaviour.
 
 Scope (policy): `apps/desktop/src/keys/` (`chords.ts`, Help, hints), `apps/desktop/src/todos/` for the field, `apps/desktop/src/copy.ts`, one mount line in `App.tsx`. No RPC, App seam command, Token or GLOSSARY term: it calls `todo.create {title}` (T1) with no owner, which T16 shows as `Unassigned`. Reuse (rule 9): the field is a `ui/` primitive wrapping Ark UI; the key is a `LEADER` row read by Help, the leader panel and the hint line (U2240, U2241), never a parallel list.
 
@@ -16,7 +16,7 @@ Look (policy): the field's rendered state meets D2, D5 and D6 (`docs/design-syst
 
 # UI: capture with one chord (U3737 to U3740, U3746)
 
-Specification for #3191. Owner's goal: add a Todo with one quick shortcut, from anywhere. Extends U3713 to U3716; they hold. Journey stage: Enter (`.agents/data/journey.md`). Implementation acceptance, not shipped behaviour.
+Specification for #3191. Owner's goal: add a Todo with one quick shortcut, from anywhere. Extends U3713 to U3716; they hold. Journey stage: Enter (`docs/journey.md`). Implementation acceptance, not shipped behaviour.
 
 Scope (policy): `apps/desktop/src/keys/` (`chords.ts`, Help, hints), the capture field of `apps/desktop/src/todos/`, `apps/desktop/src/copy.ts`. No RPC, App seam command, Token or GLOSSARY term. Reuse (rule 9): the chord is one `CHORDS` row read by Help and the hint line, never a parallel list; the field stays U3713's `ui/` primitive. Not an OS-wide shortcut: it works only while roundup is focused.
 

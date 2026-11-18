@@ -32,7 +32,7 @@ Data for the QA sweep and the Design critic.
 | `failNext(-32003, "name already taken", "rail.rename")` | the next `rail.rename` call rejects; the App's own polls never take it |
 | `app.exitDaemon({code: 1})` | `daemon-exited`; `app.calls` lists every call |
 
-`window.__checks()` (U137) runs D1 to D14 on the screen. `agent-browser`: one session name per agent, `set viewport 1512 950` (the only viewport, `.agents/data/journey.md`), single key events via `eval` (after `press Enter` a key may repeat; count keydowns first).
+`window.__checks()` (U137) runs D1 to D14 on the screen. `agent-browser`: one session name per agent, `set viewport 1512 950` (the only viewport, `docs/journey.md`), single key events via `eval` (after `press Enter` a key may repeat; count keydowns first).
 
 ## Held-out screens
 

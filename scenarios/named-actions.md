@@ -2,7 +2,7 @@
 
 Module: `apps/desktop` (`keys/chords.ts`, `keys/registry.ts`, the menu in `App.tsx`, the Switcher), `crates/rupd` with `crates/rpc`, `crates/contracts` and the App's relay handler, and `crates/rup` (`src/cli.rs`). Ids: NA1–NA13.
 
-Specification for #5235. Implementation follows in order: #5236 (NA1–NA5, the App), #5237 (NA6–NA10, the Daemon, Contract recipe in `.agents/builder.md`), #5238 (NA11–NA13, `rup`). A spec merge claims no behavioral pass; every test named here is planned.
+Specification for #5235. Implementation follows in order: #5236 (NA1–NA5, the App), #5237 (NA6–NA10, the Daemon, Contract change rule in `.claude/skills/change-rules/SKILL.md`), #5238 (NA11–NA13, `rup`). A spec merge claims no behavioral pass; every test named here is planned.
 
 Outside evidence (#5235): in Rex, Superlogical's Mac terminal multiplexer, each action has a name and `key=value` arguments, the palette, keybindings and CLI run the same actions, `rex actions` lists them, and `rex do <name> key=value` runs one and fails on an unknown argument.
 
@@ -53,7 +53,7 @@ Regression observers, unchanged and passing: `u3787b_menu_covers_bound_commands`
 
 ## Daemon (#5237)
 
-Module: `crates/rupd`, with `crates/rpc` and `crates/contracts`; the Contract recipe applies, so the methods below, the App's answering handler and the new names in `GLOSSARY.md` change with every caller in one PR, and `contracts/generated/` is regenerated. Observer for NA6–NA9: `crates/rupd` tests over a real socket with a fake App connection that answers as the real handler's contract says; NA10 runs the App's handler in Vitest. No `claude`, no display.
+Module: `crates/rupd`, with `crates/rpc` and `crates/contracts`; the Contract change rule applies, so the methods below, the App's answering handler and the new names in `GLOSSARY.md` change with every caller in one PR, and `contracts/generated/` is regenerated. Observer for NA6–NA9: `crates/rupd` tests over a real socket with a fake App connection that answers as the real handler's contract says; NA10 runs the App's handler in Vitest. No `claude`, no display.
 
 Policy: the Daemon holds no action list. The App registers itself as the one answerer (`action.serve`); `action.list` and `action.run` relay to it live and return its answer, so the list is always the App's own (NA5). A second registration replaces the first; a request pending at the replaced one ends as NA9 says. Closing the App's connection ends its registration.
 

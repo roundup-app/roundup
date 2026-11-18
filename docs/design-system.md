@@ -280,7 +280,7 @@ All App-authored text comes from `apps/desktop/src/<surface>/copy.ts`, where the
 
 ## Held-out screens
 
-A check is public; the screens it runs on are not all the Builder's. The critic also runs the held-out screens in `.agents/data/harness.md`, so a PR cannot tune one screen to pass.
+A check is public; the screens it runs on are not all the Builder's. The critic also runs the held-out screens in `docs/harness.md`, so a PR cannot tune one screen to pass.
 
 ## Ideas
 
@@ -288,7 +288,7 @@ The critic's report ends with an `ideas` list of at most three things that look 
 
 ## Baseline protocol
 
-The critic captures `origin/main` and the PR head on the same seed, viewport, colour scheme and injected clock (`.agents/data/harness.md`, Captures); `loop/rules.sh delta` prints each check as `fixed`, `regressed`, `still-failing` or `still-passing`. A `regressed` check is a Todo of class `ux-checklist`, and a reject if it is in `just check`. A `still-failing` check is queued; it is a defect only once a scenario names it.
+The critic captures `origin/main` and the PR head on the same seed, viewport, colour scheme and injected clock (`docs/harness.md`, Captures); `loop/rules.sh delta` prints each check as `fixed`, `regressed`, `still-failing` or `still-passing`. A `regressed` check is a Todo of class `ux-checklist`, and a reject if it is in `just check`. A `still-failing` check is queued; it is a defect only once a scenario names it.
 
 
 ### U441 scoped header and tab Tokens

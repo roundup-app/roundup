@@ -1,6 +1,6 @@
 # An Agent opens a Project and starts work there
 
-Acceptance for #5765. Ids: A5765a–A5765f, U5765, I5765. Specification only: all observers named below are planned; merging this file delivers no capability. Journey stages: Enter, Request and Understand (`.agents/data/journey.md`, “What must work”).
+Acceptance for #5765. Ids: A5765a–A5765f, U5765, I5765. Specification only: all observers named below are planned; merging this file delivers no capability. Journey stages: Enter, Request and Understand (`docs/journey.md`, “What must work”).
 
 The Agent calls its own Daemon through `rup`; the open App chooses the target Project and uses that Project's connection. The user never carries the prompt between Projects.
 
@@ -15,7 +15,7 @@ The Agent calls its own Daemon through `rup`; the open App chooses the target Pr
 
 ## Contract and relay policy
 
-These are implementation requirements, not new methods shipped by this specification. Follow the Contract recipe: declare in `crates/contracts`, regenerate `contracts/generated/`, register every caller and both `rup` faces atomically, and add new code spellings to `GLOSSARY.md` in that implementation PR. Reuse Project, Agent, Workstream, Mode, Permission mode, Actor and Provenance; introduce no second Project registry.
+These are implementation requirements, not new methods shipped by this specification. Follow the Contract change rule: declare in `crates/contracts`, regenerate `contracts/generated/`, register every caller and both `rup` faces atomically, and add new code spellings to `GLOSSARY.md` in that implementation PR. Reuse Project, Agent, Workstream, Mode, Permission mode, Actor and Provenance; introduce no second Project registry.
 
 - Extend `project.open {path}` to return `{path}` only after the App has opened that canonical absolute folder (or established it is already open). This replaces M8's fire-and-forget open and M17's request-only acknowledgement **for open only**. `project.rename` keeps M8's request/Event/null-result behavior. Remove the open Event path as an opening mechanism; keeping it would bypass consent. Update M8's open observers and M17's open formatting assertion to A5765b/c and I5765 in the same implementation PR; preserve the rename assertions.
 - Add `project.start {path, kind, name, prompt}` returning `{path, kind, id}`. `kind` is exactly `agent`, `workstream` or `mode`; `id` is the created target Rail row's id, paired with its target path, not a source-Project Agent reference. `name` is nonblank under the existing Rail naming rules and `prompt` is nonblank; preserve prompt bytes. Agent means a new root Agent; Workstream means a new root Workstream with its Door; Mode means U4547b's new root Agent with its Mode prompt saved before its first run, not conversion of a source Agent or selection of an existing Mode. The Mode runs as a regular Agent and coordinates no child work automatically. Starting inside an existing target Home is outside this request.

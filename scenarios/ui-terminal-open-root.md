@@ -1,6 +1,6 @@
 # UI: opening a Terminal with nothing selected but the Project root
 
-Module: `apps/desktop/src/bubbles`. Ids: U524. Terms: Terminal, Bubble, Workstream, Project root (`GLOSSARY.md`). Work Issue: #2633 (extends #2226). Journey stage: Intervene (`.agents/data/journey.md`, “What must work”): the user opens a Terminal in one step.
+Module: `apps/desktop/src/bubbles`. Ids: U524. Terms: Terminal, Bubble, Workstream, Project root (`GLOSSARY.md`). Work Issue: #2633 (extends #2226). Journey stage: Intervene (`docs/journey.md`, “What must work”): the user opens a Terminal in one step.
 
 **U524 a Terminal opens from the Project root.** Narrows U469's “Open and missing selection”; #2633 reconciles the empty case with U2571b and extends X12; changes no App seam command or Token. Given an open Project whose selection is the Project root and resolves to no Workstream, then:
 
@@ -37,4 +37,4 @@ These references exist on `origin/main`; they constrain the implementation rathe
 2. `apps/desktop/src/bubbles/u469_tabs.test.tsx`, `u524_every_root_opened_terminal_stays_in_the_bar_after_returning` and `u524_a_project_terminal_is_available_after_reload`: retained root tabs and Project-owned Terminal cleanup.
 3. `apps/desktop/src/bubbles/bubblesFixture.tsx`, `mountBubbles`; `apps/desktop/src/bubbles/Bubbles.tsx`, `Bubbles`; `apps/desktop/src/state/rail.ts`, `createRailState`: opening, refresh ordering, tab eligibility and the existing test seams.
 4. `docs/design-system.md`, heading “The checks”; `apps/desktop/src/testing/checks.ts`, `runChecks`: D2, D5 and D6 definitions and observer.
-5. `.agents/data/harness.md`, headings “Harness” and “Captures”; `scenarios/ui-terminal-tabs.md`, heading U469: isolated rendered observer, captures and dense fixture.
+5. `docs/harness.md`, headings “Harness” and “Captures”; `scenarios/ui-terminal-tabs.md`, heading U469: isolated rendered observer, captures and dense fixture.

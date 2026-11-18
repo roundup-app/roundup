@@ -27,7 +27,7 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 1. **Done**: GitHub merged the PR once its required checks passed on its head (L46), and `.agents/data/pr.md` and `.agents/data/gates.md` hold.
 2. **Slop** fails CI: `just check`, plus no public function without a test or caller.
 3. **PR size**: one module directory, about 2000 changed lines. An API change and all its callers form one PR across directories when a split would leave two interfaces live.
-4. **Contract change** (`contracts/`, a new RPC method, an App seam command, U4's tokens) follows the Contract recipe of `.agents/builder.md`: every caller changes in the same PR, and the review run's approve covers it.
+4. **Contract change** (`contracts/`, a new RPC method, an App seam command, U4's tokens) follows the Contract change rule in `.claude/skills/change-rules/SKILL.md`: every caller changes in the same PR, and the review run's approve covers it.
 5. **Reviewer input**: the diff, the scenario, this file, earlier `VERDICT:` comments and a checkout; never the author's rationale.
 6. **Vocabulary**: no `GLOSSARY.md` _Avoid_ word in a public name outside `crates/agents/src/claude_code/`.
 7. **Perf**: cold start < 300 ms, keystroke-to-render < 16 ms p95, 10 idle agents < 150 MB extra RSS; `just perf` fails a regression above 10% (`docs/perf.md`).

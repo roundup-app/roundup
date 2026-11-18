@@ -8,7 +8,7 @@ Decision (owner, 2026-11-18, from Settings › Agents showing "no Project is ope
 
 1. Settings › Agents holds Permission mode, Engine / Model and Automatic renaming, and no switch, `Update` button or text about teaching other sessions (SK10, SK11);
 2. `rup skill` is an unknown noun (exit 2 as I4 names it), and `rup help` lists no `skill` (SK7–SK9, SK12); `i1_every_mcp_tool_is_a_command_and_no_command_is_extra` needs no `skill` allowance;
-3. the Daemon has no `skill.status`, `skill.setup` or `skill.remove`: they are absent from `crates/contracts`, `contracts/generated/` and every caller, and `GLOSSARY.md` has no **Skill setup** row (Contract recipe of `.agents/builder.md`);
+3. the Daemon has no `skill.status`, `skill.setup` or `skill.remove`: they are absent from `crates/contracts`, `contracts/generated/` and every caller, and `GLOSSARY.md` has no **Skill setup** row (Contract change rule in `.claude/skills/change-rules/SKILL.md`);
 4. `crates/agents/src/claude_code/` holds no install code (`Install`, `Plan`, `ItemState`, `Outcome`), and `crates/terminal` sets no `ROUNDUP_TERMINAL` marker for it unless another scenario needs it;
 5. `scenarios/skill-setup.md` is deleted, its ids go on the retired line of `scenarios/README.md`, and no scenario clause names SK1–SK12, `skill.*` or `rup skill` (the `skill` amendment to I1 and I5 lives only in SK9 and goes with it), and no test of theirs remains;
 6. an Agent roundup launches gets the same `--settings`, `--mcp-config`, `--plugin-dir` and Brief as before (A4, E3).

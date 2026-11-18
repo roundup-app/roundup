@@ -1,6 +1,6 @@
 # Menu-bar rows read like a native menu
 
-Module: `crates/desktop` (projection in `menu_bar.rs`) and `crates/native` (AppKit rows). Ids: U5959a, U5959b, U5959c, U5970. Work order: [#5959](https://github.com/roundup-app/roundup/issues/5959). Journey: Understand → Intervene (`.agents/data/journey.md`, “What must work”). This revises U5502's “Each Agent row is one line” clause and U5503's one-line row clause in `scenarios/ui-state-alerts.md`, and adds Ready recency; the menu-bar mark itself is unchanged. All tests below are planned observers, not passing claims.
+Module: `crates/desktop` (projection in `menu_bar.rs`) and `crates/native` (AppKit rows). Ids: U5959a, U5959b, U5959c, U5970. Work order: [#5959](https://github.com/roundup-app/roundup/issues/5959). Journey: Understand → Intervene (`docs/journey.md`, “What must work”). This revises U5502's “Each Agent row is one line” clause and U5503's one-line row clause in `scenarios/ui-state-alerts.md`, and adds Ready recency; the menu-bar mark itself is unchanged. All tests below are planned observers, not passing claims.
 
 **U5959a each Agent row has two lines, an age pill and a state disc.** Given the menu-bar list with Waiting and Ready Agents, then:
 

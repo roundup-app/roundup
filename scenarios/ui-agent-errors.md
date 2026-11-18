@@ -2,7 +2,7 @@
 
 Acceptance for Issue #5151. This specification adds no runtime behavior. The implementation owns the first journey's Understand and Intervene stages: identify why an Agent stopped and choose whether to retry or dismiss its failure without spending another turn.
 
-Policy: reuse Status, Kind, Attempt and Status revision. Vendor-code interpretation belongs in the Claude Code Adapter (P4), not in App components. The App shares the resulting user label across presentations. No new domain entity is required. Any new contract or App seam command follows the Contract recipe and changes every caller together; generate contracts from Rust. Dismissal is presentation acknowledgement, not a vendor observation or a successful turn.
+Policy: reuse Status, Kind, Attempt and Status revision. Vendor-code interpretation belongs in the Claude Code Adapter (P4), not in App components. The App shares the resulting user label across presentations. No new domain entity is required. Any new contract or App seam command follows the Contract change rule and changes every caller together; generate contracts from Rust. Dismissal is presentation acknowledgement, not a vendor observation or a successful turn.
 
 **U5151a explain the failed turn wherever its status appears.** Given an open Project and an Agent whose current Attempt receives a `StopFailure` hook payload with `error: "server_error"`, when its Status reaches the App, then:
 
@@ -98,7 +98,7 @@ Acceptance for Issue #6248. A failure that heals inside its schedule never rende
 - While a resume waits, the Agent's Status is a waiting state, never `error`, and carries the cause and the next time. After the third resume fails it is `error` with U5151b's label for the cause. Test: asserted in `u6248b_roundup_resumes_after_a_transient_stop_failure`.
 - Every other `StopFailure` code in the U5151b table is `error` at once and sends no Message. A `StopFailure` with no prompted turn open changes nothing and starts no resume (U6909a). Test: `authentication_failed` case of `u6248b_roundup_resumes_after_a_transient_stop_failure`.
 - With Claude's own retries on, a scripted 500 then 200 reaches a real Claude: the resume Message arrives and the next turn clears the waiting state. Test: `u6248b_real_claude_resumes_after_a_server_error`, in `crates/rup/tests/u6248b_resume.rs`, a 500 then 200 as `b37_real_claude_receives_a_note_after_a_scripted_server_error` scripts one; a real process is needed because only a real Claude's retry and hook stream prove it.
-- No App timer or poll exists for this; the Daemon owns the schedule (policy). A waiting state or time that needs a contract field follows the Contract recipe, every caller in the same PR.
+- No App timer or poll exists for this; the Daemon owns the schedule (policy). A waiting state or time that needs a contract field follows the Contract change rule, every caller in the same PR.
 
 **U6248c a waiting row is one grey line, an exhausted row offers Resume.** Given a Rail row of an Agent with a waiting resume (U6248b), then:
 
@@ -129,5 +129,5 @@ All citations below exist on origin/main. Planned tests above are implementation
 3. Attention: `apps/desktop/src/rail/attention.ts`, `attentionOrder`, `attentionCounts` and `nextAttention`; these currently include every error. Amend only explicit dismissal as U5151c orders. `scenarios/journey.md`, J14, retains Understand/Intervene and native continuation.
 4. Ordering: `scenarios/agents.md`, A20; `crates/agents/src/events/tests.rs`, `a7_status_revisions_order_transitions_even_when_the_clock_ties` and `b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run`. Retain revision and Attempt isolation.
 5. Status producers: `crates/agents/src/rail_view.rs`, `waiting_on` and `State::present`; `scenarios/agents.md`, A33, retains blocked-Todo priority and recovery. These are the audit's starting points, not an exhaustive fixed list.
-6. Design Checks: `docs/design-system.md`, “The checks”, and `apps/desktop/src/testing/checks.ts`, `runChecks`, define D2 typography/spacing, D5 contrast and D6 target/focus. Shared state marks and row action budgets remain under `.agents/data/journey.md`, “The owner's visual taste”. Error explanations do not add a second state glyph or make state an action.
+6. Design Checks: `docs/design-system.md`, “The checks”, and `apps/desktop/src/testing/checks.ts`, `runChecks`, define D2 typography/spacing, D5 contrast and D6 target/focus. Shared state marks and row action budgets remain under `docs/journey.md`, “The owner's visual taste”. Error explanations do not add a second state glyph or make state an action.
 7. Recovery and retained input: `scenarios/failure-handling.md`, U3791a and U3791c; `scenarios/unfinished-input.md`, U2773b and U2773e. Reuse those owners without replaying remote commands or losing drafts.

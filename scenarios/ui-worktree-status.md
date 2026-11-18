@@ -1,6 +1,6 @@
 # UI: Worktree state, CI and PR (U2556a to U2556d)
 
-Work Issue: #2556. This specifies data in roundup's own UI, never a Terminal running worktrunk. Journey: Understand and Review (`.agents/data/journey.md`). Builds on U2539b's on-demand Worktree view; implementation must depend on its implementation Issue #2549, not merely its completed specification #2539.
+Work Issue: #2556. This specifies data in roundup's own UI, never a Terminal running worktrunk. Journey: Understand and Review (`docs/journey.md`). Builds on U2539b's on-demand Worktree view; implementation must depend on its implementation Issue #2549, not merely its completed specification #2539.
 
 Ownership: `crates/agents` owns read-only collection and caching through its existing git execution facilities; `crates/contracts` owns an additive extension of `agent.worktreeState`; `apps/desktop/src/rail/` and the Worktree view consume one Project-scoped client cache. No new RPC method, App seam command, Token, Glyph, Message or Worktree lifecycle operation. Implement the contract, regenerated clients, fake App and every caller together (rule 4). No new public domain name is needed: Worktree state retains its glossary meaning. Worktree status never authorizes Landing or removal from cached facts.
 
@@ -61,7 +61,7 @@ These are existing evidence anchors, not claims that the planned U2556 tests alr
 2. `scenarios/worktrees.md`, **G5 removal never loses work**: `crates/agents/tests/scenarios/landing.rs`, `g5_remove_keeps_unlanded_work_and_deletes_a_clean_agents_worktree` retains refusal protection; status cache never replaces its fresh safety read.
 3. `scenarios/worktrees.md`, **G7 a Rail move never touches a Worktree**: `crates/agents/tests/scenarios/worktree_state.rs`, `g7_a_rail_move_changes_only_parent_and_order` retains identity across movement.
 4. `scenarios/ui-worktree-changes.md`, **U2539b the selected Agent's Worktree and its changed files show on demand** and **U2539d choosing a changed file opens it in the editor** retain the view and editor interactions. These are specified prerequisites owned by #2549, not implementation evidence on this revision.
-5. `.agents/data/journey.md`, **The viewport** and **The owner's visual taste**, and `docs/design-system.md` retain Token styling and the distinction between state and actions; `.agents/data/harness.md` holds the rendered Check observer.
+5. `docs/journey.md`, **The viewport** and **The owner's visual taste**, and `docs/design-system.md` retain Token styling and the distinction between state and actions; `docs/harness.md` holds the rendered Check observer.
 
 ## Reuse decision
 

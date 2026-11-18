@@ -1,6 +1,6 @@
 # UI: rename a Terminal in its tab
 
-**U511a Terminal names edit in place and survive a webview reload.** Work Issue: #2177. Journey stage: Intervene (`.agents/data/journey.md`, “What must work”): keep direct Agent access while naming a Workstream shell or the selected Agent's Run. Terms: Terminal, Bubble, Run, Workstream (`GLOSSARY.md`). This is implementation acceptance; the specification changes no rendered surface (policy).
+**U511a Terminal names edit in place and survive a webview reload.** Work Issue: #2177. Journey stage: Intervene (`docs/journey.md`, “What must work”): keep direct Agent access while naming a Workstream shell or the selected Agent's Run. Terms: Terminal, Bubble, Run, Workstream (`GLOSSARY.md`). This is implementation acceptance; the specification changes no rendered surface (policy).
 
 Scope (policy): own `apps/desktop/src/bubbles/`, with the minimum shared Ark Editable wrapper in `apps/desktop/src/ui/` if none exists. Reuse the shared Menu for the context action. Do not restyle the tab strip's border or grey pill, Project tabs, resource strip or Bubble geometry. No RPC, contract, App seam command, domain name or Token change is needed. Preserve U469's visibility, close, open, keyboard, eligibility and overflow behavior, except that interacting with the name's editor consumes editing gestures and keys rather than toggling the Bubble. An input must not be nested in a button (policy).
 

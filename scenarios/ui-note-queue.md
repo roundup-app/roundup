@@ -1,6 +1,6 @@
 # UI: an Agent's waiting Messages (U3780 to U3783, U3787; U3784 retired)
 
-Module: `apps/desktop` (the webview); U3782 also owns the existing `crates/messages` drop contract. Ids: U3780 to U3784, U3787. Work Issues: #3305 (queue), #3518 (remove the field). Journey stages: Understand and Intervene (`.agents/data/journey.md`).
+Module: `apps/desktop` (the webview); U3782 also owns the existing `crates/messages` drop contract. Ids: U3780 to U3784, U3787. Work Issues: #3305 (queue), #3518 (remove the field). Journey stages: Understand and Intervene (`docs/journey.md`).
 
 The user types to an Agent in Claude Code's own input in its Terminal, with no delivery mode to acquire (B3563a). The waiting-Message queue remains below the Terminal, with a remove action per row. It reads Messages, not a second store; B50 to B52 keep their delivery and transport rules. U3787 retires the separate note field and its draft behavior. U12 and U533 still govern Terminal typing and keyboard focus. Removing a field adds no RPC method or App seam command and changes no Message law.
 

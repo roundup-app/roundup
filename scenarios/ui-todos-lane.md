@@ -85,7 +85,7 @@ row, D5 the contrast row and D6 the target-state/size row of
 seed, injected delete and move errors remain fully visible without overlap
 or horizontal overflow (`u492a_dense_failure`). These observers preserve the
 Review stage's work inspection and Intervene stage's actionable errors in
-`.agents/data/journey.md`; a fake App seam proves webview behavior only
+`docs/journey.md`; a fake App seam proves webview behavior only
 (policy).
 
 Run in an isolated headless browser profile against `just harness`. Publish

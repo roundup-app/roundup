@@ -1,6 +1,6 @@
 # Terminal input follows keyboard focus
 
-Module: `apps/desktop`. Ids: U5552a–U5552f. Acceptance for #5552; this specification delivers no fix or reproduction claim. Journey: Intervene (`.agents/data/journey.md`).
+Module: `apps/desktop`. Ids: U5552a–U5552f. Acceptance for #5552; this specification delivers no fix or reproduction claim. Journey: Intervene (`docs/journey.md`).
 
 Policy: a user input action belongs to the visible Terminal whose emulator owns keyboard focus, or to the focused editable field. A selected Rail row, a cached Terminal id, a mounted emulator or a hidden xterm textarea is not authorization to receive input. Clicking or using an existing keyboard switch to open an Agent's Terminal must hand focus to that Terminal before it takes input. Restoring other Terminals must not take that focus. Keep the existing direct-access shortcuts; add no control mode.
 

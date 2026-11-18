@@ -12,7 +12,7 @@ Module: `apps/desktop` (webview). Acceptance for Issue #4707, Decision 1 of the 
 
 Policy: priority and other meta chips stay in the opened Todo's meta row, not the list row; Solo's header, body excerpts and tags are out of scope. No contract, App command or Daemon change.
 
-Observer (policy): U26's harness in an isolated headless `agent-browser` session with a fresh profile, dark, at both viewports above. Run `just capture U4707` and leave the Rail, Terminal tab bar, Todos and Pads at depths 0–3 under `artifacts/ux/U4707/`, following `.agents/data/harness.md`, **Captures**; commit no image or video. Read `window.__checks()` on the densest seed and measure the depth-0 title x there. The Linux/Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
+Observer (policy): U26's harness in an isolated headless `agent-browser` session with a fresh profile, dark, at both viewports above. Run `just capture U4707` and leave the Rail, Terminal tab bar, Todos and Pads at depths 0–3 under `artifacts/ux/U4707/`, following `docs/harness.md`, **Captures**; commit no image or video. Read `window.__checks()` on the densest seed and measure the depth-0 title x there. The Linux/Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
 
 The implementing change moves these Checks, held by `docs/design-system.md`, **The checks**, and breaks none passing on main:
 
@@ -25,7 +25,7 @@ Regression (policy): keep and adjust to 32px these observers, naming U4707: the 
 
 Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Issue #4707 stays open for implementation.
 
-**U5147d every row and tab name starts 44 px from its panel edge.** Journey stage: Review. Amends U4707 (this file), whose Token clause fixes 32 px and whose depth-0 title sits at 48, U4708 (`ui-pad-glyph.md`) and D8 (`.agents/data/journey.md`; `docs/design-system.md`, “The checks”): Rail, Todo, Pad and Terminal-tab first text share one inset, the Rail's 44 since U4898. `--row-text-inset` feeds `shelf/`, `todos/`, `bubbles/` and `ui/Tree.css`, so a change to it changes every consumer in the same PR. No contract, RPC, App seam command or glossary change.
+**U5147d every row and tab name starts 44 px from its panel edge.** Journey stage: Review. Amends U4707 (this file), whose Token clause fixes 32 px and whose depth-0 title sits at 48, U4708 (`ui-pad-glyph.md`) and D8 (`docs/journey.md`; `docs/design-system.md`, “The checks”): Rail, Todo, Pad and Terminal-tab first text share one inset, the Rail's 44 since U4898. `--row-text-inset` feeds `shelf/`, `todos/`, `bubbles/` and `ui/Tree.css`, so a change to it changes every consumer in the same PR. No contract, RPC, App seam command or glossary change.
 
 Given U26's `tree-40` at 1512×950 in dark with the Drawer's Todos and Pads lists open (root, child and grandchild rows, a 300-character Todo title, a 120-character Pad name and a 60-character group name), and U26's `bubbles` with its Workstream selected so its Terminal tab shows, when they render at rest, then (policy, design critic):
 

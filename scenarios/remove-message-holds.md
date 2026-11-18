@@ -1,6 +1,6 @@
 # Messages without delivery holds
 
-Module: `apps/desktop`, `crates/messages`, `crates/agents`, `crates/rupd`, `crates/rup`, `crates/contracts`, generated contracts and Message proofs/documentation. Source: #3563, including the owner's 2026-10-23 choice to remove every hold. Ids: B3563a–B3563f. Journey: Understand and Intervene (`.agents/data/journey.md`). This specification orders implementation; it claims no delivered behavior.
+Module: `apps/desktop`, `crates/messages`, `crates/agents`, `crates/rupd`, `crates/rup`, `crates/contracts`, generated contracts and Message proofs/documentation. Source: #3563, including the owner's 2026-10-23 choice to remove every hold. Ids: B3563a–B3563f. Journey: Understand and Intervene (`docs/journey.md`). This specification orders implementation; it claims no delivered behavior.
 
 Policy: this file supersedes the conflicting clauses identified below. The implementation removes their retired acceptance, code and tests together, preserving each unrelated clause. #3564 owns removal of roundup's question/permission views and their remaining custom machinery; that ownership does not permit this implementation to retain a Message hold. No new scheduler, queue, composer or substitute approval state is introduced. The waiting list reads the existing Message store.
 

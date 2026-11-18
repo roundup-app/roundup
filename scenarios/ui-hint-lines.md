@@ -1,6 +1,6 @@
 # UI: the quiet Todo footer and the backdrop to the tab bar
 
-Direction: Issue #3513, narrowed by the owner to two changes ("I asked only the todo 2 lines to be cut"). Acceptance for implementation, not evidence of delivery. Journey: Intervene and Review, `.agents/data/journey.md`, heading `What must work`. Terms: `GLOSSARY.md`.
+Direction: Issue #3513, narrowed by the owner to two changes ("I asked only the todo 2 lines to be cut"). Acceptance for implementation, not evidence of delivery. Journey: Intervene and Review, `docs/journey.md`, heading `What must work`. Terms: `GLOSSARY.md`.
 
 Scope (policy): `apps/desktop/src/todos/` (the `triage-hints` footer in `Todos.tsx`, `Todos`), its Help entry in `keys/`, and `apps/desktop/src/bubbles/styles.css`. No other hint line, Help, Switcher, triage footer outside the Todo list, tooltip chip or empty pane changes; no new shortcut action, RPC, App seam command, Token or domain term. Reuse the existing key registry, `CHORDS` and Help.
 

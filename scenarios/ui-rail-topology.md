@@ -1,6 +1,6 @@
 # Share Rail topology and Todo counts
 
-Acceptance for #5645. First-journey stage: Understand (`.agents/data/journey.md`, **What must work**). This changes frontend data access only; U520's tree, U31's keyboard guards, U4547a's sections, U5483a–c's idle branches and U178's creator-based control retain their behavior. These scenarios name planned implementation tests, not passing observations from this specification PR.
+Acceptance for #5645. First-journey stage: Understand (`docs/journey.md`, **What must work**). This changes frontend data access only; U520's tree, U31's keyboard guards, U4547a's sections, U5483a–c's idle branches and U178's creator-based control retain their behavior. These scenarios name planned implementation tests, not passing observations from this specification PR.
 
 ## Acceptance
 
@@ -34,7 +34,7 @@ Policy: preserve current fold eligibility, clock thresholds, question protection
 3. Focus guards: `apps/desktop/src/rail/u31_rail_keyboard.test.tsx`, `u31_arrow_down_in_the_rename_field_does_not_cancel_the_rename`, `u31_enter_on_the_collapse_button_does_not_select_the_row`, `u31_a_collapsed_groups_children_are_skipped`, `u31_selecting_a_row_moves_the_roving_tabindex_to_it`. Sections: `apps/desktop/src/rail/u4547a_sections.test.tsx`, `u4547a_sections_partition_the_tree`, `u4547a_heading_actions_change_only_the_named_section`, `u4547a_section_state_survives_reopen_per_project`.
 4. Todo ownership/count path: `apps/desktop/src/rail/pads/AgentPads.tsx`, `createAgentPads`, `PadsControl`; `apps/desktop/src/rail/pads/owned.ts`, `todosCreatedBy`; `apps/desktop/src/rail/pads/u178_this_one_lists_agent_todos.test.tsx`, `u178_the_control_is_named_by_what_it_holds`; `apps/desktop/src/todos/todoList.ts`, `useTodoList`. Existing owners are `apps/desktop/src/rail/Rail.tsx`, `Rail`, and `apps/desktop/src/rail/RailRow.tsx`, `RailRowView`.
 5. Fold behavior: `scenarios/ui-rail-lane.md`, **U5483a done and long-idle children share one fold**, **U5483b the folded row stays open until the user closes it**, **U5483c a stopped plain-text question stays reachable**; `apps/desktop/src/rail/u5483_folding.test.tsx`, `u5483a_idle_must_be_continuous`, `u5483b_opening_a_fold_preserves_agent_descendants`, `u5483c_unanswered_question_never_folds`. These remain existing regression requirements, not new fold work.
-6. Rendered observer: `docs/design-system.md`, **The checks**, and `apps/desktop/src/testing/checks.ts`, `runChecks`; `.agents/data/journey.md`, **The viewport**. Shared library/dependency boundary: `apps/desktop/package.json`, `dependencies`, and `apps/desktop/src/ui/TreeView.tsx`, `TreeView`.
+6. Rendered observer: `docs/design-system.md`, **The checks**, and `apps/desktop/src/testing/checks.ts`, `runChecks`; `docs/journey.md`, **The viewport**. Shared library/dependency boundary: `apps/desktop/package.json`, `dependencies`, and `apps/desktop/src/ui/TreeView.tsx`, `TreeView`.
 
 ## Gates and rendered observation
 

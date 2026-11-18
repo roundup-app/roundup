@@ -1,6 +1,6 @@
 # UI: Rail rows hold one line and one age column
 
-Module: `apps/desktop` (the webview). Ids: U7205a–U7205g. Work Issue: #7205. Journey stage: Understand (`.agents/data/journey.md`). Source: the owner, 2026-11-15, on Rail screenshots. Webview only: no RPC method, App command, contract, code term or new Token. Terms: Rail, Status, Kind, Machine, Tooltip (`GLOSSARY.md`).
+Module: `apps/desktop` (the webview). Ids: U7205a–U7205g. Work Issue: #7205. Journey stage: Understand (`docs/journey.md`). Source: the owner, 2026-11-15, on Rail screenshots. Webview only: no RPC method, App command, contract, code term or new Token. Terms: Rail, Status, Kind, Machine, Tooltip (`GLOSSARY.md`).
 
 Amends U6640a and U6640b (`scenarios/ui-tooltip-anchor.md`: status words in the row), U2228c (`scenarios/ui-truncated-names.md`: no Rail row Tooltip), U5231b's age text for Rail rows (`scenarios/ui-rows-state.md`), U5147a's trailing column (`scenarios/ui-rail.md`) and U5765's rendered policy with A5765e's rendering (`scenarios/agent-project-start.md`). Every other clause of those holds.
 
@@ -26,4 +26,4 @@ Policy — Checks moved (`docs/design-system.md`, heading **The checks**, evalua
 
 Rule 9: `ui/Tooltip.tsx` wraps Ark UI's tooltip, `shelf/Age.tsx` with `state/clock.ts` holds the age formatter and display clock, and `ink/Icon.tsx` holds lucide icons; extend them, add no tooltip, clock or icon library.
 
-Policy — rendered observer: `tree-40` and `agents-10` with long names, ages from seconds to days, a remote Agent, an offline one, and hover and selected rows, in a dedicated headless agent-browser session with a fresh profile at 1512×950, dark only. Run `just capture U7205a U7205c U7205f`; leave screenshots under `artifacts/ux/U7205a/` (`.agents/data/harness.md`, Captures). Right if the design critic passes it and every age's right edge shares one x in every state. The user reports what they meet on the Mac.
+Policy — rendered observer: `tree-40` and `agents-10` with long names, ages from seconds to days, a remote Agent, an offline one, and hover and selected rows, in a dedicated headless agent-browser session with a fresh profile at 1512×950, dark only. Run `just capture U7205a U7205c U7205f`; leave screenshots under `artifacts/ux/U7205a/` (`docs/harness.md`, Captures). Right if the design critic passes it and every age's right edge shares one x in every state. The user reports what they meet on the Mac.

@@ -11,7 +11,7 @@ Module: `apps/desktop` (webview). Acceptance for Issue #4708, Decisions 2 and 3 
 
 Policy: this amends U4707's clause "Pad rows pass `glyph={null}` and leave no empty column before the name"; the depth-0 title starts where U5147d (`ui-row-inset.md`) puts it, 44 CSS px from the panel edge. No contract, App command or Daemon change; the Todo tick, grip, open arrow, dependency elbows, live updates and 32px rows are unchanged.
 
-Observer (policy): U26's harness in an isolated headless `agent-browser` session with a fresh profile, dark, at both viewports above. Run `just capture U4708` and leave the Todos and Pads lists with their group heads, at depths 0–3, under `artifacts/ux/U4708/`, following `.agents/data/harness.md`, **Captures**; commit no image or video. Read `window.__checks()` on the densest seed. The Linux/Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
+Observer (policy): U26's harness in an isolated headless `agent-browser` session with a fresh profile, dark, at both viewports above. Run `just capture U4708` and leave the Todos and Pads lists with their group heads, at depths 0–3, under `artifacts/ux/U4708/`, following `docs/harness.md`, **Captures**; commit no image or video. Read `window.__checks()` on the densest seed. The Linux/Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
 
 The implementing change moves these Checks, held by `docs/design-system.md`, **The checks**, and breaks none passing on main:
 
@@ -48,7 +48,7 @@ Policy — precedence and scope: U4908 adds the Pad Open button and replaces onl
 
 Policy — rendered observer: compare the same `origin/main` baseline and implementation head in dedicated isolated headless `agent-browser` sessions with fresh profiles, dark, at 1512×950, using U26's harness. Capture both tabs on `tree-40` and `agents-10`, with visible group heads and root/child/grandchild rows where supported, a 120-character Pad name, a 300-character Todo title, a 60-character group name and ten blockers. Include every audited absent-mark path, the add field and done summary where present. Capture rest, hover, keyboard focus, selection and each opened Drawer, plus actionable failure text fully visible on the densest seed. Read `window.__checks()` for matching main/head states. Layout, spacing, icon shape/colour, truncation and reveal are judged by the design critic; add no layout, colour or exact-copy unit/browser test (AGENTS.md rule 10).
 
-Run `just capture U4908` in the implementation run. Leave paired images, interaction video and Check readings under `artifacts/ux/U4908/{base,head}/`, following `.agents/data/harness.md`, **Captures**; record the baseline/head SHAs and seed/state with each pair. Commit no image or video. The spec PR claims no rendered implementation result. Linux/Chromium observes the webview; the user reports what they meet on the Mac.
+Run `just capture U4908` in the implementation run. Leave paired images, interaction video and Check readings under `artifacts/ux/U4908/{base,head}/`, following `docs/harness.md`, **Captures**; record the baseline/head SHAs and seed/state with each pair. Commit no image or video. The spec PR claims no rendered implementation result. Linux/Chromium observes the webview; the user reports what they meet on the Mac.
 
 The implementation moves these Checks, held on main by `docs/design-system.md`, **The checks**, and breaks none passing on its paired main baseline:
 

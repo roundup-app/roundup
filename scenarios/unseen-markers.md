@@ -1,6 +1,6 @@
 # An unseen marker shows only where the user must act
 
-Specification for #6119. Module: `apps/desktop` (App state and summaries). Ids: U6119a, U6119b, U6119c, U6119d. First-journey stages: Understand and Intervene (`.agents/data/journey.md`). This is acceptance for a later implementation, not evidence that the feature exists.
+Specification for #6119. Module: `apps/desktop` (App state and summaries). Ids: U6119a, U6119b, U6119c, U6119d. First-journey stages: Understand and Intervene (`docs/journey.md`). This is acceptance for a later implementation, not evidence that the feature exists.
 
 Decision (policy): the owner deals with a Workstream through its Door (#5758, T27 row, 2026-11-04). A marker is drawn only for something the user must read or answer; a Workstream's child Agents are the Door's to handle, so they draw no unseen marker of their own. A child that needs the user shows it on its Door's row. No new Status kind and no new Token (`--accent` and `--grey` as U3566d and U3704 set them).
 

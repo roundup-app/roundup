@@ -2,7 +2,7 @@
 
 Specification for [#5741](https://github.com/roundup-app/roundup/issues/5741), mode `specify`. Source: the owner's 2026-11-02 request to audit the whole App for unused features, including features Agents already cover through monitoring. This specification defines the audit and the subsequent owner-authorized retirements; it claims neither an inventory nor a deletion has been delivered.
 
-Journey: Enter, Request, Understand, Intervene and Review in `.agents/data/journey.md`, heading “What must work”. Terms use `GLOSSARY.md`; an audit row is a document row, not a new product object, RPC or setting.
+Journey: Enter, Request, Understand, Intervene and Review in `docs/journey.md`, heading “What must work”. Terms use `GLOSSARY.md`; an audit row is a document row, not a new product object, RPC or setting.
 
 **U5741 every offered feature gets an evidenced disposition.** Given the App, `rup` and MCP on the implementation's recorded `origin/main` revision, when the audit is performed, then the following acceptance holds. All clauses below are policy: the inventory, cited sources, rendered observations, owner's answers and implementation-head checks are the observers. Do not add a test that rereads this specification or checks report wording.
 
@@ -72,7 +72,7 @@ These numbered checks are source anchors, not claims the audit already passes. R
 3. `apps/desktop/src/keys/chords.ts`, `CHORDS`, `LEADER`, `ACTION_ROWS`; `apps/desktop/src/keys/registry.ts`, `registerKeys` and `captureEvery`; `crates/desktop/src/menu.rs`, `app_menu`: keyboard/named actions and native menu entries.
 4. `crates/rup/src/cli/help.rs`, `help_text`; `crates/rup/src/cli/actions.rs`, `command`; `crates/rup/src/mcp.rs`, `tools`: explicit CLI commands and role-dependent shared tool catalogue. `crates/rup/tests/cli/tool_catalogue.rs`, `i1_every_mcp_tool_is_a_command_and_no_command_is_extra`: catalogue parity.
 5. `crates/rup/tests/mcp/tool_lists.rs`, `m5_every_app_action_has_a_tool_or_a_reason`; `scenarios/mcp.md`, M5: tool/no-tool authority inventory. The audit does not grant an Agent new authority.
-6. `.agents/data/journey.md`, “What must work”; `PRINCIPLES.md`, P1/P3/P6/P9/P11/P12: required journey, direct access, attention, work ownership, intentional Agent turns, drafts and deliverables. Their Gates apply to each retirement's changed paths; the audit grants no blanket waiver.
+6. `docs/journey.md`, “What must work”; `PRINCIPLES.md`, P1/P3/P6/P9/P11/P12: required journey, direct access, attention, work ownership, intentional Agent turns, drafts and deliverables. Their Gates apply to each retirement's changed paths; the audit grants no blanket waiver.
 7. `scenarios/ui-worktree-changes.md`, U2539a–d, and `scenarios/ui-shortcut-hints.md`, heading “UI: shortcut hints (U2230 to U2230b, U2541 to U2541e, U2570a to U2570c, U5247 to U5247b)”: dated Orca comparison direction; `scenarios/product-continuity.md`, heading “Owner direction — 2026-10-19 (Europe/London)”: distinguish accepted owner outcomes from Bise background. Search beyond these anchors for Paseo and further direction.
 8. `scenarios/local-data-retirement.md`, N5467a–d: the refusal/no-reader clauses affected deletion PRs must amend to require older-Project reopening, retaining unrelated current/fresh safety.
 

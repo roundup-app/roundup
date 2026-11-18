@@ -60,7 +60,7 @@ not tests claimed to exist in this specification PR.
    in `crates/terminal/tests/`; existing X13 tests remain required. Policy:
    independent review inspects the removal of `output.rs`'s `Escape`, `lines`
    parser and `decode`; multiple instances of the library parser are permitted.
-6. **Caller migration.** Policy: the implementation follows the Contract recipe
+6. **Caller migration.** Policy: the implementation follows the Contract change rule
    (rule 4), updates every producer and consumer, regenerates `contracts/generated/`
    from `crates/contracts`, records new public names in `GLOSSARY.md`, and probes
    each new type and method. X14 supersedes only X1/X2's global base64-output

@@ -2,7 +2,7 @@
 
 Acceptance for #7283, from the owner's report on the Dev App of an empty band under the project tabs: ui-sdk's `web.css` padded the tab panel, and no Check or Capture saw it because the U26 harness never loaded `web.css`. Webview only: no App command, no Daemon method, nothing under `contracts/`, no Token change. Owns `apps/desktop/src/main.tsx`, `apps/desktop/src/testing/harness.tsx`, `apps/desktop/src/testing/checks.ts`, the sheet's overrides under `apps/desktop/src/**/*.css` and `docs/design-system.md`. It does not drop `web.css`: the owner chose it at the entry (ui-sdk setup, #7223).
 
-The journey stage is Understand (`.agents/data/journey.md`): the screen the critic judges is the screen the user gets.
+The journey stage is Understand (`docs/journey.md`): the screen the critic judges is the screen the user gets.
 
 **U7283a the harness loads what the entry loads.** Given `apps/desktop/src/main.tsx` and the U26 harness (`apps/desktop/src/testing/harness.tsx`), then both import their stylesheets from one shared list module, in one order, with `@ui-sdk/core/web.css` first, so a sheet added for the App reaches the harness, the Captures (`just capture`) and the Checks without a second edit. Then a test fails when the harness page's loaded stylesheets differ from the entry's list, in sheets or in order. Test: `u7283a_the_harness_loads_the_stylesheets_main_loads`, which reads the shared list and the two modules' imports and, in the browser harness, asserts that the page holds a `web.css` sheet before `tokens.css`. It fails on `main`, where the harness loads no `web.css`.
 
@@ -10,4 +10,4 @@ The journey stage is Understand (`.agents/data/journey.md`): the screen the crit
 
 **U7283c every web.css rule that moves an App element is kept or overridden.** Given `web.css` loaded in the harness, when the audit lists every rule of it that changes a computed style of an element the App renders (spacing, colour, focus ring, radius, size), then each such rule is overridden by an App rule that uses Tokens, as #7281 did for `[data-slot="tabs-panel"]:not([hidden])`, or is named in `docs/design-system.md` under a heading `Vendor defaults kept` with the rule's selector and the reason it stays. Policy: the list is the audit's deliverable and the design critic judges the look on the dark Captures at 1512×950 (rule 10: no pixel test); the PR shows `window.__checks()` readings with every Check passing on `main` still passing. Test: `u7283c_every_kept_vendor_rule_is_named` asserts that each selector under that heading matches a rule of `web.css` and names a reason, so a stale entry fails.
 
-Observer: Vitest and the isolated headless U26 harness at 1512×950, dark, per `.agents/data/harness.md`; Chromium observes the webview and the user reports what they meet on the Mac.
+Observer: Vitest and the isolated headless U26 harness at 1512×950, dark, per `docs/harness.md`; Chromium observes the webview and the user reports what they meet on the Mac.

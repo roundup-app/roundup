@@ -35,7 +35,7 @@ Tests (`ps1_`, Rust, `crates/terminal/tests/`): `ps1_a_report_makes_its_record_a
 
 Tests (`ps7_`, Rust, `crates/rupd/`): `ps7_each_state_maps_to_its_kind_and_blocked_to_needs_you`, `ps7_the_most_urgent_record_wins_and_ties_go_to_the_latest`, `ps7_label_is_msg_then_title_and_is_cut_to_one_line`, `ps7_since_changes_only_when_the_kind_changes`. Observer: the Rust tests, fed records through the mirror's change.
 
-**PS8 publication.** Given a Terminal with a program status, then (Contract recipe of `.agents/builder.md`; `crates/contracts`, regenerated `contracts/generated/`, every caller in the same PR):
+**PS8 publication.** Given a Terminal with a program status, then (Contract change rule in `.claude/skills/change-rules/SKILL.md`; `crates/contracts`, regenerated `contracts/generated/`, every caller in the same PR):
 
 1. `terminal.list` returns it as `status` on that Terminal's entry, and the Rail node of the Agent that owns the Terminal carries it for PS9 (a Terminal is never a Rail node: A10, X11); a Terminal with no program status has no `status`;
 2. a new event `terminal.status {id, status}` is emitted when the Terminal's Status changes, with `status: null` when its last record is removed;

@@ -1,6 +1,6 @@
 # UI: the Project root has no overview
 
-Module: `apps/desktop/src/ask`, `apps/desktop/src/rail`, `apps/desktop/src/state` and `App.tsx`. Ids: U6244a, U6244b, U6244c, U6244d. Terms: Project root, Rail, Kind, Ask, Agent (`GLOSSARY.md`). Work Issue: #6244. Journey stage: Understand (`.agents/data/journey.md`): needs-you work stays visible in each Rail row's Kind; the Terminal is one selection away.
+Module: `apps/desktop/src/ask`, `apps/desktop/src/rail`, `apps/desktop/src/state` and `App.tsx`. Ids: U6244a, U6244b, U6244c, U6244d. Terms: Project root, Rail, Kind, Ask, Agent (`GLOSSARY.md`). Work Issue: #6244. Journey stage: Understand (`docs/journey.md`): needs-you work stays visible in each Rail row's Kind; the Terminal is one selection away.
 
 Source: the owner, 2026-11-05, on the Overview's change list and its empty text: "This overview view is too bad, I think it has no value and should be removed", and, asked what goes: "remove the overview and the rail item - we should have an empty view without rail overview item, the ask only exists through the shortcut only, no fixed dedicated place." This reverses the 2026-11-03 answer that kept the Overview, the 2026-10-18 answer "A — Project overview" (#2567) and the 2026-11-02 change list (#5730). Changes no RPC method, contract, App seam command, Token or `GLOSSARY.md` term; `agent.completed` and `deliverable.published` stay for their other readers.
 
@@ -22,6 +22,6 @@ Source: the owner, 2026-11-05, on the Overview's change list and its empty text:
 - U38 (`scenarios/ui.md`): the nothing-selected line `Select an Agent or a Terminal` stays retired; U6244b composes the pane.
 - U3770 (`scenarios/ui-inbox.md`): "U504's landing rows open native Terminals directly" is retired; the requested Inbox and its Rail Kind remain the routes to attention.
 
-Observer: Vitest with the fake App for U6244a to U6244c's roles, focus and calls. One isolated headless agent-browser run on the U26 harness at 1512×950, dark and light (`.agents/data/harness.md`, Captures): the Rail without an Overview row and the root empty view beside the Todos and Pads empty views; then ⌘/ over it, and Escape. The `critic` run judges the captures. Captures stay under `artifacts/ux/U6244/`, uncommitted. This UI-only change makes no native Mac claim; the user reports what they meet in the App.
+Observer: Vitest with the fake App for U6244a to U6244c's roles, focus and calls. One isolated headless agent-browser run on the U26 harness at 1512×950, dark and light (`docs/harness.md`, Captures): the Rail without an Overview row and the root empty view beside the Todos and Pads empty views; then ⌘/ over it, and Escape. The `critic` run judges the captures. Captures stay under `artifacts/ux/U6244/`, uncommitted. This UI-only change makes no native Mac claim; the user reports what they meet in the App.
 
 Moves: D2, D5, D6 (`docs/design-system.md`); existing Tokens only.

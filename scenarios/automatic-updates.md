@@ -24,7 +24,7 @@ Policy: add no timer, polling loop or file watcher. Reuse the App's Event subscr
 
 ## Contract and scope
 
-Policy: implement publication Events through the Contract recipe: declare in `crates/contracts`, regenerate `contracts/generated/`, add the concrete code names to `GLOSSARY.md`, and update every emitter, subscriber, contract declaration/fingerprint and affected fake/test caller in the same PR. This specification chooses no new wire identifier or payload. No Message, Route, Held or Takeover semantics change; laws M1–M10 remain unchanged. Reuse existing storage transactions and Event transport; no new store, scheduler, vendor parser or watcher.
+Policy: implement publication Events through the Contract change rule: declare in `crates/contracts`, regenerate `contracts/generated/`, add the concrete code names to `GLOSSARY.md`, and update every emitter, subscriber, contract declaration/fingerprint and affected fake/test caller in the same PR. This specification chooses no new wire identifier or payload. No Message, Route, Held or Takeover semantics change; laws M1–M10 remain unchanged. Reuse existing storage transactions and Event transport; no new store, scheduler, vendor parser or watcher.
 
 Implementation scope: the existing publication storage/mutation owners under `crates/rupd/src/`, existing Event contracts/export, generated contracts and glossary; the three existing App surfaces and their state owners under `ask/`, `changes/`, `importer/` and `state/`; shared/cross-surface copy consumers and existing focused test/harness seams. No new authoring flow, changed import authority, section composition or loop machinery. Apply rule 9 before adding any machinery. Progress, implementation scope expansions and engineering questions belong on #5558.
 

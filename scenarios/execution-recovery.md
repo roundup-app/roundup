@@ -95,7 +95,7 @@ Policy: derive each gate from these changed paths, not from unrelated unmet goal
 3. `scenarios/agents.md`, headings A8, A20–A24 and A30; `crates/agents/src/resume.rs`: preserve no-start-on-open, Attempt identity, acknowledged saved-conversation resume and subscription launches.
 4. `crates/rup/tests/e2e/wake.rs`, tests `b41_no_timer_is_set` and `b42_the_note_and_the_removal_are_one_write`: retain event-driven Wake semantics. A Wake's finished Kind is not successful-work evidence.
 5. `scenarios/product-continuity.md`, headings PC1, PC2 and PC4; `scenarios/deliverables.md`, headings DV1–DV6; `scenarios/unfinished-input.md`, headings U2773a–U2773h: preserve original draft and published-target identities, refusal and removal/access rules.
-6. `.agents/data/journey.md`, headings “What must work” and “The viewport”; `.agents/data/harness.md`, heading “Captures”; `docs/design-system.md`, heading “The checks”; `scenarios/proofs.md`, heading V5 (laws M1–M10): retain journey/capture, appearance and Message observers.
+6. `docs/journey.md`, headings “What must work” and “The viewport”; `docs/harness.md`, heading “Captures”; `docs/design-system.md`, heading “The checks”; `scenarios/proofs.md`, heading V5 (laws M1–M10): retain journey/capture, appearance and Message observers.
 
 ## Specification boundary
 

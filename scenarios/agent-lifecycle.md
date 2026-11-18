@@ -2,7 +2,7 @@
 
 Source: work Issue #3795, owner authorization of the B2/B3 direction recorded there. This specification proposes exact laws for owner review; neither that authorization nor this specification approves the laws. `docs/quality-target.md` is absent at the inspected baseline, so no acceptance is inferred from that path.
 
-Scope: `scenarios/agent-lifecycle.md` and `proofs/agents/LAWS.bend` only. No lifecycle model, proof, generated code, Rust/FFI, dependency, workflow or product behavior is delivered here. The proposed declarations use specification notation whose domains and predicates are defined beside them; formal encoding and checking belong to A3795f after exact-law approval. No new public type or RPC is prescribed; implementation names follow the Contract recipe with every caller.
+Scope: `scenarios/agent-lifecycle.md` and `proofs/agents/LAWS.bend` only. No lifecycle model, proof, generated code, Rust/FFI, dependency, workflow or product behavior is delivered here. The proposed declarations use specification notation whose domains and predicates are defined beside them; formal encoding and checking belong to A3795f after exact-law approval. No new public type or RPC is prescribed; implementation names follow the Contract change rule with every caller.
 
 Preserve `scenarios/agents.md`, `scenarios/execution-recovery.md`, `scenarios/door-terminal.md`, `scenarios/worktrees.md` and `docs/worktrees.md`. Agent identity, its Attempt ordinal, Terminal and actual liveness, Status and Worktree remain distinct (`GLOSSARY.md`).
 
@@ -101,7 +101,7 @@ Observer: `a5556b_automatic_delivery_waits_for_first_user_input` in `crates/rupd
 
 Positive cases preserve the two intentional starts: a Subagent a Door spawns with an explicit Work order receives that order/details once (O8/O9), and a Mode Agent restarted by its user receives exactly its saved prompt once (A4452c). A user's explicit creation prompt/order or newly placed Ask is also input and remains deliverable. The guard asserts these admissions; existing O9, A4452c and H4612a observers retain byte/receipt and readiness-gate proof. Demonstrate that allowing O3's default clarification through the production admission makes the guard fail; no recurring test reads this scenario or a report as proof.
 
-Gates derived from this start boundary (policy): P9 asks whether launch or automatic delivery spends a turn before input; O3/A5556a–c observe both delivery sinks. P10 asks whether per-Agent guidance changes the shared Brief; preserve Check 3. P1 asks whether a Message becomes Terminal input or direct Agent access disappears; preserve Check 2. P3 asks whether clarification alone raises `needs-you`; preserve O4. This is the first journey's Enter → Request boundary (`.agents/data/journey.md`): creating the Workstream waits; the user's request starts the work. No visual change or native Mac observation is required by this specification.
+Gates derived from this start boundary (policy): P9 asks whether launch or automatic delivery spends a turn before input; O3/A5556a–c observe both delivery sinks. P10 asks whether per-Agent guidance changes the shared Brief; preserve Check 3. P1 asks whether a Message becomes Terminal input or direct Agent access disappears; preserve Check 2. P3 asks whether clarification alone raises `needs-you`; preserve O4. This is the first journey's Enter → Request boundary (`docs/journey.md`): creating the Workstream waits; the user's request starts the work. No visual change or native Mac observation is required by this specification.
 
 Existing preservation Checks on `origin/main` (each holder exists; none is claimed to prove the new boundary):
 
@@ -113,7 +113,7 @@ Existing preservation Checks on `origin/main` (each holder exists; none is claim
 
 ## An accepted prompt is never silent (U6260)
 
-Acceptance for #6260; amends A5556a/b/c, A4452d, U6248a and A5717c. Source: the owner on 2026-11-05 ("File it now"): prompts to a resumed Agent showed "accepted" and never appeared. Module: `crates/messages/src/`, `crates/agents/src/registration.rs` and `store.rs`, `crates/rupd/src/open.rs` only if the reply needs the held state. A contract field for the held state follows the Contract recipe of `.agents/builder.md`, every caller in the same PR. U6260a shares U6248a's one held predicate (`crates/messages/src/failure.rs`); it adds no second one.
+Acceptance for #6260; amends A5556a/b/c, A4452d, U6248a and A5717c. Source: the owner on 2026-11-05 ("File it now"): prompts to a resumed Agent showed "accepted" and never appeared. Module: `crates/messages/src/`, `crates/agents/src/registration.rs` and `store.rs`, `crates/rupd/src/open.rs` only if the reply needs the held state. A contract field for the held state follows the Contract change rule in `.claude/skills/change-rules/SKILL.md`, every caller in the same PR. U6260a shares U6248a's one held predicate (`crates/messages/src/failure.rs`); it adds no second one.
 
 **U6260a an accepted Message is written, held with its reason, or refused.** Given an `agent.prompt` or `message.send` that the Daemon accepts, when the call returns, then within that Daemon event the Message is in exactly one state its sender can read:
 

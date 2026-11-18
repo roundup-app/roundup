@@ -31,4 +31,4 @@ These are numbered baselines, not evidence the planned tests pass:
 
 P1: does name selection prevent starting work through its Workstream or remove direct Agent access? Observe A4700a/b through MCP with the original Workstream/Door identity. P4: does resolution inspect vendor details outside the Adapter? Resolve only Rail state; the fake vendor observes the existing launch. P9: can a failed name selection start a program? A4700c observes no new Attempt or Terminal. Each gate must answer no (policy).
 
-Journey stage: Request (`.agents/data/journey.md`): an Agent creates a Workstream and starts its Door through the real tools. This specification concerns the tool path; it claims no rendered or native-App change and leaves the journey's rendered observer intact (policy).
+Journey stage: Request (`docs/journey.md`): an Agent creates a Workstream and starts its Door through the real tools. This specification concerns the tool path; it claims no rendered or native-App change and leaves the journey's rendered observer intact (policy).

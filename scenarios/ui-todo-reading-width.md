@@ -14,7 +14,7 @@ Use the existing U26 harness and Pad/Todo browser observer in a dedicated headle
 
 The design critic judges the actual Todo measure, common edges, preserved Pad measure, wrapping, clipping, controls and visible failure text. Record the editor/ancestor resolved widths and Token mapping beside paired captures as diagnostic evidence; geometry, CSS, spacing, line-count and exact-copy assertions do not belong in UI tests (AGENTS.md rule 10). Reuse or extend the existing capture observer and register `just capture U5705` in the existing capture registry. No new behavioral test is required for a selector-only repair; add one only for distinct uncovered behavior introduced by the implementation, named with the `u5705_` prefix.
 
-Policy: Moves D2, D5 and D6; use existing Tokens and regress no Check passing on the paired main baseline. Leave paired images in PNG format, interaction videos and complete `window.__checks()` readings under `artifacts/ux/U5705/`, following `.agents/data/harness.md`, heading “Captures”; never commit images or videos. A missing rendered state or capture setup is an observer failure. No capture is required for this specification-only PR. Chromium observes the webview; the user reports what they meet on the Mac, with no additional native gate.
+Policy: Moves D2, D5 and D6; use existing Tokens and regress no Check passing on the paired main baseline. Leave paired images in PNG format, interaction videos and complete `window.__checks()` readings under `artifacts/ux/U5705/`, following `docs/harness.md`, heading “Captures”; never commit images or videos. A missing rendered state or capture setup is an observer failure. No capture is required for this specification-only PR. Chromium observes the webview; the user reports what they meet on the Mac, with no additional native gate.
 
 ## Existing checks on main
 
@@ -23,7 +23,7 @@ Policy: Moves D2, D5 and D6; use existing Tokens and regress no Check passing on
 3. Exact Todo body draft restoration: `apps/desktop/src/todos/u2773_unfinished_input.test.tsx`, `u2773a_todos_restores_exact_work_after_hiding_body`.
 4. Unchanged Pad source/no write: `apps/desktop/src/pads/u147_live_preview.test.tsx`, `u147_an_unchanged_document_keeps_its_source_bytes_and_writes_nothing`.
 5. D2 spacing/type, D5 contrast and D6 targets/focus: `docs/design-system.md`, heading “The checks”; executable readings: `apps/desktop/src/testing/checks.ts`, `runChecks`.
-6. Review journey and viewport: `.agents/data/journey.md`, headings “What must work” and “The viewport”; harness/captures: `.agents/data/harness.md`, headings “Harness” and “Captures”.
+6. Review journey and viewport: `docs/journey.md`, headings “What must work” and “The viewport”; harness/captures: `docs/harness.md`, headings “Harness” and “Captures”.
 
 Policy — applicable Principles: P11 gates lost/altered unfinished input, identity or recovery; observe exact draft retention with check 3 and unchanged source/no-write with check 4. P6 gates lost Home or an overridden user placement; retain the existing Workstream opening path and item identity/Home. This presentation repair claims no new storage or journey capability.
 

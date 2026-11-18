@@ -28,8 +28,8 @@ Each executable edge below reaches CI or the human instructions below; none depe
 | `contracts-test` | `.github/workflows/check.yml`, C4 step in `contracts` | `just contracts-test` |
 | `contracts-fresh` | `justfile`, `test-rust` | `just contracts-fresh` |
 | `packages` | `justfile`, `lint-web`, `test-web-since`, `capture` | `just packages typecheck`; `just packages test <args>` |
-| `harness` | `.agents/data/harness.md`, Harness | `just harness <seed> <port>` |
-| `harness-real` | `.agents/data/harness.md`, Harness (`harness-real` paragraph) | `just harness-real <project-path> <port>` |
+| `harness` | `docs/harness.md`, Harness | `just harness <seed> <port>` |
+| `harness-real` | `docs/harness.md`, Harness (`harness-real` paragraph) | `just harness-real <project-path> <port>` |
 | `build-debug` | `.github/workflows/check.yml`, `web` on a prepared runner; `justfile`, `app` | `just build-debug` |
 | `app` | This document, Human commands | `just app <project>` |
 | `app-release` | This document, Human commands | `just app-release <project>` |

@@ -1,6 +1,6 @@
 # The Door closes the work loop
 
-Specification for #5928. First-journey stages: Request, Understand, Intervene and Review (`.agents/data/journey.md`, **What must work**). These clauses specify future behavior; publishing this file establishes no implementation result.
+Specification for #5928. First-journey stages: Request, Understand, Intervene and Review (`docs/journey.md`, **What must work**). These clauses specify future behavior; publishing this file establishes no implementation result.
 
 The user deals with the Workstream's Door. Each Subagent fact that changes what happens next reaches that Door through the Message inbox, or exposes its delivery failure on the Agent and Workstream rows. The system observes endings independently of a Subagent sending its own report. Direct Agent access remains available; normal progress requires none. The user opens a Subagent only to answer its native permission prompt (policy: P1, P3, P6).
 
