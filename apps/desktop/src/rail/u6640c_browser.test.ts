@@ -1,7 +1,6 @@
 // oxlint-disable anti-slop/no-new-web-assertions
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
-import { copy } from "./copy";
 import type { ChromePage } from "../testing/chromePage";
 
 const found = chromePath();
@@ -22,22 +21,18 @@ run("u6640c_a_tooltip_box_clears_the_row_below_its_target", async () => {
   await page.load("/harness.html?seed=tree-40", 1512, 950);
   await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row').length > 1`);
 
-  // U7413a: a universal icon (the fold chevron, stop, more) shows no name, so the target is a row's Start Door button.
-  const target = await page.call<{ row: { x: number; y: number }; icon: { x: number; y: number } }>(`(label) => {
+  // U7413a: a universal icon (Collapse, Stop) shows no name tooltip; Play keeps its name.
+  const target = await page.call<{ x: number; y: number }>(`() => {
+    const icon = 'button[data-button="icon"]:has(svg.lucide-play)';
     const rows = [...document.querySelectorAll('.rail-row')];
-    const button = (r) => r.querySelector('.row-icons button[aria-label="' + label + '"]');
-    const row = rows.find((r, i) => i < rows.length - 1 && button(r));
+    const row = rows.find((r, i) => i < rows.length - 1 && r.querySelector(icon));
     row.dataset.u6640c = "target";
     rows[rows.indexOf(row) + 1].dataset.u6640c = "below";
-    const r = row.getBoundingClientRect();
-    const b = button(row).getBoundingClientRect();
-    return { row: { x: r.left + r.width / 2, y: r.top + r.height / 2 }, icon: { x: b.left + b.width / 2, y: b.top + b.height / 2 } };
-  }`, copy.startDoor);
+    const b = row.querySelector(icon).getBoundingClientRect();
+    return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  }`);
 
-  // A row's icons take the pointer only once the row is hovered.
-  await page.hover(target.row.x, target.row.y);
-  await page.until(`() => getComputedStyle(document.querySelector('[data-u6640c="target"] .row-icons')).pointerEvents === 'auto'`);
-  await page.hover(target.icon.x, target.icon.y);
+  await page.hover(target.x, target.y);
   await page.until(`() => document.querySelector('[data-slot="tooltip-content"][data-open]')`);
 
   const overlap = await page.call<boolean>(`() => {
