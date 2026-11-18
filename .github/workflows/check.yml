@@ -1,25 +1,22 @@
 name: check
-# Trusted downstream workflows distinguish a skipped draft event even after the PR becomes ready.
+# A draft's event is marked, so a later `ready_for_review` completion cannot be mistaken for it.
 run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check' || 'Check' }}
 
 on:
   workflow_dispatch:
-  # A draft's head is skipped: its Builder is still pushing red tests. ready_for_review runs check on the finished
-  # head, whose `pre` run starts its review (L24).
+  # A draft's head is skipped: its author is still pushing red tests. ready_for_review runs check on the finished head.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
-# L82: a newer push cancels an older PR run. A push to `main` cancels no running `main` run: GitHub keeps that one running
+# A newer push cancels an older PR run. A push to `main` cancels no running `main` run: GitHub keeps that one running
 # and one waiting, and the newest push replaces the waiting one, so each started run ends (scenarios/ci-mac.md).
 concurrency:
   group: check-${{ github.event_name == 'push' && 'push-main' || (github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
-# L24: on a PR, the lanes start with the push, alongside `pre`, the review run and the design critic run. Merge waits for
-# `check`, `rules`, `review` and `critic` all (L46), so no head merges unreviewed; a reject starts a fix run whose push
-# supersedes this run (L82).
+# On a PR, the lanes start with the push, alongside `pre` and `rules`. Merge waits for `check` and `rules` (L46).
 #
 # L89: a PR's lanes test only what its diff reaches (`loop/affected.py`): the merge ref's first parent is the `main` it
 # merges into. An empty base, on every other event, tests everything.
@@ -93,9 +90,6 @@ jobs:
         run: |
           python3 tools/release/check.test.py
           python3 tools/release/promote.test.py
-      # L82, L120: the merge of `main` and the merge-loss restore a fix run makes with no model; `loop.yml` runs the other loop tests.
-      - name: L82 merge of main with no model
-        run: python3 loop/app-data.py python3 loop/merge_main.test.py
       # N7: every launch reference has an entry; `mac-clippy` runs the rest of N7 when the diff reaches it (CI7295h).
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan
@@ -164,7 +158,7 @@ jobs:
   # the timed waits of daemons, fake Claude and sqlite. Lane N runs profile `ciN` of `.config/nextest.toml`, which names
   # the test binaries packed to equal seconds, and builds only those (`just test-rust-lane`): about a tenth of the test
   # binaries, under `--workspace` so every lane restores the dependencies `cache` built. A test stays in its lane across
-  # commits, so a PR's lane and `main`'s hold the same tests (L82). The observers that build their own targets run
+  # commits, so a PR's lane and `main`'s hold the same tests. The observers that build their own targets run
   # beside the lanes in `contracts` and `observers`.
   rust:
     needs: plan
@@ -821,9 +815,8 @@ jobs:
 
   # CI7295e: the required result, red as soon as one job fails. It starts beside the lanes and reads this run's jobs
   # every 30 s: the first failed or timed-out job fails it at once, while the other lanes run to their end, so the run
-  # still reports every failure (L89); `fix.yml` starts on the run's `completed` event, so one fix run reads them all
-  # (L82). It passes when `lanes` passes. A newer push cancels the whole run, `check` with it: it blocks merge and starts
-  # no fix run (L82). Each read is one request of the repository's 1000 an hour for `GITHUB_TOKEN`.
+  # still reports every failure (L89). It passes when `lanes` passes. A newer push cancels the whole run, `check` with it,
+  # which blocks merge. Each read is one request of the repository's 1000 an hour for `GITHUB_TOKEN`.
   # L46: a draft run's skipped job takes another name. GitHub counts a skipped required check as passed, and the ready run
   # creates its own `check` only after its lanes end, so a skipped draft `check` on the same head let #5430 merge red.
   check:

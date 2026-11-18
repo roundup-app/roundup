@@ -1,5 +1,5 @@
 # The one definition of "check": CI runs exactly this. Each line runs even after one fails, and the recipe fails naming every failed line (L89).
-# With <base>, the tests run only where the changes since <base> reach; a Builder passes `origin/main` (L89).
+# With <base>, the tests run only where the changes since <base> reach; a build passes `origin/main` (L89).
 [script('loop/keep-going.sh')]
 check base="":
     just check-rust {{quote(base)}}
@@ -10,7 +10,7 @@ check-rust base="":
     just lint-rust {{quote(base)}}
     just test-rust-since {{quote(base)}}
 
-# The deterministic checks a Builder run's pushes failed on, run before the push and against origin/main: no browser, no test binary, no real process (L23).
+# The deterministic checks a pushed change most often fails on, run before the push and against origin/main: no browser, no test binary, no real process.
 [script('loop/keep-going.sh')]
 ready:
     just migrations origin/main
@@ -55,8 +55,8 @@ lint-rust base="": lint-repo
     tools/typed-calls/guard.sh
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
-# With <base>, it runs only when the diff since <base> reaches a crate (`loop/affected.py`), so a Builder's web-only diff
-# builds no cold Rust before its push (L23).
+# With <base>, it runs only when the diff since <base> reaches a crate (`loop/affected.py`), so a web-only diff
+# builds no cold Rust before its push.
 clippy base="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -122,7 +122,7 @@ check-web base="":
     just lint-web
     just test-web-since {{quote(base)}}
 
-# T6011a: the safe fixes of `lint-web` and `lint-rust`, by Oxlint's and rustfmt's own fix modes on the whole tree; `fix.yml` runs it before any model (L82).
+# T6011a: the safe fixes of `lint-web` and `lint-rust`, by Oxlint's and rustfmt's own fix modes on the whole tree.
 [script('loop/keep-going.sh')]
 fix:
     pnpm exec oxlint --fix
@@ -390,7 +390,7 @@ proofs: proofs-setup
     proofs/proofs.test.sh
     proofs/check.sh
 
-# L105: the web tests with the captures of the named ids (comma-separated, as on the PR's `Scenarios:` line) written to artifacts/ux/<id>/ (images and videos stay untracked: attach them to the PR with `gh pr edit --attach`); `just check` writes none.
+# L105: the web tests with the captures of the named ids (comma-separated, as on the PR's `Scenarios:` line) written to artifacts/ux/<id>/ (images and videos stay untracked); `just check` writes none.
 capture ids:
     ROUNDUP_CAPTURES={{quote(ids)}} just packages test
 

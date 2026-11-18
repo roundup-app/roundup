@@ -231,36 +231,3 @@ test("t6011a_fix_applies_the_safe_fixes_and_a_second_run_changes_nothing", t => 
   assert.equal(readFileSync(resolve(cwd, "src/lib.rs"), "utf8"), rust);
 });
 
-function builder(t, cwd) {
-  const temp = mkdtempSync(resolve(tmpdir(), "roundup-runner-"));
-  t.after(() => rmSync(temp, { recursive: true, force: true }));
-  const stamped = run(cwd, "bash", [resolve(repo, "loop/author.sh"), "builder-7"], { RUNNER_TEMP: temp });
-  assert.equal(stamped.status, 0, stamped.stdout + stamped.stderr);
-}
-
-test("t6011b_builder_commit_contains_the_spacing_fix", t => {
-  const cwd = fixture(t);
-  builder(t, cwd);
-  write(cwd, "source.ts", unfixed);
-  git(cwd, "add", "source.ts");
-  git(cwd, "commit", "--quiet", "-m", "Builder commit");
-  assert.equal(git(cwd, "show", "HEAD:source.ts"), fixed);
-  assert.equal(git(cwd, "log", "-1", "--format=%(trailers:key=Author-Agent,valueonly)"), "builder-7\n\n");
-});
-
-test("t6011b_builder_merge_commits_main_as_it_is", t => {
-  const cwd = fixture(t);
-  git(cwd, "switch", "--quiet", "-c", "build/fixture");
-  git(cwd, "switch", "--quiet", "-");
-  // main holds a file over the size cap, as one merged past `pre` would.
-  write(cwd, "main.ts", fixed + "\n".repeat(996));
-  git(cwd, "add", "main.ts");
-  git(cwd, "commit", "--quiet", "--no-verify", "-m", "Main grows a file past the cap");
-  git(cwd, "switch", "--quiet", "build/fixture");
-  builder(t, cwd);
-  // A merge git makes runs no pre-commit hook; one a run finishes by `git commit`, as after a conflict, does.
-  git(cwd, "merge", "--quiet", "--no-ff", "--no-commit", "-");
-  const merged = run(cwd, "git", ["commit", "--no-edit"]);
-  assert.equal(merged.status, 0, merged.stdout + merged.stderr);
-  assert.equal(git(cwd, "rev-list", "--count", "--merges", "HEAD"), "1\n");
-});

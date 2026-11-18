@@ -45,7 +45,6 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           browser: 'true'
-          builder: 'true'
       - name: L121 prepared environment and private retained state
         env:
           EXPECT_MEMORY: ${{ inputs.expect-memory }}
@@ -57,8 +56,6 @@ jobs:
           state = Path(os.environ['ROUNDUP_AGENT_MEMORY'])
           assert not os.environ.get('CLAUDE_CODE_OAUTH_TOKEN')
           assert not os.environ.get('BOXD_IDENTITY')
-          assert not (state / 'codex/auth.json').exists()
-          assert not Path('/home/boxd/.codex/auth.json').exists()
           assert not Path('/home/boxd/.claude/.credentials.json').exists()
           assert not Path('/tmp/registration.json').exists()
           settings = json.loads((state / 'claude/settings.json').read_text())
@@ -73,7 +70,6 @@ jobs:
           memory.write_text('L121 retained project auto-memory\n')
           print('L121: fresh runner, auto-memory enabled, retained history verified')
           PY
-          codex --enable memories features list
       - if: inputs.smoke-wait
         name: Await cancellation after memory was written
         run: sleep 300
@@ -109,13 +105,3 @@ jobs:
           name: qa-sweep-${{ github.run_id }}
           path: loop/out/qa/
           if-no-files-found: error
-
-  summary:
-    needs: [smoke, sweep]
-    if: always()
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Observe main for regressions
-      next: Observed defects become work for the loop; the next scheduled sweep observes main again.

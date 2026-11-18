@@ -1,10 +1,10 @@
-name: loop
+name: rules
 
 on:
   pull_request:
 
 concurrency:
-  group: loop-${{ github.ref }}
+  group: rules-${{ github.ref }}
   cancel-in-progress: true
 
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
@@ -13,6 +13,7 @@ defaults:
     shell: bash
 
 jobs:
+  # L46: the ruleset requires this job by its name, `rules`.
   rules:
     runs-on: ubuntu-24.04
     # L89: a failed step leaves the later ones running, so one run reports every failure.
@@ -29,26 +30,6 @@ jobs:
       - run: loop/rules.sh architect-words
         if: ${{ !cancelled() }}
       - run: loop/rules.sh tokens
-        if: ${{ !cancelled() }}
-      - run: python3 loop/orders.py lint
-        if: ${{ !cancelled() }}
-      - run: python3 loop/orders.test.py
-        if: ${{ !cancelled() }}
-      - uses: taiki-e/install-action@just
-        if: ${{ !cancelled() }}
-      - run: python3 loop/builder.test.py
-        if: ${{ !cancelled() }}
-      - run: python3 loop/push.test.py
-        if: ${{ !cancelled() }}
-      - run: python3 loop/lint-fix.test.py
-        if: ${{ !cancelled() }}
-      - run: python3 loop/deadline.test.py
-        if: ${{ !cancelled() }}
-      - run: python3 loop/image_tools.test.py
-        if: ${{ !cancelled() }}
-      - run: python3 loop/stall.test.py
-        if: ${{ !cancelled() }}
-      - run: python3 loop/scorecard.test.py
         if: ${{ !cancelled() }}
       - name: Select boxd regressions
         id: boxd-changes
