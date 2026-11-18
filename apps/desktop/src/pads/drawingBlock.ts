@@ -91,9 +91,9 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
         excalidrawAPI: (api) => (handle ??= fitted ? undefined : api),
         onChange: (current) => {
           // Excalidraw's constructor-time scroll is lost and measures the window; fit once the canvas has mounted and been measured.
-          // The scene fills 70% of the canvas, leaving the toolbar, tool column and footer clear.
+          // The scene fills 60% of the canvas. The canvas is a fixed 360 px, so the 20% left above and below is 72 px, clear of Excalidraw's 57 px footer and its toolbar.
           if (handle) {
-            handle.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.7 });
+            handle.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.6 });
             handle = undefined;
             fitted = true;
           }
