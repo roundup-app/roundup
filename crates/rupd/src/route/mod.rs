@@ -326,7 +326,7 @@ impl Daemon {
                 self.reset_orphans().await?;
                 return outcome;
             }
-            After::Spawn if params["role"] == "mode" => {
+            After::Spawn if params.get("role").is_some_and(|role| role == "mode") => {
                 return self.start_nested_mode(outcome?).await;
             }
             After::PadDelete if outcome.is_ok() => {

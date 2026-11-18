@@ -100,9 +100,7 @@ impl Messages {
                 contracts::agent::NodeKind::Agent => {
                     node.mode_prompt().as_deref() == Some(prompt)
                         && node.parent.as_deref().is_none_or(|parent| {
-                            nodes
-                                .iter()
-                                .any(|n| n.id == parent && n.parent.is_none())
+                            nodes.iter().any(|n| n.id == parent && n.parent.is_none())
                         })
                 }
                 contracts::agent::NodeKind::Group => false,

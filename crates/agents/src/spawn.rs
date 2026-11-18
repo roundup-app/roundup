@@ -286,7 +286,11 @@ impl Agents {
         if params.scout.is_some() || params.extras.is_some() {
             return refuse("a Mode launches with the user's whole setup: no scout or extras");
         }
-        if params.name.as_deref().is_none_or(|name| name.trim().is_empty()) {
+        if params
+            .name
+            .as_deref()
+            .is_none_or(|name| name.trim().is_empty())
+        {
             return refuse("a Mode needs a name");
         }
         match params.prompt.as_deref() {
@@ -413,7 +417,9 @@ impl Agents {
             spawn_prompt: request.spawn_prompt.as_deref(),
             spawner: request.spawner.as_deref(),
             // A7494a: a Mode is told by its saved prompt, so no role is stored for it.
-            role: request.role.filter(|role| *role != contracts::agent::SpawnRole::Mode),
+            role: request
+                .role
+                .filter(|role| *role != contracts::agent::SpawnRole::Mode),
             model: request.pair.model.as_deref(),
             effort: request.pair.effort.as_deref(),
             mode_prompt: request.mode_prompt.as_deref(),

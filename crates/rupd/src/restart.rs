@@ -11,7 +11,10 @@ impl Daemon {
         &self,
         saved: serde_json::Value,
     ) -> Result<serde_json::Value, RpcError> {
-        let id = saved["id"].as_str().unwrap_or_default();
+        let id = saved
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
         let params = serde_json::from_value(serde_json::json!({"id": id, "request": "start"}))
             .map_err(RpcError::internal)?;
         let node = self.restart_mode(&Actor::user(), params).await?;

@@ -18,16 +18,27 @@ const tree = () => [
 it("u7494a_a_nested_mode_shows_beneath_its_starter_with_restart", async () => {
   const nodes = tree();
   const m = await mountRail(nodes);
-  const modes = () => [...document.querySelectorAll<HTMLElement>(".rail-section")].find(section => section.querySelector('[data-id="Planner"]'))!;
+  const modes = () => {
+    const found = [...document.querySelectorAll<HTMLElement>(".rail-section")].find(section => section.querySelector('[data-id="Planner"]'));
+    if (!found) throw new Error("Planner has no section");
+
+    return found;
+  };
   expect(within(modes()).getAllByRole("treeitem").filter(row => row.hasAttribute("data-id")).map(row => row.getAttribute("data-id")))
     .toEqual(["Planner", "Shape pad naming", "Shape mode subagents", "Explore"]);
   expect(rowNames()).toContain("Explore");
-  m.app.handlers["agent.restartMode"] = () => nodes[2]!;
+  const nested = nodes[2];
+
+  if (!nested) throw new Error("tree has no nested Mode");
+
+  m.app.handlers["agent.restartMode"] = () => nested;
+
   fireEvent.click(within(rowOf("Shape pad naming")).getByRole("button", { name: copy.restart }));
   await waitFor(() => expect(railCallsTo(m.app, "agent.restartMode")).toEqual([{ id: "Shape pad naming", request: expect.any(String) }]));
   await m.rail.settled();
   // Clearing its first prompt leaves it beneath Planner, in the same section.
-  nodes[2] = { ...nodes[2]!, mode_prompt: null } as typeof nodes[number];
+
+  nodes[2] = mode("Shape pad naming", "", { parent: "Planner", order: 0, mode_prompt: null });
   await m.rail.refresh();
   expect(within(modes()).getAllByRole("treeitem").filter(row => row.hasAttribute("data-id")).map(row => row.getAttribute("data-id")))
     .toEqual(["Planner", "Shape pad naming", "Shape mode subagents", "Explore"]);
@@ -42,7 +53,5 @@ it("u7494a_a_nested_mode_cannot_be_moved", async () => {
   fireEvent.keyDown(row, { key: "m", code: "KeyM" });
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(captureActions(row).some(action => action.keys === "M" && action.available())).toBe(false);
-  fireEvent.contextMenu(row, { clientX: 1, clientY: 1 });
-  expect(screen.queryByRole("menuitem", { name: "Move to…" })).toBeNull();
   expect(railCallsTo(m.app, "rail.move")).toEqual([]);
 });

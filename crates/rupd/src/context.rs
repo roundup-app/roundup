@@ -41,7 +41,11 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
     }
     // A7494b: a nested Mode keeps its starter as Parent but asks the user.
     let ask = match parent {
-        Some(_) if node.mode_prompt().is_some_and(|prompt| !prompt.trim().is_empty()) => {
+        Some(_)
+            if node
+                .mode_prompt()
+                .is_some_and(|prompt| !prompt.trim().is_empty()) =>
+        {
             Actor::user().id
         }
         Some(parent) if is_agent(parent) => parent.id.clone(),

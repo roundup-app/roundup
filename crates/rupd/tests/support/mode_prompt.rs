@@ -488,18 +488,27 @@ async fn a7494a_a_nested_mode_is_refused_where_a_mode_may_not_nest() {
         .unwrap();
     let workstream = run
         .user
-        .request("rail.createWorkstream", json!({"name":"team","parent":null}))
+        .request(
+            "rail.createWorkstream",
+            json!({"name":"team","parent":null}),
+        )
         .await
         .unwrap();
     let before = {
         let _ = before;
         rows().await
     };
-    for caller in [&nested_id, subagent["id"].as_str().unwrap(), workstream["id"].as_str().unwrap()]
-    {
+    for caller in [
+        &nested_id,
+        subagent["id"].as_str().unwrap(),
+        workstream["id"].as_str().unwrap(),
+    ] {
         let client = rpc::Client::connect(&run.daemon.socket).await.unwrap();
         client
-            .request("daemon.identify", json!({"actor":{"kind":"agent","id":caller}}))
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":caller}}),
+            )
             .await
             .unwrap();
         let refused = client
@@ -521,7 +530,11 @@ async fn a7494a_a_nested_mode_is_refused_where_a_mode_may_not_nest() {
         let refused = agent.request("agent.spawn", params.clone()).await;
         assert!(refused.is_err(), "{params}");
     }
-    assert_eq!(rows().await, before, "a refusal starts and saves nothing of {starter}");
+    assert_eq!(
+        rows().await,
+        before,
+        "a refusal starts and saves nothing of {starter}"
+    );
 }
 
 #[tokio::test]
@@ -570,7 +583,10 @@ async fn a7494a_only_the_user_edits_a_nested_modes_prompt() {
             .unwrap_err();
         assert_eq!(error.code, rpc::code::FORBIDDEN, "{error}");
     }
-    assert_eq!(row(&run, &run.child).await["mode_prompt"], "User's saved text");
+    assert_eq!(
+        row(&run, &run.child).await["mode_prompt"],
+        "User's saved text"
+    );
     // The starter's Reach covers it: it can stop its nested Mode.
     agent
         .request("agent.stop", json!({"id":run.child}))
