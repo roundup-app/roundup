@@ -129,7 +129,10 @@ export const chooseAction = async (app: ReturnType<typeof createFakeApp>, name: 
 
 /** The exited row's play icon, labelled Restart (a Door) or Resume (a Mode): it sends `agent.resume {id, mode}` (U428, U7191a). */
 export const resumeRow = (name: string): void => {
-  fireEvent.click(within(rowOf(name)).getByRole("button", { name: new RegExp(`^(${copy.restart}|${copy.resume})$`) }));
+  const play = within(rowOf(name)).getAllByRole("button").find(b => b.querySelector(".lucide-play"));
+
+  if (!play) throw new Error(`No play icon on row ${name}`);
+  fireEvent.click(play);
 };
 
 /** Chooses a creation kind through the shared footer menu. */
