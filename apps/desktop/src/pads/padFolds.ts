@@ -1,6 +1,6 @@
 import { createMemo, createSignal } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
-import type { PadMark, PadRead } from "./padRead";
+import { usePadRead, type PadMark, type PadRead } from "./padRead";
 
 /** U7499a: a `shown` Pad no one has written for this long is idle. */
 const IDLE_AFTER_MS = 7 * 86_400_000;
@@ -29,7 +29,8 @@ export const foldPads = (pads: readonly Pad[], read: PadRead, now: number, open:
 };
 
 /** U7499a: both folds of every group start closed; a key is `<group id>:<fold>`. `walked` is the Pads a key walk visits: those above the folds and in an open fold. */
-export const createFolds = (groups: () => readonly { id: string; items: readonly Pad[] }[], read: PadRead & { open(): string | null }, now: () => number) => {
+export const createFolds = (groups: () => readonly { id: string; items: readonly Pad[] }[], now: () => number) => {
+  const read = usePadRead();
   const [unfolded, setUnfolded] = createSignal<readonly string[]>([]);
   const toggleFold = (key: string) => setUnfolded(open => open.includes(key) ? open.filter(each => each !== key) : [...open, key]);
 
@@ -54,5 +55,5 @@ export const createFolds = (groups: () => readonly { id: string; items: readonly
     toggleFold: (fold: "internal" | "idle") => toggleFold(`${group().id}:${fold}`),
   });
 
-  return { walked, of };
+  return { walked, of, read };
 };

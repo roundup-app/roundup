@@ -38,7 +38,7 @@ import { OwnerGroups } from "../shelf/OwnerGroups";
 import { Sortable } from "../ui/sortable";
 import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
-import { usePadRead, type PadMark } from "./padRead";
+import type { PadMark } from "./padRead";
 import { createFolds, type FoldedPads } from "./padFolds";
 import { FoldContent } from "../ui/FoldRow";
 import type { PadList } from "./padList";
@@ -158,9 +158,7 @@ export const Pads = (props: {
     });
 
   const shown = shownPads(connected, list);
-  const groups = createMemo(() => padGroups(connected, shown()));
-  const padRead = usePadRead();
-  const { walked, of } = createFolds(groups, padRead, connected.now);
+  const groups = createMemo(() => padGroups(connected, shown())); const { walked, of, read: padRead } = createFolds(groups, connected.now);
   const selection = createSelection(() => walked().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
   const bulk = createBulkDelete({
@@ -253,8 +251,7 @@ export const Pads = (props: {
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
         <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
-      <OwnerGroups groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows
-        {...of(group)}
+      <OwnerGroups groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows {...of(group)}
         selection={selection}
         bulk={bulk}
         pads={pads}
