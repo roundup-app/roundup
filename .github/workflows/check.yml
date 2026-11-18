@@ -291,7 +291,6 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           machete: 'false'
-          nextest: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C9b native release size
         run: |
