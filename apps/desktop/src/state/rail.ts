@@ -19,6 +19,7 @@ import { railTopology, type RailTopology } from "./railTopology";
 import { ancestorsOf, isWorkstream } from "./railTopology";
 import type { RailSection, RailStorage, ResumptionStorage } from "./railStorage";
 import { handleEvent, type EventHandlers, type Events } from "../app/events";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { outcomeOf, type AppSeam } from "../app/seam";
 
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
@@ -563,7 +564,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   /** A24: the call's answer, or a rejection once `DOOR_START_BOUND_MS` passes without one. */
   const boundedStart = (id: string, size?: Size): Promise<RailNode> => {
     const { promise: expiry, reject } = Promise.withResolvers<never>();
-    const timer = setTimeout(() => reject(new Error(copy.theDoorDidNotStartInTimeRetry)), DOOR_START_BOUND_MS);
+    const timer = setTimeout(() => reject(new Error(unknownOutcomeLine(new Error()))), DOOR_START_BOUND_MS);
 
     return Promise.race([app.rpc("rail.startDoor", { id, ...size }), expiry]).finally(() => clearTimeout(timer));
   };
@@ -594,8 +595,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const node = model.tree.find((each) => each.id === id);
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
-        setDoors(draft => { draft[id]!.failure = { message: error.message, attempt: doorAttempt(node) }; });
-        commandFailure.show(error.message, id, "pane");
+        // U7498c: no answer is an unknown outcome, told as unconfirmed with no Retry; the read above settled whether it started.
+        const message = outcomeOf(error) === "unknown" ? unknownOutcomeLine(error) : error.message;
+
+        setDoors(draft => { draft[id]!.failure = { message, attempt: doorAttempt(node) }; });
+        commandFailure.show(message, id, "pane");
       }
     } finally {
       prepared?.dispose();

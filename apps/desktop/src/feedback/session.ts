@@ -6,6 +6,8 @@ import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { ToastQueue } from "../toasts/queue";
+import { applying } from "../app/pending";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { copy } from "./copy";
 import { versionsText } from "./facts";
 
@@ -166,26 +168,33 @@ export const createFeedbackSession = (props: {
     setSending(true);
     setFailure(null);
 
-    try {
-      const issue = await app.rpc("feedback.send", params);
+    const outcome = await applying(() => app.rpc("feedback.send", params));
 
+    if (outcome.kind === "applied") {
       // A dialog cancelled meanwhile, or opened again since, is not this one's to close.
       if (opened() === current) setOpened(null);
-      filed(issue);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
+      filed(outcome.value);
 
-      if (opened() === current) {
-        setFailure(error.message);
-        setSending(false);
-      } else
-        notify({
-          kind: "error",
-          name: error.message,
-          line: copy.notSent,
-          open: () => null,
-        });
+      return;
     }
+
+    if (!(outcome.thrown instanceof Error)) throw outcome.thrown;
+
+    // An unknown outcome says so and keeps `sending`, so no second submit files a duplicate.
+    const unknown = outcome.kind === "pending";
+    const message = unknown ? unknownOutcomeLine(outcome.error) : outcome.error.message;
+
+    if (opened() === current) {
+      setFailure(message);
+
+      if (!unknown) setSending(false);
+    } else
+      notify({
+        kind: "error",
+        name: unknown ? copy.notSent : message,
+        line: unknown ? message : copy.notSent,
+        open: () => null,
+      });
   };
 
   return {

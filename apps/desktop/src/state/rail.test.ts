@@ -310,7 +310,7 @@ it("a7_delayed_same_attempt_status_cannot_replace_a_later_revision", async () =>
 describe("u62 Door launch failures", () => {
   it("u62_external_start_clears_the_failed_attempt_but_ordinary_refresh_retains_it", async () => {
     const { app, rail } = await open([workstream("r", { attempt: "1", status_revision: "2" })]);
-    app.handlers["rail.startDoor"] = () => Promise.reject(new Error("launch failed"));
+    app.handlers["rail.startDoor"] = () => Promise.reject(new RpcError(-32602, "launch failed"));
     await rail.startDoor("r");
     await rail.refresh();
     expect(rail.doorFailure("r")).toBe("launch failed");
@@ -322,7 +322,7 @@ describe("u62 Door launch failures", () => {
 
   it("u62_a_newer_ended_attempt_clears_the_obsolete_start_failure", async () => {
     const { app, rail } = await open([workstream("r", { attempt: "1" })]);
-    app.handlers["rail.startDoor"] = () => Promise.reject(new Error("launch failed"));
+    app.handlers["rail.startDoor"] = () => Promise.reject(new RpcError(-32602, "launch failed"));
     await rail.startDoor("r");
     app.handlers["rail.tree"] = () => [workstream("r", { attempt: "2" })];
     await rail.refresh();

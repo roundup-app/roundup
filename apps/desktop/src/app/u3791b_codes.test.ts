@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { copy } from "../continuation/copy";
 import { outcomeOf, RpcError } from "./seam";
+import { changeFailureOf, unknownOutcomeLine } from "./failureOf";
+import { railCommand } from "../rail/railCommands";
+import type { RailState } from "../state/rail";
 import { clipboardFailure, readPaste } from "./clipboard";
 import { pasteEvent, imageFile } from "../testing/clipboard";
 
@@ -49,4 +52,27 @@ it.each(["opaque details", "refused; retry refresh choose"])("u3791b_copy_depend
   failure.message = message;
   expect(clipboardFailure("paste", failure)).toBe(message);
   expect(clipboardFailure("paste", new Error(message))).not.toBe(message);
+});
+
+it("u7498c_unknown_outcome_yields_unknown_copy_and_no_retry", async () => {
+  const unknown = codes.filter(({ code }) => outcomeOf(new RpcError(code, "thrown message")) === "unknown");
+  const failed = codes.find(({ code }) => outcomeOf(new RpcError(code, "refused")) === "failed");
+  const shown: unknown[][] = [];
+  // SAFETY: `railCommand` reads only `refresh` and `commandFailure`, both given here.
+  const rail = { refresh: async () => undefined, commandFailure: { acknowledge: () => undefined, show: (...args: unknown[]) => { shown.push(args); } } } as unknown as RailState;
+  const retry = () => undefined;
+
+  expect(unknown.length).toBeGreaterThan(0);
+
+  for (const { name, code } of unknown) {
+    shown.length = 0;
+    await railCommand(rail, { call: () => Promise.reject(new RpcError(code, "thrown message")), label: "New Agent", retry });
+    expect(shown, name).toEqual([[copy.rpcFailure(code), null, "rail", null]]);
+    expect(await changeFailureOf(() => Promise.reject(new RpcError(code, "thrown message"))), name).toBeNull();
+    expect(unknownOutcomeLine(new RpcError(code, "thrown message")), name).toBe(copy.rpcFailure(code));
+  }
+
+  shown.length = 0;
+  await railCommand(rail, { call: () => Promise.reject(new RpcError(failed?.code ?? 0, "refused")), label: "New Agent", retry });
+  expect(shown).toEqual([["New Agent: refused", null, "rail", retry]]);
 });

@@ -5,6 +5,8 @@ import { BusyButton } from "../ui/BusyButton";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
+import { applying } from "../app/pending";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { DialogFailure } from "../ink/MountedLine";
 
 /** A5214b: ask for the Mode's name, then `agent.saveAsMode`; the Agent row stays as it was. */
@@ -28,15 +30,24 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
     if (busy() || !name().trim()) return;
     setBusy(true);
 
-    try {
-      await app.rpc("agent.saveAsMode", { id: props.id, name: name().trim() });
-      await rail.refresh();
-      rail.setSectionOpen("modes", true);
-      close();
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      setFailure(error.message);
-    } finally { setBusy(false); }
+    const outcome = await applying(() => app.rpc("agent.saveAsMode", { id: props.id, name: name().trim() }));
+
+    if (outcome.kind === "applied") {
+      try {
+        await rail.refresh();
+        rail.setSectionOpen("modes", true);
+        close();
+      } finally { setBusy(false); }
+
+      return;
+    }
+
+    if (!(outcome.thrown instanceof Error)) throw outcome.thrown;
+
+    // An unknown outcome keeps the dialog busy: a second submit could save the Mode twice; the Rail read settles it.
+    if (outcome.kind === "pending") return setFailure(unknownOutcomeLine(outcome.error));
+    setFailure(outcome.error.message);
+    setBusy(false);
   };
 
   return <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }}>

@@ -1,6 +1,7 @@
 import PQueue from "p-queue";
 import { applying } from "../app/pending";
 import type { Applied } from "../app/pending";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { RpcError } from "../app/seam";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { isDoor } from "../state/doorNode";
@@ -22,6 +23,8 @@ export type RailCommand<R> = {
   /** Names the command in its failure line. */
   label?: string;
   retry?: () => void;
+  /** A Retry kept on an unknown outcome, only for a call safe to repeat (`agent.restartMode` with its request id). */
+  retryUnknown?: () => void;
   /** Reads the Terminals with the tree once the call applied. */
   terminals?: boolean;
   /** Settles a call with no answer, which the Daemon may still apply, in place of a failure line. */
@@ -66,6 +69,8 @@ export const railCommand = async <R>(
 
   if (outcome.kind === "pending" && command.unknown)
     await command.unknown(outcome.error);
+  else if (outcome.kind === "pending")
+    rail.commandFailure.show(unknownOutcomeLine(outcome.error), command.item ?? null, "rail", command.retryUnknown ?? null);
   else {
     const message =
       command.label === undefined

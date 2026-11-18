@@ -13,8 +13,8 @@ import { Combobox } from "../ui/Combobox";
 import { Tip } from "../ui/Tip";
 import { Popover } from "../ui/Popover";
 import { Icon } from "../ink/Icon";
-import { failureOf } from "../app/failureOf";
-import { applied } from "../app/pending";
+import { unknownOutcomeLine } from "../app/failureOf";
+import { applying } from "../app/pending";
 import { useTodoList } from "./todoList";
 import "./blockerMenu.styles.css";
 
@@ -92,14 +92,16 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       setPending(true);
       setFailure(null);
 
-      let made!: RailNode;
-      const message = await failureOf(async () => { made = await applied(() => connected.app.rpc("todo.startWorkstream", { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) })); });
+      const outcome = await applying(() => connected.app.rpc("todo.startWorkstream", { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) }));
+
+      // An unknown outcome keeps the form busy: a second submit could start a second Workstream.
+      if (outcome.kind === "pending") return setFailure(unknownOutcomeLine(outcome.error));
 
       setPending(false);
 
-      if (message !== null) return setFailure(message);
+      if (outcome.kind === "refused") return setFailure(outcome.error.message);
 
-      props.done(id(), made, focus);
+      props.done(id(), outcome.value, focus);
     };
 
     return <Dialog.Root open={props.target() !== null} onOpenChange={({ open }) => { if (!open) props.done(id(), null); }} finalFocusEl={() => props.returnTo(id())}>

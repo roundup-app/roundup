@@ -22,6 +22,8 @@ export const createModeRestart = (app: AppSeam, rail: RailState, resume: (node: 
         call: () => app.rpc("agent.restartMode", { id, request }),
         terminals: true,
         retry: () => { void restartMode(id); },
+        // Safe to repeat: the Daemon answers the same request id with the first outcome.
+        retryUnknown: () => { void restartMode(id); },
       });
 
       if (outcome.kind === "applied") {
