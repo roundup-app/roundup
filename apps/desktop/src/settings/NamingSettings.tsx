@@ -65,7 +65,7 @@ export const NamingSettings = (props: { app: App }) => {
     <Show when={settings()}>{value => <>
       <Switch checked={value().automaticRenaming} disabled={saving()} description={copy.automaticRenamingHint}
         onCheckedChange={checked => void save(checked, value().namingGuide)}>{copy.automaticRenaming}</Switch>
-      <Field.Root class="settings-field settings-naming" invalid={!!failure()}>
+      <Field.Root class="settings-field settings-naming">
         <Field.Label>{copy.namingGuide}</Field.Label>
         <Field.Textarea rows={4} spellcheck="false" autocorrect="off" autocapitalize="off" value={text()} onInput={event => {
           const input = event.currentTarget;
