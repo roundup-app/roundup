@@ -48,14 +48,8 @@
   position: relative;
 }
 
-/* Recovery keeps its full cause and its actions visible on dense results. */
-.switcher .reserved-line:not([data-empty]) {
-  block-size: auto;
-  max-block-size: none;
-}
-
 /* U6249d: the cause and its actions share one row, as the Rail's do; a long cause wraps in its own cell. */
-.switcher .reserved-content {
+.switcher .mounted-line {
   align-items: baseline;
   gap: var(--space-3);
 }
@@ -92,12 +86,6 @@
 
 .switcher[role="dialog"] .app-combobox-input:focus-visible {
   outline: 0;
-}
-
-/* Empty recovery places otherwise leave two blank lines below every result set. */
-.switcher[role="dialog"] .reserved-line[data-empty="true"] {
-  block-size: 0;
-  min-block-size: 0;
 }
 
 /* U5240c: one quiet line of the keys that act now. */

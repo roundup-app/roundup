@@ -207,7 +207,7 @@ it("u5240d_a_refused_key_shows_its_cause_by_the_row_and_esc_cancels", async () =
   switcherKey("N", { metaKey: true, altKey: true }, field()!);
   const cause = await waitFor(() => notice("alert"));
   expect(recordingMark()).not.toBeNull();
-  fireEvent.click(within(cause.closest(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
+  fireEvent.click(within(cause.closest(".mounted-line")!).getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(recordingMark()).not.toBeNull();
   switcherKey("N", { metaKey: true, altKey: true }, field()!);

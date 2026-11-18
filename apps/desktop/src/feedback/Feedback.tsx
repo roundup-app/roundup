@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
 import { queueFocus } from "../keys/focus";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DialogFailure, StatusNote } from "../ink/MountedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { ToastQueue } from "../toasts/queue";
 import { Checkbox } from "../ui/Checkbox";
@@ -61,11 +61,8 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
               </Checkbox>
             </Show>
             <p class="feedback-versions">{session.versions()}</p>
-            <ReservedLine
-              message={session.failure()}
-              dismiss={() => session.setFailure(null)}
-              status={session.blocked() ?? session.noShotLine()}
-            />
+            <DialogFailure message={session.failure()} dismiss={() => session.setFailure(null)} />
+            <StatusNote text={session.failure() ? null : session.blocked() ?? session.noShotLine()} />
             <div class="app-dialog-actions">
               <Dialog.CloseTrigger type="button" data-button="quiet">
                 {copy.close}

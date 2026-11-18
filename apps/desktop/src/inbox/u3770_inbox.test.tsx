@@ -24,6 +24,19 @@ const act = async (run: () => void) => { await run(); await Promise.resolve(); f
 
 const send = async (m: Awaited<ReturnType<typeof mountInbox>>, ...sent: DaemonEvent[]) => { for (const each of sent) m.app.emit(each); await m.connected.rail.settled(); await Promise.resolve(); flush(); };
 
+/** The Toast region: a failure shows there, not in the row or the list. */
+const toasts = () => {
+  const region = () => screen.getByRole("region", { name: "Updates" });
+
+  return {
+    findByRole: (...args: Parameters<typeof screen.findByRole>) => waitFor(() => within(region()).getByRole(...args)),
+    findByText: (text: string) => waitFor(() => within(region()).getByText(text)),
+    getByRole: (...args: Parameters<typeof screen.getByRole>) => within(region()).getByRole(...args),
+    queryByRole: (...args: Parameters<typeof screen.queryByRole>) => within(region()).queryByRole(...args),
+    getAllByRole: (...args: Parameters<typeof screen.getAllByRole>) => within(region()).getAllByRole(...args),
+  };
+};
+
 const panel = () => document.querySelector<HTMLElement>(".inbox")!;
 
 const NODES: DoorNode[] = [
@@ -141,7 +154,7 @@ it("u3770c_a_failed_call_keeps_the_row_open_with_the_error", async () => {
 
   fireEvent.click(within(panel()).getByText("gamma").closest("button")!);
   fireEvent.click(await within(panel()).findByRole("button", { name: "Retry" }));
-  await within(panel()).findByRole("alert");
+  await toasts().findByRole("alert");
 
   expect(within(panel()).getByRole("button", { name: "Retry" }).hasAttribute("disabled")).toBe(false);
   expect(within(panel()).getByText("gamma").closest("button")!.getAttribute("aria-expanded")).toBe("true");
@@ -224,23 +237,22 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
   m.app.handlers["todo.unread"] = () => { throw new Error("cannot load comments"); };
 
   await act(() => m.app.emit(event({ name: "todo.deleted", data: { id: 9 } })));
-  await within(panel()).findByText("cannot load comments");
+  await toasts().findByText("cannot load comments");
 
   const refused = new Map(nodes.map(node => [node.id, new Error(`resume ${node.id} refused`)]));
   m.app.handlers["agent.resume"] = ({ id }) => { throw refused.get(id); };
 
   fireEvent.click(within(row("beta")).getByRole("button", { name: "Retry" }));
-  await within(row("beta")).findByRole("alert");
+  await toasts().findByRole("alert", { name: refused.get("b")!.message });
 
   const label = "Retry";
   const message = refused.get("a")!.message;
 
   fireEvent.click(within(row("alpha")).getByRole("button", { name: label }));
-  expect((await within(row("alpha")).findByRole("alert")).textContent).toBe(message);
+  expect((await toasts().findByRole("alert", { name: message })).textContent).toBe(message);
 
   if (transition === "dismiss") {
-    // The row's own failure line also has a Dismiss; the resume refusal's sits last, in the open body.
-    const dismiss = within(row("alpha")).getAllByRole("button", { name: "Dismiss" }).at(-1)!;
+    const dismiss = within(toasts().getByRole("alert", { name: message }).parentElement!).getByRole("button", { name: "Dismiss" });
 
     dismiss.focus();
     fireEvent.click(dismiss);
@@ -257,7 +269,7 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
 
 
     fireEvent.click(within(row("alpha")).getByRole("button", { name: label }));
-    expect(within(row("alpha")).getByRole("alert").textContent).toBe(message);
+    expect(toasts().getByRole("alert", { name: message }).textContent).toBe(message);
     acknowledge();
     await waitFor(() => expect(within(panel()).queryByText(message)).toBeNull());
   }
@@ -272,13 +284,13 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
 
   if (head("alpha").getAttribute("aria-expanded") !== "true") fireEvent.click(head("alpha"));
 
-  await waitFor(() => expect(within(row("alpha")).queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(toasts().queryByRole("alert", { name: message })).toBeNull());
   fireEvent.click(head("alpha"));
   // ui-sdk draws a closed row's body nowhere and the Inbox opens one row at a time: open beta to read its refusal.
   fireEvent.click(head("beta"));
-  expect((await within(row("beta")).findByRole("alert")).textContent).toBe(refused.get("b")!.message);
+  expect((await toasts().findByRole("alert", { name: refused.get("b")!.message })).textContent).toBe(refused.get("b")!.message);
   expect(m.connected.drafts.list()).toEqual(drafts);
-  expect(within(panel()).getAllByRole("alert")).toHaveLength(2);
+  expect(toasts().getAllByRole("alert", { name: /refused/ })).toHaveLength(1);
 });
 
 it.each(["recover", "unrelated"] as const)("p3557c_failure_lifetime_inbox_%s", async (transition) => {
@@ -286,16 +298,16 @@ it.each(["recover", "unrelated"] as const)("p3557c_failure_lifetime_inbox_%s", a
   m.app.handlers["todo.unread"] = () => { throw new Error("cannot load comments"); };
 
   await act(() => m.app.emit(event({ name: "todo.deleted", data: { id: 9 } })));
-  await within(panel()).findByText("cannot load comments");
+  await toasts().findByText("cannot load comments");
 
   if (transition === "recover") {
     m.app.handlers["todo.unread"] = () => [];
-    fireEvent.click(within(panel()).getByRole("button", { name: "Retry Inbox" }));
-    await waitFor(() => expect(within(panel()).queryByRole("alert")).toBeNull());
+    fireEvent.click(toasts().getByRole("button", { name: "Retry Inbox" }));
+    await waitFor(() => expect(screen.queryByText("cannot load comments")).toBeNull());
   } else {
     m.app.handlers["rail.tree"] = () => NODES.filter((node) => node.id !== "c");
     await send(m, event({ name: "rail.changed" }));
-    expect(within(panel()).getByRole("alert")).not.toBeNull();
+    expect(toasts().getByRole("alert")).not.toBeNull();
   }
 });
 
