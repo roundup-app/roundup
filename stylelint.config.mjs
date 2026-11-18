@@ -13,6 +13,12 @@ const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) =
 
     if (root.source?.input.file?.endsWith('/apps/desktop/src/ui/Field.css') && declaration.prop === 'outline-offset' && declaration.value === 'var(--stroke-width)') return;
 
+    // U7424a: a heading's fold mark in a Pad or Todo body takes the same ring.
+    if (root.source?.input.file?.endsWith('/apps/desktop/src/pads/editor.css') &&
+        declaration.parent?.type === 'rule' && declaration.parent.selector === 'details[data-pad-heading] summary:focus-visible' &&
+        ((declaration.prop === 'outline' && declaration.value === 'var(--stroke-width) solid var(--accent)') ||
+         (declaration.prop === 'outline-offset' && declaration.value === 'var(--stroke-width)'))) return;
+
     // U4685 allows paint on these region owners only; descendants keep U3528.
     if (root.source?.input.file?.endsWith('/apps/desktop/src/tokens.css') &&
         declaration.parent?.type === 'rule' && ['.drawer:focus-within',
