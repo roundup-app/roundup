@@ -202,9 +202,9 @@ export const mountPane = async (
   let screens: Screens | undefined;
 
   const { container } = render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={factory} screensRef={(shared) => { screens = shared; }} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   flush();

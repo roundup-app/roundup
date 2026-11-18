@@ -26,7 +26,7 @@ it.each(["read", "write", "save"])("u3560d_clipboard_failure_preserves_input_%s"
   const alert = notices("alert")[0]!;
   expect(alert.textContent).toContain(`${operation === "write" ? "Copy" : "Paste"} failed: pasteboard disconnected`);
   expect(alert.textContent).toContain("Try again");
-  expect(alert.closest(".pane-failure")).not.toBeNull();
+  expect(alert.closest(".app-toasts")).not.toBeNull();
   expect(emulator.selectedText).toBe("original unsent 雪");
   expect(emulator.pasted).toEqual([]);
   expect(callsTo(app, "terminal.write")).toEqual([]);

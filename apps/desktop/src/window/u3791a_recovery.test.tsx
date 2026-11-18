@@ -12,6 +12,7 @@ import { info, node } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { useRealBackoff } from "../testing/immediateRetry";
 import { notice, notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -237,9 +238,9 @@ it("u6249b_a_refused_scheme_push_adds_no_second_line_beside_the_rail_failure", a
   await vi.advanceTimersByTimeAsync(BACKOFF);
   const connected = await connecting;
 
-  render(() => <ConnectedProjectContext value={connected}>
+  render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <Pane notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
 
   try {
     await vi.advanceTimersByTimeAsync(0);

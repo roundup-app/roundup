@@ -4,6 +4,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { copy } from "./copy";
 import { AskBar } from "./AskBar";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -15,7 +16,7 @@ it.each([
   app.handlers[method] = () => answer.promise;
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   connected.showView(view);
-  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   await screen.findByRole("heading", { name: heading });
   expect(app.calls.filter(call => call.method === method)).toHaveLength(1);
   expect(screen.queryByRole("group", { name: title })).toBeNull();

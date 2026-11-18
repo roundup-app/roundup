@@ -307,14 +307,6 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
     () => { rejected = false; fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })); });
 });
 
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal pane-failure", async () => {
-  const mounted = await mountTodos([]);
-  const [notice, setNotice] = createSignal<string | null>(null);
-  const view = render(() => <ConnectedProjectContext value={mounted.connected}><Pane notice={notice()} createEmulator={fakeEmulators().factory} /></ConnectedProjectContext>);
-
-  await cycle(view.container, () => setNotice(FAILURE), () => setNotice(null));
-});
-
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo field recovery and retry", async () => {
   const mounted = await mountTodos([todo(1)]);
   const view = render(() => <ConnectedProjectContext value={mounted.connected}><ToastHost><TodoDraftRecovery object="1" active /></ToastHost></ConnectedProjectContext>);

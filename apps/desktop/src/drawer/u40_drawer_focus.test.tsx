@@ -8,6 +8,7 @@ import type { Emulator } from "../terminal/emulator";
 import { mountRail, rowOf as railRowOf } from "../rail/railFixture";
 import { mountTodos, todo, todoRowOf as shelfRowOf } from "../todos/testHarness";
 import { DrawerHost } from "./DrawerHost";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -48,10 +49,10 @@ const mountPaneWithDrawer = async () => {
   };
 
   render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={() => emulator} />
       <DrawerHost drawer={connected.drawer} reducedMotion={connected.reducedMotion} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   connected.rail.select("a");

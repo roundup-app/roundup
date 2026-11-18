@@ -116,6 +116,7 @@ it("u7211a_a_failed_read_says_so_and_retries", async () => {
     return planOf(id, id === "a" ? [action("x1")] : []);
   } });
 
+  // U7314b: the failed read is a Toast with Retry, and holds no place over the Terminal.
   select("a");
   await waitFor(() => expect(notice("alert").textContent).toContain(copy.checkFailed(copy.rpcFailure(CODE))));
   expect(bar()).toBeNull();

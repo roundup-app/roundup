@@ -4,9 +4,8 @@ import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { copy } from "./copy";
 import { queueFocus } from "../keys/focus";
 import { createCut } from "../ink/Tip";
-import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { errorCause } from "../ink/FailureLine";
+import { errorCause, Line } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../state/railTopology";
@@ -94,7 +93,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
         </span>
       }</Tip>
       <span {...tip} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <Show when={errorCause(status(), false)}>{cause => <ReservedLine status={cause()} />}</Show>
+      <Show when={errorCause(status(), false)}>{cause => <Line label={cause()} />}</Show>
     </button>;
   }}</Tip>;
 };

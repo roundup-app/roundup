@@ -73,7 +73,7 @@ it("u371_scrim_and_escape_close_the_shelf", async () => {
 
   if (captureDir("U2892")) {
     await evaluate(`(() => { window.__fake.failNext(-32000, 'Terminal could not open', 'terminal.open'); document.querySelector('.terminal-new').click(); return true; })()`);
-    await browser("wait", ".bubble-failure");
+    await browser("wait", ".app-toast");
   }
 
   await toggle();

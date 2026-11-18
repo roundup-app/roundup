@@ -10,6 +10,7 @@ import { createXtermEmulators } from "./emulator";
 import type { Screens } from "./screens";
 import { Pane } from "./Pane";
 import { lazyEmulators } from "./lazyEmulator";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
@@ -21,11 +22,11 @@ const mount = async (kind = "shell", lazy = false) => {
   const emulators = new Map<string, ReturnType<typeof real>>();
   let screens!: Screens;
 
-  const { container } = render(() => <ConnectedProjectContext value={connected}>
+  const { container } = render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <Pane screensRef={value => { screens = value; }} createEmulator={(id, copy) => { const made = factory(id, copy); emulators.set(id, made);
 
  return made; }} />
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
 
   if (lazy) {
     connected.rail.select("a");
@@ -191,7 +192,7 @@ const closeNothing = async (): Promise<void> => {};
 it.each(["agent", "door", "bubble"])("u5552d_text_and_image_use_the_focused_emulator %s", async kind => {
   const { app, connected, screens, input } = await mount(kind);
 
-  if (kind === "bubble") render(() => <ConnectedProjectContext value={connected}><Bubble id="t-a" screens={screens} name="Shell" place={{ x: 0, y: 0, w: 600, h: 400, min: false }} placed origin={{ left: 0, top: 0 }} extent={() => ({ width: 800, height: 600 })} setPlace={() => {}} readOnly={() => false} close={closeNothing} menu={() => {}} toggleMinimised={() => {}} /></ConnectedProjectContext>);
+  if (kind === "bubble") render(() => <ToastHost><ConnectedProjectContext value={connected}><Bubble id="t-a" screens={screens} name="Shell" place={{ x: 0, y: 0, w: 600, h: 400, min: false }} placed origin={{ left: 0, top: 0 }} extent={() => ({ width: 800, height: 600 })} setPlace={() => {}} readOnly={() => false} close={closeNothing} menu={() => {}} toggleMinimised={() => {}} /></ConnectedProjectContext></ToastHost>);
   const target = kind === "bubble" ? document.querySelector<HTMLTextAreaElement>(".bubble textarea")! : input();
   target.focus();
   pasteEvent(target, "hello");

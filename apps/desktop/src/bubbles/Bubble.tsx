@@ -1,6 +1,6 @@
 import { makeEventListenerStack } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { createEffect, createMemo, For, onCleanup, untrack } from "solid-js";
 import { Portal } from "@solidjs/web";
 import { provideFocusTarget } from "../keys/focus";
@@ -61,6 +61,8 @@ export const Bubble = (props: {
 
   const place = () => props.place;
   const retry = () => props.screens.retry(id());
+  // U7314b: a Bubble's failure shows as a toast, so the Bubble keeps its size and place.
+  createMessageToast({ get message() { return props.screens.failure(id()); }, dismiss: () => props.screens.dismiss(id()), get recover() { return retry() ? { run: () => retry()?.() } : undefined; } });
   const dropOver = createFileDrop(useConnectedProject(), () => props.screens, () => props.preparing ? null : id(), () => body);
 
   const refit = () => {
@@ -226,7 +228,7 @@ export const Bubble = (props: {
               </span>
               <span class="bubble-name">{props.name}</span>
             </header>
-            <div class={["bubble-body", { "drop-over": dropOver() }]} tabindex="-1" ref={mount()} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} dismiss={() => props.screens.dismiss(id())} recover={retry() ? { run: () => retry()?.() } : undefined} />
+            <div class={["bubble-body", { "drop-over": dropOver() }]} tabindex="-1" ref={mount()} />
           </section>
           <For each={ZONES}>{(zone) => (
             <span class="bubble-zone" data-zone={zone.name} data-zone-of={id()} aria-hidden="true" hidden={place().min}

@@ -13,6 +13,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import type { Screens } from "../terminal/screens";
 import { ResourceStrip } from "../resources/ResourceStrip";
 import { Bubbles } from "./Bubbles";
+import { ToastHost } from "../testing/toastHost";
 
 export const TREE: RailNode[] = [workstream("w"), agent("a", "working", "busy", { parent: "w" }), agent("b", "working", "busy", { parent: "w", order: 1 }), workstream("other", { order: 1 })];
 
@@ -85,14 +86,14 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
     const [screens, setScreens] = createSignal<Screens>();
 
     return (
-      <DisplayClockContext value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext value={connected}>
+      <DisplayClockContext value={createNow(() => Date.now()).subscribe}><ToastHost><ConnectedProjectContext value={connected}>
         <div class="rail-row" tabindex="0">row</div>
         <div class="centre-stack">
           <Pane createEmulator={unfocused} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
           <Show when={hasHost()}><ResourceStrip /></Show>
         </div>
-      </ConnectedProjectContext></DisplayClockContext>
+      </ConnectedProjectContext></ToastHost></DisplayClockContext>
     );
   });
 

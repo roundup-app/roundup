@@ -208,7 +208,7 @@ for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
         window.__fake.app.handlers['terminal.resize'] = window.__fake.app.handlers['terminal.write'] = () => { throw new Error('Output unavailable. Retry.'); };
         emulator.paste('retry');
       })()`);
-      await wait("document.querySelector('.pane-failure')?.textContent.includes('Output unavailable. Retry.') || document.querySelector('.bubble-failure')?.textContent.includes('Output unavailable. Retry.')");
+      await wait("document.querySelector('.app-toast')?.textContent.includes('Output unavailable. Retry.')");
 
       const metrics = await read<{ fonts: { status: string }[]; cellWidth: number; cellHeight: number; renderer: string }>(`(() => {
         const screen = document.querySelector('${surface} .xterm-screen').getBoundingClientRect();
@@ -381,7 +381,7 @@ for (const scheme of ["system", "explicit"]) {
           })()`);
           await browser("set", "viewport", "1412", "950");
           await browser("set", "viewport", "1512", "950");
-          await wait("document.querySelector('.pane-failure')?.textContent.includes('Output unavailable. Retry.')");
+          await wait("document.querySelector('.app-toast')?.textContent.includes('Output unavailable. Retry.')");
           await groundCapture(base, seed, scheme, "failure");
         }
       }
@@ -566,7 +566,7 @@ for (const state of ["agent", "door", "shell"]) for (const renderer of ["webgl",
     await output('\r\x1b[2K' + prompt + 'عربي\r\nASCII after Arabic');
     await capture("redraw", 'عربي');
     await read(`window.__fake.app.handlers['terminal.resize'] = window.__fake.app.handlers['terminal.write'] = () => {throw new Error('Output unavailable. Retry.');}; window.__terminals.get('${id}').paste('retry')`);
-    await wait("!!document.querySelector('.pane-failure, .bubble-failure')");
+    await wait("!!document.querySelector('.app-toast [role=alert]')");
     await capture("failure", 'عربي');
     await read("document.getElementById('arabic-reference')?.remove()");
     await browser("screenshot", join(dir, `${name}-checks.png`));
@@ -784,7 +784,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await wait("!document.querySelector('.drawer[data-open=true]')");
         await capture("drawer-closed");
         await read(`window.__fake.app.handlers['terminal.resize']=window.__fake.app.handlers['terminal.write']=()=>{throw new Error('Output unavailable. Retry.');}; window.__terminals.get('${id}').paste('retry')`);
-        await wait("!!document.querySelector('.pane-failure')");
+        await wait("!!document.querySelector('.app-toast [role=alert]')");
         await capture("dense-failure");
       } else {
         await browser("click", ".terminal-new");

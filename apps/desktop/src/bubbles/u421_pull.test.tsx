@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from "@solidjs/testing-library";
+import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { Menu } from "../ui/Menu";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -157,7 +157,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 
     press(document.body, 400, 300);
     drag({ x: 450, y: 300 });
-    await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("no shell"));
+    await screen.findByRole("alert", { name: /no shell/ });
     expect(bubbleNames()).toEqual([]);
   });
 

@@ -12,7 +12,9 @@ import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure, MountedStatus } from "../ink/MountedLine";
+import { Line } from "../ink/FailureLine";
 import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -332,7 +334,7 @@ export const AskBar = (props: {
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(doorStatus(node()), dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger({ ref: cutRef })} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(doorStatus(node()), false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
+            return <><KindGlyph decorative kind={shownKind(doorStatus(node()), dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger({ ref: cutRef })} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(doorStatus(node()), false)}>{cause => <Line label={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
         <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
@@ -342,8 +344,8 @@ export const AskBar = (props: {
               choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={value => projectPick.pick(index, value)} />
           </span>}</For>
         </div></Show>
-        <ReservedLine overlay class="ask-send-status" message={sendLine.message()} status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} action={<>
-        <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
+        <DialogFailure message={sendLine.message()} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
+        <MountedStatus when={records().some(draft => draft.status === "unknown")} class="ask-send-status"><For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
 
@@ -360,7 +362,7 @@ export const AskBar = (props: {
               })}>{copy.askCheckAcceptance}</BusyButton>
           </div>;
         }}</For>
-        </>} />
+        </MountedStatus>
         </div>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </DialogContent>

@@ -3,7 +3,8 @@ import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as foc
 import { outcomeOf } from "../app/seam";
 import { captureFocus, focusTarget, provideFocusTarget } from "../keys/focus";
 import { createTerminalClose } from "./close";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure, StatusNote } from "../ink/MountedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
@@ -19,7 +20,6 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tab } from "./tab";
 import type { TabContext } from "./tab";
 import { copy } from "./copy";
-import { BusyButton } from "../ui/BusyButton";
 import { createBubbleFailure, createCopyFailure } from "./failures";
 import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, flush, For, onCleanup, onSettled, Show, untrack } from "solid-js";
@@ -47,12 +47,6 @@ const ESCAPE = "Escape".split(" ");
 const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
-/** The Retry of a failed open: it clears the line and opens again, busy while the open runs. */
-const RetryOpen = (props: { clear: () => void; open: () => Promise<void> }) => <BusyButton kind="quiet" class="word" busyLabel={copy.retrying} onClick={() => {
-  props.clear();
-
-  return props.open();
-}}>{copy.retry}</BusyButton>;
 
 export const Bubbles = (props: {
   screens: Screens;
@@ -303,7 +297,8 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const { close, closing, Failure: CloseFailure, reportFailure, mounted } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure, failure);
+  const { close, closing, toastFailure, reportFailure, mounted } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure, failure);
+  toastFailure({ message: () => failure()?.message ?? null, dismiss: () => setFailure(null), again: () => failure()?.terminal === null ? async () => { setFailure(null); await open(); } : undefined });
 
   const focusItem = (id: string, place = places()[id]) => focusBubble(id, place, props.screens);
 
@@ -773,14 +768,13 @@ export const Bubbles = (props: {
       </Portal>
       <NameDraftRecovery class="bubble-recovery" open={recovering()} onOpenChange={recover} panel={element => { recoveryPanel = element; }}
         identity={copy.draftIdentity(connected.project.name, copy.terminalName)} records={records()} current={currentDraft()} app={app}
-        lines={<ReservedLine message={recoveryLine.message()} dismiss={() => copyFailure() !== undefined ? copyFailures.dismiss() : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />}
+        lines={<DialogFailure message={recoveryLine.message()} dismiss={() => copyFailure() !== undefined ? copyFailures.dismiss() : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />}
         label={(draft, index) => copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index + 1))}
         detail={draft => <p class="draft-identity">{copy.draftIdentity(String(draft.value.base ?? ""), draft.destination.recipient ?? copy.noDraftRecipient)}</p>}
-        notice={draft => <ReservedLine status={recoveryNotice(draft) ?? copy.draftStatus[draft.status]} data-state={draft.status} />}
+        notice={draft => <StatusNote text={recoveryNotice(draft) ?? copy.draftStatus[draft.status]} />}
         value={draft => String(draft.value.name ?? "")}
         onCopySuccess={draft => copyFailures.clear(draft.revision)}
         onCopyFailure={(draft, error) => copyFailures.fail(draft.revision, copy.copyDraftFailure(error.message))}
         onDiscard={draft => { drafts.discard(draft.revision); setEditing(null); }} />
-      <CloseFailure message={failure()?.message ?? null} onDismiss={() => setFailure(null)} action={<Show when={failure()?.terminal === null}><RetryOpen clear={() => setFailure(null)} open={open} /></Show>} />
     </div>;
 };

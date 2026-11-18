@@ -1,10 +1,8 @@
 import { captureFocus, focusTarget } from "../keys/focus";
-import { flush, onCleanup, Show, createSignal, type Accessor } from "solid-js";
-import type { JSX } from "@solidjs/web";
-import { ReservedLine } from "../ink/ReservedLine";
+import { flush, onCleanup, createSignal, type Accessor } from "solid-js";
+import { createMessageToast } from "../ink/messageToast";
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
-import { BusyButton } from "../ui/BusyButton";
 import { askOnce } from "../settings/warnings";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -81,15 +79,30 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
     }
   };
 
-  const Failure = (props: { message: string | null; action?: JSX.Element; onDismiss: () => void }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message} dismiss={props.onDismiss} action={<>
-    <Show when={retry()?.message === props.message ? retry() : null}>{failed => <BusyButton kind="quiet" busyLabel={copy.retrying} onClick={() => {
+  /** U7314b: the close or open failure shows as a toast; its Retry closes the same Bubble again, or runs `again`, the open's own retry. */
+  const toastFailure = (line: { message: () => string | null; dismiss: () => void; again: () => (() => void | Promise<void>) | undefined }) => createMessageToast({
+    get message() { return line.message(); },
+    dismiss: line.dismiss,
+    get recover() {
+      const failed = retry()?.message === line.message();
+      const again = line.again();
+
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
-      focusTarget(`bubble.${failed().id}.close`)?.focus();
+      if (failed) {
+        return { run: () => {
+          const id = retry()?.id;
 
-      return close(failed().id);
-    }}>{copy.retry}</BusyButton>}</Show>
-    {props.action}
-  </>} />;
+          if (id === undefined) return;
 
-  return { close, closing, Failure, reportFailure, mounted: () => mounted };
+          focusTarget(`bubble.${id}.close`)?.focus();
+
+          return void close(id);
+        } };
+      }
+
+      return again ? { run: again } : undefined;
+    },
+  });
+
+  return { close, closing, toastFailure, reportFailure, mounted: () => mounted };
 };

@@ -12,6 +12,7 @@ import { createXtermEmulators } from "./emulator";
 import { createScreens } from "./screens";
 import { callsTo, connectFakeProject } from "./paneHarness";
 import { info, node, workstream } from "../testing/nodes";
+import { ToastHost } from "../testing/toastHost";
 
 const stops: (() => void)[] = [];
 
@@ -89,7 +90,8 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
   const [place, setPlace] = createSignal({ x: 0, y: 0, w: 800, h: 500, min: false });
   let screens!: Screens;
 
-  const mounted = render(() => {
+  // U7314b: the Pane and the Bubble show their failures in the App's Toast region.
+  const mounted = render(() => createComponent(ToastHost, { get children() {
     if (hostKind !== "Bubble") return createComponent(ConnectedProjectContext, {
       value: connected,
       get children() { return createComponent(Pane, { createEmulator: factory, screensRef: value => { screens = value; } }); },
@@ -107,7 +109,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
         });
       },
     });
-  });
+  } }));
 
   stops.push(() => screens.dispose(), mounted.unmount);
 

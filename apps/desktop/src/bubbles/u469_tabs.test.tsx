@@ -5,6 +5,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { info } from "../testing/nodes";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
+import { notices } from "../testing/notices";
 
 beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); });
 
@@ -55,7 +56,7 @@ it("u469_tab_close_calls_once_without_toggling_or_restoring", async () => {
   await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]));
   expect(document.querySelector<HTMLButtonElement>('.terminal-tab[data-bubble="1"]')!.getAttribute("aria-pressed")).toBe("false");
   finish();
-  await waitFor(() => expect(document.querySelector('[role="alert"]')).toBeNull());
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
 });
 
 it("u469_failed_close_keeps_the_tab_bubble_and_visible_failure", async () => {
@@ -67,7 +68,7 @@ it("u469_failed_close_keeps_the_tab_bubble_and_visible_failure", async () => {
   fireEvent.click(close);
   flush();
   await answerQuestion(true);
-  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close"));
+  await screen.findByRole("alert", { name: /cannot close/ });
   expect(document.querySelector('.terminal-tab[data-bubble="2"]')?.getAttribute("aria-pressed")).toBe("true");
   expect(document.activeElement).toBe(close);
 });
@@ -222,7 +223,7 @@ it("u469_open_guards_and_failures_preserve_the_existing_bubble", async () => {
 
   fireEvent.click(document.querySelector('.terminal-new')!);
   flush();
-  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("no shell"));
+  await screen.findByRole("alert", { name: /no shell/ });
   expect(document.querySelector('.terminal-tab[data-bubble="2"]')?.getAttribute("aria-pressed")).toBe("true");
 });
 
@@ -336,7 +337,7 @@ it("u3512a_terminal_alert_failure_keeps_the_terminal_for_retry", async () => {
   const close = document.querySelector<HTMLButtonElement>('[aria-label="Close cargo test"]')!;
   fireEvent.click(close);
   flush();
-  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("Native alert unavailable"));
+  await screen.findByRole("alert", { name: /Native alert unavailable/ });
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   expect(close.isConnected).toBe(true);
   app.questionFailure = null;

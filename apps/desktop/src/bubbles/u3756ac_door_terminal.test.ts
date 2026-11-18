@@ -44,7 +44,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
     await wait(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed') === 'false'`);
     await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
     await browser("press", "Meta+t");
-    await wait(`document.querySelector('.bubbles [role=alert]')?.textContent.includes('Terminal could not open: retry New Terminal')`);
+    await wait(`document.querySelector('.app-toast [role=alert]')?.textContent.includes('Terminal could not open: retry New Terminal')`);
     await capture("U3756a", "tree-40-failure");
   }
   } finally { if (recording) await browser("record", "stop"); }

@@ -9,6 +9,7 @@ import { watchNativeOpen } from "../window/nativeOpen";
 import { ask, mountAskBar, openAsk } from "./askFixture";
 import { AskBar } from "./AskBar";
 import { mountTodos } from "../todos/testHarness";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -56,9 +57,9 @@ it("u365_ask_slash_commands_stay_plain_text", async () => {
   fireEvent.input(draft, { target: { value: "exact unsent draft" } });
   const calls = app.calls.length;
 
-  const readonly = render(() => <ConnectedProjectContext value={connected}>
+  const readonly = render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <TargetText text={text} base="/" />
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
 
   expect(readonly.container.querySelectorAll("a")).toHaveLength(0);
   const row = await screen.findByRole("button", { name: /\/clear/ });
@@ -106,7 +107,7 @@ it("al5_inbox_and_overview_text_links_open_the_object", async () => {
   cleanup();
 
   const inbox = await mountTodos([], true, [ann, agent("asker", "needs-you", `Read ${url} next`, { name: "Asker" })]);
-  render(() => <ConnectedProjectContext value={inbox.connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={inbox.connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   inbox.connected.showView(null);
   inbox.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });

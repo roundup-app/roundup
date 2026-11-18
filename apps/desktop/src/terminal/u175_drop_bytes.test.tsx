@@ -6,6 +6,7 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { createXtermEmulators } from "./emulator";
 import { Pane } from "./Pane";
 import { callsTo, connectFakeProject } from "./paneHarness";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -23,7 +24,7 @@ const dropOnRealEmulator = async (bracketed: boolean) => {
   }));
 
   const { container } = render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={(id) => {
         const made = real(id);
 
@@ -31,7 +32,7 @@ const dropOnRealEmulator = async (bracketed: boolean) => {
 
         return made;
       }} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   connected.rail.select("a");
