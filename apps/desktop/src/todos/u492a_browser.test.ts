@@ -97,7 +97,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
       return true;
     })()`);
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
-    await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('no longer available')");
+    await lane.until("document.querySelector('.app-toast')?.textContent.includes('no longer available')");
     await read(lane, "bulk-failure");
     expect(await lane.order()).toEqual([first, initial[2]]);
     expect((await lane.calls("todo.delete")).map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [second, first] }]);
@@ -169,7 +169,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.browser("press", "Meta+Enter");
     await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot delete this Todo because the Daemon refused it', 'todo.delete'); return true; })()");
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
-    await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('cannot delete this Todo')");
+    await lane.until("document.querySelector('.app-toast')?.textContent.includes('cannot delete this Todo')");
     await read(lane, "dense-failure");
     expect(await lane.order()).toContain(ids[1]);
     expect(await lane.order()).toContain(ids[2]);
