@@ -33,7 +33,7 @@ it("u52_missing_binary_and_failed_recent_open_keep_both_failures_visible", async
   expect(notices("alert")).toHaveLength(1);
   fireEvent.click(await screen.findByRole("button", { name: "/repos/one" }));
   expect(await screen.findByText(failure.message, { selector: ".ink" })).toBeTruthy();
-  expect(notices("alert")).toHaveLength(2);
+  expect(screen.getByText(windowCopy.claudeNotFound, { selector: ".ink" })).toBeTruthy();
 });
 
 it("u52_empty_recents_omit_the_list_and_show_the_returned_binary", async () => {

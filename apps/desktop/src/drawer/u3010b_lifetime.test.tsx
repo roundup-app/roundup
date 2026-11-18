@@ -35,7 +35,8 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
       vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
       await store.retry();
       flush();
-      expect(notices("alert")).toHaveLength(2);
+      // The storage failure is a toast too (U7314g), so three cards stack and only the front one is in the accessibility tree.
+      expect(notices("alert")).toHaveLength(1);
     }
 
     // The older card sits folded behind the newer one, out of the accessibility tree.

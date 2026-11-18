@@ -6,7 +6,7 @@ import type { JSX } from "@solidjs/web";
 import * as v from "valibot";
 import { captureFocus } from "../keys/focus";
 import { useConnectedProject } from "../state/connectedProject";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { copy } from "./copy";
 import { withOptions } from "./primitiveOptions";
 import { outcomeOf } from "../app/seam";
@@ -410,6 +410,6 @@ export const NameField = (props: {
     }} onInput={event => { setText(event.currentTarget.value); retain(event.currentTarget); }}
     onSelect={event => { if (event.currentTarget.isConnected && revision !== null) drafts.setSelection(revision, { start: event.currentTarget.selectionStart ?? 0, end: event.currentTarget.selectionEnd ?? 0, direction: event.currentTarget.selectionDirection ?? "none" }); }}
     onBlur={() => props.close(false)} />
-    <ReservedLine overlay status={conflict() ? copy.railDraftConflict : null} />
+    <StatusNote text={conflict() ? copy.railDraftConflict : null} />
   </Editable.Root>;
 };

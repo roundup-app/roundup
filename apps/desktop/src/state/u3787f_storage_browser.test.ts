@@ -72,11 +72,11 @@ it("u3787f_current_save_failure_rendered_retry", async () => {
         })()`);
         await lane.browser("click", "#shelf-tab-pads");
         await lane.until("(async () => (await import('/src/state/storage.ts')).storageProblems().length >= 2)()");
-        await lane.until("!!document.querySelector('.storage-failure [data-button]')");
-        expect(await lane.evaluate<boolean>("document.querySelector('.storage-failure [role=alert]').getAttribute('aria-label').includes(window.__failureCause)")).toBe(true);
+        await lane.until("!!document.querySelector('.app-toast .reserved-actions [data-button]')");
+        expect(await lane.evaluate<boolean>("document.querySelector('.app-toast [role=alert]').getAttribute('aria-label').includes(window.__failureCause)")).toBe(true);
         expect(await lane.evaluate<number>("[...document.querySelectorAll('[role=alert]')].filter(el => el.textContent.includes(window.__failureCause)).length")).toBe(1);
-        expect(await lane.evaluate<number>("document.querySelectorAll('.storage-failure button').length")).toBe(2);
-        await lane.browser("hover", ".storage-failure [role=alert]");
+        expect(await lane.evaluate<number>("document.querySelectorAll('.app-toast .reserved-actions button').length")).toBe(2);
+        await lane.browser("hover", ".app-toast [role=alert]");
         await lane.until("!!document.querySelector('[role=tooltip]')");
         await lane.capture("U3787f", `head-${seed}-retention-failure`);
         await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
@@ -84,8 +84,8 @@ it("u3787f_current_save_failure_rendered_retry", async () => {
         await lane.browser("click", "[role=tab][data-value=Terminal]");
         await lane.until("!!document.querySelector('[role=combobox][aria-label=\"Font family\"]')");
         await lane.evaluate("window.__restoreStorage()");
-        await lane.browser("click", ".storage-failure button");
-        await lane.until("!document.querySelector('.storage-failure')");
+        await lane.browser("click", ".app-toast .reserved-actions > button:not([data-dismiss-failure])");
+        await lane.until("!document.querySelector('.app-toast [role=alert]')");
         expect(await lane.evaluate("(async () => (await import('/src/settings/preferences.ts')).appSettings().fontFamily)()")).toBe("Original font 雪");
         await lane.capture("U3787f", `head-${seed}-retained`);
       } finally { if (capture) await lane.browser("record", "stop"); }

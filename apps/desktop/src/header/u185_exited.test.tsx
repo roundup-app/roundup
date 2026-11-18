@@ -24,7 +24,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("error"));
     fireEvent.click(tab("api"));
 
-    expect(await within(screen.getByRole("region", { name: "Rail" })).findByRole("alert", { name: appCopy.daemonExit("exited by signal") })).toBeDefined();
+    expect(await within(screen.getByRole("region", { name: "Updates" })).findByRole("alert", { name: appCopy.daemonExit("exited by signal") })).toBeDefined();
   });
 
   it("u185_the_header_text_shows_for_the_open_project_only", async () => {
@@ -33,12 +33,12 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    expect(within(screen.getByRole("region", { name: "Rail" })).queryByRole("alert", { name: appCopy.daemonExit("exited 1") })).toBeNull();
+    expect(screen.queryByRole("alert", { name: appCopy.daemonExit("exited 1") })).toBeNull();
 
     fireEvent.click(tab("api"));
 
-    expect(await within(screen.getByRole("region", { name: "Rail" })).findByRole("alert", { name: appCopy.daemonExit("exited 1") })).toBeDefined();
-    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: windowCopy.reopen })).toBeDefined();
+    expect(await within(screen.getByRole("region", { name: "Updates" })).findByRole("alert", { name: appCopy.daemonExit("exited 1") })).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: windowCopy.reopen })).toBeDefined();
   });
 
   it("u185_another_project_is_unaffected", async () => {
@@ -59,7 +59,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.openProject = (target) => (opened.push(target), open(target));
     fireEvent.click(tab("api"));
     app.exitDaemon({ code: 1 }, path("api"));
-    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: windowCopy.reopen }));
+    fireEvent.click(await within(screen.getByRole("region", { name: "Updates" })).findByRole("button", { name: windowCopy.reopen }));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).toBeNull());
     expect(opened).toEqual([path("api")]);
@@ -72,11 +72,11 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
     const failure = new RpcError(-32603, "rupd stayed silent");
     app.opened.failure = failure;
-    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: windowCopy.reopen }));
+    fireEvent.click(await within(screen.getByRole("region", { name: "Updates" })).findByRole("button", { name: windowCopy.reopen }));
 
-    expect(await within(screen.getByRole("region", { name: "Rail" })).findByRole("alert", { name: failure.message })).toBeDefined();
-    expect(within(screen.getByRole("region", { name: "Rail" })).queryByRole("alert", { name: appCopy.daemonExit("exited 1") })).toBeNull();
-    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: windowCopy.reopen })).toBeDefined();
+    expect(await within(screen.getByRole("region", { name: "Updates" })).findByRole("alert", { name: failure.message })).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Updates" })).queryByRole("alert", { name: appCopy.daemonExit("exited 1") })).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: windowCopy.reopen })).toBeDefined();
   });
 
   it("u185_closing_an_exited_tab_asks_nothing", async () => {
