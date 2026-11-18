@@ -133,7 +133,8 @@ const focusedView = (crepe: CrepeBuilder | undefined) => crepe?.editor.action((c
 const focusAtEnd = (crepe: CrepeBuilder | undefined, event: MouseEvent) => crepe?.editor.action((ctx) => {
   const view = ctx.get(editorViewCtx);
 
-  if (event.target instanceof Node && view.dom.contains(event.target)) return;
+  // A block that opened its text on this click has already left the DOM.
+  if (event.target instanceof Node && (view.dom.contains(event.target) || !event.target.isConnected)) return;
   view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
   view.focus();
 });

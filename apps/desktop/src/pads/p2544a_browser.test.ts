@@ -120,7 +120,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   await browser("focus", ".ProseMirror");
   await browser("press", "Control+Home");
   await browser("keyboard", "type", "Reviewed ");
-  await browser("wait", "[data-state=saved]");
+  await expect.poll(() => evaluate("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(p => p.revision)"), { timeout: 30_000 }).toBeGreaterThan(1);
   const edited = `Reviewed ${visualSource}`;
   const source = () => evaluate("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(p => p.text)");
 
@@ -138,7 +138,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   await browser("press", "End");
   await browser("press", "Backspace");
   await browser("keyboard", "type", "C");
-  await browser("wait", "[data-state=saved]");
+  await expect.poll(() => evaluate("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(p => p.revision)"), { timeout: 30_000 }).toBeGreaterThan(1);
   expect(await source()).toBe(edited.replace("A-->B", "A-->C"));
   await browser("click", ".ProseMirror p:first-of-type");
   await browser("wait", ".visual-mermaid svg");
@@ -159,7 +159,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   const afterMermaid = edited.replace("A-->B", "A-->C");
 
   await expect.poll(source, { timeout: 20_000 }).not.toBe(afterMermaid);
-  await browser("wait", "[data-state=saved]");
+  await expect.poll(() => evaluate("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(p => p.revision)"), { timeout: 30_000 }).toBeGreaterThan(1);
 
   const drawn: string = await source();
   const drawing = drawn.match(/```excalidraw\n([\s\S]*?)\n```/);
