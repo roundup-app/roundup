@@ -39,12 +39,11 @@ export const createModeRestart = (app: AppSeam, rail: RailState, resume: (node: 
   /** U7493a: Restart, whether or not a conversation is saved. */
   const restartRow = (id: string) => { void restartMode(id); };
 
-  /** U7493a: a stopped Mode's play icon resumes its saved conversation; with none it restarts. */
+  /** U7493a: a stopped Mode's play icon resumes its saved conversation; a Mode with none has no play icon. */
   const playRow = (id: string) => {
     const node = rail.nodes.find(candidate => candidate.id === id);
 
     if (node && hasConversation(node)) resume(node, rail.exitOf(node));
-    else void restartMode(id);
   };
 
   return { restartMode, restartRow, playRow, restartPending: (id: string) => restarts[id]?.pending ?? false };

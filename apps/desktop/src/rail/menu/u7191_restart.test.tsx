@@ -60,14 +60,13 @@ it("u7493a_a_stopped_mode_play_icon_resumes_its_conversation", async () => {
   expect(railCallsTo(app, "agent.restartMode")).toEqual([]);
 });
 
-it("u7493a_a_mode_without_a_conversation_plays_restart_mode", async () => {
-  const { app } = await mountRail([stopped(false)], [exitedTerminal("m", 0)]);
-  app.handlers["agent.restartMode"] = () => stopped(false);
+it("u7493a_a_mode_without_a_conversation_has_no_play_icon", async () => {
+  await mountRail([stopped(false)], [exitedTerminal("m", 0)]);
 
-  fireEvent.click(within(rowOf("m")).getByRole("button", { name: copy.resume }));
+  const buttons = within(rowOf("m")).getAllByRole("button");
 
-  await waitFor(() => expect(railCallsTo(app, "agent.restartMode")).toHaveLength(1));
-  expect(railCallsTo(app, "agent.resume")).toEqual([]);
+  expect(buttons.some(b => b.querySelector(".lucide-play"))).toBe(false);
+  expect(within(rowOf("m")).queryByRole("button", { name: copy.resume })).toBeNull();
 });
 
 it("u7191a_an_exited_row_lists_one_restart_and_no_resume", async () => {

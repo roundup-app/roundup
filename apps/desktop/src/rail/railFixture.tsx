@@ -20,7 +20,6 @@ import { createDockBadge } from "./DockBadge";
 import { attentionHolders } from "./attention";
 import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
-import { copy } from "./copy";
 
 // Drafts survive unmount; unrelated layout fixtures retain their existing lifecycle.
 afterEach(() => {
