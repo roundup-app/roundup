@@ -671,7 +671,7 @@ jobs:
         if: runner.environment != 'self-hosted'
         run: |
           version=$(node -p "require('./apps/desktop/package.json').devDependencies.playwright")
-          setsid bash -c 'until [ -s "$1" ]; do sleep 1; done; npx --yes "playwright@$3" install --with-deps webkit; echo $? >"$2"' _ "$RUNNER_TEMP/tracer.status" "$RUNNER_TEMP/webkit.status" "$version" >"$RUNNER_TEMP/webkit.log" 2>&1 </dev/null &
+          setsid bash -c 'cd "$RUNNER_TEMP"; until [ -s "$1" ]; do sleep 1; done; npx --yes "playwright@$3" install --with-deps webkit; echo $? >"$2"' _ "$RUNNER_TEMP/tracer.status" "$RUNNER_TEMP/webkit.status" "$version" >"$RUNNER_TEMP/webkit.log" 2>&1 </dev/null &
       - uses: ./.github/actions/setup
         with:
           rust: 'false'
