@@ -23,7 +23,7 @@ export const RailToggle = (props: { collapsed: boolean; onToggle: () => void }) 
   const expanded = () => props.collapsed ? "false" : "true";
 
   return (
-    <Tip class="" content={<KeyHint chipAfter keys={leaderKeys(LEADER["leader.rail"])}>{name()}</KeyHint>}>
+    <Tip kind="fixed" name={name()} class="" content={<KeyHint chipAfter keys={leaderKeys(LEADER["leader.rail"])}>{name()}</KeyHint>}>
       {(trigger) => <IconButton bare {...trigger({ "aria-expanded": expanded(), onClick: (press: MouseEvent & { currentTarget: HTMLElement }) => pressed(press, props.collapsed, props.onToggle) })} aria-label={name()} class="rail-toggle"><Icon name={props.collapsed ? "panel-left-open" : "panel-left-close"} /></IconButton>}
     </Tip>
   );

@@ -168,8 +168,8 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
     <>
       <span {...(isTextCut() ? trigger(own) : own)} class="ask-text"><TargetText objectLinks text={props.part.text} base={doorNode()?.worktree?.path ?? project.path} /></span>
       <span class="ask-where">
-        <Show when={status()}>{(live) => <Tip text={live().kind === "error" ? live().label : LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={shownKind(live(), dismissed())} /></span>}</Tip>}</Show>
-        <Tip text={props.where} disabled={!isNameCut()}>{(trigger) => <span {...trigger({ ref: name })} class="ask-name">{props.where}</span>}</Tip>
+        <Show when={status()}>{(live) => <Tip kind="changing" text={live().kind === "error" ? live().label : LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={shownKind(live(), dismissed())} /></span>}</Tip>}</Show>
+        <Tip kind="changing" text={props.where} disabled={!isNameCut()}>{(trigger) => <span {...trigger({ ref: name })} class="ask-name">{props.where}</span>}</Tip>
       </span>
       <span class="ask-state" data-state={props.part.state}>{STATE_WORDS[props.part.state]}</span>
     </>
@@ -178,7 +178,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
   return (
     <li data-overview-item={props.entry.key + ":" + props.index} class="ask-row" data-state={props.part.state}>
-      <Tip class="ask-tip" text={tooltip()} disabled={!tooltip() || isLinkFocused()}>{(trigger, focus) => (
+      <Tip kind="changing" class="ask-tip" text={tooltip()} disabled={!tooltip() || isLinkFocused()}>{(trigger, focus) => (
         <Dynamic component={node() && !linked() ? "button" : "div"} {...focus} onClick={open}
           ref={(element: HTMLElement) => { if (element instanceof HTMLButtonElement) button = element; }} class={`ask-line ${node() ? "row-wash" : ""}`} data-linked={linked() ? "true" : undefined} data-feedback="ink">
           <Show when={node() && linked()}><button type="button" class="ask-open" data-feedback="ink" aria-label={`${props.part.text} ${props.where} ${STATE_WORDS[props.part.state]}`} ref={element => { button = element; }} /></Show>

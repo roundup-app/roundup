@@ -31,7 +31,7 @@ it("u6236a_replaced_trigger_keeps_the_tooltip_on_its_trigger", async () => {
   const read = browserBoxes();
   const [generation, setGeneration] = createSignal<number | null>(1);
 
-  render(() => <Tip text="Explain">{trigger => <Show when={generation()} keyed>{each => <button data-generation={each} {...trigger()}>Owner</button>}</Show>}</Tip>);
+  render(() => <Tip kind="changing" text="Explain">{trigger => <Show when={generation()} keyed>{each => <button data-generation={each} {...trigger()}>Owner</button>}</Show>}</Tip>);
   const first = screen.getByRole("button");
 
   fireEvent.pointerEnter(first, { pointerType: "mouse", clientX: 110, clientY: 110 });
