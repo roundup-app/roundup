@@ -54,4 +54,7 @@
 .markdown pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  padding: var(--space-2);
+  border: var(--hairline-width) solid var(--hairline);
+  border-radius: var(--radius-control);
 }

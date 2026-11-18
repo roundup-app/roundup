@@ -4,18 +4,30 @@ import type { VisualMount } from "./visualBlocks";
 
 /** The calls the Pad makes of Mermaid. */
 export type MermaidApi = {
-  initialize(config: { startOnLoad: boolean; securityLevel: "strict"; theme: "base"; themeVariables: Record<string, string> }): void;
+  initialize(config: { startOnLoad: boolean; securityLevel: "strict"; theme: "base"; themeVariables: Record<string, string | Record<string, string>>; xyChart: { height: number } }): void;
   parse(text: string): Promise<void>;
   render(id: string, text: string): Promise<{ svg: string }>;
 };
 
 let counter = 0;
 
+/** U7312c: the five Pad colours, in the order a pie's slices take them. */
+const padTones = ["--pad-blue", "--pad-green", "--pad-amber", "--pad-purple", "--red"];
+
+/** The height Mermaid draws a pie at, before CSS shows it at the chart height. */
+const MERMAID_PIE_HEIGHT = 450;
+
 /** The error's first line: Mermaid's own message continues with a code frame. */
 const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy.invalidDiagram;
 
 /** The diagram as SVG text; rejects with Mermaid's error when the text is invalid. */
 export const renderMermaid = async (mermaid: MermaidApi, text: string) => {
+  const chartHeight = parseFloat(tokenValue("--pad-chart-height"));
+  const grey = tokenColour("--grey");
+  const hairline = tokenColour("--hairline");
+  // U7312c: a pie's labels show at the small text size once the pie scales to the chart height.
+  const pieLabel = `calc(var(--text-small) * ${MERMAID_PIE_HEIGHT / chartHeight})`;
+
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
@@ -30,7 +42,33 @@ export const renderMermaid = async (mermaid: MermaidApi, text: string) => {
       tertiaryColor: tokenColour("--ground"),
       textColor: tokenColour("--text"),
       fontFamily: tokenValue("--font-ui"),
+      // U7312c: pie slices take the five Pad colours, labels are grey and lines are hairlines.
+      ...Object.fromEntries(padTones.map((tone, at) => [`pie${at + 1}`, tokenColour(tone)])),
+      // Mermaid draws slices at 0.7 opacity by default, which dulls the Pad colours.
+      pieOpacity: "1",
+      pieStrokeColor: tokenColour("--ground"),
+      pieOuterStrokeColor: hairline,
+      pieSectionTextColor: tokenColour("--ground"),
+      pieLegendTextColor: grey,
+      pieTitleTextColor: tokenColour("--text"),
+      pieLegendTextSize: pieLabel,
+      pieSectionTextSize: pieLabel,
+      xyChart: {
+        backgroundColor: tokenColour("--ground"),
+        titleColor: tokenColour("--text"),
+        plotColorPalette: tokenColour("--pad-blue"),
+        xAxisLabelColor: grey,
+        yAxisLabelColor: grey,
+        xAxisTitleColor: grey,
+        yAxisTitleColor: grey,
+        xAxisTickColor: hairline,
+        yAxisTickColor: hairline,
+        xAxisLineColor: hairline,
+        yAxisLineColor: hairline,
+      },
     },
+    // U7312c: an xychart's plot is the chart height Token tall.
+    xyChart: { height: chartHeight },
   });
   // `parse` first: a failed `render` leaves its error diagram in the document.
   await mermaid.parse(text);
