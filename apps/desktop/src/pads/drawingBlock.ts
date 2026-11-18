@@ -14,6 +14,8 @@ export type CanvasProps = {
   theme: "light" | "dark";
   UIOptions: { canvasActions: Record<string, boolean> };
   onChange(elements: readonly CanvasElement[]): void;
+  /** Called once with the canvas handle; the Pad fits the scene to the canvas through it. */
+  excalidrawAPI(api: { scrollToContent(target: readonly CanvasElement[], options: { fitToViewport: boolean; viewportZoomFactor: number }): void }): void;
 };
 
 /** The calls the Pad makes of Excalidraw. */
@@ -23,6 +25,8 @@ export type CanvasApi = {
   convertToExcalidrawElements(skeleton: Skeleton[], options: { regenerateIds: false }): CanvasElement[];
   /** Loads full elements a stored scene holds, keeping their bindings; converting them again would detach every arrow. */
   restoreElements(elements: Skeleton[]): CanvasElement[];
+  /** Lays out Mermaid flowchart or sequence source as an editable scene. The converter loads on the first call, so a Pad without a Mermaid Drawing never requests it. */
+  fromMermaid(text: string): Promise<CanvasElement[]>;
 };
 
 export type Skeleton = { type: string; id?: string | undefined; version?: number | undefined };
@@ -48,6 +52,7 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   let stopAppearance: (() => void) | undefined;
   // Loading may touch versions; only the user's own gesture counts as an edit.
   let touched = false;
+  let live = true;
 
   const down = () => {
     touched = true;
@@ -57,10 +62,21 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   host.addEventListener("pointerdown", down);
   host.addEventListener("keydown", () => (touched = true));
 
-  try {
-    const skeleton = parse(text);
-    const elements = isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false });
+  const fail = () => {
+    const source = document.createElement("pre");
+    const line = document.createElement("p");
+
+    source.textContent = text;
+    line.className = "visual-error";
+    line.setAttribute("role", "alert");
+    line.textContent = copy.notAnExcalidrawScene;
+    host.replaceChildren(source, line);
+  };
+
+  const show = (elements: CanvasElement[]) => {
     let last = signature(elements);
+    let fitted = false;
+    let handle: Parameters<CanvasProps["excalidrawAPI"]>[0] | undefined;
 
     const initialData = { elements, scrollToContent: true };
 
@@ -72,7 +88,16 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
         viewModeEnabled: readonly,
         theme: appDark() ? "dark" : "light",
         UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } },
+        excalidrawAPI: (api) => (handle ??= fitted ? undefined : api),
         onChange: (current) => {
+          // Excalidraw's constructor-time scroll is lost and measures the window; fit once the canvas has mounted and been measured.
+          // The scene fills 60% of the canvas. The canvas is a fixed 360 px, so the 20% left above and below is 72 px, clear of Excalidraw's 57 px footer and its toolbar.
+          if (handle) {
+            handle.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.6 });
+            handle = undefined;
+            fitted = true;
+          }
+
           if (readonly) return;
 
           if (!touched) {
@@ -92,18 +117,30 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
 
     render();
     stopAppearance = followAppAppearance(render);
-  } catch (error) {
-    const source = document.createElement("pre");
-    const line = document.createElement("p");
+  };
 
-    source.textContent = text;
-    line.className = "visual-error";
-    line.setAttribute("role", "alert");
-    line.textContent = copy.drawing(error instanceof Error ? error.message : String(error));
-    host.replaceChildren(source, line);
+  // A scene is JSON; any other body is Mermaid source.
+  if (text.trimStart().startsWith("{")) {
+    try {
+      const skeleton = parse(text);
+
+      show(isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false }));
+    } catch {
+      fail();
+    }
+  } else {
+    canvas.fromMermaid(text).then(
+      (elements) => {
+        if (live) show(elements);
+      },
+      () => {
+        if (live) fail();
+      },
+    );
   }
 
   return () => {
+    live = false;
     stopAppearance?.();
     // Unmounting during React's own render pass throws; defer it.
     queueMicrotask(() => root?.unmount());

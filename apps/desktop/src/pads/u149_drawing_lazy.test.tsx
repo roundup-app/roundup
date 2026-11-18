@@ -37,7 +37,7 @@ describe("u149 the canvas loads only when a Drawing is present", () => {
       canvas: async () => {
         requested += 1;
 
-        return { Excalidraw: () => null, convertToExcalidrawElements: () => [], restoreElements: () => [] };
+        return { Excalidraw: () => null, convertToExcalidrawElements: () => [], restoreElements: () => [], fromMermaid: async () => [] };
       },
     });
     await openShelf([padOf("note", USER, "")]);

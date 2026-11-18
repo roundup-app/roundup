@@ -70,19 +70,21 @@ try:
           const field=document.querySelector('.todo-comment-field');
           field.value='  e\u0301 🧪\n次の行  '; field.dispatchEvent(new Event('input',{bubbles:true}));
           window.__fake.failNext(-32003,'Comment could not be sent; retry or dismiss the failure.','todo.comment');
-          document.querySelector('.todo-comments-send button').click();
         })()""")
-        browser('wait', '--fn', 'Boolean(document.querySelector(".todo-comments [role=alert]"))')
+        # Solid 2 enables the send button on the next flush, so the click is its own step.
+        browser('wait', '--fn', '!document.querySelector(".todo-comments-send button").disabled')
+        evaluate("document.querySelector('.todo-comments-send button').click()")
+        browser('wait', '--fn', 'Boolean(document.querySelector(".app-toast [role=alert]"))')
         capture('comment-failure')
-        evaluate("[...document.querySelectorAll('.todo-comments button')].find(b=>b.textContent==='Dismiss').click()")
-        browser('wait', '--fn', '!document.querySelector(".todo-comments [role=alert]")')
+        evaluate("[...document.querySelectorAll('.app-toast button')].find(b=>b.textContent==='Dismiss').click()")
+        browser('wait', '--fn', '!document.querySelector(".app-toast [role=alert]")')
         assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
         capture('comment-dismissed')
         evaluate("window.__fake.failNext(-32003,'Todo could not be saved; retry or dismiss the failure.','todo.complete'); document.querySelector('.todo-meta-state input[type=checkbox]').click()")
-        browser('wait', '--fn', 'Boolean(document.querySelector(".todo-detail > .reserved-line [role=alert]"))')
+        browser('wait', '--fn', 'Boolean(document.querySelector(".app-toast [role=alert]"))')
         capture('drawer-failure')
         evaluate("document.querySelector('.todo-meta-state input[type=checkbox]').click()")
-        browser('wait', '--fn', '!document.querySelector(".todo-detail > .reserved-line [role=alert]")')
+        browser('wait', '--fn', '!document.querySelector(".app-toast [role=alert]")')
         assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
         capture('drawer-saved')
     else:
