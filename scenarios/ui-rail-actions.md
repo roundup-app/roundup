@@ -54,7 +54,7 @@ Only existing Tokens and menu/App seams are used. This specification changes acc
 
 Tests (`u429_`, Rust in `crates/desktop/src/`, with the launcher behind a function the test replaces; Vitest for the Rail's message). Observer: the Rust tests run on Linux with a fake `open`; the real launch is read from the user's Mac report (the _Done_ rule of `.agents/builder.md`). Owns `crates/desktop/**`, `scenarios/app.md` and `GLOSSARY.md`.
 
-## Row action slots and the Todos ring (U7488a to U7488c)
+## Row action slots and the Todos ring (U7488a to U7488d)
 
 Source: the owner, 2026-11-18, with a screenshot (#7488): "the rail icons why start/resume/restart is not aligned … the todos icon should change … it should have the number and proper colors … be consistent of visibility and alignment of icons on hover or on being active". The owner picked the ring over a count badge and over the old grey `◇3`. Amends U426, U4896, U7205c and U404. Module: `apps/desktop/src/rail/` and the shared row-control styles in `apps/desktop/src/todos/rowButton.styles.css`. No contract, RPC, App seam command or Token; the ring uses `--accent` and `--progress-track`. Terms: Todos, Agent, Rail, Shelf and Bench as `GLOSSARY.md` has them; the action names are the user labels of U426 to U428.
 
