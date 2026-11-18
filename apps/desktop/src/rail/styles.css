@@ -63,20 +63,17 @@
   grid-column: 2;
 }
 
-/* U7314a: the rename's note floats under the row, so the field keeps its width and the note wraps whole. Each row isolates its own layers, so the row holding the note rises above the rows below it. */
-.rail-row:has(.mounted-line) {
-  z-index: 1;
+/* U7314a: while a name is edited its line may wrap, so a note (a draft conflict) takes a line of its own under the field: the field keeps its width and the rows below move down. */
+.rail-row[data-editing="true"] .line {
+  flex-wrap: wrap;
 }
 
 .rail-row .mounted-line {
-  position: absolute;
-  inset-inline: var(--indent) var(--rail-edge, var(--space-4));
-  top: 100%;
-  z-index: 1;
+  order: 1;
+  flex: 1 0 100%;
   padding-block: var(--space-1);
   white-space: normal;
   overflow-wrap: anywhere;
-  background: var(--ground);
 }
 
 .rail-fold {
