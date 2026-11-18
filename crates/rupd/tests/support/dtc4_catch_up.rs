@@ -115,7 +115,7 @@ impl Run {
 
 /// The Door's turns that a `rupd` note about its children started: those whose first entry is from `rupd`, not the
 /// user's prompt that took the quiet notes along.
-fn started(run: &Run) -> Vec<Vec<String>> {
+pub(super) fn started(run: &Run) -> Vec<Vec<String>> {
     rupd_turns(run)
         .into_iter()
         .filter(|turn| turn[0].contains(r#"from-name=\"rupd\""#))
