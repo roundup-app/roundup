@@ -158,7 +158,7 @@ it("u5239e_the_file_holds_exactly_the_overrides", async () => {
   const { app, view } = await mount();
 
   app.chooser.savePath = "/tmp/shortcuts.json";
-  const daemon = app.of("");
+  const daemon = app.of("/p");
   daemon.handlers["shortcuts.export"] = () => null;
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "shortcuts.export")).toEqual([{ method: "shortcuts.export", params: { path: "/tmp/shortcuts.json", keys: { "terminal.new": "meta+shift+KeyT" } } }]));
@@ -178,7 +178,7 @@ it("u5239e_cancel_writes_nothing_and_no_override_disables_the_control", async ()
   app.chooser.savePath = null;
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   await waitFor(() => expect(app.chooser.suggestedNames).toEqual(["shortcuts.json"]));
-  expect(app.of("").calls.some(call => call.method === "shortcuts.export")).toBe(false);
+  expect(app.of("/p").calls.some(call => call.method === "shortcuts.export")).toBe(false);
 });
 
 it("u5239e_a_failed_write_shows_its_cause", async () => {
@@ -186,7 +186,7 @@ it("u5239e_a_failed_write_shows_its_cause", async () => {
   const { app, view } = await mount();
 
   app.chooser.savePath = "/nope/shortcuts.json";
-  app.of("").handlers["shortcuts.export"] = () => { throw new Error("cannot export to /nope/shortcuts.json: denied"); };
+  app.of("/p").handlers["shortcuts.export"] = () => { throw new Error("cannot export to /nope/shortcuts.json: denied"); };
 
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   expect(await screen.findByText(/cannot export to \/nope\/shortcuts.json: denied/)).toBeTruthy();
