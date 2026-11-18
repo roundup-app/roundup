@@ -1,7 +1,8 @@
 import { createSignal, onCleanup, untrack, For } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { CapturePort, CaptureState } from "../app/seam";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure } from "../ink/MountedLine";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import "./capture.styles.css";
@@ -57,7 +58,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
         if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); void file(event.shiftKey); }
       }} />
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
-    <ReservedLine message={failure() ?? published.message()} dismiss={() => failure() ? setFailure(null) : published.dismiss()} recover={state()?.retention ? { run: () => {
+    <DialogFailure message={failure() ?? published.message()} dismiss={() => failure() ? setFailure(null) : published.dismiss()} recover={state()?.retention ? { run: () => {
       const current = state();
 
       return current ? send({ kind: "retry", session: current.session }) : undefined;
