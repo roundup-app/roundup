@@ -1,3 +1,4 @@
+import { notice, notices } from "../../testing/notices";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -160,7 +161,7 @@ describe("u68 resume from the Rail menu", () => {
 
     resumeRow("a");
 
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot start"));
+    await waitFor(() => expect(notice("alert").textContent).toContain("cannot start"));
     expect(rail.selected()).toBe("a");
     expect(doorOf(rail.nodes[0])?.terminal_id).toBe("t-a");
     expect(emulators.made.get("t-a")?.disposed).toBe(false);
@@ -188,7 +189,7 @@ describe("u68 resume from the Rail menu", () => {
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
     expect(railCallsTo(app, "rail.tree").length).toBe(trees + 1);
     await waitFor(() => expect(railCallsTo(app, "terminal.list").length).toBe(lists + 1));
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   });
 
   it("u68_unknown_outcome_refetches_terminal_list_into_the_rail_so_an_exit_it_missed_offers_resume", async () => {
@@ -219,7 +220,7 @@ describe("u68 resume from the Rail menu", () => {
 
     resumeRow("a");
 
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    await waitFor(() => expect(notice("alert")).toBeTruthy());
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
   });
 

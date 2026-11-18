@@ -1,3 +1,4 @@
+import { notices } from "../../testing/notices";
 import { copy as appCopy } from "../../app/copy";
 import { leaderKey } from "../../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -149,7 +150,7 @@ it("u100_write_failure_shows_one_ink_line_and_keeps_working", async () => {
   await loaded();
   await click("agent-1");
   await collapse("backend");
-  expect(document.querySelectorAll(".rail [role=alert]")).toHaveLength(1);
+  expect(notices("alert", screen.getByRole("region", { name: "Updates" }))).toHaveLength(1);
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("false");
   await click("agent-2");
   expect(row("agent-2")?.getAttribute("aria-selected")).toBe("true");
