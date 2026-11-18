@@ -459,6 +459,12 @@ jobs:
       - name: R24 measurement feature
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'
+      # CI7297e: a PR's `mac` job past 300 s warns, naming the steps that made it long; it fails nothing.
+      - name: CI7297e mac job time
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && runner.environment != 'self-hosted' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/actions/setup/lane-budget.py --job mac 300 test-rust "R24 measurement feature"
       # L84: the macOS cache this job saves on `main` holds clippy's checks and the smoke test's binaries too, so
       # `mac-clippy` builds only the workspace.
       - name: Clippy's checks and the smoke test's binaries for the cache
