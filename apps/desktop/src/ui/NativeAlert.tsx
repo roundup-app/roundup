@@ -4,7 +4,7 @@ import { createEffect, createMemo, createSignal, Show, onCleanup, untrack } from
 import { answerOf, type App, type NativeAnswer, type NativeQuestion, type RemovalQuestion, type RemovalAnswer } from "../app/seam";
 import { copy } from "./copy";
 import { BusyButton } from "./BusyButton";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { Checkbox } from "./Checkbox";
 import { isSuppressed, suppressQuestion } from "../settings/warnings";
 import type { QuestionKey } from "../settings/preferences";
@@ -130,7 +130,8 @@ export const NativeAlert = (props: {
   const removal = () => "thisLabel" in props.question ? props.question : null;
   const confirm = () => "okLabel" in props.question ? props.question.okLabel : "";
 
-  return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} status={props.question.message}>
+  return <Show when={failure()}><div class="mounted-line native-alert-failure" ref={element => { line = element; }}>
+    <StatusNote text={props.question.message} />
     <Show when={removal()} fallback={<>
       <Show when={props.key}><Checkbox checked={ticked()} onCheckedChange={setTicked}>{copy.dontAskAgain}</Checkbox></Show>
       <BusyButton kind="quiet" busyLabel={copy.confirming} onClick={() => answer()}>{confirm()}</BusyButton>
@@ -138,5 +139,5 @@ export const NativeAlert = (props: {
       {each => <><BusyButton kind="quiet" busyLabel={copy.removing} onClick={() => answer("this")}>{each().thisLabel}</BusyButton><BusyButton kind="quiet" busyLabel={copy.removing} onClick={() => answer("all")}>{each().allLabel}</BusyButton></>}
     </Show>
     <button data-button="quiet" type="button" onClick={cancel}>{props.question.cancelLabel}</button>
-  </ReservedLine></Show>;
+  </div></Show>;
 };

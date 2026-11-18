@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { notice, notices } from "../testing/notices";
 import { ToastHost } from "../testing/toastHost";
+import { Deferred } from "../ui/Deferred";
 import { ChooseProject } from "./FirstRun";
 
 afterEach(cleanup);
@@ -60,4 +61,13 @@ it("u7314g_window_failures_show_as_toasts", async () => {
   await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(reservedLines()).toEqual([]);
   expect(elements(failing.root)).toEqual(failing.before);
+});
+
+it("u7314g_a_blocked_failure_is_its_own_view_not_a_toast", async () => {
+  render(() => <ToastHost><Deferred label="Pads" load={() => Promise.reject(new Error("Pads could not load"))}>{() => null}</Deferred></ToastHost>);
+
+  const shown = await waitFor(() => notice("alert"));
+  expect(notices("alert")).toEqual([shown]);
+  expect(shown.closest(".app-toasts")).toBeNull();
+  expect(reservedLines()).toEqual([]);
 });
