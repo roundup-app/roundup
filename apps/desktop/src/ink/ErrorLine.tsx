@@ -8,7 +8,7 @@ export const ErrorLine = (props: { message: string; content?: JSX.Element }) => 
   const [ref, cut] = createCut(() => props.message);
 
   return (
-    <Tip content={props.message} cut={cut}>
+    <Tip kind="changing" content={props.message} cut={cut}>
       {(trigger) => (
         <p {...trigger({ ref })} style={{ width: "fit-content", "max-width": "100%" }} class="ink" data-kind="error" role="alert" aria-label={props.message} tabindex={cut() ? 0 : undefined}>
           <Icon name="x" />{props.content ?? props.message.split(/\r\n|[\r\n]/, 1)[0]}

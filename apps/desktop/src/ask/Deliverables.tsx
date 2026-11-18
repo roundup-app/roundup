@@ -159,7 +159,7 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={String(content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id))}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title)}>{trigger => <button {...trigger({ ref: track(record.id), onClick: () => { void open(record); } })} type="button" data-button="quiet" class="made-open" data-row-selected={String(content.selection.isSelected(record.id))} aria-current={selected() === record.id ? "true" : undefined}
+        <Tip kind="changing" disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title)}>{trigger => <button {...trigger({ ref: track(record.id), onClick: () => { void open(record); } })} type="button" data-button="quiet" class="made-open" data-row-selected={String(content.selection.isSelected(record.id))} aria-current={selected() === record.id ? "true" : undefined}
           aria-label={copy.openDeliverable(record.title)} aria-describedby={`made-details-${record.id} made-time-${record.id}`} aria-disabled={pending() !== null ? "true" : "false"}>
           <span class="made-content">
             <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>

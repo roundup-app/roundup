@@ -138,13 +138,13 @@ const MachineIcon = (props: { node: RailNode }) => {
   const text = (name: string) => connected.machines.offline(name) ? copy.machineOffline : name;
 
   return <Show when={machine()}>{name => <span class="row-slot row-machine">
-    <Tip text={text(name())}>{trigger => <span {...trigger()} class="machine-icon" data-offline={connected.machines.offline(name()) ? "" : undefined} role="img" aria-label={text(name())}><Icon name="server" /></span>}</Tip>
+    <Tip kind="changing" text={text(name())}>{trigger => <span {...trigger()} class="machine-icon" data-offline={connected.machines.offline(name()) ? "" : undefined} role="img" aria-label={text(name())}><Icon name="server" /></span>}</Tip>
   </span>}</Show>;
 };
 
 /** U7205e: who started the row as one icon in its fixed slot; the full text is its Tooltip and accessible name. */
 const AttributionIcon = (props: { text: string }) => <span class="row-slot row-attribution">
-  <Tip text={props.text}>{trigger => <span {...trigger()} class="attribution-icon" role="img" aria-label={props.text}><Icon name="started" /></span>}</Tip>
+  <Tip kind="changing" text={props.text}>{trigger => <span {...trigger()} class="attribution-icon" role="img" aria-label={props.text}><Icon name="started" /></span>}</Tip>
 </span>;
 
 /** U7205c: the age in the row's one trailing slot. */
@@ -338,7 +338,7 @@ export const RailRowView = (props: {
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={folds()}><FoldControl class="rail-chevron row-control" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
-      <Tip text={glyphText()}>{(trigger, focus) => {
+      <Tip kind="changing" text={glyphText()}>{(trigger, focus) => {
         glyphFocus = focus;
 
         return <span {...trigger()} class="row-state"><KindGlyph kind={kind() ?? "idle"} label={glyphText()} /></span>;

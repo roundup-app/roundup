@@ -639,12 +639,12 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
             if (colour) tr.addMark(from, to, type.create({ colour }));
             view.dispatch(tr);
           })}>
-            <Tip text={copy.textColour}>{trigger => <Menu.Trigger class="top-bar-heading-button" aria-label={copy.textColour} render={menu => <button {...trigger(menu)} type="button">{copy.textColour}</button>} />}</Tip>
+            <Tip kind="fixed" name={copy.textColour} text={copy.textColour}>{trigger => <Menu.Trigger class="top-bar-heading-button" aria-label={copy.textColour} render={menu => <button {...trigger(menu)} type="button">{copy.textColour}</button>} />}</Tip>
             <Menu.Content class="pad-colour-menu" data-pointer={paletteMotion() ? "true" : undefined} inert={!paletteOpen()} onKeyDown={() => setPaletteMotion(false)}>
               <Menu.RadioGroup value={currentColour() ?? ""}><For each={["default" as const, ...padColours]}>{colour => <Menu.RadioItem value={colour} closeOnSelect>{copy.colours[colour]}<Menu.ItemIndicator><Check class="icon" aria-hidden="true" /></Menu.ItemIndicator></Menu.RadioItem>}</For></Menu.RadioGroup>
             </Menu.Content>
           </Menu.Root>
-          <Tip text={copy.highlight}>{trigger => <button {...trigger({ onPointerDown: event => event.preventDefault(), onClick: () => crepe?.editor.action(ctx => {
+          <Tip kind="fixed" name={copy.highlight} text={copy.highlight}>{trigger => <button {...trigger({ onPointerDown: event => event.preventDefault(), onClick: () => crepe?.editor.action(ctx => {
             const view = ctx.get(editorViewCtx);
             toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
             view.focus();
