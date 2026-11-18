@@ -164,7 +164,10 @@ impl Agents {
         }
         let mut rail = self.shared.rail();
         let node = rail.node(crate::rail::agent_id(&id)?)?;
-        if node.kind() != NodeKind::Agent || node.parent.is_some() {
+        // A7494c: a nested Mode's prompt can be cleared, never set on a Subagent.
+        if node.kind() != NodeKind::Agent
+            || (node.parent.is_some() && (prompt.is_some() || node.mode_prompt().is_none()))
+        {
             return Err(RpcError::not_found("root Agent"));
         }
         if rail.set_mode_prompt(crate::rail::agent_id(&id)?, prompt)? {

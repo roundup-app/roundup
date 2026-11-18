@@ -150,15 +150,21 @@ impl Agents {
     ) -> Result<RailNode, RpcError> {
         let id = params.id.as_str();
         let parked = self.shared.node(id)?;
+        // A7494c: a nested Mode restarts as a root Mode does.
+        let under_root = parked.parent.as_deref().is_none_or(|parent| {
+            self.shared
+                .node(parent)
+                .is_ok_and(|node| node.kind() == NodeKind::Agent && node.parent.is_none())
+        });
         if parked.kind() != NodeKind::Agent
-            || parked.parent.is_some()
+            || !under_root
             || parked
                 .mode_prompt()
                 .as_deref()
                 .is_none_or(|prompt| prompt.trim().is_empty())
         {
             return Err(RpcError::conflict(
-                "only a root Mode Agent can be restarted",
+                "only a Mode Agent at the root or under its root starter can be restarted",
             ));
         }
         let params = StartDoorParams {

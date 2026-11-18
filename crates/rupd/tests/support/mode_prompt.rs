@@ -391,3 +391,359 @@ async fn a4665_failed_start_retries_same_request() {
         run.finish().await;
     }
 }
+
+/// A7494a: the root Mode `run.child` starts a nested Mode; `run` then points at the nested Mode.
+/// Returns the starter's id and its connection.
+async fn nested(run: &mut Run, prompt: &str) -> (String, rpc::Client) {
+    let starter = run.child.clone();
+    let agent = rpc::Client::connect(&run.daemon.socket).await.unwrap();
+    agent
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":starter,"parent":null}}),
+        )
+        .await
+        .unwrap();
+    let node = agent
+        .request(
+            "agent.spawn",
+            json!({"name":"Shape pad naming","cwd":run.dir.path(),"role":"mode","prompt":prompt}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(node["parent"], starter);
+    run.child = node["id"].as_str().unwrap().to_owned();
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    idle(run).await;
+    (starter, agent)
+}
+
+async fn row(run: &Run, id: &str) -> Value {
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    tree.as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == id)
+        .cloned()
+        .unwrap()
+}
+
+fn typed(prompt: &str) -> Vec<u8> {
+    format!("\x1b[200~{prompt}\x1b[201~\r").into_bytes()
+}
+
+#[tokio::test]
+async fn a7494a_a_nested_mode_keeps_parent_and_prompt_across_reopen() {
+    let prompt = "  /compose /intent naming\nKeep spacing  ";
+    let mut run = mode("Planner words").await;
+    let (starter, _agent) = nested(&mut run, prompt).await;
+    let saved = row(&run, &run.child).await;
+    assert_eq!(saved["parent"], starter);
+    assert_eq!(saved["mode_prompt"], prompt);
+    drop(run.daemon.stdin.take());
+    run.daemon.child.wait().unwrap();
+    run.daemon = super::child_run::launch(run.dir.path(), run.data.path());
+    run.user = std::sync::Arc::new(rpc::Client::connect(&run.daemon.socket).await.unwrap());
+    let reopened = row(&run, &run.child).await;
+    assert_eq!(reopened["parent"], starter);
+    assert_eq!(reopened["mode_prompt"], prompt);
+}
+
+#[tokio::test]
+async fn a7494a_its_first_prompt_is_typed_once() {
+    let prompt = "/compose /intent shape the pad naming";
+    let mut run = mode("Planner words").await;
+    nested(&mut run, prompt).await;
+    assert_eq!(recorded_bytes(&run).await, typed(prompt));
+    let notes = run
+        .user
+        .request("message.list", json!({"to":run.child}))
+        .await
+        .unwrap();
+    let typed_notes = notes
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|note| note["kind"] == "note" && note["body"] == prompt)
+        .count();
+    assert_eq!(typed_notes, 1, "{notes}");
+}
+
+#[tokio::test]
+async fn a7494a_a_nested_mode_is_refused_where_a_mode_may_not_nest() {
+    let mut run = mode("Planner words").await;
+    let (starter, agent) = nested(&mut run, "First").await;
+    let nested_id = run.child.clone();
+    let rows = || async { run.user.request("rail.tree", ()).await.unwrap() };
+    let before = rows().await;
+    let cwd = run.dir.path();
+    // A nested Mode, a Subagent under the starter and a Workstream's Door each call `mode`.
+    let subagent = agent
+        .request(
+            "agent.spawn",
+            json!({"name":"Explore","cwd":cwd,"role":"consult"}),
+        )
+        .await
+        .unwrap();
+    let workstream = run
+        .user
+        .request(
+            "rail.createWorkstream",
+            json!({"name":"team","parent":null}),
+        )
+        .await
+        .unwrap();
+    let before = {
+        let _ = before;
+        rows().await
+    };
+    for caller in [
+        &nested_id,
+        subagent["id"].as_str().unwrap(),
+        workstream["id"].as_str().unwrap(),
+    ] {
+        let client = rpc::Client::connect(&run.daemon.socket).await.unwrap();
+        client
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":caller}}),
+            )
+            .await
+            .unwrap();
+        let refused = client
+            .request(
+                "agent.spawn",
+                json!({"name":"Deeper","cwd":cwd,"role":"mode","prompt":"Words"}),
+            )
+            .await;
+        assert!(refused.is_err(), "{caller} may not start a Mode");
+    }
+    for params in [
+        json!({"name":"","cwd":cwd,"role":"mode","prompt":"Words"}),
+        json!({"cwd":cwd,"role":"mode","prompt":"Words"}),
+        json!({"name":"Blank","cwd":cwd,"role":"mode","prompt":"  \n"}),
+        json!({"name":"Blank","cwd":cwd,"role":"mode"}),
+        json!({"name":"Both","cwd":cwd,"role":"mode","prompt":"Words","order":
+            {"kind":"work","ask":"Do it","done":"Done","limits":[]}}),
+    ] {
+        let refused = agent.request("agent.spawn", params.clone()).await;
+        assert!(refused.is_err(), "{params}");
+    }
+    assert_eq!(
+        rows().await,
+        before,
+        "a refusal starts and saves nothing of {starter}"
+    );
+}
+
+#[tokio::test]
+async fn a7494a_move_still_refuses_to_nest_a_mode() {
+    let mut run = mode("Planner words").await;
+    let other = run
+        .user
+        .request("agent.createMode", json!({"name":"other","prompt":"Words"}))
+        .await
+        .unwrap();
+    let (starter, _agent) = nested(&mut run, "First").await;
+    for (id, parent) in [
+        (run.child.clone(), Value::Null),
+        (run.child.clone(), other["id"].clone()),
+        (other["id"].as_str().unwrap().to_owned(), json!(starter)),
+    ] {
+        let refused = run
+            .user
+            .request("rail.move", json!({"id":id,"parent":parent,"index":0}))
+            .await;
+        assert!(refused.is_err(), "{id} under {parent}");
+    }
+    assert_eq!(row(&run, &run.child).await["parent"], starter);
+}
+
+#[tokio::test]
+async fn a7494a_only_the_user_edits_a_nested_modes_prompt() {
+    let mut run = mode("Planner words").await;
+    let (starter, agent) = nested(&mut run, "User's saved text").await;
+    for caller in [&agent, &{
+        let me = rpc::Client::connect(&run.daemon.socket).await.unwrap();
+        me.request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child,"parent":starter}}),
+        )
+        .await
+        .unwrap();
+        me
+    }] {
+        let error = caller
+            .request(
+                "agent.setModePrompt",
+                json!({"id":run.child,"prompt":"Agent text"}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::FORBIDDEN, "{error}");
+    }
+    assert_eq!(
+        row(&run, &run.child).await["mode_prompt"],
+        "User's saved text"
+    );
+    // The starter's Reach covers it: it can stop its nested Mode.
+    agent
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a7494b_a_nested_modes_context_asks_the_user() {
+    let mut run = mode("Planner words").await;
+    let (starter, _agent) = nested(&mut run, "First").await;
+    let context = run
+        .user
+        .request("agent.context", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(context["parent"]["id"], starter);
+    assert_eq!(context["ask"]["to"], "you");
+}
+
+#[tokio::test]
+async fn a7494b_its_parent_gets_no_question_or_digest_push_from_it() {
+    let mut run = mode("Planner words").await;
+    let (starter, _agent) = nested(&mut run, "First").await;
+    let before = run
+        .user
+        .request("message.list", json!({"to":starter}))
+        .await
+        .unwrap();
+    // The nested Mode asks through its own prompt; its Status turns `needs-you`.
+    run.user
+        .request(
+            "agent.signal",
+            json!({"id":run.child,"attempt":run.attempt,"payload":{
+                "hook_event_name":"PermissionRequest","tool_name":"AskUserQuestion"}}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        row(&run, &run.child).await["status"]["kind"],
+        "needs-you",
+        "the child never needed the user"
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let inbox = run
+        .user
+        .request("message.list", json!({"to":starter}))
+        .await
+        .unwrap();
+    // B43's attention note would add an entry from the Daemon.
+    assert_eq!(inbox, before);
+}
+
+#[tokio::test]
+async fn a7494b_a_subagent_under_a_nested_mode_asks_its_parent() {
+    let mut run = mode("Planner words").await;
+    let (_starter, _agent) = nested(&mut run, "First").await;
+    let mode_agent = rpc::Client::connect(&run.daemon.socket).await.unwrap();
+    mode_agent
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child}}),
+        )
+        .await
+        .unwrap();
+    let explore = mode_agent
+        .request(
+            "agent.spawn",
+            json!({"name":"Explore","cwd":run.dir.path(),"role":"consult"}),
+        )
+        .await
+        .unwrap();
+    let context = run
+        .user
+        .request("agent.context", json!({"id":explore["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(context["ask"]["to"], run.child);
+}
+
+#[tokio::test]
+async fn a7494c_restart_without_a_conversation_types_the_saved_prompt_once() {
+    let prompt = "Saved words";
+    let mut run = mode("Planner words").await;
+    nested(&mut run, prompt).await;
+    let before = run.attempt.clone();
+    let node = restart(&mut run, "nested-1").await.unwrap();
+    assert_ne!(node["attempt"], before);
+    assert_eq!(node["mode_prompt"], prompt);
+    assert_eq!(recorded_bytes(&run).await, typed(prompt));
+    restart(&mut run, "nested-1").await.unwrap();
+    assert_eq!(recorded_bytes(&run).await, typed(prompt));
+}
+
+#[tokio::test]
+async fn a7494c_restart_with_a_conversation_resumes_it() {
+    let mut run = mode("Planner words").await;
+    let (starter, _agent) = nested(&mut run, "Saved words").await;
+    let before = run.attempt.clone();
+    let node = run
+        .user
+        .request("agent.resume", json!({"id":run.child,"mode":"normal"}))
+        .await
+        .unwrap();
+    assert_ne!(node["attempt"], before);
+    assert_eq!(node["id"], run.child);
+    assert_eq!(node["parent"], starter);
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    idle(&run).await;
+    assert_eq!(recorded_bytes(&run).await, Vec::<u8>::new());
+}
+
+#[tokio::test]
+async fn a7494c_clearing_the_prompt_makes_it_a_subagent_asking_its_parent() {
+    let mut run = mode("Planner words").await;
+    let (starter, _agent) = nested(&mut run, "Saved words").await;
+    let before = row(&run, &run.child).await;
+    run.user
+        .request("agent.setModePrompt", json!({"id":run.child,"prompt":null}))
+        .await
+        .unwrap();
+    let after = row(&run, &run.child).await;
+    assert_eq!(after["parent"], starter);
+    assert_eq!(after["attempt"], before["attempt"]);
+    assert!(after["mode_prompt"].is_null(), "{after}");
+    let context = run
+        .user
+        .request("agent.context", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(context["ask"]["to"], starter);
+}
+
+#[tokio::test]
+async fn a7494d_a_nested_mode_launches_as_a_root_mode_does() {
+    let mut run = mode("Planner words").await;
+    let root = run.child.clone();
+    let user = run.user.clone();
+    let brief = |id: String| {
+        let user = user.clone();
+        async move {
+            user.request("agent.brief", json!({"id":id})).await.unwrap()["stdout"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        }
+    };
+    let root_brief = brief(root).await;
+    nested(&mut run, "First").await;
+    let nested_brief = brief(run.child.clone()).await;
+    let words = |brief: &str| {
+        brief
+            .lines()
+            .filter(|line| !line.contains("Rail name"))
+            .map(str::to_owned)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(words(&nested_brief), words(&root_brief));
+}

@@ -286,12 +286,14 @@ impl Waker {
         {
             return;
         }
-        let Some(parent) = world
-            .nodes()
-            .iter()
-            .find(|node| node.id == status.id)
-            .and_then(|node| node.parent.clone())
-        else {
+        let Some(child) = world.nodes().iter().find(|node| node.id == status.id) else {
+            return;
+        };
+        // A7494b: a nested Mode asks the user, never its parent, so no push reaches the parent.
+        if child.mode_prompt().is_some() {
+            return;
+        }
+        let Some(parent) = child.parent.clone() else {
             return;
         };
         let told_by_wake = fired

@@ -480,6 +480,7 @@ If your Context names a coordinating Agent (your Door or parent), send every que
 If you cannot proceed within your order, report the block and the choice needed to that coordinator. \
 Include the relevant choices, await a note that names your question in `replyTo`, and continue with its answer; never use `AskUserQuestion` or send the user to your Terminal for a choice. \
 Only without a coordinator, ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. \
+Whenever your Context's Ask line names the user, ask the user that way, even when the Context lists a parent. \
 Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. \
 Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal. A vendor permission prompt remains the user's to answer in the requesting Terminal; never seek its answer from another Agent.
 

@@ -5,6 +5,22 @@ use contracts::agent::{NodeKind, RailNode};
 use messages::restart::SessionRestart;
 
 impl Daemon {
+    /// A7494a: start the nested Mode that `agent.spawn` saved, through the same reservation as a
+    /// Restart, so its first prompt is typed once.
+    pub(crate) async fn start_nested_mode(
+        &self,
+        saved: serde_json::Value,
+    ) -> Result<serde_json::Value, RpcError> {
+        let id = saved
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let params = serde_json::from_value(serde_json::json!({"id": id, "request": "start"}))
+            .map_err(RpcError::internal)?;
+        let node = self.restart_mode(&Actor::user(), params).await?;
+        serde_json::to_value(node).map_err(RpcError::internal)
+    }
+
     pub(crate) async fn restart_mode(
         &self,
         actor: &Actor,
@@ -16,21 +32,26 @@ impl Daemon {
             ));
         }
         let _gate = self.restarting.lock().await;
-        let node = self
-            .rail()
-            .await?
-            .into_iter()
+        let nodes = self.rail().await?;
+        let node = nodes
+            .iter()
             .find(|n| n.id == p.id)
             .ok_or_else(|| RpcError::not_found(&p.id))?;
+        // A7494c: a nested Mode restarts as a root Mode does.
+        let under_root = node.parent.as_deref().is_none_or(|parent| {
+            nodes
+                .iter()
+                .any(|n| n.id == parent && n.kind() == NodeKind::Agent && n.parent.is_none())
+        });
         if node.kind() != NodeKind::Agent
-            || node.parent.is_some()
+            || !under_root
             || node
                 .mode_prompt()
                 .as_deref()
                 .is_none_or(|prompt| prompt.trim().is_empty())
         {
             return Err(RpcError::conflict(
-                "only a root Mode Agent can be restarted",
+                "only a Mode Agent at the root or under its root starter can be restarted",
             ));
         }
         let messages = self
