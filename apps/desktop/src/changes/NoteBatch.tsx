@@ -10,7 +10,7 @@ import { createWritableMemo } from "@solid-primitives/memo";
 import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { dismissable } from "../ink/ReservedLine";
-import { DialogFailure, StatusNote } from "../ink/MountedLine";
+import { DialogFailure, InlineStatus, StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { modalOutside } from "../keys/registry";
 import { Dialog } from "../ui/Dialog";
@@ -57,7 +57,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
       <Show when={props.notes.list(props.id).length}>
         <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
           <NotePath path={note.comparison.newPath} />
-          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<StatusNote text={older(note) ? copy.originalContext : null} /></p>
+          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<InlineStatus text={older(note) ? copy.originalContext : null} /></p>
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">
             <button type="button" data-button="quiet" aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}>{copy.editNoteAction}</button>
