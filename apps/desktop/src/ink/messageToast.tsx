@@ -1,4 +1,4 @@
-import { createContext, createEffect, createMemo, createUniqueId, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createUniqueId, mapArray, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ReservedLine, type Dismissible } from "./ReservedLine";
 
@@ -12,7 +12,7 @@ export type MessageQueue = { message(card: MessageCard): () => void };
 export const ToastQueueContext = createContext<MessageQueue | null>(null);
 
 /** A failure line: its message, Dismiss, recover action and extra controls. A status or notice is no toast (U7310d). */
-type FailureLine = Dismissible & { message: string | null | false | undefined; content?: JSX.Element; action?: JSX.Element };
+type FailureLine = Dismissible & { message: string | null | false | undefined; content?: JSX.Element; action?: JSX.Element; class?: string };
 
 /**
  * U7310d: a failure a view shows beside its content shows as one card in the App's Toast region, with the line's own text, Dismiss and recover action, and holds no place in the view.
@@ -36,4 +36,10 @@ export const createMessageToast = (line: FailureLine): void => {
 
     return queue.message(card);
   });
+};
+
+/** A toast per failure in a list, each living as long as its failure is in the list. */
+export const createMessageToasts = <T,>(failures: () => readonly T[], line: (failure: T) => FailureLine): void => {
+  // The memo only keeps the mapping read, so each failure's toast lives and goes with it.
+  const _toasts = createMemo(mapArray(failures, failure => createMessageToast(line(failure))));
 };

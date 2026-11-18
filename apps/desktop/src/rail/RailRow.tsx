@@ -2,7 +2,7 @@ import { alertLevel } from "./alertLevel";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { applying } from "../app/pending";
 import { captureFocus, queueFocus } from "../keys/focus";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { isDoor } from "../state/doorNode";
@@ -106,7 +106,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       }}
       onBlur={() => props.onCancel(false)}
     />
-    <ReservedLine overlay status={conflict() ? copy.railDraftConflict : null} />
+    <StatusNote text={conflict() ? copy.railDraftConflict : null} />
   </>;
 };
 

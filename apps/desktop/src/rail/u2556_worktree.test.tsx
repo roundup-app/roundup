@@ -1,3 +1,5 @@
+import { notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -74,7 +76,7 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "working", "busy", { worktree })]);
   connected.rail.select("a");
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
-  render(() => <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   let finish!: (value: WorktreeState) => void;
   await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
   app.handlers["agent.worktreeState"] = () => new Promise((resolve) => { finish = resolve; });
@@ -105,7 +107,7 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
 
   connected.rail.select("a");
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
-  render(() => <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   setNow(100_000_000_000_000);
   fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
 
@@ -115,7 +117,7 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   failed = false;
   setNow(100_000_000_015_000);
   await screen.findByText(changesCopy.worktreeStateText(5, 2, false));
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 
 });
 
@@ -132,7 +134,7 @@ it("u2556b_unavailable_and_stale_are_explained", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "idle", "ready", { worktree })]);
   connected.rail.select("a");
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
-  render(() => <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
   await screen.findByText("CI unavailable");
   await screen.findByText("PR unavailable");

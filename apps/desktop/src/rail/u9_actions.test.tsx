@@ -1,3 +1,4 @@
+import { notice, notices } from "../testing/notices";
 import { copy } from "./copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -137,10 +138,10 @@ describe("u9 actions", () => {
     };
 
     chord("n");
-    await screen.findByRole("alert");
+    await waitFor(() => notice("alert"));
     fireEvent.click(rowOf("g"));
 
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   });
 
 
@@ -153,12 +154,12 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");
 
     await chooseFooter("Workstream");
-    await screen.findByRole("alert");
+    await waitFor(() => notice("alert"));
     fireEvent.mouseEnter(rowOf("g"));
 
     await chooseAction(mounted.app, "g", copy.startDoor);
 
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   });
 
 

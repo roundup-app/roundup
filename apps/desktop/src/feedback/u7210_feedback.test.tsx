@@ -25,7 +25,7 @@ import type { Candidate } from "../toasts/queue";
 import { copy } from "./copy";
 import { versionsText } from "./facts";
 import { Feedback } from "./Feedback";
-import { notices } from "../testing/notices";
+import { notice, notices } from "../testing/notices";
 
 const ISSUE = "https://github.com/roundup-app/roundup/issues/7300";
 
@@ -308,7 +308,7 @@ it("u7210c_a_failed_send_keeps_the_dialog_with_the_error_and_the_text", async ()
   fireEvent.click(screen.getByRole("checkbox", { name: copy.attach }));
   await press();
   await waitFor(() =>
-    expect(screen.getByRole("alert").textContent).toBe(failure.message),
+    expect(notice("alert").textContent).toBe(failure.message),
   );
   expect(field().value).toBe("the Rail jumps");
   expect(screen.getByRole("checkbox").getAttribute("aria-checked")).toBe(

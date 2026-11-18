@@ -7,6 +7,7 @@ import { registerOpener } from "../shelf/openItem";
 import { saveAppSettings, appSettings } from "../settings/preferences";
 import { agent, info, USER, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "./switcherFixture";
+import { notice, notices } from "../testing/notices";
 
 afterEach(async () => { cleanup(); await saveAppSettings({ shortcuts: {}, quickAdd: "meta+shift+KeyT" }); localStorage.clear(); sessionStorage.clear(); });
 
@@ -204,13 +205,13 @@ it("u5240d_a_refused_key_shows_its_cause_by_the_row_and_esc_cancels", async () =
   switcherKey("Enter", { metaKey: true }, field()!);
   await waitFor(() => expect(recordingMark()).not.toBeNull());
   switcherKey("N", { metaKey: true, altKey: true }, field()!);
-  const cause = await screen.findByRole("alert");
+  const cause = await waitFor(() => notice("alert"));
   expect(recordingMark()).not.toBeNull();
   fireEvent.click(within(cause.closest(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(recordingMark()).not.toBeNull();
   switcherKey("N", { metaKey: true, altKey: true }, field()!);
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   switcherKey("Escape", {}, field()!);
   await waitFor(() => expect(recordingMark()).toBeNull());
   expect(field()).not.toBeNull();

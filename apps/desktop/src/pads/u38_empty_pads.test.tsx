@@ -32,9 +32,11 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext value={connected}>
-        <Pads />
-      </ConnectedProjectContext>
+      <ToastHost>
+        <ConnectedProjectContext value={connected}>
+          <Pads />
+        </ConnectedProjectContext>
+      </ToastHost>
     ));
     flush();
 
@@ -74,9 +76,11 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext value={connected}>
-        <Pads />
-      </ConnectedProjectContext>
+      <ToastHost>
+        <ConnectedProjectContext value={connected}>
+          <Pads />
+        </ConnectedProjectContext>
+      </ToastHost>
     ));
 
     await waitFor(() => expect(replies.length).toBe(1));
@@ -112,9 +116,11 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext value={connected}>
-        <Pads />
-      </ConnectedProjectContext>
+      <ToastHost>
+        <ConnectedProjectContext value={connected}>
+          <Pads />
+        </ConnectedProjectContext>
+      </ToastHost>
     ));
 
     await waitFor(() => expect(replies.length).toBe(1));
@@ -160,9 +166,11 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext value={connected}>
-        <Pads />
-      </ConnectedProjectContext>
+      <ToastHost>
+        <ConnectedProjectContext value={connected}>
+          <Pads />
+        </ConnectedProjectContext>
+      </ToastHost>
     ));
 
     await waitFor(() => expect(notices("alert")).toHaveLength(1));
@@ -193,9 +201,11 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext value={connected}>
-        <Pads />
-      </ConnectedProjectContext>
+      <ToastHost>
+        <ConnectedProjectContext value={connected}>
+          <Pads />
+        </ConnectedProjectContext>
+      </ToastHost>
     ));
 
     expect((await screen.findByText(/daemon says no/)).textContent).toBe("daemon says no");

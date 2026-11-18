@@ -40,6 +40,7 @@ export const copy = {
   languages: { typescript: "TypeScript", javascript: "JavaScript", python: "Python", diff: sharedCopy.diff },
   callouts: "Callouts",
   drawingItem: "Drawing",
+  exportDiagramLabel: "Diagram",
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
   inlineCode: sharedCopy.inlineCodeAction,
