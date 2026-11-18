@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
 import { appSettings, withAppSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -11,7 +12,7 @@ it("u6372a_the_editor_group_lists_automatic_and_the_installed_editors_and_the_ch
   app.installedEditors = [{ id: "dev.zed.Zed", name: "Zed" }, { id: "com.apple.dt.Xcode", name: "Xcode" }];
   const opened = withAppSettings(app, () => false);
 
-  render(() => <AppSettings app={app} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => "/p"} /></ToastHost>);
   window.dispatchEvent(new Event("open-app-settings"));
   fireEvent.click(await screen.findByRole("tab", { name: "Editor" }));
   const panel = within(await screen.findByLabelText("Editor", { selector: '[role="tabpanel"]' }));

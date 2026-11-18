@@ -69,7 +69,7 @@
 {"file":"apps/desktop/src/header/u382_clip.test.tsx","test":"u382 a clipped tab keeps what tells it apart > u382_a_space_at_the_split_point_survives","identity":"8be2185438e92b4a050f857918c731658f0706a4b8843e6def7b723035574f86"}
 {"file":"apps/desktop/src/header/u382_clip.test.tsx","test":"u382 a clipped tab keeps what tells it apart > u382_the_accessible_name_is_whole","identity":"7ccc74ebb5d0821ed6d9370dde65b3eee4f6ea524a3d2731af40dff5101af84f"}
 {"file":"apps/desktop/src/header/u382_clip.test.tsx","test":"u382 a clipped tab keeps what tells it apart > u382_the_accessible_name_is_whole","identity":"775435c6b714aeeea9fc48326f058cee9f1f50955077fd137330b50d89dbe554"}
-{"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u2875d_rejected_call_keeps_period_and_selection (%s)","identity":"77870d345c4bc1f0733550a0d737d965069cf3c78e57dd1b230edc46417ab091"}
+{"file":"apps/desktop/src/importer/u2875d_import_panel.test.tsx","test":"u2875d_rejected_call_keeps_period_and_selection (%s)","identity":"0935719239ac624506ecdbbed3f93f621e395a776b80ee731ab55a444986baac"}
 {"file":"apps/desktop/src/ink/u501_copy_preserves_content.test.tsx","test":"u501_copy_preserves_content","identity":"5fec525728b16beacf710490619d36b7bfcbbff2c7d65c6ef487839c760a28e5"}
 {"file":"apps/desktop/src/ink/u86_vectors.test.tsx","test":"u86_error_text_has_one_decorative_vector","identity":"f898f86eb219b6ecf6c2ca999ef0ceb55bb281c28ed194004a96bca43a2e6582"}
 {"file":"apps/desktop/src/keys/u2239_leader.test.tsx","test":"u2239 the leader takes the next key > u2239_a_modifier_alone_keeps_the_wait","identity":"e0ccd7d81d10cfc706e1c2332992d700261b867628c1165dbb0f0adf4575e00d"}

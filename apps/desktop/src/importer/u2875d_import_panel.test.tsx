@@ -15,6 +15,8 @@ import { RpcError } from "../app/seam";
 import { connectFakeProject } from "../terminal/paneHarness";
 import { workstream } from "../testing/nodes";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
+import { notice } from "../testing/notices";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
@@ -31,7 +33,7 @@ const mount = async () => {
     outcomes: params.selections.map((entry) => ({ source: entry.source, workstream: `w-${entry.source}`, agent: `a-${entry.source}`, error: null })),
   });
 
-  render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext></ToastHost>);
 
   return { app, connected };
 };
@@ -95,7 +97,7 @@ it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("
   await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
   expect(connected.drafts.list().find((draft) => draft.destination.surface === "import")?.status).toBe(failure instanceof RpcError ? "failed" : "unknown");
   cleanup();
-  render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext></ToastHost>);
   await open();
   expect(calls(app, "project.importCommit")).toHaveLength(1);
   expect(isChecked(/first/)).toBe(true);
@@ -142,7 +144,7 @@ it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   cleanup();
-  render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext></ToastHost>);
   await open();
   expect(isChecked(/first/)).toBe(!empty);
   expect(isChecked(/second/)).toBe(!empty);
@@ -182,7 +184,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       return true;
     })()`);
     await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
-    await lane.browser("scrollintoview", ".import-panel [role=alert]");
+    await lane.browser("scrollintoview", ".app-toasts [role=alert]");
     await lane.capture("U3049b", "retention-failure");
     expect(await lane.calls("project.importCommit")).toEqual([]);
   } finally {
@@ -200,7 +202,7 @@ it("u3037d_discovery_deadline_and_retry", async () => {
   expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("status")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Close" })).toHaveProperty("disabled", false);
   await vi.advanceTimersByTimeAsync(20_000);
-  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(notice("alert")).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "Import Claude Code" })).queryByRole("status")).toBeNull();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
   app.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
@@ -235,7 +237,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
     other.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
 
     const connected = await connectProject(other, { name: "q", path: "/q" }, () => false, () => 0, () => null);
-    render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
+    render(() => <ToastHost><ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext></ToastHost>);
     openProjectPage("import-work", "/q");
     await vi.advanceTimersByTimeAsync(0);
   }
@@ -245,7 +247,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.queryByRole("checkbox", { name: /first/ })).toBeNull();
 
-  if (action !== "dismiss") expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("alert")).toBeTruthy();
+  if (action !== "dismiss") expect(notice("alert")).toBeTruthy();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
 });
 
@@ -624,7 +626,7 @@ it("u3791b_copy_depends_on_codes_not_messages_import_refusals", async () => {
     await waitFor(() => expect(JSON.parse(app.clipboardWrites.at(-1)!).error.message).toBe(message));
 
     // A row refusal is status text on its row; an uncertain outcome is the panel's failure line.
-    return (within(row).queryByRole("status") ?? screen.getByRole("alert")).textContent;
+    return (within(row).queryByRole("status") ?? notice("alert")).textContent;
   };
 
   const refusal = await submit();
@@ -734,8 +736,8 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await capture("U5558d", "saved-listing");
     await evaluate("window.__fake.app.handlers['project.importDiscover'] = () => { throw new Error('Saved listing unavailable: permission denied. Retry to read the listing again.'); }");
     await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
-    await wait("document.querySelector('.import-panel [role=alert]')?.textContent.includes('permission denied')");
-    await browser("scrollintoview", ".import-panel [role=alert]");
+    await wait("document.querySelector('.app-toasts [role=alert]')?.textContent.includes('permission denied')");
+    await browser("scrollintoview", ".app-toasts [role=alert]");
     await capture("U5558e", "import-reload-failed");
 
     await evaluate("localStorage.clear()");

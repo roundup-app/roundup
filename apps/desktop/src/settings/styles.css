@@ -292,14 +292,8 @@
   grid-row: 1 / span 2;
 }
 
-.settings-field .reserved-line {
+.settings-field .mounted-line {
   grid-column: 1 / -1;
-}
-
-.settings-content .reserved-line {
-  block-size: auto;
-  max-block-size: none;
-  overflow: visible;
 }
 
 .settings-content .ink[data-kind="error"] {
@@ -343,7 +337,7 @@
 .settings-machine-state { font-size: var(--text-caption); color: var(--grey); }
 .settings-machine-update { grid-column: 3; justify-self: end; margin-inline-end: var(--space-3); }
 .settings-machine-remove { grid-column: 4; }
-.settings-machine .reserved-line { grid-column: 1 / -1; }
+.settings-machine .mounted-line { grid-column: 1 / -1; }
 .settings-machines-note { padding: var(--space-3) var(--space-4); }
 /* A long value (a URL) takes the row's full width, its label above. */
 .settings-content .settings-field.settings-field-stacked { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
@@ -436,9 +430,8 @@
 .settings-machine-state[data-state="online"] .settings-machine-dot { background: var(--accent); }
 .settings-machines-add { margin: var(--space-3) var(--space-4); }
 .add-machine { width: min(28rem, 100vw - var(--space-6)); }
-.add-machine .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
 .add-machine p.ink[role="alert"] { white-space: normal; overflow: visible; text-overflow: clip; }
-.add-machine .reserved-content { align-items: flex-start; }
+.add-machine .mounted-line { align-items: flex-start; white-space: normal; }
 .add-machine-hosts h3 { margin: 0; font-size: var(--text-small); font-weight: 500; color: var(--grey); }
 .add-machine-hosts ul { margin: 0; padding: 0; list-style: none; }
 .add-machine-host { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; }

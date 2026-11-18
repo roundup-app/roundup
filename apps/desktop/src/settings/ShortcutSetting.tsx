@@ -3,7 +3,8 @@ import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { KeyChip } from "../keys/KeyChip";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { type KeyText, leaderKeys, ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
 import { checkRecorded, holderOf, isModifier, ownerOf, shortcutsWith } from "./shortcutRules";
 import { registerKeys } from "../keys/registry";
@@ -34,6 +35,11 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const stop = () => { setMode(null); setFailed(null); };
 
   const failure = (at: string) => (message: string | null) => setFailed(message === null ? null : { at, message });
+
+  createMessageToast({
+    get message() { return failed()?.message; },
+    dismiss: () => setFailed(null),
+  });
 
   const record = async (name: string, event: KeyboardEvent) => {
     const checked = checkRecorded(name, event);
@@ -104,17 +110,17 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
         <BusyButton kind="quiet" disabled={Object.keys(overrides()).length === 0} busyLabel={copy.saving} onClick={() => save()}>{copy.saveToFile}</BusyButton>
       </div>
     </div>
-    <ReservedLine status={found()} />
+    <StatusNote text={found()} />
     <For each={ACTION_ROWS}>{row => row.name === "todo.capture"
       ? <><ShortcutSetting field="quickAdd" {...props} /><ShortcutSetting field="quickAddAnywhere" {...props} /></>
-      : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)} failure={failed()?.at === row.name ? failed()!.message : null}
+      : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)}
           {...(CHORD_ROWS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: beginRecord(row.name) } : {})}
           overridden={row.name in overrides()} onReset={() => change(row.name, null)} />}</For>
   </>;
 };
 
 /** One action's row: its label and keys, and where recordable the button to press a new key and the Reset. */
-const ActionShortcut = (props: { label: string; keys: KeyText; recording: boolean; failure: string | null; overridden: boolean; onRecord?: ((event: MouseEvent & { currentTarget: HTMLElement }) => void) | undefined; onReset: () => void }) => {
+const ActionShortcut = (props: { label: string; keys: KeyText; recording: boolean; overridden: boolean; onRecord?: ((event: MouseEvent & { currentTarget: HTMLElement }) => void) | undefined; onReset: () => void }) => {
   const caption = createUniqueId();
   const value = createUniqueId();
 
@@ -128,7 +134,6 @@ const ActionShortcut = (props: { label: string; keys: KeyText; recording: boolea
       </Show>
       <Show when={props.overridden}><button data-button="quiet" type="button" onClick={props.onReset}>{copy.reset}</button></Show>
     </div>
-    <Show when={props.failure}>{message => <ReservedLine status={message()} />}</Show>
   </div>;
 };
 
@@ -139,6 +144,12 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
   const press = () => appSettings()[props.field];
   const [recording, setRecording] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
+
+  createMessageToast({
+    get message() { return failure(); },
+    dismiss: () => setFailure(null),
+  });
+
   const caption = createUniqueId();
   const value = createUniqueId();
   const hint = createUniqueId();
@@ -176,6 +187,5 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
       </div>
       <span id={hint} class="settings-hint">{row.hint}</span>
     </div>
-    <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
   </>;
 };

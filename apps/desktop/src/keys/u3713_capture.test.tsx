@@ -333,7 +333,7 @@ it("u3787f_shortcut_collision_preserves_the_acknowledged_setting_and_shows_the_c
   const { appSettings } = await import("../settings/preferences");
   const before = appSettings().quickAddAnywhere;
   const causes: (string | null)[] = [];
-  render(() => <ShortcutSettings capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {} }} onFailure={cause => causes.push(cause)} />);
+  render(() => <ToastHost><ShortcutSettings capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {} }} onFailure={cause => causes.push(cause)} /></ToastHost>);
   fireEvent.click(screen.getByRole("button", { name: /Quick add from any app/ }));
   flush();
   fireEvent.keyDown(window, { key: "y", code: "KeyY", metaKey: true, altKey: true });
