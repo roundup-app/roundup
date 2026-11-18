@@ -44,7 +44,6 @@ Given `spikes/hooks-permission/REPORT.md`, heading **H1b macOS**, when the six f
 | `loop/rules.sh scenario-ids` (Check 1) | Exit 0 |
 | `loop/rules.sh laws` (Check 2) | Exit 0; existing law/observer mappings survive |
 | `loop/rules.sh vocab` (Check 3) | Exit 0 |
-| `python3 loop/orders.py ready --json` (Check 4) | Exit 0; every open work Issue is read; no Issue acquires a missing specification or scenario ID because of this cleanup |
 
 Inspect the queue rows as well as the command's exit code: a successful queue read may still describe an invalid order or an order needing specification. Compare with the base queue; repair a cleanup-caused reference on its owning Issue using the validated Filing recipe, rather than changing loop machinery or dropping the Issue. Unrelated queue problems are recorded separately, not attributed to the cleanup (policy).
 
@@ -53,7 +52,7 @@ Inspect the queue rows as well as the command's exit code: a successful queue re
 1. `loop/rules.sh`, `scenario_ids`: rejects duplicate scenario headings across the surviving files.
 2. `loop/rules.sh`, `laws`: validates law-to-observer mappings in surviving scenarios.
 3. `loop/rules.sh`, `vocab`: enforces public-name vocabulary; `AGENTS.md`, Rules, rule 6, remains unchanged.
-4. `loop/orders.py`, `all_issues`, `order` and `read_orders`; `.agents/data/work.md`, heading **Work orders**: GitHub work Issues are the queue and scenario headings resolve their acceptance.
+4. Retired with `loop/orders.py` and `.agents/data/work.md`: roundup Todos replaced the GitHub work queue.
 5. `scenarios/native-questions.md`, heading **Retirement inventory (policy; old names appear here to identify removal)**: existing canonical native-question retirement inventory.
 6. `scenarios/project-store.md`, N20; `scenarios/remove-time-timeline.md`, U4454a–d; `scenarios/ui-scrollbar-overflow.md`, U3530a–c: surviving policies for schema retirement, time removal and scrollbar replacement.
 7. `spikes/hooks-permission/REPORT.md`, heading **H1b macOS**: the six scripts support retained findings 24–32.

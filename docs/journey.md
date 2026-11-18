@@ -2,7 +2,7 @@
 
 User-selected goal: first Project → start Agents → understand Status → intervene → review results. The product destination is `PRINCIPLES.md` P1/P3/P6 and the accepted Workstream/Door slice in `docs/wireframes.md`. Complete that journey before expanding into Sketch storage, Workstream nesting or cross-Workstream dependencies.
 
-Priority and dependencies live in the GitHub work Issues (`.agents/data/work.md`). An open PR keeps its Issue regardless of priority.
+Priority and dependencies live on the roundup Todos that hum builds. An open PR keeps its Todo regardless of priority.
 
 ## What must work
 
@@ -18,11 +18,11 @@ The latest audit evidence is [the J14 result summary](../../docs/evidence.md#j14
 
 ## How a Builder closes a gap
 
-For a UI Issue or an Issue affecting the stages above, read the relevant stage and the existing scenarios before changing code. Use `emil-design-eng`; use `animate` for a motion clause. Inspect the rendered App with `agent-browser` at 1512×950 (`set viewport 1512 950`), using the real harness and its failure injection. Capture the before/after interaction and its D1–D10 readings; name any pre-existing failing Check and introduce no regression. A mock proves the webview only; the Daemon observer above proves the actual action.
+For a UI item or an item affecting the stages above, read the relevant stage and the existing scenarios before changing code. Use `emil-design-eng`; use `animate` for a motion clause. Inspect the rendered App with `agent-browser` at 1512×950 (`set viewport 1512 950`), using the real harness and its failure injection. Capture the before/after interaction and its D1–D10 readings; name any pre-existing failing Check and introduce no regression. A mock proves the webview only; the Daemon observer above proves the actual action.
 
-If the stage reveals missing behavior outside the owned Issue, first find the existing scenario and work Issue. If none covers it, add one bounded given/when/then scenario with a named observer and a work Issue with native blocking dependencies. Assign the next unused id in the relevant scenario file; the queue can take that Issue without changing this work order. Never replace the stage's acceptance condition with what the current code happens to do, and never create a test that merely checks a report contains the right words. Missing capability is unfinished work, not an approved visual difference.
+If the stage reveals missing behavior outside the owned Issue, first find the existing scenario and Todo. If none covers it, add one bounded given/when/then scenario with a named observer and a Todo with its blockers. Assign the next unused id in the relevant scenario file; hum can take that Todo without changing this item. Never replace the stage's acceptance condition with what the current code happens to do, and never create a test that merely checks a report contains the right words. Missing capability is unfinished work, not an approved visual difference.
 
-The review run checks the stage from the scenario, checkout and evidence; it does not accept the author's assertion that the journey is complete. The goal is complete only after all five stages have behavioral and rendered evidence on the same main revision. Test-name presence and merged-PR counts are queue bookkeeping, not that evidence. A native rendering claim still needs the user's macOS observer.
+Review checks the stage from the scenario, checkout and evidence; it does not accept the author's assertion that the journey is complete. The goal is complete only after all five stages have behavioral and rendered evidence on the same main revision. Test-name presence and merged-PR counts are queue bookkeeping, not that evidence. A native rendering claim still needs the user's macOS observer.
 
 ## The viewport
 
@@ -30,7 +30,7 @@ One viewport: 1512×950, the fullscreen 14-inch MacBook Pro. Everything fits it 
 
 ## The owner's visual taste
 
-The owner wants a native macOS App, not a web page. A UI PR that breaks one of these is rejected by the critic and the review run, whatever else it proves:
+The owner wants a native macOS App, not a web page. A UI PR that breaks one of these is rejected by review (`.hum/roles/review.md`), whatever else it proves:
 
 - No outlines or boxes around controls or tabs.
 - No hover background boxes; hover only changes text or icon colour (#2173). The owner: "i don't like these bg hovers boxes it - its bad - annoying in spaces - radiuses - and fully annoying not native feels weby".

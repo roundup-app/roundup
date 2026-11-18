@@ -42,7 +42,7 @@ On the implementation head run `just lint-rust origin/main` and `just lint-web`;
 | Unavailable tool | Nonzero | Tool, command and actual exit code |
 | Failed setup | Nonzero | Setup command, cause and actual exit code |
 
-No frozen `loop/`, `.agents/`, `AGENTS.md` or workflow other than `check.yml` changes. No new scan runner, parser, command store or inventory checker is needed. The command inventory and CI call-path observations are review policy, not new tests that reread configuration. If an implementation adds machinery, AGENTS.md rule 9 still applies.
+No `loop/`, `AGENTS.md` or workflow other than `check.yml` changes. No new scan runner, parser, command store or inventory checker is needed. The command inventory and CI call-path observations are review policy, not new tests that reread configuration. If an implementation adds machinery, AGENTS.md rule 9 still applies.
 
 ## Checks on main
 

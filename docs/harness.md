@@ -34,16 +34,6 @@ Data for the QA sweep and the Design critic.
 
 `window.__checks()` (U137) runs D1 to D14 on the screen. `agent-browser`: one session name per agent, `set viewport 1512 950` (the only viewport, `docs/journey.md`), single key events via `eval` (after `press Enter` a key may repeat; count keydowns first).
 
-## Held-out screens
-
-No Builder prompt lists these.
-
-- `tree-40`, 1512x950, dark, the Todo Drawer open on `#5`.
-- `agents-10`, 1512x950, dark, `prefers-contrast: more`.
-- `tree-40` with a 60-character Agent name (U29), 1512x950, dark.
-- `first-run`, 1512x950, dark.
-- `conflict`, 1512x950, dark, a Pad Drawer open.
-
 ## Rules the Checks do not cover
 
 | Rule | Passes when |
@@ -55,13 +45,13 @@ No Builder prompt lists these.
 
 ## Captures
 
-U5560a/U5560b (2026-11-02): isolated headless Chromium 156.0.8078.80, fresh profiles, dark only. Fresh baseline App `b731bad4de3f37ca7873404a8b2480dc356cc0c7` and head App/observer `049b6f4acc03982a21928c579388787227a450f0` use identical observer bytes; each continuation manifest records their SHA-256. Each Pad viewport has its own recording. Paired images, videos and Check readings live under `artifacts/ux/U5560a/{base,head}/` and `artifacts/ux/U5560b/{base,head}/`. All 38 Pad pairs and 12 Settings pairs retain every passing Check. All 52 head screens, including the two head-only keyboard screens, pass D2/D5/D6. D4/D10's inherited long-document failures remain visible. Media stays uncommitted for workflow attachment.
+U5560a/U5560b (2026-11-02): isolated headless Chromium 156.0.8078.80, fresh profiles, dark only. Fresh baseline App `b731bad4de3f37ca7873404a8b2480dc356cc0c7` and head App/observer `049b6f4acc03982a21928c579388787227a450f0` use identical observer bytes; each continuation manifest records their SHA-256. Each Pad viewport has its own recording. Paired images, videos and Check readings live under `artifacts/ux/U5560a/{base,head}/` and `artifacts/ux/U5560b/{base,head}/`. All 38 Pad pairs and 12 Settings pairs retain every passing Check. All 52 head screens, including the two head-only keyboard screens, pass D2/D5/D6. D4/D10's inherited long-document failures remain visible. Media stays uncommitted.
 
 U5560a uses `tree-40`, 1512×950 and 1280×820, a 200-character Pad name, 200 body paragraphs and a table with a 500-character unbroken cell. The Shelf is visible for the initial/opening screens, then explicitly closed to expose all three distinct measures. Each width has resting, focused and scrolled screens; the observer uses real Tab/arrow presses, collapses/re-expands the Pad and captures save/conflict feedback and both Todo sizes. Head Todo observations use the saved Full default. U5560b uses `first-run` and `tree-40` at 1512×950, every default, keyboard focus, live search and durable-save failure/recovery. Baseline Settings has no Pads page or matching search result. Baseline recovery changes interface scale, retaining dark mode. D2/D5/D6 and all other previously passing Checks are compared in the manifests; D4/D10's existing long-document failures are retained rather than suppressed.
 
-`artifacts/ux/<id>/<step>.png` and `<step>.checks.json`; motion: `<step>-frames.json` and at most five `<step>-NN.png`; baselines `artifacts/ux/<id>/base/` and `head/`, compared by `loop/rules.sh delta base head` (L42; exit 2 is a failed run). Linux and macOS captures are never compared. Captures are dark mode only.
+`just capture <ids>` runs the rendered tests of those scenario ids, which write their captures. `artifacts/ux/<id>/<step>.png` and `<step>.checks.json`; motion: `<step>-frames.json` and at most five `<step>-NN.png`; baselines `artifacts/ux/<id>/base/` and `head/`, compared by `loop/rules.sh delta base head` (L42; exit 2 is a failed run). Linux and macOS captures are never compared. Captures are dark mode only.
 
-Images and videos are never committed (`.gitignore` skips them under `artifacts/ux/`): a build or fix run leaves its captures under `artifacts/ux/` and the workflow attaches the after-change ones to the PR after the run, at most 12 per PR body (`builder.py attach`, `gh pr edit <n> --attach`, 50 files per command) with the repository secret `PR_ATTACH_TOKEN`, which the model never holds; a missing secret fails that step and leaves the PR and Issue as they are. Readings (`*.checks.json`, `*-frames.json`) are small JSON and may be committed. A design-critic run holds a read token: its captures stay in its checkout and it attaches nothing.
+Images and videos are never committed (`.gitignore` skips them under `artifacts/ux/`): they stay under `artifacts/ux/` in the checkout that made them. Readings (`*.checks.json`, `*-frames.json`) are small JSON and may be committed.
 
 ## Tests that race
 

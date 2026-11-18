@@ -37,18 +37,6 @@
       "skillPath": "skills/emil-design-eng/SKILL.md",
       "computedHash": "51f2537e04d15911b41d78e2de24c36a0e26d41beae15e82a954fe5496a5eda9"
     },
-    "grill-with-docs": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
-      "computedHash": "35e62aa423aaeab6a414bcac273f56dfb17802ef2334b41b6a3b00f28196c8cf"
-    },
-    "judge": {
-      "source": "saadshahd/moo.md",
-      "sourceType": "github",
-      "skillPath": "hope/skills/judge/SKILL.md",
-      "computedHash": "598ad02257b38fbf215b00f358c0ae8f144702ade3d494f030d82083dfea6f01"
-    },
     "pick-ui-library": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
@@ -67,18 +55,6 @@
       "skillPath": "hope/skills/reduce/SKILL.md",
       "computedHash": "a18e5e024fe642abb30e226c2d1d52827a2c6ea0cafebd07657955497f1f7561"
     },
-    "retro": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/retro/SKILL.md",
-      "computedHash": "b8d55851a2909e26c2dbb2e8563719c87b3b700559f604e4df344f8c27e21047"
-    },
-    "review": {
-      "source": "saadshahd/moo.md",
-      "sourceType": "github",
-      "skillPath": "sound/skills/review/SKILL.md",
-      "computedHash": "f907a168e33dac46555954c364df654b5fd96a69e8bb2dc985d837c15a8b05db"
-    },
     "review-animations": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
@@ -96,12 +72,6 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/tdd/SKILL.md",
       "computedHash": "daf55026f456af104a72fa43247f7bcec89e5127316dc5b1b8d675d6a9d8ce94"
-    },
-    "to-spec": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/to-spec/SKILL.md",
-      "computedHash": "3fa1a0695d4ea242fae9e569e4d22aa1788623197abb33bfadafae7315789bbf"
     },
     "ui-sdk": {
       "source": "vercel-labs/ui",

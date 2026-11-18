@@ -4,9 +4,9 @@ Acceptance for #5939. Ids: G5939a, G5939b. Specification only; implementation ch
 
 ## Checks on main
 
-1. `.agents/data/pr.md`, **Commits and branches**: every authored commit carries an `Author-Agent:` trailer in its final trailer block.
+1. `AGENTS.md`, **Conventions**: every authored commit carries an `Author-Agent:` trailer in its final trailer block.
 2. `AGENTS.md`, **Rules**, rule 10: a test that asserts only a copied configuration value earns no place.
-3. `loop/builder.py`, `claude` and `stream`: Claude Code starts with `-p` and inherits the checkout working directory; no launcher change is needed.
+3. Retired with `loop/builder.py`: hum now starts Claude Code for loop work.
 
 ## Acceptance
 
@@ -16,8 +16,8 @@ Observer (policy): parse the implementation head's `.claude/settings.json` as JS
 
 **G5939b Explicit author trailers remain.** Given an owner-supplied `Co-authored-by` trailer or a required `Author-Agent:` trailer, when this setting is introduced and subsequent commits are authored, then the owner's explicit co-author trailer remains as supplied and `Author-Agent:` remains required by Check 1 (policy). Suppressing Claude Code's automatic attribution neither strips explicit trailers nor rewrites existing commits (policy).
 
-Observer (policy): review the implementation diff for only the added setting; inspect implementation commits with `git log --format=%B origin/main..HEAD` for their `Author-Agent:` trailer and absence of automatic Claude co-author attribution. The setting controls vendor-generated attribution, not explicit owner text. Preserve `.agents/data/pr.md`, `loop/`, `.agents/` and all existing checks; the owner's separate history rewrite is outside this work (policy). No new regression test is ordered (Check 2).
+Observer (policy): review the implementation diff for only the added setting; inspect implementation commits with `git log --format=%B origin/main..HEAD` for their `Author-Agent:` trailer and absence of automatic Claude co-author attribution. The setting controls vendor-generated attribution, not explicit owner text. Preserve `AGENTS.md`'s `Author-Agent:` convention, `loop/` and all existing checks; the owner's separate history rewrite is outside this work (policy). No new regression test is ordered (Check 2).
 
 ## Verification
 
-For this specification, run `loop/rules.sh vocab`, `loop/rules.sh scenario-ids` and `python3 loop/orders.py check <issue-body-file>`. Each exits 0; report any failure and its exit code on #5939. The implementation run uses the policy observers above and the Builder's existing lint gates. There is no product behavior change and no applicable `PRINCIPLES.md` gate.
+For this specification, run `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Each exits 0; report any failure and its exit code on #5939. The implementation run uses the policy observers above and the Builder's existing lint gates. There is no product behavior change and no applicable `PRINCIPLES.md` gate.

@@ -13,7 +13,7 @@ Each executable edge below reaches CI or the human instructions below; none depe
 | `check` | `AGENTS.md`, Conventions | `just check origin/main` |
 | `check-rust` | `justfile`, `check` | `just check-rust <base>` |
 | `check-web` | `justfile`, `check` | `just check-web <base>` |
-| `ready` | `.agents/builder.md`, Code | `just ready` |
+| `ready` | `.hum/hum.json`, `checks`; `.claude/skills/change-rules/SKILL.md`, Run | `just ready` |
 | `lint-repo` | `justfile`, dependency of `lint-rust` | `just lint-rust <base>` |
 | `lint-rust` | `.github/workflows/pre.yml`, `lint` | `python3 loop/app-data.py just lint-rust` |
 | `clippy` | `justfile`, `lint-rust`; `check.yml`, `mac-clippy` | `just clippy <base>`; `just clippy` |
@@ -41,7 +41,7 @@ Each executable edge below reaches CI or the human instructions below; none depe
 | `perf-frames` | `docs/motion-native-runbook.md`, Run | `ROUNDUP_ALLOW_WINDOW=1 just perf-frames <layers\|todos\|glyphs>` |
 | `proofs-setup` | `justfile`, dependency of `proofs`; `check.yml`, Pinned Bend | `just proofs-setup` |
 | `proofs` | `justfile`, `lint-rust` | `just proofs` |
-| `capture` | `.agents/builder.md`, Code | `just capture <ids>` |
+| `capture` | `docs/harness.md`, Captures | `just capture <ids>` |
 | `perf-idle` | `docs/perf.md`, R24 idle App observer | `ROUNDUP_ALLOW_WINDOW=1 just perf-idle --host target/perf-idle-host.json` |
 | `migrations` | `justfile`, `ready` | `just migrations origin/main` |
 

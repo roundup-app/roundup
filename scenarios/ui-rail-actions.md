@@ -52,7 +52,7 @@ Only existing Tokens and menu/App seams are used. This specification changes acc
 - **Refusals.** A relative path is `CONFLICT`, a path that does not exist is `NOT_FOUND`, a file is `CONFLICT` (a directory only), as `open_target`'s checks (U365) refuse. Nothing is launched. Asserted in `u429_a_relative_path_is_conflict`, `u429_a_missing_path_is_not_found`, `u429_a_file_is_conflict`.
 - **Seam.** The command is in the webview's `seam.ts` list and the fake App, and `scenarios/app.md`'s table has its row. Asserted in `u429_the_command_is_in_the_seam_list`.
 
-Tests (`u429_`, Rust in `crates/desktop/src/`, with the launcher behind a function the test replaces; Vitest for the Rail's message). Observer: the Rust tests run on Linux with a fake `open`; the real launch is read from the user's Mac report (the _Done_ rule of `.agents/builder.md`). Owns `crates/desktop/**`, `scenarios/app.md` and `GLOSSARY.md`.
+Tests (`u429_`, Rust in `crates/desktop/src/`, with the launcher behind a function the test replaces; Vitest for the Rail's message). Observer: the Rust tests run on Linux with a fake `open`; the real launch is policy: the user reports what they meet on the Mac. Owns `crates/desktop/**`, `scenarios/app.md` and `GLOSSARY.md`.
 
 ## Row action slots and the Todos ring (U7488a to U7488d)
 

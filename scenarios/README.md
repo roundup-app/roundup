@@ -8,7 +8,7 @@ A scenario is the spec for a unit of work: given / when / then, in `GLOSSARY.md`
 - Every write or read of a Todo or Pad is a Touch: `ctx.touch(verb, "todo:<id>" | "pad:<name>")`.
 - Tests run without Claude, a network or a display; anything needing a real `claude` replays `spikes/hooks-state/*.jsonl`.
 
-- Work orders live in GitHub Issues; `.agents/data/work.md` defines their fields and intake. Scenario files contain acceptance, not scheduling tables.
+- Work items are roundup Todos; hum builds the ones assigned to its Agent. Scenario files contain acceptance, not scheduling tables.
 
 ## Deferred past the MVP (no scenario yet)
 
@@ -20,4 +20,4 @@ A scenario is the spec for a unit of work: given / when / then, in `GLOSSARY.md`
 
 Product roadmap: [Workstreams, Doors and Sketches](../docs/wireframes.md#accepted-product-direction-workstreams-doors-and-sketches); it needs scoped scenarios before dispatch.
 
-Retired ids: U3739, U3016c, U3016i, U3016j. SK1–SK12 retire with `scenarios/skill-removal.md`.
+Retired ids: U3739, U3016c, U3016i, U3016j, CI5783a. SK1–SK12 retire with `scenarios/skill-removal.md`.

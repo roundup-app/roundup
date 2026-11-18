@@ -16,7 +16,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 1 | Every look value is a Token; no other value is drawn. | D1, D2 |
 | 2 | Hue is rare and means one thing: a Kind, or the one accent. | D3, D4 |
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
-| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D16, the held-out list |
+| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D16 |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
 | 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 | 7 | Every word the App writes is in sentence case. | D15 |
@@ -278,17 +278,9 @@ Sentence case: the first word capitalised, the rest as in prose (`Start supervis
 
 All App-authored text comes from `apps/desktop/src/<surface>/copy.ts`, where the surface is the caller’s first directory below `src` (nested callers share that owner, and root composition uses `app`). Values used by several surfaces live once in `apps/desktop/src/sharedCopy.ts`, which has no UI dependencies. Each surface references only the shared entries its callers need; there is no root catalogue, re-export shim or cross-surface catalogue import. Each copy module is at most 1000 physical lines. This includes accessible names, errors, statuses, hints, placeholders, tooltips, section heads and generated prose. Identifiers and RPC values keep code terms; App prose uses supervisor, work items and summary for Door, Shelf and Handoff. Other domain terms retain their user spelling. One catalogue-wide case observer replaces per-folder case checks while preserving their interaction and authored-text assertions.
 
-## Held-out screens
-
-A check is public; the screens it runs on are not all the Builder's. The critic also runs the held-out screens in `docs/harness.md`, so a PR cannot tune one screen to pass.
-
-## Ideas
-
-The critic's report ends with an `ideas` list of at most three things that look wrong and no check covers. An idea is never a Todo and never a gate. The Builder run reads the ideas each batch. An idea that comes back three times becomes a check (`.agents/builder.md`).
-
 ## Baseline protocol
 
-The critic captures `origin/main` and the PR head on the same seed, viewport, colour scheme and injected clock (`docs/harness.md`, Captures); `loop/rules.sh delta` prints each check as `fixed`, `regressed`, `still-failing` or `still-passing`. A `regressed` check is a Todo of class `ux-checklist`, and a reject if it is in `just check`. A `still-failing` check is queued; it is a defect only once a scenario names it.
+A visual change captures `origin/main` and its head on the same seed, viewport, colour scheme and injected clock (`docs/harness.md`, Captures); `loop/rules.sh delta` prints each check as `fixed`, `regressed`, `still-failing` or `still-passing`. A `regressed` check is a Todo of class `ux-checklist`, and a reject if it is in `just check`. A `still-failing` check is queued; it is a defect only once a scenario names it.
 
 
 ### U441 scoped header and tab Tokens

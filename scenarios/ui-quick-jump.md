@@ -14,7 +14,7 @@ Chord budget (policy): a chord is one press with a modifier; the text and its En
 
 **U532 retired by #3563** (typing into a watched input says why nothing was sent): there is no watched, read-only pane, so no band text and no `u532_*` tests.
 
-**U533 two steps reach an Agent from the keyboard.** Amended by #3563. Given `tree-40` at 1280 by 800 with nothing selected and an idle Agent 25 rows down, when the user presses `⌘K`, types part of its name, presses `⏎`, types `hello` and presses `⏎`, then `terminal.write` receives `hello\r` for that Agent's Terminal, with no pointer event and no more than 2 chords. Test: `u533_message_an_agent_in_two_chords_on_tree_40` in a headless real-browser harness test under `apps/desktop/src/keys/` (the isolated agent-browser session of `.agents/builder.md`; none attaches to the user's browser), recording the pointer events (zero) and the call order. A native Mac look is not asserted; the user reports what they meet on the Mac.
+**U533 two steps reach an Agent from the keyboard.** Amended by #3563. Given `tree-40` at 1280 by 800 with nothing selected and an idle Agent 25 rows down, when the user presses `⌘K`, types part of its name, presses `⏎`, types `hello` and presses `⏎`, then `terminal.write` receives `hello\r` for that Agent's Terminal, with no pointer event and no more than 2 chords. Test: `u533_message_an_agent_in_two_chords_on_tree_40` in a headless real-browser harness test under `apps/desktop/src/keys/` (the isolated agent-browser session of `.claude/skills/change-rules/SKILL.md`, Run; none attaches to the user's browser), recording the pointer events (zero) and the call order. A native Mac look is not asserted; the user reports what they meet on the Mac.
 
 ## Find actions by name (U2572a to U2572d)
 

@@ -11,7 +11,7 @@ Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T
 **T3211 an install under CI turns it on too.** Given the loop's runners set `CI=true` and the frozen workflows cannot set `LEFTHOOK`, when `CI=true pnpm install --frozen-lockfile` (the justfile's command) runs, then:
 
 - The same `.git/hooks/pre-commit` exists, because `prepare` runs `lefthook install`, which has no CI skip, unlike the npm package's postinstall (observer: the same `ls` and `grep`, run locally and in a GitHub Actions runner of the loop; the PR names that run).
-- No frozen loop file changes: not `.github/workflows/` except `check.yml`, not `.agents/`, `AGENTS.md`, `scenarios/loop-*.md` or `loop/` (policy).
+- No change to a workflow other than `check.yml`, `AGENTS.md`, `scenarios/loop-*.md` or `loop/` (policy).
 
 **T3212 the hook enforces the cap.** Given the hook is installed, when a commit adds or grows a file over 1000 lines, then it is blocked with exit 1 naming the file; a commit under the cap passes (test: `loop/rules.test.sh` is frozen, so the observer is a throwaway repo in the PR: stage a 1001-line file and `git commit`, then a 10-line one).
 

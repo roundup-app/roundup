@@ -1,6 +1,5 @@
 node_modules
 target
-!.agents/skills/target/
 dist
 .roundup/
 __pycache__/
