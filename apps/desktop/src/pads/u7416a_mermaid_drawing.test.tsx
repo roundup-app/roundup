@@ -22,6 +22,7 @@ const fake: CanvasApi = {
 
     return [{ id: "plan", version: 1 }, { id: "ship", version: 1 }, { id: "edge", version: 1 }];
   },
+  exportToSvg: async () => "",
   Excalidraw: (next) => {
     props = next;
 
