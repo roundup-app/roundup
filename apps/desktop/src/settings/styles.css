@@ -41,8 +41,13 @@
 .settings-group-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-3);
+}
+
+/* U7208g: the heading row's control sits beside the name, left of the top-right Toast region, and its 24 px box takes no height from the line. */
+.settings-group-head > :not(.settings-group-name) {
+  margin-block: -4px;
 }
 
 .settings-group-name {

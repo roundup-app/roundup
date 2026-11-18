@@ -113,7 +113,7 @@ export const copy = {
   updatesFootnote: "roundup looks for both every hour and tells you in the corner.",
   checkForUpdates: "Check for updates",
   checkingForUpdates: sharedCopy.checking,
-  updateCheckFailed: "The check failed. Press Check for updates again.",
+  updateCheckFailed: "The check failed. Try again.",
   updateRoundupHint: "Installs the new version and reopens roundup.",
   /** U7208b: why Update roundup failed, one sentence per kind the App leads its failure with. */
   updateFailures: {
