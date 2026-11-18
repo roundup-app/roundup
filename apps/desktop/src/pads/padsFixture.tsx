@@ -73,10 +73,11 @@ export const deferred = <T,>(): Deferred<T> => {
 const reloaded = new WeakMap<FakeApp, () => Promise<void>>();
 
 /** The Shelf and the Drawer over a fake Daemon whose Pads are `state.pads`, with `AGENT` off the Rail unless `onRail`; `state.history` answers `provenance.history`. */
-export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p", reading: { now?: number; read?: Record<string, string> } = {}) => {
+export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p", reading: { now?: number; read?: Record<string, string> | null } = {}) => {
   if (!keepDrafts) localStorage.removeItem(`roundup:drafts:${project}`);
+
   // An empty read record: the Pads are unread, so they list above the folds (U7499b); only the first list of a Project with no record counts them read.
-  padReadStorage(project).write(reading.read ?? {});
+  if (reading.read !== null) padReadStorage(project).write(reading.read ?? {});
   const history: Touch[] = [];
   const state: PadStore = { pads, history };
   const app = createFakeApp();

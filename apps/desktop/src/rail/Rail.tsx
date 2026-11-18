@@ -1,5 +1,5 @@
 import { useTodoList } from "../todos/todoList";
-import { FoldContent, foldLabel } from "./FoldRow";
+import { FoldContent, foldLabel } from "../ui/FoldRow";
 import { usePadList } from "../pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";

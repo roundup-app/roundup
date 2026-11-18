@@ -39,9 +39,9 @@ const make = (path: string): Shared => {
   const waiting = new Set<string>();
 
   const write = (changes: Record<string, string>) => {
-    let next!: Record<string, string>;
+    const next = { ...revisions(), ...changes };
 
-    setRevisions(all => next = { ...all, ...changes });
+    setRevisions(next);
     storage.write(next);
   };
 

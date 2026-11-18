@@ -39,8 +39,8 @@ import { Sortable } from "../ui/sortable";
 import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
 import { usePadRead, type PadMark } from "./padRead";
-import { foldPads, type FoldedPads } from "./padFolds";
-import { FoldContent } from "../rail/FoldRow";
+import { createFolds, type FoldedPads } from "./padFolds";
+import { FoldContent } from "../ui/FoldRow";
 import type { PadList } from "./padList";
 
 /** The Pad name a retention failure keeps: Copy it, or discard it. */
@@ -162,21 +162,7 @@ export const Pads = (props: {
   const shown = shownPads(connected, list);
   const groups = createMemo(() => padGroups(connected, shown()));
   const padRead = usePadRead();
-  // U7499a: both folds of every group start closed; a key is `<group id>:<fold>`.
-  const [unfolded, setUnfolded] = createSignal<readonly string[]>([]);
-  const toggleFold = (key: string) => setUnfolded(open => open.includes(key) ? open.filter(each => each !== key) : [...open, key]);
-  const folded = createMemo(() => new Map(groups().map(group => [group.id, foldPads(group.items, padRead, connected.now(), padRead.open())] as const)));
-  const walked = createMemo(() => groups().flatMap(group => {
-    const fold = folded().get(group.id);
-
-    if (!fold) return [];
-
-    return [
-      ...fold.above.map(each => each.pad),
-      ...(unfolded().includes(`${group.id}:internal`) ? fold.internal : []),
-      ...(unfolded().includes(`${group.id}:idle`) ? fold.idle : []),
-    ];
-  }));
+  const { folded, walked, unfolded, toggleFold } = createFolds(groups, padRead, connected.now);
   const selection = createSelection(() => walked().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
   const bulk = createBulkDelete({
