@@ -51,7 +51,11 @@ async fn a7505a_rup_skill_is_an_unknown_noun() {
     let reply = run.rup(&["skill", "status"]).await;
     assert_eq!(reply.status.code(), Some(2));
     let help = out(&run.rup(&["help"]).await);
-    assert!(!listed_commands(&help).iter().any(|(usage, _)| usage.contains("skill")));
+    assert!(
+        !listed_commands(&help)
+            .iter()
+            .any(|(usage, _)| usage.contains("skill"))
+    );
 }
 
 #[tokio::test]

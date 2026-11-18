@@ -180,7 +180,10 @@ fn a7505b_a_blank_project_path_says_open_a_project_first() {
 
     let message = error["message"].as_str().unwrap();
     assert!(message.contains("Open a Project first"), "{message}");
-    assert!(!message.contains("at ") && !message.contains("writable"), "{message}");
+    assert!(
+        !message.contains("at ") && !message.contains("writable"),
+        "{message}"
+    );
 }
 
 #[test]
