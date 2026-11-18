@@ -36,6 +36,13 @@ export const bundledRenderers: Renderers = {
       exportToSvg: async (elements) =>
         // SAFETY: the elements are Excalidraw's own output, as in `restoreElements`.
         new XMLSerializer().serializeToString(await module.exportToSvg({ elements: elements as never, appState: { exportBackground: true, viewBackgroundColor: "#ffffff" }, files: null })),
+      fromMermaid: async (text) => {
+        const { parseMermaidToExcalidraw } = await import("@excalidraw/mermaid-to-excalidraw");
+        const { elements } = await parseMermaidToExcalidraw(text);
+
+        // SAFETY: the converter's output is a skeleton, and Excalidraw's own expansion gives it ids and versions.
+        return module.convertToExcalidrawElements(elements as never, { regenerateIds: false });
+      },
     };
   },
 };

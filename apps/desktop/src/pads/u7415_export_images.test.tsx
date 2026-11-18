@@ -32,6 +32,7 @@ const exportCall = async (text: string, requested: string[] = []) => {
         Excalidraw: () => null,
         convertToExcalidrawElements: () => [],
         restoreElements: () => [],
+        fromMermaid: async () => [],
         exportToSvg: async () => "<svg>drawing</svg>",
       };
     },
@@ -70,6 +71,17 @@ describe("u7415 export images", () => {
       path: "/d/notes.md",
       text: `${bad}\n\n![Diagram 1](notes/diagram-1.svg)\n`,
       images: [{ name: "diagram-1.svg", svg: "<svg>diagram</svg>" }],
+    });
+  });
+
+  it("u7415a_a_drawing_holding_mermaid_exports_as_a_drawing", async () => {
+    const params = await exportCall("```excalidraw\ngraph TD\n  A-->B\n```\n");
+
+    expect(params).toEqual({
+      name: "notes",
+      path: "/d/notes.md",
+      text: "![Drawing 1](notes/drawing-1.svg)\n",
+      images: [{ name: "drawing-1.svg", svg: "<svg>drawing</svg>" }],
     });
   });
 
