@@ -64,7 +64,7 @@
 }
 
 /* U7314a: the rename's note floats under the row, so the field keeps its width and the note wraps whole. */
-.rail-row > .mounted-line {
+.rail-row .mounted-line {
   position: absolute;
   inset-inline: var(--indent) var(--rail-edge, var(--space-4));
   top: 100%;
