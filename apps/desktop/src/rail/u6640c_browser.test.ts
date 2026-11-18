@@ -21,12 +21,14 @@ run("u6640c_a_tooltip_box_clears_the_row_below_its_target", async () => {
   await page.load("/harness.html?seed=tree-40", 1512, 950);
   await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row').length > 1`);
 
+  // U7413a: a universal icon (Collapse, Stop) shows no name tooltip; Play keeps its name.
   const target = await page.call<{ x: number; y: number }>(`() => {
+    const icon = 'button[data-button="icon"]:has(svg.lucide-play)';
     const rows = [...document.querySelectorAll('.rail-row')];
-    const row = rows.find((r, i) => i < rows.length - 1 && r.querySelector('button[data-button="icon"]'));
+    const row = rows.find((r, i) => i < rows.length - 1 && r.querySelector(icon));
     row.dataset.u6640c = "target";
     rows[rows.indexOf(row) + 1].dataset.u6640c = "below";
-    const b = row.querySelector('button[data-button="icon"]').getBoundingClientRect();
+    const b = row.querySelector(icon).getBoundingClientRect();
     return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
   }`);
 
