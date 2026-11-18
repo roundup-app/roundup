@@ -7,6 +7,7 @@ import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { workstream } from "../testing/nodes";
+import { notice } from "../testing/notices";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
@@ -153,11 +154,12 @@ it.each(["envelope", "surface"])("u3021b_recovery_actions_and_retry_%s", async (
 
   await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-  const alert = await within(recovery).findByRole("alert");
+  const alert = await waitFor(() => notice("alert"));
+  const toasts = within(screen.getByRole("region", { name: "Updates" }));
 
   expect(alert.textContent).not.toContain(FIRST.path);
   expect(within(recovery).queryByRole("button", { name: /Inspect|Copy .+/ })).toBeNull();
-  fireEvent.click(within(recovery).getByRole("button", { name: "Try again" }));
+  fireEvent.click(toasts.getByRole("button", { name: "Try again" }));
   expect(holder.list().map((draft) => draft.revision)).toEqual([saved]);
   expect(window.localStorage.getItem(`roundup:drafts:${FIRST.path}`)).toBe(bytes);
   fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));

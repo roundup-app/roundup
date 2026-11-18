@@ -1,7 +1,8 @@
 import { agent, door } from "../testing/nodes";
-import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { mountApp } from "../testing/appFixture";
+import { notice } from "../testing/notices";
 import { openRecovery } from "../testing/recovery";
 
 const destination = { surface: "orders", object: "a", recipient: "a" };
@@ -50,7 +51,7 @@ it("u4453b_retired_order_draft_copy_failure_and_selected_discard", async () => {
   const row = document.querySelector<HTMLElement>(`[data-revision="${older.revision}"]`)!;
   app.clipboardFailure = new Error("Clipboard unavailable; retry Copy");
   fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
-  await within(row).findByRole("alert");
+  await waitFor(() => notice("alert"));
   expect(holder.list()).toHaveLength(2);
   app.clipboardFailure = null;
   fireEvent.click(within(row).getByRole("button", { name: "Copy" }));

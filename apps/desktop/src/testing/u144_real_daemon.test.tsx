@@ -21,6 +21,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import { openFile } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { notice, notices } from "./notices";
 import { openRecovery as openMenu, recoveryLabel } from "./recovery";
 
 /** A row opens as left-unsent work and turns to Copy once its original is known gone, which waits on the Daemon's reads. */
@@ -396,7 +397,7 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     });
     mount();
     await openRecovery();
-    await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
+    await waitFor(() => notice("alert"));
     expect(holder.problem()?.operation).toBe(kind === "surface" ? "restore" : "retain");
     expect(headerRegistered).toHaveBeenCalledWith("header", expect.any(Function));
     const header = drafts(first.dir);
@@ -424,14 +425,14 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     expect(holder.list()).toEqual([saved, headerSaved]);
 
     if (kind === "surface") {
-      fireEvent.click(within(screen.getByLabelText("Unfinished work")).getByRole("button", { name: "Try again" }));
+      fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Try again" }));
       expect(localStorage.getItem(key)).toBe(bytes);
-      expect(within(screen.getByLabelText("Unfinished work")).getByRole("alert")).toBeTruthy();
+      expect(notices("alert")).toHaveLength(1);
       localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
     }
 
-    fireEvent.click(within(screen.getByLabelText("Unfinished work")).getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
+    fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(notices("alert")).toEqual([]));
     expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
     const methods = calls.flatMap(spy => spy.mock.calls.map(([method]) => method));
     expect(methods.filter(method => method === "agent.setOrder" || method === "message.send" || method === "agent.prompt" || method === "agent.spawn")).toEqual([]);
