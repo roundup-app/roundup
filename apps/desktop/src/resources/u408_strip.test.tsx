@@ -51,7 +51,7 @@ const valueWords = (item: Element): string => {
 // Read each icon by its accessible name alongside its number.
 const words = () => {
   const values = [...document.querySelectorAll(".resource-inspection .resource-value")].map(valueWords).join(" · ");
-  const notice = document.querySelector(".resource-stale .reserved-status")?.textContent ?? "";
+  const notice = document.querySelector(".resource-stale")?.textContent ?? "";
 
   return [values, notice].filter(Boolean).join(" | ");
 };
@@ -203,7 +203,7 @@ describe("u408 the Resource strip", () => {
   it("u408_a_failed_call_keeps_the_last_values_and_says_so", async () => {
     const { app } = await mount([agent("a", "working", "x")]);
     await settle();
-    expect(document.querySelector(".resource-stale[role=status]")?.textContent?.trim()).toBe("");
+    expect(document.querySelector(".resource-stale")).toBeNull();
 
     app.handlers["project.resources"] = () => {
       throw new RpcError(-32603, "gone");
@@ -216,7 +216,7 @@ describe("u408 the Resource strip", () => {
 
     app.handlers["project.resources"] = () => RESULT;
     await settle(2000);
-    expect(document.querySelector(".resource-stale[role=status]")?.textContent?.trim()).toBe("");
+    expect(document.querySelector(".resource-stale")).toBeNull();
   });
 });
 

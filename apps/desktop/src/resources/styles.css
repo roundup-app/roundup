@@ -146,4 +146,5 @@
 
 .resource-inspection button {
   justify-self: end;
+  grid-column: 3;
 }

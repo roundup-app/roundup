@@ -3,7 +3,8 @@ import type { KeyText } from "../keys/chords";
 import { Dialog, DialogContent } from "@ui-sdk/solid/dialog";
 import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure } from "../ink/MountedLine";
 import { lazy, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -13,7 +14,7 @@ import { createReply } from "../state/read";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { KindGlyph } from "../ink/KindGlyph";
-import { errorCause, shownKind } from "../ink/FailureLine";
+import { errorCause, Line, shownKind } from "../ink/FailureLine";
 import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
@@ -371,7 +372,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     <Show when={entry.kind === "todo" || entry.kind === "pad"}><span class="switcher-kind">{entry.kind === "todo" ? copy.kindTodo : copy.kindPad}</span></Show>
     <span class="switcher-name">{entry.label}</span>
     <Show when={ownerOf(entry)}><span class="switcher-owner">{ownerOf(entry)}</span></Show>
-    <Show when={entry.kind === "node" && !rail.dismissed(entry.node)}><Show when={errorCause(entry.kind === "node" && isDoor(entry.node) ? entry.node.status : undefined, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
+    <Show when={entry.kind === "node" && !rail.dismissed(entry.node)}><Show when={errorCause(entry.kind === "node" && isDoor(entry.node) ? entry.node.status : undefined, false)}>{cause => <Line label={cause()} />}</Show></Show>
   </span>;
 
   return (
@@ -411,7 +412,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel()?.contains(event.relatedTarget) && closing.kind === "action") closing = { kind: "action", focus: event.relatedTarget };
 
             // A recovery action must run before blur can retry storage and remove its target.
-            if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
+            if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .mounted-line")) return;
             retain();
           },
         }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
@@ -433,9 +434,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             return entryRow(entry);
           }} />
-        <ReservedLine message={makeFailure()} dismiss={() => setMakeFailure(null)} />
+        <DialogFailure message={makeFailure()} dismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
-        <ReservedLine message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>
+        <DialogFailure message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>
           <Show when={text() !== "" && !copyFailure()}>
             <BusyButton kind="quiet" ref={restoreFocusOnRemoval()} busyLabel={copy.copying} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</BusyButton>
           </Show>
@@ -448,10 +449,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             }}>{copy.discardQuery}</button>
           </Show>
         </>} />
-        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} dismiss={() => { setCopyFailure(null); restoreQueryFocus(); }} action={<>
+        <DialogFailure message={copyFailure() ? copy.switcherCopyFailure : null} dismiss={() => { setCopyFailure(null); restoreQueryFocus(); }} action={<>
           <BusyButton kind="quiet" ref={restoreFocusOnRemoval()} busyLabel={copy.copying} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</BusyButton>
         </>} />
-        <Show when={refusal()}>{shown => <ReservedLine message={shown().cause} dismiss={() => { setRefusal(null); restoreQueryFocus(); }} />}</Show>
+        <Show when={refusal()}>{shown => <DialogFailure message={shown().cause} dismiss={() => { setRefusal(null); restoreQueryFocus(); }} />}</Show>
       </DialogContent>
     </Dialog>
   );

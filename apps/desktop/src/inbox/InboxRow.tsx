@@ -5,7 +5,7 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { nameOf } from "../bubbles/places";
 import { statusText } from "../terminal/programStatus";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine } from "../ink/FailureLine";
 import { Collapsible } from "../ui/Collapsible";
@@ -35,6 +35,8 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
   const step = () => terminal() ? statusText(terminal()!.status!) : node()!.status?.label;
   const failure = () => props.actions.failure(props.row);
 
+  createMessageToast({ get message() { return failure(); }, dismiss: () => props.actions.dismiss(props.row) });
+
   const act = (label: string, click: () => void, primary = false) =>
     <button type="button" data-button={primary ? "primary" : "quiet"} class="word" aria-describedby={name} disabled={props.actions.busy(props.row)} onClick={click}>{label}</button>;
 
@@ -57,7 +59,6 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
       <Collapsible.Content>
         <div class="inbox-body">
           <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show><TargetText objectLinks text={step() ?? ""} base={project.path} /></p>
-          <ReservedLine message={failure()} dismiss={() => props.actions.dismiss(props.row)} />
         </div>
       </Collapsible.Content>
     </Collapsible.Root>

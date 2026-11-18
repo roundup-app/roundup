@@ -17,7 +17,7 @@ export const Line = (props: { label: string; class?: string | undefined }) => {
   );
 };
 
-/** U5151a: the Adapter's cause and next action for an Agent whose last turn failed, for a surface that lists the Agent in a row it cannot hold a control in (a picker, a mention); the row's `ReservedLine` shows it as status text. */
+/** U5151a: the Adapter's cause and next action for an Agent whose last turn failed, for a surface that lists the Agent in a row it cannot hold a control in (a picker, a mention); the row shows it as a `Line`. */
 export const errorCause = (status: Status | null | undefined, dismissed: boolean | undefined) =>
   status?.kind === "error" ? (dismissed ? copy.dismissedFailure(status.label) : status.label) : null;
 
