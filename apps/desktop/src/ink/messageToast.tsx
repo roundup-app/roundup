@@ -12,7 +12,7 @@ export type MessageQueue = { message(card: MessageCard): () => void };
 export const ToastQueueContext = createContext<MessageQueue | null>(null);
 
 /** A failure line: its message, Dismiss, recover action and extra controls. A status or notice is no toast (U7310d). */
-type FailureLine = Dismissible & { message: string | null | false | undefined; content?: JSX.Element; action?: JSX.Element };
+type FailureLine = Dismissible & { message: string | null | false | undefined; content?: JSX.Element; action?: JSX.Element; class?: string };
 
 /**
  * U7310d: a failure a view shows beside its content shows as one card in the App's Toast region, with the line's own text, Dismiss and recover action, and holds no place in the view.
