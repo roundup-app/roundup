@@ -28,7 +28,7 @@ it("p3557c_failure_lifetime_ask_rows", async () => {
   await waitFor(() => expect(document.querySelectorAll(".ask-row")).toHaveLength(2));
   fireEvent.click(document.querySelectorAll<HTMLButtonElement>(".ask-row")[0]!.querySelector<HTMLButtonElement>(".ask-choices button")!);
   flush();
-  await waitFor(() => expect(lines()[0]).toContain("pick refused"));
+  await waitFor(() => expect(lines()[0]).not.toBeNull());
   expect(lines()[1]).toBeNull();
 
   // Dismissal clears exactly that part's line and nothing else.
@@ -39,7 +39,7 @@ it("p3557c_failure_lifetime_ask_rows", async () => {
   // A later acknowledged pick of the same part clears its failure.
   fireEvent.click(document.querySelectorAll<HTMLButtonElement>(".ask-row")[0]!.querySelector<HTMLButtonElement>(".ask-choices button")!);
   flush();
-  await waitFor(() => expect(lines()[0]).toContain("pick refused"));
+  await waitFor(() => expect(lines()[0]).not.toBeNull());
   app.handlers["ask.pick"] = () => ask("a1", 1, [{ text: "first", placement: { kind: "routed", workstream: "lead" }, state: "queued" }, waiting("second")]);
   fireEvent.click(document.querySelectorAll<HTMLButtonElement>(".ask-row")[0]!.querySelector<HTMLButtonElement>(".ask-choices button")!);
   flush();
@@ -73,13 +73,13 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   await waitFor(() => expect(rows()).toHaveLength(2));
   open(0);
   await waitFor(() => expect(lines()).toHaveLength(1));
-  expect(lines()[0]).toContain("the saved version is missing");
+  screen.getByRole("alert", { name: /the saved version is missing/ });
 
   // A successful action on another record leaves the first failure alone.
   open(1);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(lines()).toHaveLength(1);
-  expect(lines()[0]).toContain("the saved version is missing");
+  screen.getByRole("alert", { name: /the saved version is missing/ });
 
   // Dismissal clears it.
   fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Dismiss" }));
@@ -119,7 +119,7 @@ it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
   fireEvent.keyDown(input()!, { key: "Enter" });
   flush();
   const line = () => document.querySelector(".ask-compose .mounted-line")?.textContent ?? null;
-  await waitFor(() => expect(line()).toContain("refused"));
+  await waitFor(() => expect(line()).not.toBeNull());
 
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   flush();

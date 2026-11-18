@@ -10,9 +10,19 @@ afterEach(cleanup);
 
 it("u7314b_terminal_and_ask_failures_show_as_toasts", async () => {
   const { app, connected } = await mountPane([node("a")], [info("t-a")]);
-  const pane = () => document.querySelector(".pane")!;
+
+  const pane = () => {
+    const found = document.querySelector(".pane");
+
+    if (!found) throw new Error("no pane");
+
+    return found;
+  };
+
   const order = () => [...pane().querySelectorAll(".pane-origin > *, .pane-origin")].map(element => element.className);
+
   const lines = () => [...document.querySelectorAll(".reserved-line:not([data-empty='true'])")].filter(line => !line.closest(".app-toasts"));
+
   const before = order();
 
   app.outputFailure = new RpcError(-32603, "channel refused");
@@ -22,7 +32,7 @@ it("u7314b_terminal_and_ask_failures_show_as_toasts", async () => {
   const region = screen.getByRole("region", { name: "Updates" });
   expect(notices("alert")).toEqual([shown]);
   expect(region.contains(shown)).toBe(true);
-  expect(within(region).getByRole("button", { name: "Dismiss" })).toBeTruthy();
+  within(region).getByRole("button", { name: "Dismiss" });
   expect(lines()).toHaveLength(0);
   expect(pane().querySelector(".pane-failure")).toBeNull();
   expect(order()).toEqual(before);
