@@ -4,7 +4,9 @@ import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast, createMessageToasts } from "../ink/messageToast";
+import { StatusNote } from "../ink/MountedLine";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { createCopyLabels } from "../ui/CopyButton";
@@ -102,6 +104,10 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
     };
   };
 
+  // U7314b: the list's failure and each row's failure show as toasts, so no row moves.
+  createMessageToast({ get message() { return line.message(); }, dismiss: line.dismiss, recover: { run: () => props.state.reload() } });
+  createMessageToasts(() => [...failures().keys()], id => ({ get message() { return failure(id); }, dismiss: () => clear(id) }));
+
   const copied = createCopyLabels(() => records().map(record => record.id));
 
   const openMenu = (record: Deliverable, x: number, y: number) => {
@@ -149,7 +155,7 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
     makeEventListener(element, "keydown", rowKey, true);
   }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading() ? "true" : "false"}>
       <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
-      <ReservedLine message={line.message()} status={props.state.loading() ? copy.deliverablesLoading : null} dismiss={line.dismiss} recover={{ run: () => props.state.reload() }} />
+      <StatusNote text={props.state.loading() ? copy.deliverablesLoading : null} />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={String(content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id))}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
@@ -163,7 +169,6 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
           </span>
           <Icon name="right" />
         </button>}</Tip>
-        <ReservedLine overlay message={failure(record.id)} dismiss={() => clear(record.id)} />
       </li>}</For></ul>
     </section>;
 };

@@ -3,6 +3,7 @@ import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DaemonExit, FileDrop } from "../app/seam";
 import { tauriFileDrop } from "../app/tauri";
+import { notice } from "../testing/notices";
 import { RpcError } from "../app/seam";
 import { mountBubbles } from "../bubbles/bubblesFixture";
 import { info, terminal } from "../testing/nodes";
@@ -169,7 +170,7 @@ describe("u162 drop files on a pane", () => {
 
     app.dropFiles(drop(["/a"]));
 
-    await vi.waitFor(() => expect(container.querySelector(".pane-failure")!.textContent).toContain("write failed"));
+    await vi.waitFor(() => expect(notice("alert").textContent).toContain("write failed"));
   });
 
   it("u162_the_ring_does_not_refit_the_terminal", async () => {

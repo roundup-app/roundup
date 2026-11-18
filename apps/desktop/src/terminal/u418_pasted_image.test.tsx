@@ -9,6 +9,7 @@ import { createXtermEmulators } from "./emulator";
 import { Pane } from "./Pane";
 import { callsTo, connectFakeProject, mountPane } from "./paneHarness";
 import { notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 const PATH = "/Users/me/Library/Caches/roundup-pasted/pasted-1-abcd1234.png";
 
@@ -151,7 +152,7 @@ it("u418_a_pasted_image_writes_one_bracketed_paste", async () => {
   }));
 
   const { container } = render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={(id) => {
         const made = real(id);
 
@@ -159,7 +160,7 @@ it("u418_a_pasted_image_writes_one_bracketed_paste", async () => {
 
         return made;
       }} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   connected.rail.select("a");

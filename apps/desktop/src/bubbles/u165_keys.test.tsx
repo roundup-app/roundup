@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
 import { shownText } from "../testing/rowTip";
 import { bubbleNames, bubbleCalls, bubbleChord, mountBubbles } from "./bubblesFixture";
+import { notices } from "../testing/notices";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -61,7 +62,7 @@ describe("u165 the keys for bubbles", () => {
 
     await waitFor(() => expect(bubble("1")).not.toBeNull());
     bubbleChord("t");
-    await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("no shell"));
+    await waitFor(() => expect(notices("alert")[0]?.textContent).toContain("no shell"));
     expect(bubbleNames()).not.toContain("login");
   });
 

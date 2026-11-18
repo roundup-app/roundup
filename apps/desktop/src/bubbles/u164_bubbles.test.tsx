@@ -1,7 +1,7 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { flush } from "solid-js";
 import { nameOf } from "./places";
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, event, info, workstream } from "../testing/nodes";
@@ -323,10 +323,11 @@ describe("u164 a bubble floats over the centre pane", () => {
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     flush();
-    await waitFor(() => expect(bubble("1").querySelector("[data-dismiss-failure]")).not.toBeNull());
+    await waitFor(() => expect(notices("alert")).toHaveLength(1));
+    expect(bubble("1").querySelector(".reserved-line:not([data-empty='true'])")).toBeNull();
     mounted.app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
-    fireEvent.click(bubble("1").querySelector(".reserved-actions button")!);
+    fireEvent.click(within(notices("alert")[0]!).getByRole("button", { name: "Retry" }));
     flush();
-    await waitFor(() => expect(bubble("1").querySelector("[data-dismiss-failure]")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toHaveLength(0));
   });
 });

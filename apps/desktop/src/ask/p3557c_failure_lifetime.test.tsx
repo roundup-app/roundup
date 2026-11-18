@@ -3,6 +3,7 @@ import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
+import { notices } from "../testing/notices";
 import { ask, input, mountAskBar as mountQuiet, openAsk } from "./askFixture";
 
 import { RpcError } from "../app/seam";
@@ -20,7 +21,7 @@ afterEach(cleanup);
 it("p3557c_failure_lifetime_ask_rows", async () => {
   const waiting = (text: string) => ({ text, placement: { kind: "unclear" as const, question: "Which?", candidates: ["lead", "ops"] }, state: "waiting" as const });
   const { app } = await mountAskBar([ask("a1", 1, [waiting("first"), waiting("second")])]);
-  const lines = () => [...document.querySelectorAll(".ask-row")].map(row => row.querySelector(".ask-back .reserved-line")?.getAttribute("title") ?? null);
+  const lines = () => [...document.querySelectorAll(".ask-row")].map(row => row.querySelector(".ask-back .mounted-line")?.textContent ?? null);
 
   app.handlers["ask.pick"] = () => { throw new Error("pick refused"); };
 
@@ -62,7 +63,7 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   flush();
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = () => within(made).getAllByRole("listitem");
-  const lines = () => rows().map(row => row.querySelector(".reserved-line")?.getAttribute("title") || null);
+  const lines = () => notices("alert").map(shown => shown.textContent);
 
   const open = (i: number) => {
     fireEvent.click(within(rows()[i]!).getAllByRole("button")[0]!);
@@ -71,37 +72,38 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
 
   await waitFor(() => expect(rows()).toHaveLength(2));
   open(0);
-  await waitFor(() => expect(lines()[0]).toContain("the saved version is missing"));
+  await waitFor(() => expect(lines()).toHaveLength(1));
+  expect(lines()[0]).toContain("the saved version is missing");
 
   // A successful action on another record leaves the first failure alone.
   open(1);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  expect(lines()).toHaveLength(1);
   expect(lines()[0]).toContain("the saved version is missing");
-  expect(lines()[1]).toBeNull();
 
   // Dismissal clears it.
-  fireEvent.click(within(rows()[0]!).getByRole("button", { name: "Dismiss" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Dismiss" }));
   flush();
-  await waitFor(() => expect(lines()).toEqual([null, null]));
+  await waitFor(() => expect(lines()).toEqual([]));
 
   // A later acknowledged open of the same record clears its failure.
   open(0);
-  await waitFor(() => expect(lines()[0]).not.toBeNull());
+  await waitFor(() => expect(lines()).toHaveLength(1));
   app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/p", sha256: "h" });
   open(0);
-  await waitFor(() => expect(lines()[0]).toBeNull());
+  await waitFor(() => expect(lines()).toEqual([]));
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
 
   // Removing a record does not move its failure to the record that takes its place.
   app.handlers["deliverable.resolve"] = () => ({ kind: "unavailable", cause: "missing-revision" });
   open(0);
-  await waitFor(() => expect(lines()[0]).not.toBeNull());
+  await waitFor(() => expect(lines()).toHaveLength(1));
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   records = [published(2)];
   app.emit(event({ name: "deliverable.changed" }));
   flush();
   await waitFor(() => expect(rows()).toHaveLength(1));
-  expect(lines()).toEqual([null]);
+  await waitFor(() => expect(lines()).toEqual([]));
 });
 
 function type(element: HTMLTextAreaElement | HTMLInputElement | null, value: string) {
@@ -116,7 +118,7 @@ it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
   type(input(), "send me");
   fireEvent.keyDown(input()!, { key: "Enter" });
   flush();
-  const line = () => document.querySelector(".ask-send-status")?.getAttribute("title") ?? null;
+  const line = () => document.querySelector(".ask-compose .mounted-line")?.textContent ?? null;
   await waitFor(() => expect(line()).toContain("refused"));
 
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -136,7 +138,7 @@ it("u5558e_failed_reload_retains_data", async () => {
 
   app.emit(event({ name: "deliverable.changed" }));
   flush();
-  await waitFor(() => expect(within(made).getByRole("alert")).toBeTruthy());
+  await waitFor(() => expect(notices("alert")).toHaveLength(1));
   app.handlers["deliverable.list"] = () => [published(1)];
   app.emit(event({ name: "deliverable.changed" }));
   flush();

@@ -5,6 +5,8 @@ import { createFakeApp } from "../testing/fakeApp";
 import { node } from "../testing/nodes";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Pane } from "../terminal/Pane";
+import { notice } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -15,18 +17,18 @@ it("u5301b_a_read_failure_retries_by_calling_the_read_again", async () => {
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
 
-  render(() => <ConnectedProjectContext value={connected}>
+  render(() => <ToastHost><ConnectedProjectContext value={connected}>
     <Pane notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />
-  </ConnectedProjectContext>);
+  </ConnectedProjectContext></ToastHost>);
 
   try {
-    await screen.findByRole("alert");
+    await waitFor(() => notice("alert"));
     const reads = () => app.calls.filter(call => call.method === "rail.tree").length;
     const before = reads();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(reads()).toBeGreaterThan(before));
     await connected.rail.settled();
-    await screen.findByRole("alert");
+    await waitFor(() => notice("alert"));
     const afterFailedPress = reads();
     app.handlers["rail.tree"] = () => [node("a", { name: "Back" })];
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));

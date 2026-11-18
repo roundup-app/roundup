@@ -8,7 +8,7 @@ import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
 import { copy } from "./copy";
 import { createCut } from "../ink/Tip";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DialogFailure } from "../ink/MountedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
@@ -202,7 +202,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "new" })}>{copy.askNewWorkstream}</button>
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "drop" })}>{copy.askDrop}</button>
           </div>
-          <ReservedLine message={failure()?.message} dismiss={() => { const each = failure();
+          <DialogFailure message={failure()?.message} dismiss={() => { const each = failure();
 
  if (each) asks.dismiss(each); }} />
         </div>

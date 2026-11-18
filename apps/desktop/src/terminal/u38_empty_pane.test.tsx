@@ -8,6 +8,7 @@ import { event, info, node } from "../testing/nodes";
 import { mountPane } from "./paneHarness";
 import { Pane } from "./Pane";
 import { notice, notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -45,9 +46,9 @@ describe("u38 empty Pane", () => {
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
     render(() => (
-      <ConnectedProjectContext value={connected}>
+      <ToastHost><ConnectedProjectContext value={connected}>
         <Pane notice={connected.rail.failure()} />
-      </ConnectedProjectContext>
+      </ConnectedProjectContext></ToastHost>
     ));
 
     expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();

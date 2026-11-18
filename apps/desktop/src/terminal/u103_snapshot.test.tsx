@@ -14,6 +14,7 @@ import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 import type { Snapshot } from "@contracts/terminal/Snapshot";
 import { notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 type Reply = Snapshot | Error;
 
@@ -97,9 +98,9 @@ const mount = async (
   configure?.(app);
 
   render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={factory} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
   connected.rail.select(tree[0]?.id ?? null);
 

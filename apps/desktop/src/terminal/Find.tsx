@@ -1,5 +1,5 @@
 import { createSignal, onSettled } from "solid-js";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { Field } from "../ui/Field";
 import { copy } from "./copy";
 
@@ -33,7 +33,7 @@ export const Find = (props: { query: string; setQuery: (query: string) => void; 
           }
         }}
       />
-      <ReservedLine class="terminal-find-miss" status={missed() ? copy.findNoMatch : null} />
+      <StatusNote text={missed() ? copy.findNoMatch : null} />
     </Field.Root>
   );
 };

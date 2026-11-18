@@ -8,6 +8,7 @@ import { mountTodos } from "../todos/testHarness";
 import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -18,7 +19,7 @@ const status = (kind: Status["kind"], label: string, since = NOW): Status => ({ 
 const mount = async (terminals: TerminalInfo[]) => {
   const m = await mountTodos([], true, [agent("a", "error", "crashed", { name: "alpha", can_resume: true, status: status("error", "crashed", NOW - 5) })]);
   m.app.handlers["terminal.list"] = () => terminals;
-  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });

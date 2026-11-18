@@ -6,11 +6,6 @@
   height: 100%;
 }
 
-.pane-failure {
-  flex: none;
-  padding-inline: var(--space-2);
-}
-
 .pane-body {
   position: relative;
   flex: 1;
@@ -185,8 +180,7 @@
   padding: var(--space-2);
 }
 
-.pane .terminal-find-miss {
-  font-size: var(--text-caption);
+.pane .terminal-find .mounted-line {
   color: var(--grey);
 }
 

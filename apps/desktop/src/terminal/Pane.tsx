@@ -11,7 +11,8 @@ import { layoutMoving } from "../resize/motion";
 import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, For, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import type { Recovery } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
@@ -124,6 +125,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const givenNotice = dismissable(() => props.notice);
 
   const notice = createMemo(() => paneNotice({ given: givenNotice, retry: props.retryNotice, rail, screens, terminal: terminalId() }));
+
+  // U7314b: the pane's failure shows as a toast, so the Terminal keeps its size and place.
+  createMessageToast({ get message() { return notice()?.message; }, dismiss: () => notice()?.recovery.dismiss?.(), get recover() { return notice()?.recovery.recover; } });
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   const [preparing, setPreparing] = createSignal(false);
@@ -339,18 +343,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
       </div>
       </div>
-      <Show when={notice()}>{shown => (
-        // Escape reaches the line only with focus inside it, so a program in the Terminal keeps its own Escape.
-        <div class="pane-failure" onKeyDown={event => {
-          const dismiss = shown().recovery.dismiss;
-
-          if (event.key !== "Escape" || !dismiss) return;
-          event.stopPropagation();
-          dismiss();
-        }}>
-          <ReservedLine message={shown().message} {...shown().recovery} />
-        </div>
-      )}</Show>
     </div>
   );
 };

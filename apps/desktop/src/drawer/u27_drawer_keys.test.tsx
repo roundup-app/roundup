@@ -8,6 +8,7 @@ import type { Emulator } from "../terminal/emulator";
 import { info, node } from "../testing/nodes";
 import { createDrawer } from "./drawer";
 import { DrawerHost } from "./DrawerHost";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -51,10 +52,10 @@ const mountPaneWithDrawer = async (selectAgent: boolean) => {
   };
 
   render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={() => emulator} />
       <DrawerHost drawer={connected.drawer} reducedMotion={connected.reducedMotion} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   if (selectAgent) connected.rail.select("a");
@@ -102,10 +103,10 @@ const mountPaneWithFocusedTerminal = async () => {
   };
 
   render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={() => emulator} />
       <DrawerHost drawer={connected.drawer} reducedMotion={connected.reducedMotion} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   connected.rail.select("a");
