@@ -165,7 +165,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Pad rename (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`) | same | — |
 | Pad source state (`PadSourceState`, `source_state`) | same | — |
 | Pad deletion (`PadDeletion`) | same | — |
-| Pad | same | scratchpad |
+| Pad (`ExportParams.text`, `ExportParams.images`, `ExportImage`) | same | scratchpad |
 | Shortcut file (`ShortcutFileExport`, `shortcuts.export`) | Save to file… | — |
 | Editor | same | — |
 | Clipboard write (`writeClipboardText`) | same | — |

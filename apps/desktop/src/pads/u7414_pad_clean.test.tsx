@@ -14,6 +14,7 @@ const fake: CanvasApi = {
   convertToExcalidrawElements: (skeleton) => skeleton.map((element, index) => ({ id: String(element.id ?? `e${index}`), version: 1 })),
   restoreElements: (stored) => stored.map((element) => ({ id: String(element.id), version: element.version ?? 1 })),
   fromMermaid: async () => [],
+  exportToSvg: async () => "",
   Excalidraw: (next) => {
     props = next;
 

@@ -243,6 +243,7 @@ pub fn types() -> specta::Types {
         .register::<crate::pad::AppendParams>()
         .register::<crate::pad::AppendSectionParams>()
         .register::<crate::pad::ExportParams>()
+        .register::<crate::pad::ExportImage>()
         .register::<crate::pad::SetStorageParams>()
         .register::<crate::pad::MoveParams>()
         .register::<crate::message::MessageKind>()

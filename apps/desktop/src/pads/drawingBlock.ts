@@ -26,6 +26,8 @@ export type CanvasApi = {
   convertToExcalidrawElements(skeleton: Skeleton[], options: { regenerateIds: false }): CanvasElement[];
   /** Loads full elements a stored scene holds, keeping their bindings; converting them again would detach every arrow. */
   restoreElements(elements: Skeleton[]): CanvasElement[];
+  /** Excalidraw's own SVG export of the elements: the drawing alone, with no tool bars. */
+  exportToSvg(elements: CanvasElement[]): Promise<string>;
   /** Lays out Mermaid flowchart or sequence source as an editable scene. The converter loads on the first call, so a Pad without a Mermaid Drawing never requests it. */
   fromMermaid(text: string): Promise<CanvasElement[]>;
 };
@@ -46,6 +48,22 @@ const parse = (text: string) => {
 const isStored = (elements: Skeleton[]) => elements.length > 0 && elements.every((element) => element.version !== undefined);
 
 const signature = (elements: readonly CanvasElement[]) => elements.map((element) => `${element.id}:${element.version}`).join(",");
+
+/** A scene is JSON; any other body is Mermaid source (U7416a). */
+const isScene = (text: string) => text.trimStart().startsWith("{");
+
+const sceneElements = (canvas: CanvasApi, text: string) => {
+  const skeleton = parse(text);
+
+  return isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false });
+};
+
+/** U7415a: a Drawing's scene, or its Mermaid source laid out as one, as an SVG document; rejects when the text is neither. */
+export const exportDrawing = async (canvas: CanvasApi, text: string) => {
+  const elements = isScene(text) ? sceneElements(canvas, text) : await canvas.fromMermaid(text);
+
+  return canvas.exportToSvg(elements.filter((element) => !element.isDeleted));
+};
 
 /** U149: an Excalidraw scene on a canvas, editable unless the Pad is read-only. */
 export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, readonly, replace }) => {
@@ -164,12 +182,9 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
     stopAppearance = followAppAppearance(render);
   };
 
-  // A scene is JSON; any other body is Mermaid source.
-  if (text.trimStart().startsWith("{")) {
+  if (isScene(text)) {
     try {
-      const skeleton = parse(text);
-
-      show(isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false }));
+      show(sceneElements(canvas, text));
     } catch {
       fail();
     }

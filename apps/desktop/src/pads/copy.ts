@@ -40,6 +40,7 @@ export const copy = {
   callouts: "Callouts",
   drawingItem: "Drawing",
   editDrawing: sharedCopy.editAction,
+  exportDiagramLabel: "Diagram",
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
   inlineCode: sharedCopy.inlineCodeAction,
