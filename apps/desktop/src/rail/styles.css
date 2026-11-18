@@ -730,13 +730,18 @@
   width: var(--rail-slot);
   flex: none;
 }
-/* U7488a: the tail is in the row's flow, left of the age, with one fixed slot per action. A slot's width is reserved at rest, so an action sits at one x on every row and hover, focus or selection moves nothing; the name cuts with `…` before any slot moves. A group's chevron keeps its one slot. */
+/* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. On hover, focus or selection the action icons overlay at one fixed spot left of the marks' room, measured from the row's right edge, and the name gives up its end to them (`…`); marks never move. A group's chevron keeps its one slot. */
+:root { --rail-todos-room: calc(var(--space-4) + 5ch); --rail-changes-room: calc(var(--space-4) + 3ch); }
 .rail-row .row-tail { position: relative; justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
+.rail-row .action-slot:empty { display: none; }
 /* The ring and the count, and the changes mark and its count, are wider than an icon. */
-.rail-row .action-slot[data-slot="todos"] { inline-size: calc(var(--space-4) + 5ch); min-inline-size: calc(var(--space-4) + 5ch); justify-content: flex-start; font-size: var(--text-caption); }
-.rail-row .action-slot[data-slot="changes"] { inline-size: calc(var(--space-4) + 3ch); min-inline-size: calc(var(--space-4) + 3ch); justify-content: flex-start; }
+.rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); justify-content: flex-start; font-size: var(--text-caption); }
+.rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); justify-content: flex-start; }
+.rail-row .row-tail .row-icons { position: absolute; inset-block: 0; inset-inline-end: 100%; }
+.rail-row[data-reveal="shown"] .row-tail:has(.row-icons) { min-inline-size: calc(var(--rail-todos-room) + var(--rail-changes-room)); }
+.rail-row[data-reveal="shown"]:has(.row-icons) .name { padding-inline-end: calc(var(--rail-slot) * 3); }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */

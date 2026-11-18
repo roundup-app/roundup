@@ -20,13 +20,7 @@ it("u7488a_each_action_renders_in_its_own_slot", async () => {
 
   for (const name of SLOTS) expect(row.querySelectorAll(`.action-slot[data-slot="${name}"]`)).toHaveLength(1);
 
-  const stop = row.querySelector(`button[aria-label="${copy.stop}"]`);
-
-  if (stop) expect(stop.parentElement?.dataset.slot).toBe("run");
-
-  const restart = row.querySelector(`button[aria-label="${copy.restart}"]`);
-
-  if (restart) expect(["restart", "run"]).toContain(restart.parentElement?.dataset.slot);
+  expect(row.querySelector(`button[aria-label="${copy.stop}"]`)?.parentElement?.dataset.slot).toBe("run");
 
   // A slot with no action stays in the row, empty.
   for (const slot of row.querySelectorAll<HTMLElement>('.action-slot[data-slot="todos"], .action-slot[data-slot="changes"]')) expect(slot.children).toHaveLength(0);

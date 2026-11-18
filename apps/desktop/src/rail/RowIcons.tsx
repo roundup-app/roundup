@@ -5,9 +5,9 @@ import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { ownKeys, type RowActions } from "./rows";
 
-const RowIcon = (props: { name: "rotate-cw" | "stop" | "play" | "more"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
+const RowIcon = (props: { name: "rotate-cw" | "pause" | "play" | "more"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
   <IconButton
-    icon={props.name === "stop" ? "stop" : props.name === "more" ? "more" : undefined}
+    icon={props.name === "pause" ? "pause" : props.name === "more" ? "more" : undefined}
     aria-label={props.label}
     aria-disabled={props.disabled ? "true" : undefined}
     {...ownKeys}
@@ -31,7 +31,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
     <Slot name="restart"><Show when={own()?.restart}>{restart => <RowIcon name="rotate-cw" label={copy.restart} disabled={restart().pending} onClick={() => restart().run()} />}</Show></Slot>
     <Slot name="run">
       {props.children}
-      <Show when={props.actions.kind === "agent" ? props.actions.stop : undefined}>{(stop) => <RowIcon name="stop" label={copy.stop} onClick={stop()} />}</Show>
+      <Show when={props.actions.kind === "agent" ? props.actions.stop : undefined}>{(stop) => <RowIcon name="pause" label={copy.stop} onClick={stop()} />}</Show>
       <Show when={props.actions.kind === "agent" ? props.actions.play : undefined}>{(play) => <RowIcon name="play" label={copy.restart} onClick={play()} />}</Show>
     </Slot>
     <Slot name="more"><Show when={own()?.restart}>{restart => <RowIcon name="more" label={copy.rowActions} onClick={restart().menu} />}</Show></Slot>
