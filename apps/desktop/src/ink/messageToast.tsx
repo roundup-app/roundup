@@ -1,4 +1,4 @@
-import { createContext, createEffect, createMemo, createUniqueId, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createUniqueId, mapArray, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ReservedLine, type Dismissible } from "./ReservedLine";
 
@@ -19,9 +19,7 @@ type FailureLine = Dismissible & { message: string | null | false | undefined; c
  * A failure stays until the user dismisses it or its cause clears; a status or notice stays in its view. A new message is a new card, and closing the card runs the line's `dismiss`.
  * Pass the line's changing parts as getters, as a component's props are.
  */
-export const createMessageToast = (line: FailureLine): void => {
-  const queue = useContext(ToastQueueContext);
-
+export const createMessageToast = (line: FailureLine, queue: MessageQueue | null = useContext(ToastQueueContext)): void => {
   if (!queue) throw new Error("no toast region: a view showed a message outside the App's Toast queue");
 
   const id = createUniqueId();
@@ -36,4 +34,10 @@ export const createMessageToast = (line: FailureLine): void => {
 
     return queue.message(card);
   });
+};
+
+/** A toast per failure in a list, each living as long as its failure is in the list. Pass the queue where the caller sits above the App's Toast context. */
+export const createMessageToasts = <T,>(failures: () => readonly T[], line: (failure: T) => FailureLine, queue: MessageQueue | null = useContext(ToastQueueContext)): void => {
+  // The memo only keeps the mapping read, so each failure's toast lives and goes with it.
+  const _toasts = createMemo(mapArray(failures, failure => createMessageToast(line(failure), queue)));
 };

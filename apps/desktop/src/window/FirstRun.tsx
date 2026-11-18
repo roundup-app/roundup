@@ -5,7 +5,8 @@ import { CHORDS } from "../keys/chords";
 import { EmptyState } from "../ink/EmptyState";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 
 export const ChooseProject = (props: { app: App; failure: string | null; onOpen: (path: string) => void; onChoose: () => void; onRetry?: (() => void) | undefined }) => {
   const readRecent = () => props.app.recentProjects().then(paths => ({ paths, failure: null })).catch((error: Error) => ({ paths: [], failure: error.message }));
@@ -17,20 +18,22 @@ export const ChooseProject = (props: { app: App; failure: string | null; onOpen:
   const recentLine = dismissable(() => recent()?.failure);
   const binaryLine = dismissable(() => binary() && !binary()!.value ? binary()!.failure ?? copy.claudeNotFound : null);
 
+  createMessageToast({ get message() { return failureLine.message(); }, dismiss: failureLine.dismiss, get recover() { return props.onRetry ? { run: props.onRetry } : undefined; } });
+  createMessageToast({ get message() { return recentLine.message(); }, dismiss: recentLine.dismiss, recover: { run: () => refresh(recent) } });
+  createMessageToast({ get message() { return binaryLine.message(); }, dismiss: binaryLine.dismiss, recover: { run: () => refresh(binary) } });
+
   registerKeys({ kind: "app" }, [{ action: CHORDS["project.choose-folder"], capture: () => ({ available: () => true, invoke: () => props.onChoose() }) }]);
 
   return (
     <div class="choose-project">
-      <ReservedLine message={failureLine.message()} dismiss={failureLine.dismiss} recover={props.onRetry ? { run: props.onRetry } : undefined} />
       <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} actions={[{ label: copy.chooseFolder, chord: CHORDS["project.choose-folder"], run: props.onChoose }]} /></Show>
       <Show when={props.failure}><button data-button="primary" type="button" onClick={() => props.onChoose()}>{copy.chooseFolder}</button></Show>
-      <Show when={recent()?.failure}><ReservedLine message={recentLine.message()} dismiss={recentLine.dismiss} recover={{ run: () => refresh(recent) }} /></Show>
       <Show when={recent()?.paths.length}>
         <ul aria-label={copy.recentFolders}>
           <For each={recent()?.paths.slice(0, 5)}>{path => <li><button data-button="quiet" type="button" onClick={() => props.onOpen(path)}>{path}</button></li>}</For>
         </ul>
       </Show>
-      <Show when={binary()}>{fact => <Show when={fact().value} fallback={<ReservedLine message={binaryLine.message()} dismiss={binaryLine.dismiss} recover={{ run: () => refresh(binary) }} />}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>}</Show>
+      <Show when={binary()?.value}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>
     </div>
   );
 };

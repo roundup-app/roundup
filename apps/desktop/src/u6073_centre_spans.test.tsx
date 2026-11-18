@@ -34,12 +34,12 @@ const resizes = (app: { calls: { method: string }[] }) => app.calls.filter(call 
 
 it("u6073a_nothing_above_the_centre_resizes_the_terminal", async () => {
   const app = await mount(true);
-  const failures = (await screen.findByText(/native open failed/)).closest(".centre-failures")!;
+  const failure = await screen.findByText(/native open failed/);
   const frame = document.querySelector(".centre-frame")!;
 
-  // The failure floats beside the centre frame; nothing else precedes it in flow.
-  expect(frame.parentElement).toBe(failures.parentElement);
-  expect(frame.previousElementSibling).toBe(failures);
+  // The failure is a toast; nothing mounts in flow before the centre frame.
+  expect(failure.closest(".app-toast")).not.toBeNull();
+  expect(frame.parentElement?.contains(failure)).toBe(false);
   expect(resizes(app)).toBe(0);
 });
 
@@ -50,9 +50,8 @@ it("u6073c_failures_float_with_actions_and_announcement", async () => {
   expect(await storedValue("u6073", v.string()).write("x")).not.toBeNull();
 
   const retry = await screen.findByRole("button", { name: /retry/i });
-  const line = retry.closest(".storage-failure")!;
+  const line = retry.closest(".app-toast")!;
 
-  expect(line.closest(".centre-failures")).not.toBeNull();
   expect(line.querySelector("[role=alert]")).not.toBeNull();
   fireEvent.click(retry);
   expect(resizes(app)).toBe(0);

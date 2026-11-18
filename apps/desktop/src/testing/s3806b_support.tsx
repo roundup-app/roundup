@@ -369,7 +369,7 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
       const recovery = connected.rail.commandFailure.retry();
       expect(recovery).not.toBeNull();
       expect(connected.drafts.list()).toEqual(drafts);
-      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       // New facts must not change the name captured by the empty-Rail activation.
@@ -422,7 +422,7 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
       await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Native Capture could not open") && alert.textContent.includes(row.label))).toBe(true));
       expect(connected.drafts.list()).toEqual(drafts);
       expect(ofMethod()).toHaveLength(1);
-      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       connected.rail.select("elsewhere");
@@ -465,7 +465,7 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
       expect(connected.drafts.list()).toEqual(drafts);
       expect(ofMethod()).toHaveLength(1);
       expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Outcome is unknown"))).toBe(true);
-      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       expect(connected.drafts.list()).toEqual(drafts);
@@ -532,7 +532,7 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => call.method === row.method || call.method === "message.send" || call.method === "terminal.write") ?? []).toEqual([]);
         expect(app.badges.filter(count => count > 0)).toEqual([]);
-        fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
+        fireEvent.click(screen.getByRole("button", { name: "Open first" }));
         await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect(ofMethod()).toHaveLength(1);
@@ -696,7 +696,7 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, 
     app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
 
     if (removal === "project") {
-      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: /Open first/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Open first/ }));
       await screen.findByText("ops", { selector: ".name" });
     }
 

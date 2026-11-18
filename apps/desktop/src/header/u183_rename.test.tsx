@@ -74,9 +74,10 @@ describe("u183 rename in place", () => {
 
   it("u183_a_failed_call_restores_the_name_and_shows_the_line_after_the_strip", async () => {
     const { app } = await openTabs({ api: [], web: [] });
+    const failure = new RpcError(-32602, "name is longer than 40 characters");
 
     app.renameProject = async () => {
-      throw new RpcError(-32602, "name is longer than 40 characters");
+      throw failure;
     };
 
     const input = await edit();
@@ -86,7 +87,7 @@ describe("u183 rename in place", () => {
 
     expect(await screen.findByText("name is longer than 40 characters")).toBeDefined();
     expect(tab("api").textContent).toBe("api");
-    expect(within(screen.getByRole("region", { name: "Rail" })).getByText("name is longer than 40 characters")).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Updates" })).getByText(failure.message)).toBeDefined();
   });
 
   it("u183_a_click_elsewhere_saves_like_enter", async () => {
