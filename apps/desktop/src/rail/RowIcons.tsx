@@ -29,7 +29,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
       </>}</Show>
       {props.children}
       <Show when={props.actions.kind === "agent" ? props.actions.stop : undefined}>{(stop) => <RowIcon name="stop" label={copy.stop} onClick={stop()} />}</Show>
-      <Show when={props.actions.kind === "agent" ? props.actions.play : undefined}>{(play) => <RowIcon name="play" label={copy.restart} onClick={play()} />}</Show>
+      <Show when={props.actions.kind === "agent" ? props.actions.play : undefined}>{(play) => <RowIcon name="play" label={props.actions.kind === "agent" && props.actions.restart ? copy.resume : copy.restart} onClick={play()} />}</Show>
       <Show when={props.actions.kind === "workstream" || props.actions.kind === "agent" ? props.actions.restart : undefined}>{restart => <RowIcon name="more" label={copy.rowActions} onClick={restart().menu} />}</Show>
     </span>
   </Show>
