@@ -54,7 +54,12 @@ export const PadsControl = (props: { todos: { done: number; total: number }; age
         aria-label={name()}
         onClick={click => { click.stopPropagation(); connected.showPadsOf(props.agent, "todos"); }}
       >
-        <UiProgress class="todo-ring" min={0} max={props.todos.total} value={props.todos.done} aria-label={name()} style={{ "--ring-ratio": props.todos.done / props.todos.total }} />
+        <UiProgress class="todo-ring" min={0} max={props.todos.total} value={props.todos.done} aria-label={name()} style={{ "--ring-ratio": props.todos.done / props.todos.total }}>
+          <svg class="todo-ring-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <circle class="todo-ring-track" cx="8" cy="8" r="6.5" pathLength="1" />
+            <circle class="todo-ring-fill" cx="8" cy="8" r="6.5" pathLength="1" />
+          </svg>
+        </UiProgress>
         <span class="todo-ring-count">{props.todos.done}/{props.todos.total}</span>
       </IconButton>
     </Show>

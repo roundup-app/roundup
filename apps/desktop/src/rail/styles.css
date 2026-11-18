@@ -339,15 +339,16 @@
   font-size: var(--text-caption);
   color: var(--grey);
 }
-/* U7488c: the ring is a conic fill over the track, cut to a ring by a mask; `--ring-ratio` is the done share. */
+/* U7488c: the ring is two stroked circles; `--ring-ratio` is the done share, drawn as the fill's dash. */
 .todo-ring {
   flex: none;
   inline-size: var(--space-4);
   block-size: var(--space-4);
-  border-radius: var(--radius-round);
-  background: conic-gradient(var(--accent) calc(var(--ring-ratio) * 1turn), var(--progress-track) 0); /* taste-skill-ignore: a progress ring is a conic fill, not a decorative gradient. */
-  mask-image: radial-gradient(circle, var(--transparent) 0 calc(50% - var(--space-1) / 2 - var(--hairline-width)), var(--text) calc(50% - var(--space-1) / 2 - var(--hairline-width)));
 }
+.todo-ring-svg { display: block; inline-size: 100%; block-size: 100%; transform: rotate(-90deg); }
+.todo-ring-track, .todo-ring-fill { fill: none; stroke-width: 2; }
+.todo-ring-track { stroke: var(--progress-track); }
+.todo-ring-fill { stroke: var(--accent); stroke-dasharray: var(--ring-ratio) 1; }
 .todo-ring-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .rail-fold button {
