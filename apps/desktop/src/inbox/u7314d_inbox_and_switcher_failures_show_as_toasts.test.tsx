@@ -30,6 +30,7 @@ it("u7314d_inbox_and_switcher_failures_show_as_toasts: Inbox", async () => {
   const reads = () => mounted.app.calls.filter(call => call.method === "todo.unread").length;
 
   mounted.app.handlers["todo.unread"] = () => { throw new RpcError(-32003, "Cannot read work: try again"); };
+
   mounted.app.emit(event({ name: "todo.commented", data: { id: 1 } }));
   const shown = await waitFor(() => notice("alert"));
   expect(notices("alert")).toEqual([shown]);
@@ -45,6 +46,7 @@ it("u7314d_inbox_and_switcher_failures_show_as_toasts: Inbox", async () => {
   same(elements(), before);
 
   mounted.app.handlers["todo.unread"] = () => { throw new RpcError(-32003, "Cannot read work: try again"); };
+
   mounted.app.emit(event({ name: "todo.commented", data: { id: 1 } }));
   await waitFor(() => notice("alert"));
   fireEvent.click(within(toasts()).getByRole("button", { name: "Dismiss" }));

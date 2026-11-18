@@ -16,6 +16,8 @@ import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { ToastHost } from "../testing/toastHost";
 
+type ByRoleOptions = NonNullable<Parameters<typeof screen.getByRole>[1]>;
+
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 beforeEach(() => localStorage.clear());
@@ -29,11 +31,11 @@ const toasts = () => {
   const region = () => screen.getByRole("region", { name: "Updates" });
 
   return {
-    findByRole: (...args: Parameters<typeof screen.findByRole>) => waitFor(() => within(region()).getByRole(...args)),
+    findByRole: (role: string, options?: ByRoleOptions) => waitFor(() => within(region()).getByRole(role, options)),
     findByText: (text: string) => waitFor(() => within(region()).getByText(text)),
-    getByRole: (...args: Parameters<typeof screen.getByRole>) => within(region()).getByRole(...args),
-    queryByRole: (...args: Parameters<typeof screen.queryByRole>) => within(region()).queryByRole(...args),
-    getAllByRole: (...args: Parameters<typeof screen.getAllByRole>) => within(region()).getAllByRole(...args),
+    getByRole: (role: string, options?: ByRoleOptions) => within(region()).getByRole(role, options),
+    queryByRole: (role: string, options?: ByRoleOptions) => within(region()).queryByRole(role, options),
+    getAllByRole: (role: string, options?: ByRoleOptions) => within(region()).getAllByRole(role, options),
   };
 };
 
@@ -303,7 +305,7 @@ it.each(["recover", "unrelated"] as const)("p3557c_failure_lifetime_inbox_%s", a
   if (transition === "recover") {
     m.app.handlers["todo.unread"] = () => [];
     fireEvent.click(toasts().getByRole("button", { name: "Retry Inbox" }));
-    await waitFor(() => expect(screen.queryByText("cannot load comments")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Retry Inbox" })).toBeNull());
   } else {
     m.app.handlers["rail.tree"] = () => NODES.filter((node) => node.id !== "c");
     await send(m, event({ name: "rail.changed" }));
