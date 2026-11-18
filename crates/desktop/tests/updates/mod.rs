@@ -130,6 +130,56 @@ fn u7208d_updates_answers_the_versions_and_what_is_ready() {
     assert_eq!(fx.file("ran"), "", "a look never runs herdr-core update");
 }
 
+#[test]
+fn u7208g_check_updates_reads_both_feeds_and_sends_the_facts() {
+    let mut fx = Fixture::new(SERVE_AND_WAIT);
+    fake_core(&mut fx, "0.1.21", "");
+    let (url, go) = serve_feed(r#"{"version":"0.1.22"}"#);
+    fx.config.core_feed = Some(url);
+    let (mut app, webview) = app(fx.config.clone(), None);
+    let looked = payloads(&app, "updates-changed");
+    #[allow(deprecated)]
+    app.run_iteration(|_, _| {});
+    go.send(()).unwrap();
+
+    assert_eq!(
+        invoke(&webview, "check_updates", json!({})).unwrap(),
+        Value::Null
+    );
+
+    let expected = json!({"roundup": null, "core": {"version": "0.1.21", "ready": "0.1.22"}});
+    assert_eq!(looked.recv_timeout(WAIT).unwrap(), expected);
+    assert_eq!(invoke(&webview, "updates", json!({})).unwrap(), expected);
+    assert_eq!(fx.file("ran"), "", "a check never runs herdr-core update");
+}
+
+#[test]
+fn u7208g_a_failed_read_answers_an_error_and_changes_nothing() {
+    let mut fx = Fixture::new(SERVE_AND_WAIT);
+    fake_core(&mut fx, "0.1.21", "");
+    let closed = TcpListener::bind("127.0.0.1:0").unwrap();
+    fx.config.core_feed = Some(format!(
+        "http://{}/core/latest.json",
+        closed.local_addr().unwrap()
+    ));
+    drop(closed);
+    let (mut app, webview) = app(fx.config.clone(), None);
+    #[allow(deprecated)]
+    app.run_iteration(|_, _| {});
+
+    let error = invoke(&webview, "check_updates", json!({})).unwrap_err();
+
+    assert_eq!(error["code"], code::INTERNAL);
+    assert_eq!(
+        error["message"],
+        "the herdr-core release feed could not be reached"
+    );
+    assert_eq!(
+        invoke(&webview, "updates", json!({})).unwrap()["core"],
+        json!({"version": "0.1.21", "ready": null})
+    );
+}
+
 /// The bytes of every package the roundup feed serves.
 const PACKAGE: usize = 5000;
 

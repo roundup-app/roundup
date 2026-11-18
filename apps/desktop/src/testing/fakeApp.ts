@@ -108,6 +108,10 @@ export type FakeApp = AppSeam & {
   updateGate: Promise<void> | null;
   emitUpdateProgress(progress: UpdateProgress): void;
   /** U7208b, U7208c: the `install_update` and `update_core` calls so far, and what each rejects with while set. A core update that succeeds moves the ready version into `core.version`. */
+  /** U7208g: the `check_updates` calls so far, what each rejects with while set, and the facts a check sends (`emitUpdates`) when set. Stays pending while `updateGate` is set. */
+  updateChecks: number;
+  updateCheckFailure: RpcError | null;
+  updateCheckFacts: UpdateFacts | null;
   updateInstalls: number;
   updateInstallFailure: RpcError | null;
   coreUpdates: number;
@@ -225,6 +229,9 @@ export const createFakeApp = (): FakeApp => {
     openedEditors: [],
     editorFailure: null,
     updateFacts: { roundup: null, core: null },
+    updateChecks: 0,
+    updateCheckFailure: null,
+    updateCheckFacts: null,
     updateInstalls: 0,
     updateGate: null,
     emitUpdateProgress: (progress) => { for (const listener of progressListeners) listener(progress); },
@@ -485,6 +492,14 @@ export const createFakeApp = (): FakeApp => {
     },
     listEditors: async () => app.installedEditors,
     updates: async () => app.updateFacts,
+    checkUpdates: async () => {
+      app.updateChecks += 1;
+      await app.updateGate;
+
+      if (app.updateCheckFailure) throw app.updateCheckFailure;
+
+      if (app.updateCheckFacts) app.emitUpdates(app.updateCheckFacts);
+    },
     installUpdate: async () => {
       app.updateInstalls += 1;
       await app.updateGate;

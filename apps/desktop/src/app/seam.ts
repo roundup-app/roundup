@@ -135,6 +135,7 @@ export const SEAM_COMMANDS = [
   "updates",
   "install_update",
   "update_core",
+  "check_updates",
   "feedback_capture",
   "fork_branch",
   "fork_colour",
@@ -311,6 +312,8 @@ export type App = {
   listEditors(): Promise<EditorChoice[]>;
   /** U7208d: the versions of roundup and herdr-core, and the newer ones ready. */
   updates(): Promise<UpdateFacts>;
+  /** U7208g: reads both update feeds now, as the hourly look does, and sends `updates-changed`. Rejects naming the failure when a read failed. */
+  checkUpdates(): Promise<void>;
   /** U7208b: installs the ready roundup version, leaves every Daemon and relaunches. Rejects with the cause, changing nothing, when it cannot. */
   installUpdate(): Promise<void>;
   /** U7208c: runs `herdr-core update` and resolves the facts it left. Rejects with the last line the program printed when it fails. */

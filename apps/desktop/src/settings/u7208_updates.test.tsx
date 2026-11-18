@@ -239,3 +239,38 @@ it("u7208f_the_updates_payload_shows_the_updates_page", async () => {
   ).toBe("true");
   expect(screen.getByRole("searchbox")).toHaveProperty("value", "");
 });
+
+it("u7208g_the_check_button_shows_the_result_and_ignores_a_press_while_busy", async () => {
+  const app = await mount({ roundup: { version: "0.4.0", ready: null }, core: { version: "0.1.21", ready: null } }, "updates");
+  const press = await screen.findByRole("button", { name: copy.checkForUpdates });
+  let release!: () => void;
+
+  app.updateGate = new Promise<void>((resolve) => { release = resolve; });
+  app.updateCheckFacts = BOTH_READY;
+
+  fireEvent.click(press);
+  await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
+  fireEvent.click(press);
+  expect(app.updateChecks).toBe(1);
+
+  release();
+  await waitFor(() => expect(press.matches("[aria-busy]")).toBe(false));
+  expect(
+    await waitFor(() => row(copy.roundup).getByText(copy.updateReady("0.5.0", copy.settingsAgents))),
+  ).toBeTruthy();
+  expect(app.updateChecks).toBe(1);
+});
+
+it("u7208g_a_failed_check_is_a_failure_toast", async () => {
+  const app = await mount(BOTH_READY, "updates");
+  const press = await screen.findByRole("button", { name: copy.checkForUpdates });
+
+  app.updateCheckFailure = new RpcError(INTERNAL_CODE, "the herdr-core release feed could not be reached");
+  fireEvent.click(press);
+
+  expect(
+    await waitFor(() => toasts().getByText(copy.updateCheckFailed)),
+  ).toBeTruthy();
+  expect(press.matches("[aria-busy]")).toBe(false);
+  expect(row(copy.roundup).getByText(copy.updateReady("0.5.0", copy.settingsAgents))).toBeTruthy();
+});

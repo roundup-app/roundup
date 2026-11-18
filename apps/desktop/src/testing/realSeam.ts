@@ -223,6 +223,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     },
     listEditors: async () => [],
     updates: async () => ({ roundup: null, core: null }),
+    checkUpdates: async () => {},
     installUpdate: async () => {},
     updateCore: async () => ({ roundup: null, core: null }),
     onUpdatesChanged: () => () => {},
