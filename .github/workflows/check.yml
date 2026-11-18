@@ -664,11 +664,11 @@ jobs:
       # `realDaemonFixture.ts` reads this receipt as a finished build and builds nothing itself.
       - if: runner.environment != 'self-hosted'
         run: echo 0 >"$RUNNER_TEMP/daemon.status"
+      # CI7297a: U26's tracer runs in `chromium` only; a web shard installs none of its packages.
       - uses: ./.github/actions/setup
         with:
           rust: 'false'
           browser: 'true'
-          tracer: 'true'
       - name: Refresh prepared runtime for this checkout
         if: runner.environment == 'self-hosted'
         run: just build-debug
