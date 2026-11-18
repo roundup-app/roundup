@@ -20,9 +20,10 @@ const drawn = async (source: string) => {
   await wait("Boolean(document.querySelector('.visual-drawing .excalidraw canvas'))");
   // Loading stores nothing: the Pad still holds the Mermaid source.
   expect(await read<string>("window.__fake.app.rpc('pad.read', { name: 'pad-3' }).then(pad => pad.text)")).toContain(source);
-  // The first gesture stores the full scene.
-  await browser("click", ".visual-drawing .excalidraw .App-toolbar__extra-tools-trigger");
-  await browser("press", "Escape");
+  // The first edit stores the full scene: select everything and nudge it.
+  await browser("click", ".visual-drawing .excalidraw canvas.interactive");
+  await browser("press", "Control+a");
+  await browser("press", "ArrowRight");
 
   const stored = () => read<string>("window.__fake.app.rpc('pad.read', { name: 'pad-3' }).then(pad => pad.text)");
 
