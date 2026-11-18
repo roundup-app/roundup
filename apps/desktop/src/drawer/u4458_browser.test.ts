@@ -177,6 +177,12 @@ it.concurrent.each(cases)(
     await lane.browser("set", "media", "dark");
   }
 
+  // A Toast stands over the Drawer's header controls at the window's right edge; the keyboard reaches them where a pointer would hit the Toast.
+  const press = async (selector: string) => {
+    await lane.browser("focus", selector);
+    await lane.browser("press", "Enter");
+  };
+
   const shot = async (step: string) => {
     if (!directory) return;
     const name = join(directory, phase, `${kind}-${background}-${step}`);
@@ -240,27 +246,27 @@ it.concurrent.each(cases)(
       await lane.until(kind === "pad" ? "!!document.querySelector('.drawer .ProseMirror')" : "!!document.querySelector('.drawer .todo-detail-title')");
 
       // The previous iteration leaves the remembered size filled.
-      if (await lane.evaluate("document.querySelector('.drawer').dataset.fill !== 'true'")) await lane.browser("click", '.drawer button[aria-label=Maximise]');
+      if (await lane.evaluate("document.querySelector('.drawer').dataset.fill !== 'true'")) await press('.drawer button[aria-label=Maximise]');
       await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
 
       if (!shelf) {
-        await lane.browser("click", '.shelf button[aria-label="Close the Bench"]');
+        await press('.shelf button[aria-label="Close the Bench"]');
         await lane.until("!!document.querySelector('.window[data-shelf=closed]')");
       }
 
       await shot(`${shelf}-filled`);
       await cycle(lane, true, shelf);
-      await lane.browser("click", '.drawer button[aria-label=Restore]');
+      await press('.drawer button[aria-label=Restore]');
       await lane.until("!!document.querySelector('.drawer[data-maximised=false]')");
       await shot(`${shelf}-minimised`);
       await cycle(lane, false, shelf);
       expect(await lane.evaluate("window.__cycle.nodes.includes(window.__covered.button)")).toBe(true);
 
       if (background.endsWith("settings")) expect(await lane.evaluate("window.__cycle.nodes.some(el => el.matches('.ask-input'))")).toBe(false);
-      await lane.browser("click", '.drawer button[aria-label=Maximise]');
+      await press('.drawer button[aria-label=Maximise]');
       await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
       await shot(`${shelf}-filled-again`);
-      await lane.browser("click", '.drawer button.close');
+      await press('.drawer button.close');
       await lane.until("!!document.querySelector('.drawer[data-open=false]')");
       await shot(`${shelf}-closed`);
       await cycle(lane, false, shelf);
