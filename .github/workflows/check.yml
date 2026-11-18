@@ -129,12 +129,12 @@ jobs:
         with:
           rust: 'false'
       # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. Run 44165190898's
-      # 180 s of measured tests ran 153 s in the test step, so 235 s measured is about 200 s there, inside CI7297c's 240 s,
+      # 180 s of measured tests ran 153 s in the test step, so 255 s measured is about 217 s there, inside CI7297c's 240 s,
       # and ends the verdict near 5 min: every shard fewer saves its 31 s of setup and a runner slot (CI7297a).
       - id: shards
         env:
           COUNT: ${{ steps.plan.outputs.count }}
-          BUDGET: '235'
+          BUDGET: '255'
         run: |
           count=all
           if [ -n "$COUNT" ]; then
