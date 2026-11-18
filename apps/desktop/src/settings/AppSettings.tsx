@@ -322,9 +322,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   for (const { name } of numericFields) createMessageToast({ get message() { return numericFailure()[name]; }, dismiss: () => setNumericFailure(previous => ({ ...previous, [name]: null })) });
 
-  for (const program of ["roundup", "core"] as const) createMessageToast({ get message() { return updateFailure(updates, program); }, dismiss: () => updates.dismiss(program) });
-
-  createMessageToast({ get message() { return updates.checkFailed() ? copy.updateCheckFailed : null; }, dismiss: updates.dismissCheck });
+  for (const program of ["roundup", "core", "check"] as const) createMessageToast({ get message() { return program === "check" ? (updates.checkFailed() ? copy.updateCheckFailed : null) : updateFailure(updates, program); }, dismiss: () => program === "check" ? updates.dismissCheck() : updates.dismiss(program) });
 
   const entries = () => settingsEntries({ project: props.project, updates, numericFields });
 
