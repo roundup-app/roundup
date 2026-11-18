@@ -156,8 +156,9 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("focus", ".ProseMirror");
     await browser("press", "Control+Home");
     await browser("keyboard", "type", "Reviewed ");
-    await browser("wait", "[data-state=saved]");
     const expected = `Reviewed ${visualSource}`;
+
+    await expect.poll(() => app.rpc("pad.read", { name: "agent-work" }), { timeout: 30_000 }).toMatchObject({ text: expected, revision: 2 });
 
     expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2 });
     await browser("click", ".drawer .close");

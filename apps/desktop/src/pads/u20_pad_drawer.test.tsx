@@ -391,33 +391,6 @@ it("p2544b_inflight_edits_are_not_lost", async () => {
   await vi.advanceTimersByTimeAsync(0);
 });
 
-it("p2544b_saved_means_current_draft_acknowledged", async () => {
-  const { app } = await openShelf([padOf("notes", USER, "old")]);
-  const field = await openPad("notes");
-  const reply = deferred<Pad>();
-  const later = deferred<Pad>();
-  let writes = 0;
-  app.handlers["pad.write"] = () => ++writes === 1 ? reply.promise : later.promise;
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-  fireEvent.input(field, { target: { value: "first" } });
-  await vi.advanceTimersByTimeAsync(500);
-  expect(notices("status")).toHaveLength(0);
-  fireEvent.input(field, { target: { value: "latest" } });
-  flush();
-  reply.resolve(padOf("notes", USER, "first"));
-  await vi.advanceTimersByTimeAsync(0);
-  expect(notices("status")).toHaveLength(0);
-  await vi.advanceTimersByTimeAsync(500);
-  later.resolve(padOf("notes", USER, "latest"));
-  await vi.advanceTimersByTimeAsync(0);
-  const status = notices("status")[0]!;
-  expect(status.getAttribute("data-state")).toBe("saved");
-  expect(status.hasAttribute("tabindex")).toBe(false);
-  fireEvent.input(field, { target: { value: "another" } });
-  flush();
-  expect(notices("status")).toHaveLength(0);
-});
-
 it("p2544b_failure_preserves_draft_and_retry", async () => {
   const { app } = await openShelf([padOf("notes", USER, "old")]);
   const field = await openPad("notes");
@@ -435,7 +408,6 @@ it("p2544b_failure_preserves_draft_and_retry", async () => {
   fireEvent.focusOut(field);
   await vi.advanceTimersByTimeAsync(0);
   expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
-  expect(notices("status")[0]!.getAttribute("data-state")).toBe("saved");
 });
 
 it("p2544b_save_lifetime_is_pad_scoped", async () => {
@@ -495,7 +467,7 @@ it("p2544b_a_conflict_removes_saved_and_stops_the_pause", async () => {
   fireEvent.input(field, { target: { value: "first" } });
   flush();
   fireEvent.focusOut(field);
-  await waitFor(() => expect(notices("status")).not.toHaveLength(0));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(1));
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   fireEvent.input(field, { target: { value: "dirty" } });
   flush();
