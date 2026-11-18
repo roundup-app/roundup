@@ -20,6 +20,9 @@ const PARALLEL_FILES = 2;
 // of the time of a shard holding 117 files, about two seconds a file.
 const FILE_SETUP_SECONDS = 2;
 
+// CI7297a: a file named `*_webkit.test.*` needs Playwright's WebKit, which only the first shard installs (check.yml).
+export const isWebkitFile = (file: string): boolean => /_webkit\.test\.[jt]sx?$/.test(file);
+
 const durations: Seconds = measuredDurations;
 
 const median = (values: readonly number[]): number => {
@@ -78,7 +81,7 @@ function place(files: readonly string[], measured: Seconds, count: number, seria
       ? shardTime(shard.weights, [...shard.serial, weight(file)])
       : shardTime([...shard.weights, weight(file)], shard.serial);
 
-    const soonest = shards.reduce((best, shard) => {
+    const soonest = (isWebkitFile(file) && shards[0]) || shards.reduce((best, shard) => {
       const gap = finishes(shard) - finishes(best);
 
       return gap < 0 || (gap === 0 && shard.files.length < best.files.length) ? shard : best;
