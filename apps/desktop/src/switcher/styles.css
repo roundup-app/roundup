@@ -48,6 +48,15 @@
   position: relative;
 }
 
+/* U7314d: an errored entry's cause is the row's second line: full width under the name, in the row's size, one line cut by an ellipsis (its Tip shows the rest). */
+.switcher-row .failure-line {
+  font-size: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* U6249d: the cause and its actions share one row, as the Rail's do; a long cause wraps in its own cell. */
 .switcher .mounted-line {
   align-items: baseline;
