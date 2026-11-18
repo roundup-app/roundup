@@ -232,6 +232,16 @@
   z-index: 1;
 }
 
+/* U7414c: the editor's `color: inherit` on buttons outranks the quiet ink, so Edit restates the grey to text ladder at the quiet size. */
+.visual-drawing .visual-drawing-edit {
+  font-size: var(--text-small);
+  color: var(--grey);
+}
+
+.visual-drawing .visual-drawing-edit:is(:hover, :focus-visible) {
+  color: var(--text);
+}
+
 .visual-drawing:has(.visual-error) {
   height: auto;
   border: 0;
