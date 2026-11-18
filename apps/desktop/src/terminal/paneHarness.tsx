@@ -166,6 +166,7 @@ export const connectFakeProject = async (
   terminals: TerminalInfo[] = [],
   now = 0,
   daemonExit: Accessor<DaemonExit | null> = () => null,
+  project = { name: "p", path: "/p" },
 ): Promise<{ app: FakeApp; connected: ConnectedProject }> => {
   const app = createFakeApp();
 
@@ -184,7 +185,7 @@ export const connectFakeProject = async (
       : { kind: "gap", id, incarnation, from: end, after: end };
   };
 
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => now, daemonExit);
+  const connected = await connectProject(app, project, () => false, () => now, daemonExit);
 
   return { app, connected };
 };
