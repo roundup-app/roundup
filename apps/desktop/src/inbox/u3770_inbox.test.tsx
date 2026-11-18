@@ -14,6 +14,7 @@ import { info } from "../testing/nodes";
 import { copy } from "./copy";
 import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
@@ -37,7 +38,7 @@ const NODES: DoorNode[] = [
 const mountInbox = async (nodes: RailNode[] = NODES, reducedMotion = true) => {
   const m = await mountTodos([], reducedMotion, structuredClone(nodes));
   m.app.handlers["agent.resume"] = () => ({ ...NODES[2]! });
-  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });
@@ -65,7 +66,7 @@ it("u3770a_sections_hold_their_agents_in_order_with_counts", async () => {
 
 it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
   const m = await mountTodos([], true, [agent("i", "idle", "Idle")]);
-  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByText("Nothing needs you");
@@ -194,7 +195,7 @@ it("u3770e_reduced_motion_makes_every_change_instant", async () => {
 it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   const m = await mountTodos([{ ...todo(1, { title: "Ship" }) }], true, structuredClone(NODES));
   m.store.comments!.set(1, [{ id: 1, author: { kind: "agent", id: "a", parent: null }, body: "which branch?", created_at: 1, read: false }, { id: 2, author: { kind: "agent", id: "c", parent: null }, body: "error details", created_at: 2, read: false }, { id: 3, author: { kind: "agent", id: "a", parent: null }, body: "second question", created_at: 3, read: false }]);
-  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });
@@ -303,7 +304,7 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
   m.store.comments!.set(1, [{ id: 7, author: { kind: "agent", id: "a", parent: null }, body: "review this", created_at: 10, read: false }]);
   m.connected.showView(null);
   m.connected.showView("attention");
-  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   const row = await screen.findByRole("button", { name: /alpha.*Review/ });
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
   expect(m.connected.hasView("attention")).toBe(true);

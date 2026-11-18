@@ -42,14 +42,14 @@ it.each(["agents-10", "tree-40", "bubbles"])("u3560e_intervention_paste_failure_
     window.__fake.app.saveImageFailure = new Error('Image cache unavailable. Drop a file on the pane.');
     document.querySelector('.pane-screen .xterm-helper-textarea').dispatchEvent(new ClipboardEvent('paste', { bubbles:true, cancelable:true, clipboardData:data }));
   })()`);
-  await wait("document.querySelector('.pane-failure')?.textContent.includes('Image cache unavailable')");
+  await wait("document.querySelector('.app-toast')?.textContent.includes('Image cache unavailable')");
   await capture("U3560e", `${seed}-failure`);
   await read(`(() => {
     window.__fake.app.saveImageFailure = null;
     const data = new DataTransfer(); data.items.add(new File([new Uint8Array([137,80,78,71])], 'screenshot.png', { type:'image/png' }));
     document.querySelector('.pane-screen .xterm-helper-textarea').dispatchEvent(new ClipboardEvent('paste', { bubbles:true, cancelable:true, clipboardData:data }));
   })()`);
-  await wait("!document.querySelector('.pane-failure [role=alert]') && window.__fake.app.savedImages.length === 1");
+  await wait("!document.querySelector('.app-toast [role=alert]') && window.__fake.app.savedImages.length === 1");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write').length")).toBe(2);
   await capture("U3560e", `${seed}-image-recovered`);
 }, 60_000);

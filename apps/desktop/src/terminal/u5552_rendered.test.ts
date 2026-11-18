@@ -56,6 +56,6 @@ it.each(["agents-10", "tree-40", "bubbles"])("u5552d_u5552e_rendered_focus_and_c
     const data = new DataTransfer(); data.items.add(new File(['unsupported'], 'image.bmp', {type:'image/bmp'}));
     document.activeElement.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
   })()`);
-  await wait("!!document.querySelector('.pane [role=alert]')");
+  await wait("!!document.querySelector('.app-toast [role=alert]')");
   await capture("U5552d", `${seed}-clipboard-failure`);
 }, 60_000);

@@ -5,6 +5,7 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { info, node } from "../testing/nodes";
 import { connectFakeProject, fakeEmulators } from "./paneHarness";
 import { Pane } from "./Pane";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -13,9 +14,9 @@ it("u7211a_the_line_covers_the_top_row_or_the_row_below_a_cursor_near_it", async
   const { factory, made } = fakeEmulators();
 
   render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <Pane createEmulator={factory} over={<span>line</span>} />
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
   connected.rail.select("a");
   flush();

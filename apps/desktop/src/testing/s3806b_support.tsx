@@ -705,7 +705,9 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, 
     const retryBefore = app.calls.length;
     app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
     app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
-    fireEvent.click(within(document.querySelector<HTMLElement>(".rail-command-notice")!).getByRole("button", { name: "Retry" }));
+    // U7314a: a newer toast folds this one, and a folded card takes no click until the stack is hovered; the user hovers it, so the test does.
+    fireEvent.pointerEnter(document.querySelector<HTMLElement>(".app-toasts")!);
+    fireEvent.click(await within(document.querySelector<HTMLElement>(".rail-command-notice")!).findByRole("button", { name: "Retry" }));
 
     if (outcome === "identity" || outcome === "missing") {
       await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("unavailable"))).toBe(true));

@@ -1,5 +1,5 @@
 import { copy as windowCopy } from "../window/copy";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
@@ -12,8 +12,6 @@ const PROJECT = { name: "payments-api", path: "/Users/me/repos/payments-api" };
 const renderApp = (app: FakeApp) => {
   return render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
 };
-
-const region = (name: string) => screen.getByRole("region", { name });
 
 afterEach(cleanup);
 
@@ -101,7 +99,8 @@ describe("u2 first run", () => {
 
     app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
 
-    expect((await within(region("Centre")).findByText("daemon is gone", { selector: ".ink" })).className).toBe("ink");
+    // U7314a: the failed refetch shows as a toast; its text and class stay as U80 says.
+    expect((await screen.findByText("daemon is gone", { selector: ".app-toasts .ink" })).className).toBe("ink");
   });
 
 

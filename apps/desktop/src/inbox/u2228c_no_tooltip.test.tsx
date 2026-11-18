@@ -5,6 +5,7 @@ import { agent } from "../testing/nodes";
 import { mountTodos } from "../todos/testHarness";
 import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -19,7 +20,7 @@ const NODES: RailNode[] = [
 it("u2228c_inbox_and_switcher_rows_open_no_tooltip", async () => {
   const m = await mountTodos([], true, structuredClone(NODES));
 
-  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });

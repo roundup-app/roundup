@@ -16,6 +16,8 @@ import type { Completion } from "@contracts/Completion";
 import type { Event as ProjectEvent } from "@contracts/Event";
 import type { OpenTarget } from "../app/seam";
 import { AskBar } from "./AskBar";
+import { notice, notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 const exec = promisify(execFile);
 
@@ -61,7 +63,7 @@ it("dv5_discover_open_retained_and_current_targets_after_reopen", async () => {
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
   expect(rows).toHaveLength(13);
@@ -112,7 +114,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   const made = await screen.findByRole("region", { name: "Made" });
   const linkButton = await within(made).findByRole("button", { name: new RegExp(`^Open Failure link$`) });
   // P3557c: a failure belongs to its record, so each row is read on its own.
@@ -140,7 +142,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   fireEvent.click(padButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(2);
-  expect(within(rowOf(padButton)).getByRole("alert")).toBeDefined();
+  expect(notices("alert").length).toBeGreaterThan(0);
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);
 
   const fileButton = within(made).getByRole("button", { name: new RegExp(`^Open Cached file$`) });
@@ -169,12 +171,12 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   fireEvent.click(currentPadButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(3);
-  expect(within(rowOf(currentPadButton)).getByRole("alert")).toBeDefined();
+  expect(notices("alert").length).toBeGreaterThan(0);
   unsafe.mockRestore();
   const rpc = app.rpc;
   app.rpc = (method, params) => method === "deliverable.list" ? Promise.reject(new Error("catalogue connection interrupted")) : rpc(method, params);
   await rpc("deliverable.publish", { key: "reload-failure", title: "Reload signal", target: { kind: "external", url: "https://example.com/reload" } });
-  await waitFor(() => expect(within(made).getAllByRole("alert").some(alert => alert.textContent?.includes("catalogue connection interrupted"))).toBe(true));
+  await waitFor(() => expect(notices("alert").some(alert => alert.textContent?.includes("catalogue connection interrupted"))).toBe(true));
   expect(within(made).getAllByRole("listitem")).toHaveLength(count - 2);
   expect(within(made).getByRole("button", { name: /^Open Failure Pad$/ }).getAttribute("aria-current")).toBe("true");
   app.rpc = rpc;
@@ -182,7 +184,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   await real.restart();
   const reopened = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   reopened.showView("made");
-  render(() => <ConnectedProjectContext value={reopened}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={reopened}><AskBar /></ConnectedProjectContext></ToastHost>);
   const catalogue = await screen.findByRole("region", { name: "Made" });
   await within(catalogue).findByRole("button", { name: new RegExp(`^Open Failure Pad$`) });
   expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Cached file$") })).toBeNull();
@@ -239,7 +241,7 @@ it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_re
   app.showContextMenu = vi.fn(async () => "copy-link");
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   const made = await screen.findByRole("region", { name: "Made" });
 
   for (const [index, record] of [published, external, published].entries()) {
@@ -322,7 +324,7 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     const connected = await connectProject(app, { path: delivery.dir, name: "Project" }, () => false, () => 0);
     await connected.rail.settled();
     connected.showView("made");
-  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext></ToastHost>);
     const made = await screen.findByRole("region", { name: "Made" });
 
     const row = await waitFor(() => {
@@ -361,12 +363,12 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     expect(sends).toEqual([]);
     choice = `send:${receiver.id}`;
     fireEvent.keyDown(button, { key: "F10", shiftKey: true });
-    await within(row).findByRole("alert");
+    await waitFor(() => notice("alert"));
     expect(sends).toEqual([]);
     interrupted = false;
     fireEvent.contextMenu(row);
     await waitFor(() => expect(sends).toHaveLength(1));
-    await within(row).findByRole("alert");
+    await waitFor(() => notice("alert"));
     expect(await messages()).toEqual([]);
     // SAFETY: the receiver was spawned as a Door above, so it is a DoorNode.
     await app.rpc("terminal.write", { id: (receiver as DoorNode).terminal_id!, data: Buffer.from("unfinished user input").toString("base64") });
@@ -402,7 +404,7 @@ it("u5558a_publication_appears_without_input", async () => {
   const maker = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: "Automatic maker" });
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   const made = await screen.findByRole("region", { name: "Made" });
   const rpc = app.rpc;
   let reads = 0;
@@ -423,7 +425,7 @@ it("u5558a_removal_disappears_without_input", async () => {
   for (const key of ["first-auto", "second-auto"]) records.push(await app.rpc("deliverable.publish", { key, title: "Duplicate automatic title", target: { kind: "external", url: `https://example.com/${key}` } }));
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext></ToastHost>);
   const made = await screen.findByRole("region", { name: "Made" });
   await waitFor(() => expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).toContain(records[0]!.id));
   const rpc = app.rpc;

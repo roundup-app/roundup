@@ -303,7 +303,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       await page.evaluate("window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Cannot open Terminal: the shell could not start. Check the shell configuration and retry New Terminal.'); }; true");
       await page.until("!!document.querySelector('.terminal-new')");
       await page.browser("click", ".terminal-new");
-      await page.until("document.querySelector('.bubbles [role=alert]')?.textContent.includes('Check the shell configuration')");
+      await page.until("document.querySelector('.app-toast [role=alert]')?.textContent.includes('Check the shell configuration')");
       writeFileSync(join(output, "root-agent-dense-open-failure.checks.json"), JSON.stringify(await page.evaluate("window.__checks()"), null, 2));
       await page.browser("screenshot", join(output, "root-agent-dense-open-failure.png"));
     }

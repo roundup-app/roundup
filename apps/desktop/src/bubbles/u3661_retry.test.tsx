@@ -3,6 +3,7 @@ import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -34,7 +35,7 @@ it("u3661_closing_another_terminal_keeps_the_failed_close_retry", async () => {
   flush();
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "2" }, { id: "1" }]));
-  expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close zsh");
+  screen.getByRole("alert", { name: /cannot close zsh/ });
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   flush();
   await answerQuestion(true);
@@ -48,7 +49,7 @@ it("u3661_cancelling_another_close_keeps_the_failed_close_retry", async () => {
   flush();
   await answerQuestion(false);
   expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "2" }]);
-  expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close zsh");
+  screen.getByRole("alert", { name: /cannot close zsh/ });
   expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
 });
 
@@ -65,8 +66,8 @@ it("u3661_a_later_failure_replaces_the_earlier_retry", async () => {
   fireEvent.click(closeButton("cargo test"));
   flush();
   await answerQuestion(true);
-  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close cargo"));
-  expect(document.querySelector('[role="alert"]')?.textContent).not.toContain("cannot close zsh");
+  await screen.findByRole("alert", { name: /cannot close cargo/ });
+  expect(notices("alert")).toHaveLength(1);
   app.handlers["terminal.close"] = succeed;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   flush();

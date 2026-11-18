@@ -53,7 +53,7 @@ const capture = async (id: string, step: string) => {
   const target = join(directory, baseline ? "base" : "head");
   mkdirSync(target, { recursive: true });
   await browser("screenshot", join(target, `${step}.png`));
-  const observed = await read<{ checks: unknown }>(`({checks:window.__checks(), shown:[...document.querySelectorAll('.bubble:not([hidden])')].map(b=>b.dataset.bubble), connected:window.__hostProbe?.bubble?.isConnected, same:window.__hostProbe?.bubble === document.querySelector('.bubble:not([hidden])'), focused:document.activeElement?.className, menu:window.__fake.app.shownMenus.at(-1)?.items.map(i=>i.label), failure:document.querySelector('.bubbles [role=alert]')?.textContent})`);
+  const observed = await read<{ checks: unknown }>(`({checks:window.__checks(), shown:[...document.querySelectorAll('.bubble:not([hidden])')].map(b=>b.dataset.bubble), connected:window.__hostProbe?.bubble?.isConnected, same:window.__hostProbe?.bubble === document.querySelector('.bubble:not([hidden])'), focused:document.activeElement?.className, menu:window.__fake.app.shownMenus.at(-1)?.items.map(i=>i.label), failure:document.querySelector('.app-toast [role=alert]')?.textContent})`);
   writeFileSync(join(target, `${step}.checks.json`), JSON.stringify(observed.checks, null, 2));
   writeFileSync(join(target, `${step}.observation.json`), JSON.stringify(observed, null, 2));
 };
@@ -126,8 +126,8 @@ it("u4424a_u4424b_rendered_host_absence_replacement_and_dense_failure", async ()
   await read("window.__fake.app.handlers['terminal.close']=()=>{throw new Error('Cannot close Terminal: shell is busy. Stop the command and retry.');}; document.querySelector('.bubble:not([hidden]) [aria-label=Close]').click()");
   await until("!!window.__question.answer");
   await read("window.__question.answer(true)");
-  await until("document.querySelector('.bubbles [role=alert]')?.textContent.includes('Stop the command and retry.')");
-  await read("document.querySelector('.bubbles .bubble-failure button').focus()");
+  await until("document.querySelector('.app-toast [role=alert]')?.textContent.includes('Stop the command and retry.')");
+  await read("document.querySelector('.app-toast button').focus()");
   await capture("U4424b", "dense-failure");
 
   if (directory) await browser("record", "stop");
