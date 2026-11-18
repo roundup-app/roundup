@@ -1,6 +1,6 @@
 import type { RailNode } from "@contracts/agent/RailNode";
 import { BusyButton } from "../ui/BusyButton";
-import { createMemo, createSignal, createEffect, Show } from "solid-js";
+import { createMemo, createSignal, createEffect } from "solid-js";
 import * as v from "valibot";
 import { applying } from "../app/pending";
 import { copy } from "./copy";

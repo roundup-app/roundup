@@ -1,4 +1,4 @@
-import { notice, notices } from "../testing/notices";
+import { notices } from "../testing/notices";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, NOW } from "../testing/nodes";

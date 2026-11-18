@@ -6,7 +6,7 @@ import { shelfKeyScope } from "./keys";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { createItemFailures } from "../ink/itemFailures";
-import { createContext, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack, useContext, type Accessor } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, flush, onCleanup, Show, untrack, useContext, type Accessor } from "solid-js";
 import { type JSX, Portal } from "@solidjs/web";
 import { createMessageToast, createMessageToasts } from "../ink/messageToast";
 import { StatusNote } from "../ink/MountedLine";
