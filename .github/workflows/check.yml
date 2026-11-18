@@ -128,12 +128,13 @@ jobs:
         uses: ./.github/actions/setup
         with:
           rust: 'false'
-      # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. With `plan`'s
-      # 52 s and a lane's 31 s of setup, 200 s of measured tests (180 s measured ran 153 s in the test step, 238 s a lane in run 44165190898, so about 225 s on the runner, inside CI7297c's 240 s) keeps the verdict near 5 min; every shard fewer saves its 31 s of setup and a runner slot, 7216 job-seconds a run at 20 concurrent jobs (CI7297a).
+      # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. Run 44165190898's
+      # 180 s of measured tests ran 153 s in the test step, so 225 s measured is about 190 s there, inside CI7297c's 240 s,
+      # and ends the verdict near 5 min: every shard fewer saves its 31 s of setup and a runner slot (CI7297a).
       - id: shards
         env:
           COUNT: ${{ steps.plan.outputs.count }}
-          BUDGET: '200'
+          BUDGET: '225'
         run: |
           count=all
           if [ -n "$COUNT" ]; then
@@ -222,7 +223,6 @@ jobs:
       - name: test-rust
         timeout-minutes: 15
         run: |
-          python3 -m pip install -r tools/e14/requirements.txt
           observation=()
           if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
           python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"

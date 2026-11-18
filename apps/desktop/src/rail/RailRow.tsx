@@ -165,7 +165,7 @@ const FoldedCount = (props: { folded: boolean; topology: RailTopology; id: strin
 
 /** The control that folds or unfolds a row's children. */
 const FoldControl = (props: { class: string; collapsed: boolean; onToggle: () => void }) => (
-  <IconButton class={props.class} aria-label={props.collapsed ? copy.expand : copy.collapse} aria-expanded={props.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.collapsed ? "right" : "down"} /></IconButton>
+  <IconButton icon="expand" class={props.class} aria-label={props.collapsed ? copy.expand : copy.collapse} aria-expanded={props.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.collapsed ? "right" : "down"} /></IconButton>
 );
 
 export const RailRowView = (props: {

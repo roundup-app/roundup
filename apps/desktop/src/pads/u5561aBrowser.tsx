@@ -1,6 +1,7 @@
 import { render } from "@solidjs/web";
 import { runChecks } from "../testing/checks";
 import PadRichEditor from "./PadRichEditor";
+import { ToastHost } from "../testing/toastHost";
 import "../tokens.css";
 
 const host = document.getElementById("root");
@@ -11,7 +12,7 @@ const source = "# Result\n\nReady.\n\n## Verification\n\n<details>\n<summary>Evi
 
 let changes = 0;
 
-render(() => <PadRichEditor
+render(() => <ToastHost><PadRichEditor
   text={new URLSearchParams(location.search).has("unsafe") ? source.replace("<summary>Evidence</summary>", "<summary>Evidence <img src=x onerror=alert(1)><script>alert(1)</script>[unsafe](javascript:alert(1))</summary>") : source}
   readonly={!new URLSearchParams(location.search).has("editable")}
   autofocus={false}
@@ -19,6 +20,6 @@ render(() => <PadRichEditor
   onText={() => {}}
   onBlur={() => {}}
   onReady={() => { host.dataset.changes = String(changes); host.dataset.ready = "true"; }}
-/>, host);
+/></ToastHost>, host);
 
 Object.assign(window, { __checks: runChecks });

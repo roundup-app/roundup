@@ -284,8 +284,8 @@ export default defineConfig({
         },
       },
     ],
-    // jsdom resolves the server build of solid-js unless told to use the browser one.
-    server: { deps: { inline: [/solid-js/, /@solidjs\/web/, /@excalidraw/] } },
+    // jsdom resolves the server build of solid-js unless told to use the browser one. @json-render/solid imports solid-js too, so it runs inline and shares the App's one Solid runtime.
+    server: { deps: { inline: [/solid-js/, /@solidjs\/web/, /@excalidraw/, /@json-render\/solid/] } },
   },
   resolve: {
     conditions: ["browser", "development|production"],

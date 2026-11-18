@@ -184,6 +184,7 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     const { connectProject, ConnectedProjectContext } = await import('/src/state/connectedProject.ts');
     const { PadDrawer } = await import('/src/pads/PadDrawer.tsx');
     const { DrawerHost } = await import('/src/drawer/DrawerHost.tsx');
+    const { ToastHost } = await import('/src/testing/toastHost.tsx');
     const app = window.__fake.app;
     const pads = await app.rpc('pad.list', null);
     const pad = pads.find(p => p.name === 'pad-3');
@@ -195,7 +196,7 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     connected.drafts.settle(a.revision, 'failed');
     const root = document.createElement('div');
     document.querySelector('.window .overlay').append(root);
-    render(() => createComponent(ConnectedProjectContext, { value: connected, get children() { return createComponent(DrawerHost, { drawer: connected.drawer, reducedMotion: () => true }); } }), root);
+    render(() => createComponent(ToastHost, { get children() { return createComponent(ConnectedProjectContext, { value: connected, get children() { return createComponent(DrawerHost, { drawer: connected.drawer, reducedMotion: () => true }); } }); } }), root);
     const list = { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} };
     const show = revision => connected.drawer.open(() => createComponent(ConnectedProjectContext, { value: connected, get children() { return createComponent(PadDrawer, { name: pad.name, recovery: { project: connected.project.path, revision, list }, pads: list.pads, onLateFailure: () => {} }); } }), 'key');
     window.__selectedPad = { connected, app, b, show, calls: [...app.calls], retained: connected.drafts.list() };

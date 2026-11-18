@@ -503,6 +503,12 @@ details[data-pad-agents] summary:focus-visible {
   color: var(--text);
 }
 
+/* U7424a: a fold mark with keyboard focus draws the App's focus ring, as U4382a's shared forms do. */
+details[data-pad-heading] summary:focus-visible {
+  outline: var(--stroke-width) solid var(--accent);
+  outline-offset: var(--stroke-width);
+}
+
 .pad-format-controls { display: flex; align-items: center; gap: var(--space-1); flex-shrink: 0; order: 1; }
 .pad-format-controls .icon { fill: none; }
 

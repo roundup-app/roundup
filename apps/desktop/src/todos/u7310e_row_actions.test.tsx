@@ -59,6 +59,15 @@ it("u7310e_icon_actions_are_named_by_their_labels", async () => {
     expect(button.textContent).toBe("");
     fireEvent.keyDown(document, { key: "Tab" });
     button.focus();
+
+    // U7413a: Copy and Remove are universal icons and show no name tooltip; Reply and send show theirs.
+    if (/^(Copy|Unlink )/.test(button.getAttribute("aria-label") ?? "")) {
+      await new Promise(done => setTimeout(done, 300));
+      expect(screen.queryByRole("tooltip")).toBeNull();
+      button.blur();
+      continue;
+    }
+
     const tip = await screen.findByRole("tooltip");
     expect(tip.textContent).toBe(button.getAttribute("aria-label"));
     expect(button.getAttribute("aria-describedby")).toBe(tip.id);

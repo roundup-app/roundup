@@ -59,7 +59,7 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
       const menu = document.querySelector('.pad-colour-menu');
       const style = getComputedStyle(menu);
       const body = document.querySelector('.drawer .pad-editor');
-      return { checks: window.__checks(), triggerId: trigger.id, labelledby: menu.getAttribute('aria-labelledby'), controls: trigger.getAttribute('aria-controls'), menuId: menu.id, sameTrigger: trigger === window.__colourTrigger, trigger: trigger.getBoundingClientRect().toJSON(), menu: menu.getBoundingClientRect().toJSON(), placement: menu.dataset.side + '-' + menu.dataset.align, effectiveOffset: menu.getBoundingClientRect().top - trigger.getBoundingClientRect().bottom, offsetSource: "measured: the menu's top edge minus the trigger's bottom edge", transformOrigin: style.getPropertyValue('--transform-origin'), transform: style.transform, menuStyle: menu.getAttribute('style'), scroll: { top: body.scrollTop, height: body.clientHeight, total: body.scrollHeight }, recovery: document.querySelector('.pad-body [role=alert]')?.textContent ?? null };
+      return { checks: window.__checks(), triggerId: trigger.id, labelledby: menu.getAttribute('aria-labelledby'), controls: trigger.getAttribute('aria-controls'), menuId: menu.id, sameTrigger: trigger === window.__colourTrigger, trigger: trigger.getBoundingClientRect().toJSON(), menu: menu.getBoundingClientRect().toJSON(), placement: menu.dataset.side + '-' + menu.dataset.align, effectiveOffset: menu.getBoundingClientRect().top - trigger.getBoundingClientRect().bottom, offsetSource: "measured: the menu's top edge minus the trigger's bottom edge", transformOrigin: style.getPropertyValue('--transform-origin'), transform: style.transform, menuStyle: menu.getAttribute('style'), scroll: { top: body.scrollTop, height: body.clientHeight, total: body.scrollHeight }, recovery: document.querySelector('.app-toast [role=alert]')?.textContent ?? null };
     })()`);
 
     for (const dir of directories) {
@@ -85,7 +85,7 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
   await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.', 'pad.write'); true");
   await browser("keyboard", "type", "Retained review draft ");
   await browser("click", ".pad-head-name");
-  await browser("wait", "--fn", "document.querySelector('.pad-body [role=alert]')?.textContent.includes('Free space and retry.')");
+  await browser("wait", "--fn", "document.querySelector('.app-toast [role=alert]')?.textContent.includes('Free space and retry.')");
   await evaluate("document.querySelector('.drawer .pad-editor').scrollTop = 0; true");
   await settle();
   const writes = await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length");
