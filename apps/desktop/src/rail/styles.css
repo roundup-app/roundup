@@ -226,12 +226,6 @@
   --tree-origin: calc(var(--rail-inset) + var(--space-4) / 2);
 }
 
-/* U391: the failure line sits directly above the footer, outside the list. */
-.rail-command-notice .ink {
-  flex: 1;
-  background: var(--sunken);
-}
-
 /* U142: the whole Rail (rows, done summary, pinned bar and the gaps between) selects rows, never text; a field the user types in, the error line and the menu keep theirs. */
 .rail-tree {
   -webkit-user-select: none;
@@ -598,10 +592,6 @@
   position: relative;
 }
 
-.rail-command-notice[data-empty="true"] {
-  display: none;
-}
-
 .rail .rail-scroll {
   padding-bottom: var(--line);
   scroll-padding-bottom: var(--line);
@@ -618,22 +608,6 @@
 .rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; max-width: calc(100% - var(--space-4) - var(--space-2) - var(--space-3)); overflow: hidden; }
 /* U7276b: shown chips take their own presses, so a press on one never drags the row. */
 .rail-row:is(:focus-within, [data-selected="true"]) .worktree-chips { pointer-events: auto; }
-
-.rail .rail-command-notice {
-  block-size: auto;
-  max-block-size: none;
-  padding-inline: var(--space-4);
-}
-
-.rail-command-notice .ink[role="alert"] {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  text-overflow: clip;
-}
-
-.rail-command-notice .reserved-content {
-  align-items: baseline;
-}
 
 /* U4335a: the state and name follow the same depth as the incoming elbow. */
 

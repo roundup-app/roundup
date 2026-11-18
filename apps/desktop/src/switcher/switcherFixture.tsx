@@ -8,6 +8,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import type { Pad } from "@contracts/pad/Pad";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { createNow, DisplayClockContext } from "../state/clock";
+import { ToastHost } from "../testing/toastHost";
 import { Bubbles } from "../bubbles/Bubbles";
 import { AskBar } from "../ask/AskBar";
 import { AttentionKey } from "../rail/AttentionKey";
@@ -66,7 +67,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
     const [screens, setScreens] = createSignal<Screens>();
 
     return (
-      <DisplayClockContext value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext value={connected}>
+      <ToastHost><DisplayClockContext value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext value={connected}>
         <AttentionKey />
         <AskBar />
         <Rail />
@@ -76,7 +77,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
           <div class="resource-strip" /><span class="resource-agent" />
           <Switcher notify={notify} onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
-      </ConnectedProjectContext></DisplayClockContext>
+      </ConnectedProjectContext></DisplayClockContext></ToastHost>
     );
   });
 

@@ -5,6 +5,7 @@ import { agent, mode, workstream, doorOf } from "../../testing/nodes";
 import { mountRailAndPane } from "../../terminal/paneHarness";
 import { copy } from "../copy";
 import { chooseAction, chooseFooter, itemOf, mountRail, railCallsTo, resumeRow, rowOf, settled } from "../railFixture";
+import { notices } from "../../testing/notices";
 
 afterEach(cleanup);
 
@@ -122,7 +123,7 @@ it.each([
   await settled();
 
   expect(railCallsTo(mounted.app, "rail.tree").length).toBe(before + refreshes);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 it("u6000b_no_row_shows_starting_after_the_program_is_up_or_a_failure", async () => {

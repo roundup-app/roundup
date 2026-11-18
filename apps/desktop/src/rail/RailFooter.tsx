@@ -47,6 +47,7 @@ export const RailFooter = (props: {
   const newAgentFailure = () => failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined;
 
   createMessageToast({
+    class: "rail-command-notice",
     get message() { return line().message; },
     get content() { return newAgentFailure(); },
     dismiss: () => line().dismiss(),
