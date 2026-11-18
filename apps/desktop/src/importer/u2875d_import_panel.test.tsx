@@ -170,7 +170,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       document.querySelectorAll('.import-check')[2].click();
       return true;
     })()`);
-    await lane.until("!!document.querySelector('.import-panel [role=status][aria-label=\"Import choices conflict\"]')");
+    await lane.until("!!document.querySelector('.import-recovery')");
     await lane.capture("U3049a", "conflict");
     expect(await lane.calls("project.importCommit")).toEqual([]);
     await lane.evaluate("[...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').focus()");

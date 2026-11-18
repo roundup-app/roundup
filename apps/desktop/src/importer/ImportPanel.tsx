@@ -49,6 +49,9 @@ export const ImportPanel = (props: { onClose: () => void }) => {
 
   createMessageToast({ get message() { return copyFailure(); }, dismiss: () => failCopy(null) });
 
+  const conflict = dismissable(() => state.hasConflict() ? copy.importConflictExplanation : null);
+  createMessageToast({ get message() { return conflict.message(); }, dismiss: conflict.dismiss });
+
   const choose = state.setPeriod;
   const confirm = state.confirm;
   const heads = new Map<string, HTMLButtonElement>();
@@ -104,7 +107,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           <Show when={state.listingAgent() && !found()?.candidates.length}>
             <span class="import-listing"><KindGlyph kind={doorStatus(listing())?.kind ?? "working"} /><StatusNote text={copy.importListing(listing()?.name ?? copy.importAgentName)} /></span>
           </Show>
-          <StatusNote label={copy.importConflict} text={!line.message() && state.hasConflict() ? copy.importConflictExplanation : null} />
           <StatusNote text={line.message() || state.hasConflict() ? null : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null} />
           <Show when={state.hasConflict()}>
             <section class="import-recovery" aria-label={copy.importChoices}>

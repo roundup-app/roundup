@@ -360,6 +360,8 @@ p {
 .window[data-shelf-shown="true"] { --toast-inset: var(--shelf-span); }
 /* U7310d: an open Drawer keeps Close and its item's actions in its head, the close row (its top padding) and one row of icon buttons, so the Toast stack starts below that head. */
 .window:has(.drawer[data-open="true"]) { --toast-top: calc(var(--space-6) + var(--space-5)); }
+/* U7314e: a settings page keeps Close in its head at the top right of the centre, so the Toast stack starts below that head. */
+.window:has(.settings-head) { --toast-top: calc(var(--space-4) + var(--space-5)); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
   --drawer-bottom: var(--rail-actions-height);

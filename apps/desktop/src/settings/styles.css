@@ -400,7 +400,7 @@
 .settings-result .settings-skill-state { padding-inline: 0; }
 .settings-place { margin: 0 0 var(--space-1); color: var(--grey); font-size: var(--text-caption); }
 .settings-search input::placeholder { color: var(--grey); }
-.settings-no-results { color: var(--grey); }
+.settings-no-results { color: var(--grey); line-height: var(--line); }
 
 /* One row per state: three inline switches in aligned columns. */
 .settings-content .settings-alert-row {
