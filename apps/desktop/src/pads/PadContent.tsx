@@ -17,7 +17,7 @@ import { createEffect, createMemo, createSignal, flush as commitWrites, lazy, Lo
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { exportPad } from "./padExport";
 import { useConnectedProject } from "../state/connectedProject";

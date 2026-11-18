@@ -13,7 +13,6 @@ import { IconButton } from "../ui/IconButton";
 import { contextMenu } from "../ui/contextMenu";
 import { createRowMenu } from "../ui/rowMenu";
 import { writeText } from "../app/clipboard";
-import { ReservedLine } from "../ink/ReservedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -197,7 +196,8 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
       <Collapsible.Content class="todo-activity-entries"><For each={older()}>{renderEntry}</For></Collapsible.Content>
     </Collapsible.Root>
     <div class="todo-activity-entries"><For each={recent()}>{renderEntry}</For></div>
-    <ReservedLine class="todo-comments-live" status={announcement()} aria-live="polite" aria-atomic="true" />
+    {/* A live region announces only a change to a region already in the page (U3776), so it stays mounted and empty until a comment arrives; it is hidden and holds no place. */}
+    <p class="todo-comments-live" role="status" aria-live="polite" aria-atomic="true">{announcement()}</p>
     <div class="todo-composer"><span class="todo-composer-actor" aria-hidden="true"><Icon name="circle" /></span><textarea spellcheck="false" autocorrect="off" autocapitalize="off" class="todo-comment-field field-frame" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => { const typed = event.currentTarget; draft.keep({ text: typed.value }, { start: typed.selectionStart, end: typed.selectionEnd, direction: typed.selectionDirection }); }}

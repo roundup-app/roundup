@@ -14,7 +14,7 @@ const toasts = () => screen.getByRole("region", { name: "Updates" });
 const ownElements = (scope: ParentNode) => [...scope.querySelectorAll("*")].filter(element => !element.closest(".app-toasts"));
 
 /** The reserved lines the screen itself holds, empty or not: a failure has no place in it. */
-const reservedLines = () => ownElements(document).filter(line => line.matches(".reserved-line"));
+const reservedLines = () => ownElements(document).filter(line => line.matches(".message-body"));
 
 /** The elements of a screen, as nodes: the same ones in the same order whether or not a message shows. */
 const same = (now: readonly Element[], before: readonly Element[]) => expect(now.map(element => before.indexOf(element))).toEqual(before.map((_, index) => index));

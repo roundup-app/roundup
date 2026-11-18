@@ -184,12 +184,6 @@
   white-space: normal;
 }
 
-/* Recovery is requested: expand its failure so the cause and retry stay readable. */
-.header-recovery .reserved-line:not([data-empty="true"]) {
-  block-size: auto;
-  max-block-size: none;
-}
-
 .header-recovery .ink[role="alert"] {
   white-space: normal;
   overflow-wrap: anywhere;

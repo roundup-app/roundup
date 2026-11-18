@@ -83,7 +83,7 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   expect(document.querySelector('.inbox [aria-expanded="true"]')).toBeNull();
   expect(document.querySelector('.rail-row[data-selected]')).toBeNull();
   expect(app.calls.slice(afterRefresh)).toEqual([]);
-  expect([...document.querySelectorAll('.inbox .inbox-actions button, .inbox .reserved-actions button')].every(el => !el.hasAttribute("data-collection-value"))).toBe(true);
+  expect([...document.querySelectorAll('.inbox .inbox-actions button, .inbox .message-actions button')].every(el => !el.hasAttribute("data-collection-value"))).toBe(true);
 });
 
 it.each(["Enter", " ", "click"])("u3787c_agent_activation_and_Escape_preserve_the_requesting_Terminal_%s", async activation => {

@@ -51,7 +51,7 @@ p {
   pointer-events: none;
 }
 
-.overlay :is(.drawer, .help, .reserved-line) {
+.overlay :is(.drawer, .help, .floating-line) {
   pointer-events: auto;
 }
 

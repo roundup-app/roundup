@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ErrorLine } from "./ErrorLine";
-import { RecoveryButtons, type Blocked, type Dismissible } from "./ReservedLine";
+import { RecoveryButtons, type Blocked, type Dismissible } from "./recovery";
 import "./failureLine.css";
 
 /** U7314a: a failure a dialog shows for its own form. The Toast region sits under a dialog's backdrop, so the failure shows in the dialog from an element mounted only while it holds; it is announced once (U80) and takes no place before or after. */
@@ -14,8 +14,8 @@ export const DialogFailure = (props: Dismissible & { message: string | null | fa
 );
 
 /** U7314a: a status or notice that reports no failure, mounted only while it holds. */
-export const StatusNote = (props: { text: string | null | false | undefined; label?: string; icon?: JSX.Element; busy?: boolean; class?: string; live?: "off" }) => (
-  <Show when={props.text}>{text => <p aria-live={props.live} class={`ink mounted-line${props.class ? ` ${props.class}` : ""}`} role="status" aria-label={props.label} aria-busy={props.busy ? "true" : undefined}>{props.icon}{text()}</p>}</Show>
+export const StatusNote = (props: { text: string | null | false | undefined; label?: string; icon?: JSX.Element; busy?: boolean; class?: string; live?: "off" | "polite"; content?: JSX.Element }) => (
+  <Show when={props.text}>{text => <p aria-live={props.live} aria-atomic={props.live === "polite" ? "true" : undefined} class={`ink mounted-line${props.class ? ` ${props.class}` : ""}`} role="status" aria-label={props.label} aria-busy={props.busy ? "true" : undefined}>{props.icon}{props.content ?? text()}</p>}</Show>
 );
 
 /** U7314a: a status that holds controls, mounted only while it holds. */

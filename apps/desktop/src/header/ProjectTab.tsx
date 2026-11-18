@@ -1,4 +1,4 @@
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure, StatusNote } from "../ink/MountedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";

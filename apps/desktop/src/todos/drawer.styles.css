@@ -128,10 +128,10 @@ p.todo-comment-body { white-space: pre-wrap; }
 .todo-meta-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-detail-body { line-height: var(--line); }
 /* U7310a: a kept draft's row follows the document, in its reading column. */
-.todo-draft-recovery[data-in-drawer] .reserved-line { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); align-self: center; }
+.todo-draft-recovery[data-in-drawer] .todo-draft-line { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); align-self: center; }
 /* U3787h: the restore-pending status wraps in the column and shows only while it holds (U7310d). */
-.todo-detail .reserved-line.todo-delete-feedback { flex-shrink: 0; block-size: auto; max-block-size: none; }
-.todo-delete-feedback .reserved-status { white-space: normal; }
+.todo-detail .todo-delete-feedback { flex-shrink: 0; }
+.todo-delete-feedback { white-space: normal; }
 
 .todo-breadcrumb span:first-child { white-space: nowrap; max-width: 30%; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; }
 

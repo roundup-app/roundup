@@ -119,7 +119,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await browser("wait", '.todo-older[aria-expanded="true"]');
   }
 
-  await evaluate("document.querySelector('.app-toast .reserved-line:has([role=alert])')?.scrollIntoView({block: 'center'}); true");
+  await evaluate("document.querySelector('.app-toast .message-body')?.scrollIntoView({block: 'center'}); true");
   await capture("read-failure");
   await browser("focus", ".todo-comment-field");
   await browser("press", "Enter");

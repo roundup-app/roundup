@@ -11,7 +11,7 @@ afterEach(cleanup);
 const toasts = () => screen.getByRole("region", { name: "Updates" });
 
 /** The reserved lines the screen itself holds, empty or not: a failure has no place in it. */
-const reservedLines = () => [...document.querySelectorAll(".reserved-line")].filter(line => !line.closest(".app-toasts"));
+const reservedLines = () => [...document.querySelectorAll(".message-body")].filter(line => !line.closest(".app-toasts"));
 
 const elements = (root: Element) => [...root.querySelectorAll("*")];
 

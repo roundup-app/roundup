@@ -225,6 +225,6 @@ Policy — rendered observer: one isolated headless agent-browser session on the
 2. `crates/rupd/src/link.rs`, `parse`: requires `project`; unchanged.
 3. `apps/desktop/src/app/nativeOpen.tsx`, `open`: asks each running Project; the click's key joins the URL before it.
 4. `apps/desktop/src/rail/RailRow.tsx`, `unreachable`: includes the direct child and, folded, every descendant.
-5. `apps/desktop/src/ink/ReservedLine.tsx`, `ReservedLine`; `apps/desktop/src/ink/FailureLine.tsx`, `FailureLine`.
+5. `apps/desktop/src/ink/messageToast.tsx`, `MessageBody`; `apps/desktop/src/ink/FailureLine.tsx`, `FailureLine`.
 6. `scenarios/automatic-updates.md`, **U5558e automatic reads are bounded and recoverable**; `scenarios/ui-surfaces.md`, **U80 one failure line**.
 7. `crates/desktop/src/project_task.rs`, `fail_run`: the reopen wait.

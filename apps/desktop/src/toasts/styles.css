@@ -3,17 +3,8 @@
   display: contents;
 }
 
-/* U7310d: a card's message wraps whole beside its actions; the card, not a reserved line, sets its height. */
-.app-toast-body .reserved-line {
-  block-size: auto;
-  max-block-size: none;
-}
-
-.app-toast-body .reserved-content {
-  flex-wrap: wrap;
-}
-
-.app-toast-body :is(p.ink[role="alert"], .ink, .reserved-status) {
+/* U7310d: a card's message wraps whole beside its actions; the card sets its height. */
+.app-toast-body :is(p.ink[role="alert"], .ink) {
   white-space: normal;
   overflow: visible;
 }

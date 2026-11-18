@@ -1,7 +1,8 @@
 import "./styles.css";
 import { createEffect, Show, untrack } from "solid-js";
 import { RpcError } from "../app/seam";
-import { dismissable, RecoveryButtons, ReservedLine } from "../ink/ReservedLine";
+import { dismissable, RecoveryButtons } from "../ink/recovery";
+import { FloatingLine } from "../ink/FloatingLine";
 import { focusCentre, queueFocus } from "../keys/focus";
 import { createMessageToast } from "../ink/messageToast";
 import { LEADER } from "../keys/chords";
@@ -60,9 +61,8 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
   createMessageToast({ get message() { return message(); }, dismiss, get recover() { return recover(); } });
 
   return (
-    <ReservedLine
+    <FloatingLine
       class="resume-bar"
-      overlay
       status={pending() && !message() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
       action={<Show when={pending() && !message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
       onKeyDown={event => {

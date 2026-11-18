@@ -17,5 +17,5 @@ it("dcl10_row_count_and_start_follow_stored_backlog", async () => {
   await rail.startDoor("w");
   await waitFor(() => expect((rowOf("payments").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).toContain("launch failed"));
   expect((rowOf("payments").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).toContain("Door stopped · 3 waiting");
-  expect(rowOf("payments").querySelector(".rail-door-failure, .reserved-line, [data-failure]")).toBeNull();
+  expect(rowOf("payments").querySelector(".rail-door-failure, .message-body, [data-failure]")).toBeNull();
 });

@@ -191,7 +191,7 @@ it.concurrent.each(cases)(
     // U6244c: the Ask is a modal layer that makes the Drawer and Shelf inert, so the draft waits behind Escape.
     await lane.browser("press", "Escape");
     await lane.until("!document.querySelector('.ask-input')");
-    let target = ".app-toast .reserved-actions > button:not([data-dismiss-failure])";
+    let target = ".app-toast .message-actions > button:not([data-dismiss-failure])";
 
     if (background === "save") {
       await lane.evaluate(`(async () => {

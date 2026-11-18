@@ -324,7 +324,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     flush();
     await waitFor(() => expect(notices("alert")).toHaveLength(1));
-    expect(bubble("1").querySelector(".reserved-line:not([data-empty='true'])")).toBeNull();
+    expect(bubble("1").querySelector(".message-body")).toBeNull();
     mounted.app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
     flush();
     fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Retry" }));

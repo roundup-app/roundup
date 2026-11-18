@@ -8,7 +8,7 @@ import { RadioGroup } from "./RadioGroup";
 import { Combobox } from "./Combobox";
 import { pressFeedback } from "./pressFeedback";
 import { runChecks } from "../testing/checks";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { MAX_FONT_SIZE, MIN_FONT_SIZE } from "../terminal/fontSize";
 import "../tokens.css";
 import "../styles.css";
@@ -40,7 +40,7 @@ const Fixture = () => {
         <RadioGroup label="Mode" choices={choices} value={value()} disabled={disabled} invalid={invalid} onValueChange={setValue} />
         <Field.Root disabled={disabled} invalid={invalid}><Field.Label>Font size</Field.Label><Field.Input type="number" min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} step={1} value="12" /></Field.Root>
         <Field.Root disabled={disabled} invalid={invalid}><Field.Label>Model</Field.Label><Combobox.Picker label="Model" items={choices} value={value()} onSelect={setValue} /><Field.ErrorText>Choose an available model.</Field.ErrorText></Field.Root>
-        <ReservedLine status={invalid && "Correct the marked choices."} />
+        <StatusNote text={invalid && "Correct the marked choices."} />
       </section>;
     }}</For>
   </main>;

@@ -2,7 +2,7 @@ import { applied } from "../app/pending";
 import { EmptyState } from "../ink/EmptyState";
 import { NameField } from "../ui/Editable";
 import { CopyButton } from "../ui/CopyButton";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast, createMessageToasts } from "../ink/messageToast";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";

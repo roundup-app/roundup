@@ -13,7 +13,9 @@ import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField, type Sent } from "../state/draftField";
 import { doesClearTodoFailure } from "../app/failureOf";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
+import { FloatingLine } from "../ink/FloatingLine";
+import { MountedStatus, StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { createEffect, createMemo, createSignal, For, lazy, Loading, onCleanup, Show, untrack } from "solid-js";
 
@@ -119,13 +121,15 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   return <Show when={line.status && (props.inDrawer || !drawer.content())}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} status={line.status} action={line.action} />
+    <Show when={!props.inDrawer && props.object !== "new"} fallback={<MountedStatus when={!!line.status} class="todo-draft-line"><span class="ink">{line.status}</span>{line.action}</MountedStatus>}>
+      <FloatingLine status={line.status} action={line.action} />
+    </Show>
   </section></Show>;
 };
 
 /** U7310d: a change made elsewhere to the field being edited is a status above it while it holds; a toast holds failures only. */
 const ChangedElsewhere = (props: { editing: Editing | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body" }) =>
-  <Show when={props.editing}>{started => <Show when={(props.captured && props.captured.seq !== started().form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started().form.base)}><ReservedLine status={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
+  <Show when={props.editing}>{started => <Show when={(props.captured && props.captured.seq !== started().form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started().form.base)}><StatusNote text={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
 
 /** The form a new edit starts from: the captured change's values, else the Todo's own. */
 const formFrom = (todo: Todo, name: "title" | "body", change: Change | undefined): Editing["form"] => {

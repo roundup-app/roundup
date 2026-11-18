@@ -5,7 +5,7 @@ import { CHORDS } from "../keys/chords";
 import { EmptyState } from "../ink/EmptyState";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 
 export const ChooseProject = (props: { app: App; failure: string | null; onOpen: (path: string) => void; onChoose: () => void; onRetry?: (() => void) | undefined }) => {

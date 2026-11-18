@@ -47,7 +47,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal incarnation (`TerminalInfo.incarnation`) | same | — |
 | Shell mark | same | shell integration (as a name; it is the means) |
 | Turn | command | — |
-| ReservedLine | none | — |
+| FloatingLine (`ink/FloatingLine.tsx`) | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
 | Update exit (`exit_for_update`, `updater`, `Offered`) | Update available | — |
 | Updates (`updates`, `install_update`, `update_core`, event `updates-changed`, `Updates`, `core_update`, `roundup:updates-told`: the versions of roundup and herdr-core and which are ready) | Updates | — |

@@ -26,14 +26,9 @@
 }
 
 /* The row's height is the line's; its controls keep their 24 px hit area (D6) past its edges. */
-.pane-over .reserved-line {
+.pane-over .floating-line {
   block-size: 100%;
-  min-block-size: 0;
-  max-block-size: none;
   overflow: visible;
-}
-
-.pane-over .reserved-line:not([data-empty]) {
   pointer-events: auto;
 }
 

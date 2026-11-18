@@ -47,7 +47,7 @@ it.each(["pointer", "Enter", "Space"])("u5629_rendered_failed_start_recovery_%s"
   // The paired main capture records the lost feedback before the repair.
   if (phase === "base") return;
   await lane.until("document.querySelector('.rail-command-notice [role=alert]')?.textContent.includes('Spawn refused. Check setup and retry.')");
-  await run(`click ${quote(".rail-command-notice .reserved-actions button")}`, wait("window.__fake.app.calls.filter(call => call.method === 'agent.spawn').length === 2 && !document.querySelector('.rail-command-notice [role=alert]') && document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id') !== 'backend'"));
+  await run(`click ${quote(".rail-command-notice .message-actions button")}`, wait("window.__fake.app.calls.filter(call => call.method === 'agent.spawn').length === 2 && !document.querySelector('.rail-command-notice [role=alert]') && document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id') !== 'backend'"));
   const retried = await lane.calls("agent.spawn");
   expect(retried).toHaveLength(2);
   expect(retried[1]).toEqual(original[0]);
@@ -56,7 +56,7 @@ it.each(["pointer", "Enter", "Space"])("u5629_rendered_failed_start_recovery_%s"
   await lane.evaluate("window.__fake.setStatus('migrate', 'idle', 'idle'); true");
   await run(`click ${quote('[data-id="backend"]')}`, wait("!!document.querySelector('[role=treeitem][data-id=backend][aria-selected=true]')"));
   await lane.evaluate("(() => { const app = window.__fake.app; const spawn = app.handlers['agent.spawn']; app.handlers['agent.spawn'] = params => { app.handlers['agent.spawn'] = spawn; throw window.__fake.refusal(-32003, 'Spawn refused. Check setup and retry.'); }; return true; })()");
-  await run("press Meta+n", wait(noticeReady), `click ${quote('[aria-label="Create"]')}`, wait(menuFocused), "press Escape", wait(menuClosed), `click ${quote(".rail-command-notice .reserved-actions button:last-child")}`, wait("!document.querySelector('.rail-command-notice [role=alert]')"));
+  await run("press Meta+n", wait(noticeReady), `click ${quote('[aria-label="Create"]')}`, wait(menuFocused), "press Escape", wait(menuClosed), `click ${quote(".rail-command-notice .message-actions button:last-child")}`, wait("!document.querySelector('.rail-command-notice [role=alert]')"));
   expect(await lane.calls("agent.spawn")).toHaveLength(1);
   expect((await lane.calls()).filter(call => ['rail.createWorkstream', 'rail.startDoor'].includes(call.method))).toEqual([]);
   expect(await lane.evaluate("document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id')")).toBe("backend");

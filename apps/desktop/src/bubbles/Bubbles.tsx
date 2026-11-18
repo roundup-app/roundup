@@ -3,7 +3,7 @@ import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as foc
 import { outcomeOf } from "../app/seam";
 import { captureFocus, focusTarget, provideFocusTarget } from "../keys/focus";
 import { createTerminalClose } from "./close";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure, StatusNote } from "../ink/MountedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";

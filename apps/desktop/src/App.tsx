@@ -39,7 +39,8 @@ import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
-import { ReservedLine, dismissable } from "./ink/ReservedLine";
+import { dismissable } from "./ink/recovery";
+import { FloatingLine } from "./ink/FloatingLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
@@ -514,7 +515,7 @@ export const App = (props: {
 
             const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
 
-            return <ReservedLine class="todo-undo" overlay message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><BusyButton kind="quiet" busy={undo.pending()} busyLabel={copy.retrying} onClick={() => undo.retryDelete()}>{copy.todoDeleteRetry}</BusyButton></Show>} />;
+            return <FloatingLine class="todo-undo" message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><BusyButton kind="quiet" busy={undo.pending()} busyLabel={copy.retrying} onClick={() => undo.retryDelete()}>{copy.todoDeleteRetry}</BusyButton></Show>} />;
           }}</For>
           <div class="centre-frame">
           <div class="settings-center">

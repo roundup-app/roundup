@@ -9,7 +9,7 @@ import { BusyButton } from "../ui/BusyButton";
 import { createWritableMemo } from "@solid-primitives/memo";
 import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure, InlineStatus, StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { modalOutside } from "../keys/registry";

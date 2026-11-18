@@ -3,7 +3,7 @@ import type { Status } from "@contracts/Status";
 import { createCut } from "./Tip";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
-import { RecoveryButtons, type Recovery } from "./ReservedLine";
+import { RecoveryButtons, type Recovery } from "./recovery";
 import "./failureLine.css";
 
 /** The failure text with its cut Tip, for a cause that is not an Agent Status. */

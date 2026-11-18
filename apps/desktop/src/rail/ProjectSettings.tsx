@@ -2,7 +2,7 @@ import * as v from "valibot";
 import { createEffect, createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { Deferred } from "../ui/Deferred";
 import { copy } from "./copy";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { useConnectedProject } from "../state/connectedProject";
