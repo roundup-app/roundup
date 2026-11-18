@@ -411,9 +411,9 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
 
       if (phase === "retention") {
       await lane.browser("click", '.rail-row[data-id="backend"]');
-      await lane.until("!!document.querySelector('.rail-row[data-selected]') && !document.querySelector('.ask-input')");
+      await lane.until("document.querySelector('.rail-row[data-id=backend]')?.hasAttribute('data-selected') && !document.querySelector('.ask-input')");
       await lane.evaluate("window.__select(null)");
-      await lane.until("!document.querySelector('.rail-row[data-selected]')");
+      await lane.until("!!document.querySelector('.ask-input')");
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
         document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
@@ -423,20 +423,17 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       await lane.browser("fill", ".spawn-prompt-field", "Exact retained task /Users/authored/path");
       await lane.until("!!document.querySelector('.rail-command-notice [role=alert]')");
       await lane.browser("click", '.rail-row[data-id="backend"]');
-      await lane.until("document.querySelector('.rail-command-notice')?.textContent.includes('Storage is full')");
+      await lane.until("!!document.querySelector('.rail-tree .reserved-line[role=status]')");
       await capture("U3299c", side!, "retained-task");
       await lane.browser("focus", ".spawn-prompt-field");
       await lane.until("document.activeElement === document.querySelector('.spawn-prompt-field')");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.spawn-prompt-field')");
       await lane.evaluate("window.__select(null)");
-      await lane.browser("press", "Meta+/");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.browser("fill", ".ask-input", "Exact Ask /Users/authored/path");
       await lane.until("!!document.querySelector('.ask-send-status [role=alert]')");
       await capture("U3299c", side!, "retained-ask");
-      await lane.browser("press", "Escape");
-      await lane.until("!document.querySelector('.ask-input')");
       await lane.evaluate("(() => { document.dispatchEvent(new KeyboardEvent('keydown',{key:'t',code:'KeyT',metaKey:true,shiftKey:true,bubbles:true})); return true; })()");
       await lane.until("!!document.querySelector('.capture-field')");
       await lane.browser("fill", ".capture-field", "Exact Todo /Users/authored/path");
@@ -548,7 +545,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
     await baseline?.close();
     rmSync(clockDirectory, { recursive: true, force: true });
   }
-}, 500_000);
+}, 60_000);
 
 it("u3817_closing_a_page_keeps_a_pending_import", async () => {
   const { app, connected } = await mount();
