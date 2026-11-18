@@ -1,1 +1,0 @@
-let alive = true; onCleanup(() => { alive = false; });

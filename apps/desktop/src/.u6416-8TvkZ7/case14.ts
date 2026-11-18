@@ -1,1 +1,0 @@
-let latest = 0; const run = () => ++latest;
