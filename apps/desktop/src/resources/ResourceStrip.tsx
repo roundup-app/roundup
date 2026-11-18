@@ -21,7 +21,7 @@ const isRunning = (node: RailNode): boolean => isDoor(node) && node.status?.kind
 /** U444: one value as an icon and its number, named for a screen reader and on hover; a missing value hides with its icon. */
 const Value = (props: { icon: "memory" | "cpu" | "disk"; name: string; text: string }) => (
   <Show when={props.text !== MISSING}>
-    <Tip content={props.name}>
+    <Tip kind="changing" content={props.name}>
       {(trigger) => (
         <span {...trigger()} class="resource-value">
           <Icon name={props.icon} />

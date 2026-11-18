@@ -11,7 +11,7 @@ export const Line = (props: { label: string; class?: string | undefined }) => {
   const [ref, cut] = createCut(() => props.label);
 
   return (
-    <Tip text={props.label} cut={cut}>
+    <Tip kind="changing" text={props.label} cut={cut}>
       {trigger => <span {...trigger({ ref })} class={`failure-line ${props.class ?? ""}`} data-failure="">{props.label}</span>}
     </Tip>
   );

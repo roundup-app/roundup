@@ -41,7 +41,7 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
   const barePlain = merge({ type: "button" as const }, rest, { onClick: click });
 
   // Tip: Escape belongs to the surrounding App surface; blur and pointer leave dismiss the name.
-  return <Show when={!props.bare} fallback={<button {...barePlain} data-button="icon" class={`word ${props.class ?? ""}`}>{props.children}</button>}><Tip text={name()} chord={chord()} disabled={name() === undefined && !chord()}>
+  return <Show when={!props.bare} fallback={<button {...barePlain} data-button="icon" class={`word ${props.class ?? ""}`}>{props.children}</button>}><Tip kind="fixed" name={props["aria-label"]} text={name()} chord={chord()} disabled={name() === undefined && !chord()}>
     {(trigger) => {
       const merged = triggerProps(rest, chord, click);
 

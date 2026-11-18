@@ -20,7 +20,7 @@ import { createSettingsView, type SettingsViewState } from "../state/settingsVie
 import { setByFile } from "./configFile";
 import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { AlertSettings } from "./AlertSettings";
-import { ResetWarnings } from "./ResetWarnings";
+import { ResetWarnings, ShowIconNames } from "./ResetWarnings";
 import { MachinesSettings } from "./MachinesSettings";
 import { settingsEntries } from "./entries";
 import { markControls, registerSettingsPlace } from "./place";
@@ -399,7 +399,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <section class={`settings-appearance-preview ${previewMode()}-theme`} aria-label={copy.appearancePreview} data-mode={previewMode()} data-scale={previewScale()}>
           <div class="settings-mode-preview">{copy.appearancePreviewSample}</div>
         </section>
-        {controls.focusMarkers()}
+        {controls.focusMarkers()}<ShowIconNames onFailure={setFailure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Machines"><SettingsGroup hideHeading name={copy.settingsMachines}><MachinesSettings app={props.app} project={props.project} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
