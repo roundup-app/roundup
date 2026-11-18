@@ -42,13 +42,13 @@ it("u3770e_overview_renders_grouped_attention_with_a_failed_retry_visible", asyn
   expect(retry).toBe(true);
   await wait(`[...document.querySelectorAll('button')].some(each => each.textContent === 'Retry' && each.checkVisibility())`);
   await read(`[...document.querySelectorAll('button')].find(each => each.textContent === 'Retry' && each.checkVisibility()).click()`);
-  await wait(`!!document.querySelector('.inbox-body [role=alert]')`);
+  await wait(`!!document.querySelector('.toasts [role=alert]')`);
   await capture("failed-retry");
-  expect(await read<boolean>(`document.querySelector('.inbox-body [role=alert]').checkVisibility()`)).toBe(true);
-  await read(`[...document.querySelectorAll('.inbox-body button')].find(each => each.textContent === 'Dismiss').click()`);
-  await wait(`!document.querySelector('.inbox-body [role=alert]')`);
+  expect(await read<boolean>(`document.querySelector('.toasts [role=alert]').checkVisibility()`)).toBe(true);
+  await read(`[...document.querySelectorAll('.toasts button')].find(each => each.textContent === 'Dismiss').click()`);
+  await wait(`!document.querySelector('.toasts [role=alert]')`);
   await capture("dismissed-retry");
 
   if (dir) await browser("record", "stop");
-  expect(await read<boolean>(`!!document.querySelector('.inbox-body [role=alert]')`)).toBe(false);
+  expect(await read<boolean>(`!!document.querySelector('.toasts [role=alert]')`)).toBe(false);
 }, 60_000);
