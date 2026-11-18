@@ -139,9 +139,7 @@ export const Pads = (props: {
       draft.save();
 
       const sent = await draft.send(() => applying(async () => {
-        await applied(() => connected.app.rpc("pad.create", { name: target, text: null }));
-        // U7499b: a Pad the user creates is read at its creation.
-        padRead.created(target);
+        await applied(() => connected.app.rpc("pad.create", { name: target, text: null })); padRead.created(target); // U7499b: the user's own Pad is read at its creation.
 
         if (targetHome !== null) {
           action = copy.moveItem(target);
@@ -162,7 +160,7 @@ export const Pads = (props: {
   const shown = shownPads(connected, list);
   const groups = createMemo(() => padGroups(connected, shown()));
   const padRead = usePadRead();
-  const { folded, walked, unfolded, toggleFold } = createFolds(groups, padRead, connected.now);
+  const { walked, of } = createFolds(groups, padRead, connected.now);
   const selection = createSelection(() => walked().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
   const bulk = createBulkDelete({
@@ -256,9 +254,7 @@ export const Pads = (props: {
         <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
       <OwnerGroups groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows
-        folded={() => folded().get(group().id) ?? { above: [], internal: [], idle: [] }}
-        isFoldOpen={fold => unfolded().includes(`${group().id}:${fold}`)}
-        toggleFold={fold => toggleFold(`${group().id}:${fold}`)}
+        {...of(group)}
         selection={selection}
         bulk={bulk}
         pads={pads}

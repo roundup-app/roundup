@@ -47,5 +47,12 @@ export const createFolds = (groups: () => readonly { id: string; items: readonly
     ];
   }));
 
-  return { folded, walked, unfolded, toggleFold };
+  /** The fold props one group's rows take. */
+  const of = (group: () => { id: string }) => ({
+    folded: () => folded().get(group().id) ?? { above: [], internal: [], idle: [] },
+    isFoldOpen: (fold: "internal" | "idle") => unfolded().includes(`${group().id}:${fold}`),
+    toggleFold: (fold: "internal" | "idle") => toggleFold(`${group().id}:${fold}`),
+  });
+
+  return { walked, of };
 };
