@@ -1,6 +1,7 @@
 import { provideFocusTarget } from "../keys/focus";
 import { createEffect, createRoot, createSignal, For, getOwner, onCleanup, onSettled, runWithOwner, Show, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
+import { projectMessageQueue, ToastQueueContext, type MessageQueue } from "../ink/messageToast";
 import { Pane } from "./Pane";
 import { doorTerminalId } from "../state/doorNode";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -10,6 +11,8 @@ import type { Screens } from "./screens";
 
 type Options = {
   active: () => string | null;
+  /** The App's Toast queue; a Pane's views reach it through a queue that names a hidden Project (U7471a). */
+  toasts: MessageQueue;
   connectionOf: (path: string) => ConnectedProject | undefined;
   createEmulator: () => EmulatorFactory;
   observeTerminal: (path: string, id: string | null) => void;
@@ -98,11 +101,11 @@ export const createProjectPanes = (options: Options) => {
     });
 
     return (
-      <ConnectedProjectContext value={open}>
+      <ConnectedProjectContext value={open}><ToastQueueContext value={projectMessageQueue(options.toasts, open.project.name, active)}>
         <div ref={host} class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
           <Pane over={options.over(active)} header={options.header(active)} observeTerminal={active() ? id => options.observeTerminal(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreen(path, shared)} openObject={options.openObject} />
         </div>
-      </ConnectedProjectContext>
+      </ToastQueueContext></ConnectedProjectContext>
     );
   };
 
