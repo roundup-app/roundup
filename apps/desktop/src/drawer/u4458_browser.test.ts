@@ -240,7 +240,7 @@ it.concurrent.each(cases)(
       await lane.until(kind === "pad" ? "!!document.querySelector('.drawer .ProseMirror')" : "!!document.querySelector('.drawer .todo-detail-title')");
 
       // The previous iteration leaves the remembered size filled.
-      if (await lane.evaluate("document.querySelector('.drawer').dataset.fill !== 'true'")) await lane.browser("click", '.drawer button[aria-label=Maximise]');
+      if (await lane.evaluate("document.querySelector('.drawer').dataset.fill !== 'true'")) await lane.evaluate(`document.querySelector(${JSON.stringify('.drawer button[aria-label=Maximise]')}).click()`);
       await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
 
       if (!shelf) {
@@ -250,17 +250,18 @@ it.concurrent.each(cases)(
 
       await shot(`${shelf}-filled`);
       await cycle(lane, true, shelf);
-      await lane.browser("click", '.drawer button[aria-label=Restore]');
+      // A Toast overlays the Drawer's header corner, so the pointer would land on it.
+      await lane.evaluate("document.querySelector('.drawer button[aria-label=Restore]').click()");
       await lane.until("!!document.querySelector('.drawer[data-maximised=false]')");
       await shot(`${shelf}-minimised`);
       await cycle(lane, false, shelf);
       expect(await lane.evaluate("window.__cycle.nodes.includes(window.__covered.button)")).toBe(true);
 
       if (background.endsWith("settings")) expect(await lane.evaluate("window.__cycle.nodes.some(el => el.matches('.ask-input'))")).toBe(false);
-      await lane.browser("click", '.drawer button[aria-label=Maximise]');
+      await lane.evaluate(`document.querySelector(${JSON.stringify('.drawer button[aria-label=Maximise]')}).click()`);
       await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
       await shot(`${shelf}-filled-again`);
-      await lane.browser("click", '.drawer button.close');
+      await lane.evaluate(`document.querySelector(${JSON.stringify('.drawer button.close')}).click()`);
       await lane.until("!!document.querySelector('.drawer[data-open=false]')");
       await shot(`${shelf}-closed`);
       await cycle(lane, false, shelf);
