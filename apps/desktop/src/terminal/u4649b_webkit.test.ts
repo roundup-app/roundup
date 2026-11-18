@@ -38,7 +38,7 @@ it("u4649b_webkit_arabic_rows_end_inside_the_terminal", async () => {
 
       if (!emulator) throw new Error("t-agent-4 has no Terminal");
 
-      const { rows: height } = emulator.serialize();
+      const height = emulator.serialize?.().rows ?? 30;
 
       emulator.setSize({ cols: 90, rows: height });
       await new Promise<void>(resolve => emulator.write(new TextEncoder().encode("\x1b[2J\x1b[H" + lines.join("\r\n")), resolve));
