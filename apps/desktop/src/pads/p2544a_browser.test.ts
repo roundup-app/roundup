@@ -141,6 +141,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   await browser("wait", ".visual-mermaid svg");
   expect(await evaluate("Boolean(document.querySelector('.visual-drawing .excalidraw'))")).toBe(true);
   await browser("scrollintoview", ".visual-drawing canvas.interactive");
+  await browser("click", ".visual-drawing-edit");
   await browser("click", ".visual-drawing label:has([data-testid=toolbar-rectangle])");
 
   const point = await evaluate(`(() => {
