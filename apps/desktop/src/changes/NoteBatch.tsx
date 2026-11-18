@@ -57,7 +57,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
       <Show when={props.notes.list(props.id).length}>
         <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
           <NotePath path={note.comparison.newPath} />
-          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<Show when={older(note)}><span role="status">{copy.originalContext}</span></Show></p>
+          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<StatusNote text={older(note) ? copy.originalContext : null} /></p>
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">
             <button type="button" data-button="quiet" aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}>{copy.editNoteAction}</button>
