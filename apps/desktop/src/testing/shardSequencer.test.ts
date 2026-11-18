@@ -1,7 +1,7 @@
 import { globSync } from "node:fs";
 import { expect, test } from "vitest";
 import measuredDurations from "./shardDurations.json" with { type: "json" };
-import { assignShards, longestFirst, shardCount, shardTime } from "./shardSequencer";
+import { assignShards, isWebkitFile, longestFirst, shardCount, shardTime } from "./shardSequencer";
 
 const durations: Record<string, number> = measuredDurations;
 
@@ -65,4 +65,18 @@ test("ci7295a_web_runs_get_the_fewest_shards_within_the_time_budget", () => {
   expect(shardCount(apps, measured, 50, 9)).toBe(3);
   // The cap holds when the budget wants more shards.
   expect(shardCount(apps, measured, 100, 1)).toBe(1);
+});
+
+// CI7297a: every WebKit test file lands on shard 1, the only shard that installs WebKit.
+test("ci7297a_webkit_test_files_run_on_the_first_shard", () => {
+  const all = ["src/a_webkit.test.ts", "src/b.test.ts", "src/c.test.ts", "src/d.test.ts"];
+
+  for (const count of [2, 3, 4]) {
+    const shards = assignShards(all, { "src/b.test.ts": 100, "src/c.test.ts": 100, "src/d.test.ts": 100 }, count);
+
+    expect(shards[0]).toContain("src/a_webkit.test.ts");
+    expect(shards.flat().sort()).toEqual([...all].sort());
+  }
+
+  expect(files.filter(isWebkitFile)).toContain("src/terminal/u4649b_webkit.test.ts");
 });
