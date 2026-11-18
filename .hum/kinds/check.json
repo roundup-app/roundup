@@ -58,6 +58,12 @@
 		},
 		{
 			"purpose": "review",
+			"level": "ui",
+			"tier": "top",
+			"effort": "high"
+		},
+		{
+			"purpose": "review",
 			"level": "high",
 			"tier": "top",
 			"effort": "high"

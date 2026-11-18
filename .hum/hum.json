@@ -14,6 +14,12 @@
 			"onBreak": "follow-up"
 		},
 		{
+			"name": "ui",
+			"review": "agent",
+			"release": "at-once",
+			"onBreak": "follow-up"
+		},
+		{
 			"name": "high",
 			"review": "owner",
 			"release": "at-once",
@@ -46,6 +52,10 @@
 		{
 			"glob": ".work/**",
 			"level": "medium"
+		},
+		{
+			"glob": "apps/desktop/src/**",
+			"level": "ui"
 		},
 		{
 			"glob": "apps/**",
