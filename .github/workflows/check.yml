@@ -129,12 +129,12 @@ jobs:
         with:
           rust: 'false'
       # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. Run 44165190898's
-      # 180 s of measured tests ran 153 s in the test step (0.85), so 275 s measured is about 234 s there, inside CI7297c's 240 s:
+      # 180 s of measured tests ran 153 s in the test step (0.85), so 280 s measured is about 238 s there, inside CI7297c's 240 s:
       # every shard fewer saves its 60 s of setup and a runner slot, and the wide run's 40 jobs wait less for one (CI7297a).
       - id: shards
         env:
           COUNT: ${{ steps.plan.outputs.count }}
-          BUDGET: '275'
+          BUDGET: '280'
         run: |
           count=all
           if [ -n "$COUNT" ]; then
@@ -263,6 +263,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           machete: 'false'
+          nextest: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
           node-cache: 'true'
           save-node: 'true'
@@ -290,6 +291,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           machete: 'false'
+          nextest: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C9b native release size
         run: |
@@ -342,6 +344,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           machete: 'false'
+          nextest: 'false'
           save-cache: 'true'
           experiment-cache: ${{ env.CI3781_CACHE }}
           node: 'false'
