@@ -1,6 +1,6 @@
-# Restart an Agent on its saved conversation (U7191a, U7191b, U7191c)
+# Restart an Agent on its saved conversation (U7191a, U7191b, U7191c, U7493a)
 
-Module: `apps/desktop/src/rail/` (the menu) and `crates/agents/` (the resume path). Ids: U7191a, U7191b, U7191c. Acceptance for #7191. Owner's 2026-11-15 pick: Restart resumes the same conversation, not a fresh one; a fresh-conversation restart is out of scope. A Mode's `agent.restartMode` (A35, A4665) is unchanged and stays the saved-prompt restart.
+Module: `apps/desktop/src/rail/` (the menu) and `crates/agents/` (the resume path). Ids: U7191a, U7191b, U7191c, U7493a. Acceptance for #7191 and #7493. Owner's 2026-11-15 pick: Restart resumes the same conversation, not a fresh one; a fresh-conversation restart is out of scope. A Mode is the exception (owner, 2026-11-18): its Restart stays the saved-prompt `agent.restartMode` (A35, A4665) and its stopped row's play icon is Resume (U7493a).
 
 ## Checks on main
 
@@ -9,14 +9,13 @@ Module: `apps/desktop/src/rail/` (the menu) and `crates/agents/` (the resume pat
 3. `crates/agents/src/resume.rs`, `Agents::resume`: the one launch path with A22's acknowledgement and rollback; `agent.extras_add` (`crates/agents/src/dispatch.rs`) already relaunches with the conversation.
 4. `apps/desktop/src/rail/menu/model.ts`, `needsConfirmation` and `requestStop`: a `working`, `needs-you` or `blocked` Door asks once before stopping; any other running Agent stops at once.
 
-**U7191a Restart resumes the same conversation.** Narrows U2694d and U4322a (its run group keeps Restart first). Given an Agent row of any kind (Door, Workstream, Mode, child) in any status whose conversation the Daemon holds, when the user chooses Restart from its right-click menu, then:
+**U7191a Restart resumes the same conversation.** Narrows U2694d and U4322a (its run group keeps Restart first). Given an Agent row of any kind but a Mode (Door, Workstream, child; a Mode is U7493a) in any status whose conversation the Daemon holds, when the user chooses Restart from its right-click menu, then:
 
 - The Agent's program stops and starts again resuming that conversation in the permission mode it ran in, through the one `agent.resume` path with an explicit `mode`; no third relaunch path is added, and `agent.extras_add` shares that launch code. Rust test: `u7191a_restart_resumes_the_same_conversation` (stops the old run, starts one resuming the same conversation id with the same mode, same Rail row id, a fresh Terminal id; the fresh run reads current settings and tools).
-- A Mode's Restart with a saved conversation is this one, not `agent.restartMode`: it types no saved prompt. Test: `u7191a_a_mode_restart_types_no_saved_prompt`.
 - The Rail menu calls `agent.resume {id, mode}` once with the Agent's current mode. Vitest: `u7191a_restart_calls_resume_with_the_current_mode`.
 - Restart on an exited row handles an unknown outcome as the deleted `resume()` did: given the reply is lost after `agent.resume` was sent, then the row refreshes and shows the failure inline (U80's `✕ <cause>`) and choosing Restart again sends the same request id, so the Daemon starts no second run. Vitest: `u7191a_an_exited_restart_with_a_lost_reply_retries_the_same_request`.
 - Restart on an exited row selects that row. Vitest: `u7191a_restarting_an_exited_row_selects_it`.
-- The exited row's play icon is labelled Restart, like its menu action, and runs the same one action (no separate `resume` icon action remains; `RowIcons.tsx`, `copy.resume`, `isResumable` and `requestResume` are deleted when nothing else calls them). Vitest: `u7191a_the_exited_row_icon_is_labelled_restart`.
+- The exited row's play icon (a Mode's is U7493a) is labelled Restart, like its menu action, and runs the same one action (no separate `resume` icon action remains; `RowIcons.tsx`, `copy.resume`, `isResumable` and `requestResume` are deleted when nothing else calls them). Vitest: `u7191a_the_exited_row_icon_is_labelled_restart`.
 - The former YOLO-only `Restart` entry, which switched a YOLO Agent to normal, is relabelled `Start normal` (the mirror of `Start YOLO`) so the menu holds one Restart. Vitest: `u7191a_yolo_to_normal_is_start_normal`.
 
 **U7191b Restart is offered only with a conversation to resume, and asks only when interrupting work.** Given the menu of a row, then:
@@ -26,4 +25,16 @@ Module: `apps/desktop/src/rail/` (the menu) and `crates/agents/` (the resume pat
 
 **U7191c a failed Restart says why.** Given the Daemon cannot find the conversation or the program does not start, when the user chooses Restart, then the row shows U80's `✕ <cause>` and the Agent never shows a silent idle; A22's rollback leaves the Terminal and row as before and the same Restart can be chosen again. Rust test: `u7191c_a_failed_restart_names_the_cause`; Vitest: `u7191c_the_row_shows_the_restart_failure`.
 
-Policy — rendered observer: `just capture U7191a U7191b U7191c` in dark mode, the menu open on a working Door (the question) and an idle one, and the failure line on the densest seed (`tree-40`); the design critic judges them. Native look-and-feel is the user's to report on the Mac.
+**U7493a a Mode restarts fresh; its play icon resumes.** Amends U7191a, whose Mode bullet is removed. Given a Mode Agent row (a root Agent holding a saved Mode prompt, A4452c), then:
+
+- Restart (its menu entry, the `R` key and a running Mode's restart icon) always calls `agent.restartMode` once: a fresh run that types the saved prompt once (A4452c), whether or not a conversation is saved, and never `agent.resume`. Vitest: `u7493a_a_mode_restart_always_runs_restart_mode`.
+- A stopped Mode's play icon is named Resume and calls `agent.resume` for its saved conversation, typing no prompt. Vitest: `u7493a_a_stopped_mode_play_icon_resumes_its_conversation`.
+- A stopped Mode with no saved conversation has a play icon that calls `agent.restartMode`. Vitest: `u7493a_a_mode_without_a_conversation_plays_restart_mode`.
+- Every other Agent keeps U7191a; U7191b's Mode exception (Restart present with no saved conversation) and its confirmation rule stand. Vitest: `u7493a_other_agents_keep_restart_on_resume`.
+
+```text
+Stopped Mode row:  ▷ Resume -> same conversation    Restart -> fresh run, saved prompt
+Running Mode row:  Restart -> fresh run, saved prompt
+```
+
+Policy — rendered observer: `just capture U7191a U7191b U7191c U7493a` in dark mode, the menu open on a working Door (the question) and an idle one, and the failure line on the densest seed (`tree-40`); the design critic judges them. Native look-and-feel is the user's to report on the Mac.

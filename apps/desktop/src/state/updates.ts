@@ -22,6 +22,13 @@ export type Updates = {
   dismiss(program: Program): void;
   /** Runs the program's update: roundup installs and relaunches, herdr-core runs `herdr-core update` and shows the version it left. */
   update(program: Program): Promise<void>;
+  /** U7208g: a check for updates is running; its button is busy (U170). */
+  checking: Accessor<boolean>;
+  /** Whether the last check failed, until the next check or Dismiss. */
+  checkFailed: Accessor<boolean>;
+  dismissCheck(): void;
+  /** Reads both feeds now; the facts arrive as `updates-changed`. A second call while one runs does nothing. */
+  check(): Promise<void>;
   /** U7208e: asks Settings to show its Updates page. */
   show(): void;
   /** What shows the page: Settings listens, and is told which page. */
@@ -37,6 +44,9 @@ export const createUpdates = (app: App): Updates => {
   const [failures, setFailures] = createSignal<
     Partial<Record<Program, string>>
   >({});
+
+  const [checking, setChecking] = createSignal(false);
+  const [checkFailed, setCheckFailed] = createSignal(false);
 
   // An hourly look that lands first outranks the answer to the launch read.
   let heard = false;
@@ -58,6 +68,25 @@ export const createUpdates = (app: App): Updates => {
     running: (program) => running().has(program),
     failure: (program) => failures()[program] ?? null,
     dismiss: clear,
+    checking,
+    checkFailed,
+    dismissCheck: () => setCheckFailed(false),
+    check: async () => {
+      if (checking()) return;
+
+      setCheckFailed(false);
+      setChecking(true);
+
+      try {
+        await app.checkUpdates();
+      } catch (cause) {
+        if (!(cause instanceof Error)) throw cause;
+
+        setCheckFailed(true);
+      } finally {
+        setChecking(false);
+      }
+    },
     show: () => shows.forEach((listener) => listener("updates")),
     onShow: (listener) => {
       shows.add(listener);
@@ -88,7 +117,7 @@ export const createUpdates = (app: App): Updates => {
 };
 
 /** What Settings shows when nothing provides the facts: no rows. */
-const unknown: Updates = { facts: () => null, progress: () => null, running: () => false, failure: () => null, dismiss: () => {}, update: async () => {}, show: () => {}, onShow: () => () => {} };
+const unknown: Updates = { facts: () => null, progress: () => null, running: () => false, failure: () => null, dismiss: () => {}, checking: () => false, checkFailed: () => false, dismissCheck: () => {}, check: async () => {}, update: async () => {}, show: () => {}, onShow: () => () => {} };
 
 const UpdatesContext = createContext<Updates>(unknown);
 

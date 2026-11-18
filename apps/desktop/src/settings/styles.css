@@ -38,6 +38,18 @@
   border-top: var(--hairline-width) solid var(--hairline);
 }
 
+.settings-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+}
+
+/* U7208g: the heading row's control sits beside the name, left of the top-right Toast region; the row takes the button's height and centres both. */
+.settings-group-action {
+  display: inline-flex;
+}
+
 .settings-group-name {
   margin: 0;
   font-size: var(--text-small);
