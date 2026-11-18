@@ -45,10 +45,9 @@
   gap: var(--space-3);
 }
 
-/* U7208g: the heading row's control sits beside the name, left of the top-right Toast region, and its 24 px box takes no height from the line. */
+/* U7208g: the heading row's control sits beside the name, left of the top-right Toast region; the row takes the button's height and centres both. */
 .settings-group-action {
   display: inline-flex;
-  margin-block: calc(-1 * var(--space-1));
 }
 
 .settings-group-name {
