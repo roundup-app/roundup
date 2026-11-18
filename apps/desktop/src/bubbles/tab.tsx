@@ -215,7 +215,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   return <>
     <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
       <Show when={editing()?.id === id ? editing() : null} keyed fallback={
-        <Tip class="ink-tip terminal-tab-tip" content={<span class="terminal-tab-tip-label">{tip()}</span>} cut={() => nameCut() || !!terminal().status}>
+        <Tip kind="changing" class="ink-tip terminal-tab-tip" content={<span class="terminal-tab-tip-label">{tip()}</span>} cut={() => nameCut() || !!terminal().status}>
           {(trigger) => (
             <button {...trigger({ onClick: () => toggleMinimised(id) })} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
               aria-label={tabLabel(name(), terminal().status)} aria-describedby={!terminal().status && props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={placeOf(id).min ? "false" : "true"}

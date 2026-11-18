@@ -144,6 +144,9 @@ export const copy = {
   reset: "Reset",
   dontAskAgain: sharedCopy.dontAskAgain,
   resetWarnings: "Reset warnings",
+  /** U7489c */
+  showIconNamesAgain: "Show icon names again",
+  iconNamesLabel: "Icon names",
   resetWarningsLabel: "Skipped questions",
   /** @prose */
   noSettingsPage: (page: string) => `There is no Settings page "${page}".`,

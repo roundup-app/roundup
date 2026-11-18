@@ -84,7 +84,7 @@ it("u477_app_has_no_raw_icon_only_buttons", () => {
 it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"]])("u2570b_unkeyed_tooltips_keep_their_content_%s_%s", async (wrapper, input) => {
   render(() => wrapper === "icon"
     ? <IconButton aria-label={copy.minimise}>−</IconButton>
-    : <Tip text={copy.openFolder}>{(trigger) => <button {...trigger()} aria-label={copy.openFolder}>folder</button>}</Tip>);
+    : <Tip kind="changing" text={copy.openFolder}>{(trigger) => <button {...trigger()} aria-label={copy.openFolder}>folder</button>}</Tip>);
   const button = screen.getByRole("button", { name: wrapper === "icon" ? copy.minimise : copy.openFolder });
 
   if (input === "hover") fireEvent.pointerEnter(button, { pointerType: "mouse" });
