@@ -362,6 +362,8 @@ p {
 .window:has(.drawer[data-open="true"]) { --toast-top: calc(var(--space-6) + var(--space-5)); }
 /* U7314e: a settings page keeps Close in its head at the top right of the centre, so the Toast stack starts below that head. */
 .window:has(.settings-head) { --toast-top: calc(var(--space-4) + var(--space-5)); }
+/* U7314e: the importer keeps Start import Agent in its head row, so the Toast stack starts below that row and never covers the control whose failure it reports. */
+.window:has(.import-panel) { --toast-top: calc(var(--space-6) * 2 + var(--space-4)); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
   --drawer-bottom: var(--rail-actions-height);
