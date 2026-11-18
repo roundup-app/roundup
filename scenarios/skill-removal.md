@@ -1,0 +1,22 @@
+# Retire skill setup and show a plain cause for a blank Project path
+
+Work order: [#7505](https://github.com/roundup-app/roundup/issues/7505). Ids: A7505a, A7505b, A7505c. Module: `crates/agents` (`src/claude_code/`), `crates/rup`, `crates/rupd`, `crates/contracts`, `contracts/generated`, `crates/desktop` (Project routing), `apps/desktop/src/settings/`. Principles served: P4, P9 (`PRINCIPLES.md`).
+
+Decision (owner, 2026-11-18, from Settings › Agents showing "no Project is open at" and "Check that the path is writable, then try again." beside the switch "Teach other Claude Code sessions about roundup"): the whole feature goes. roundup's own Agents are unchanged: they get their tools, hooks and Brief at launch (`--settings`, `--mcp-config`, `--plugin-dir`). A Claude Code the user starts by hand in a roundup Terminal no longer reports its state to roundup. No code cleans up the skill or hook on a machine that ran `rup skill setup` (pre-release).
+
+**A7505a the feature is gone.** Given `scenarios/skill-setup.md` (SK1–SK12), when this work lands, then:
+
+1. Settings › Agents holds Permission mode, Engine / Model and Automatic renaming, and no switch, `Update` button or text about teaching other sessions (SK10, SK11);
+2. `rup skill` is an unknown noun (exit 2 as I4 names it), and `rup help` lists no `skill` (SK7–SK9, SK12); `i1_every_mcp_tool_is_a_command_and_no_command_is_extra` needs no `skill` allowance;
+3. the Daemon has no `skill.status`, `skill.setup` or `skill.remove`: they are absent from `crates/contracts`, `contracts/generated/` and every caller, and `GLOSSARY.md` has no **Skill setup** row (Contract recipe of `.agents/builder.md`);
+4. `crates/agents/src/claude_code/` holds no install code (`Install`, `Plan`, `ItemState`, `Outcome`), and `crates/terminal` sets no `ROUNDUP_TERMINAL` marker for it unless another scenario needs it;
+5. `scenarios/skill-setup.md` is deleted, its ids go on the retired line of `scenarios/README.md`, and no scenario clause names SK1–SK12, `skill.*` or `rup skill` (the `skill` amendment to I1 and I5 lives only in SK9 and goes with it), and no test of theirs remains;
+6. an Agent roundup launches gets the same `--settings`, `--mcp-config`, `--plugin-dir` and Brief as before (A4, E3).
+
+Tests: `a7505a_settings_agents_group_has_no_skill_switch` (`apps/desktop/src/settings/`, behaviour only: no control with that role or name); `a7505a_rup_skill_is_an_unknown_noun` (`crates/rup/tests/`); the Launcher's existing output tests stay green unchanged. Items 3–5 are policy: `just check` (contract match, vocabulary, slop) and `git grep -n -E 'skill\.(status|setup|remove)|rup skill|SK[0-9]+' -- . ':!scenarios/README.md'` printing nothing outside `node_modules`, lockfiles and `docs/audits/` records. Observer: the named tests; the design critic's capture of the Agents group (`artifacts/ux/a7505a/`, dark mode).
+
+**A7505b a blank Project path shows its cause.** Given an App call that reaches a Project route with a blank path, then its error reads `Open a Project first` (the user label of the cause) and holds no path and no hint about writable paths. Given every Settings and App-wide call that can send a blank Project path, then each either needs no Project or shows that cause: the audit lists `forProject("")` callers (`NamingSettings.tsx`, `ShortcutSetting.tsx` export; `SkillSetting.tsx` goes with A7505a) and every other App-wide call, and a call that needs no Project reaches the Daemon through a route that takes no path. A call with a non-blank path to a Project that is not open keeps `no Project is open at <path>`.
+
+Tests: `a7505b_a_blank_project_path_says_open_a_project_first` (`crates/desktop/tests/app/calls.rs`, one call with `"path": ""` through the existing harness, asserting the message holds `Open a Project first`, no `at ` path text and no `writable`); the existing `not_open` test keeps the non-blank case. Observer: the Rust test.
+
+**A7505c Settings shows no standing error.** Given App Settings opened with no Project open, when each group (Agents included) has loaded, then none shows an error: Automatic renaming and the shortcut export either work without a Project or are disabled with `Open a Project first`. Test: `a7505c_settings_shows_no_error_without_a_project` (`apps/desktop/src/settings/`, faked App that rejects a blank path as A7505b does; asserts no `role="alert"` and no error text in any group). Observer: the Vitest test.

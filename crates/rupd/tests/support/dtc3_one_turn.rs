@@ -31,11 +31,21 @@ pub(super) fn rupd_turns(run: &Run) -> Vec<Vec<String>> {
     turns
 }
 
+/// The turns a `rupd` note about the Job's changes started. DCL6's settled note is its own turn and stays as it is
+/// (`scenarios/door-turn-cost.md`), and so is its stop note for an open Job (`scenarios/door-closed-loop.md`): the
+/// fake Job sends no report Message, so DCL6 tells the Door of it 2 s after the Job rests, after the report's turn.
+fn child_turns(run: &Run) -> Vec<Vec<String>> {
+    super::dtc4_catch_up::started(run)
+        .into_iter()
+        .filter(|turn| !turn[0].contains("[stopped]"))
+        .collect()
+}
+
 #[tokio::test]
 async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
     let run = Run::start_live().await;
     run.let_settled_pass().await;
-    let before = rupd_turns(&run).len();
+    let before = child_turns(&run).len();
     let door = Client::connect(&run.daemon.socket).await.unwrap();
     door.request(
         "daemon.identify",
@@ -56,18 +66,20 @@ async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
         .as_str()
         .unwrap()
         .to_owned();
-    // The Job reads idle until its prompt is submitted, so the Wake request waits for it to work.
+    // The Job reads working while it starts (revision 1), idle from SessionStart (2) until its prompt is
+    // submitted (3), so the Wake request waits for the revision that prompt's turn gives it.
     tokio::time::timeout(BOUND, async {
         let mut poll = tokio::time::interval(Duration::from_millis(50));
         loop {
             poll.tick().await;
             let rail = door.request("rail.tree", json!({})).await.unwrap();
-            if rail
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|n| n["id"] == job && n["status"]["kind"] == "working")
-            {
+            if rail.as_array().unwrap().iter().any(|n| {
+                n["id"] == job
+                    && n["status"]["kind"] == "working"
+                    && n["status_revision"]
+                        .as_str()
+                        .is_some_and(|r| r.parse::<u32>().unwrap() >= 3)
+            }) {
                 break;
             }
         }
@@ -102,9 +114,9 @@ async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
         run.compared().await;
     }
     // The slow turn ends: the Job reports, and its Wake request fires.
-    wait(|| rupd_turns(&run).len() > before).await;
+    wait(|| child_turns(&run).len() > before).await;
     tokio::time::sleep(Duration::from_secs(5)).await;
-    let turns = rupd_turns(&run);
+    let turns = child_turns(&run);
     assert_eq!(turns.len() - before, 1, "{:#?}", &turns[before..]);
     let notes = turns.last().unwrap().join("\n");
     assert!(notes.contains("[wake]"), "the report's note: {notes}");

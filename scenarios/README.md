@@ -20,4 +20,4 @@ A scenario is the spec for a unit of work: given / when / then, in `GLOSSARY.md`
 
 Product roadmap: [Workstreams, Doors and Sketches](../docs/wireframes.md#accepted-product-direction-workstreams-doors-and-sketches); it needs scoped scenarios before dispatch.
 
-Retired ids: U3739, U3016c, U3016i, U3016j.
+Retired ids: U3739, U3016c, U3016i, U3016j. SK1–SK12 retire with `scenarios/skill-removal.md`.

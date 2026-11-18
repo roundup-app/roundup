@@ -334,7 +334,7 @@ export const AskBar = (props: {
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(doorStatus(node()), dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger({ ref: cutRef })} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(doorStatus(node()), false)}>{cause => <Line label={cause()} />}</Show></Show></>;
+            return <><KindGlyph decorative kind={shownKind(doorStatus(node()), dismissed())} /><Tip kind="changing" text={item.label} cut={cut}>{trigger => <span {...trigger({ ref: cutRef })} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(doorStatus(node()), false)}>{cause => <Line label={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
         <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">

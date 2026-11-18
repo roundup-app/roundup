@@ -60,7 +60,7 @@ export const ToolCallLine = (props: { name: string; call: ToolCall }): JSX.Eleme
   const label = () => STATES[props.call.state];
 
   return <Collapsible.Root class="call" data-reduced-motion={reducedMotion() ? "true" : undefined}>
-    <Tip text={props.call.summary ?? props.call.tool} disabled={!props.call.summary}>{(trigger, focus) =>
+    <Tip kind="changing" text={props.call.summary ?? props.call.tool} disabled={!props.call.summary}>{(trigger, focus) =>
       <div class="overview-entry call-line">
         <Collapsible.Trigger {...focus} class="call-trigger" data-button="quiet" data-feedback="ink" aria-label={[props.name, props.call.tool, props.call.summary, label()].filter(Boolean).join(" ")}>
           <span class="call-chevron" aria-hidden="true" />

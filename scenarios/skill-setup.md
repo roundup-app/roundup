@@ -1,5 +1,7 @@
 # Skill setup for outside agents
 
+**Retired by A7505a–c (`scenarios/skill-removal.md`): the feature and these scenarios are removed by [#7505](https://github.com/roundup-app/roundup/issues/7505); this file is deleted with its code and tests.**
+
 Module: `crates/agents` (`src/claude_code/`: SK1–SK6), `crates/rup` (SK7–SK9, SK12; `crates/terminal` for SK7's marker) and `apps/desktop` (`settings/`) with `crates/rupd` and `crates/contracts` (SK10–SK11). Ids: SK1–SK12. Work order: [#5251](https://github.com/roundup-app/roundup/issues/5251); implementation Issues #5252 (SK1–SK6), #5253 (SK7–SK9), #5254 (SK10–SK11), in that order. Principles served: P4, P9 (`PRINCIPLES.md`). Merging this specification delivers no runtime change.
 
 Outside evidence: Rex, Superlogical's Mac terminal multiplexer (https://www.superlogical.com/rex/docs/llms-full.txt). `rex skill setup` installs a skill that teaches its commands and reads its guide from the installed binary, plus a session-start hook; it keeps the rest of the settings file, reports `unchanged` on a rerun, follows `CLAUDE_CONFIG_DIR`, refuses a skill of that name it did not install without `--force`, and its `status` and `remove` report and take out only its own items. roundup takes the same shape.
