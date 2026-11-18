@@ -664,6 +664,14 @@ jobs:
       # `realDaemonFixture.ts` reads this receipt as a finished build and builds nothing itself.
       - if: runner.environment != 'self-hosted'
         run: echo 0 >"$RUNNER_TEMP/daemon.status"
+      # CI7297a: the WebKit download and its system packages took 29 s of every shard's job (28 shards, 812 job-seconds)
+      # after setup. They install in the background while setup restores Node, behind the tracer's apt run (one apt
+      # process at a time), at the version `apps/desktop/package.json` pins; `Wait for WebKit` joins them.
+      - name: Start WebKit install
+        if: runner.environment != 'self-hosted'
+        run: |
+          version=$(node -p "require('./apps/desktop/package.json').devDependencies.playwright")
+          setsid bash -c 'cd "$RUNNER_TEMP"; until [ -s "$1" ]; do sleep 1; done; npx --yes "playwright@$3" install --with-deps webkit; echo $? >"$2"' _ "$RUNNER_TEMP/tracer.status" "$RUNNER_TEMP/webkit.status" "$version" >"$RUNNER_TEMP/webkit.log" 2>&1 </dev/null &
       - uses: ./.github/actions/setup
         with:
           rust: 'false'
@@ -685,7 +693,14 @@ jobs:
           sudo ln -s "${chrome[0]}" /usr/bin/google-chrome
       # U4649b drives Playwright's WebKit, the Mac App's engine; Chrome alone cannot fail it.
       - name: U4649b WebKit browser
+        if: runner.environment == 'self-hosted'
         run: pnpm --filter desktop exec playwright install --with-deps webkit
+      - name: Wait for WebKit
+        if: runner.environment != 'self-hosted'
+        run: |
+          until [ -s "$RUNNER_TEMP/webkit.status" ]; do sleep 1; done
+          cat "$RUNNER_TEMP/webkit.log"
+          [ "$(cat "$RUNNER_TEMP/webkit.status")" = 0 ]
       - name: CI5330a disk before tests
         run: bash .github/actions/setup/disk.sh report before
       - name: C9c production desktop size
