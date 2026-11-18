@@ -24,8 +24,9 @@ export type SpawnParams = {
 	prompt: string | null,
 	parent: string | null,
 	/**
-	 *  DCL9: an Agent's spawn names the Subagent's role, `job` or `consult`; without one the call
-	 *  is refused. The user's own spawn has no role.
+	 *  DCL9: an Agent's spawn names the Subagent's role, `job`, `consult` or `mode`; without one
+	 *  the call is refused. The user's own spawn has no role. A `mode` (A7494a) takes `name` and
+	 *  the first `prompt`, no `order`.
 	 */
 	role?: agent$SpawnRole.SpawnRole,
 	/**

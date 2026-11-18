@@ -155,7 +155,7 @@ impl NodeRow {
                 waiting: None,
             }),
             NodeKind::Agent => Role::Agent(AgentNode {
-                mode_prompt: base.parent.is_none().then_some(self.mode_prompt).flatten(),
+                mode_prompt: self.mode_prompt,
                 machine: self.machine,
                 can_make_workstream: false,
                 can_save_as_mode: false,
