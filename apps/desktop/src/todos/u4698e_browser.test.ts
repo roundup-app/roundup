@@ -51,7 +51,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await evaluate(`(async () => {
       for (let i = ${from}; i <= ${through}; i++) {
         window.__fake.actAs({ kind: i % 3 === 0 ? 'agent' : 'user', id: i % 3 === 0 ? 'tokens' : 'you', parent: null });
-        await window.__fake.app.rpc('todo.comment', { id: 1, body: i % 3 === 0 ? '::status Verified release ' + i + '\\n  Tests passed.\\n  All dependencies checked.' : i === 2 ? 'DeploymentArtifact'.repeat(32).slice(0, 500) + '\\nA second line with 日本語 and é.' : 'Review comment ' + i });
+        await window.__fake.app.rpc('todo.comment', { id: 1, body: i % 3 === 0 ? 'Verified release ' + i + '\\n\\n<details><summary>For Agents</summary>\\n\\nTests passed.\\nAll dependencies checked.\\n\\n</details>' : i === 2 ? 'DeploymentArtifact'.repeat(32).slice(0, 500) + '\\nA second line with 日本語 and é.' : 'Review comment ' + i });
       }
       window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
       return true;
@@ -61,10 +61,10 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
 
   await add(1, 3);
   await capture("three");
-  await browser("focus", ".todo-status-summary");
+  await browser("focus", ".todo-comment summary");
   await settle();
   await browser("press", "Space");
-  await browser("wait", '.todo-status-summary[aria-expanded="true"]');
+  await browser("wait", ".todo-comment details[open]");
   await capture("agent-open");
   await add(4, 200);
   // Reopen to observe the opening fold rather than evicting live rows.

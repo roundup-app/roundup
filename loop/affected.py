@@ -36,9 +36,13 @@ CRATE_READS = {'contracts/': 'contracts', 'spikes/': 'agents', 'apps/desktop/src
                'apps/desktop/vite.config.ts': 'desktop', 'crates/desktop/src/lib.rs': 'rup',
                'crates/rpc/src/error.rs': 'contracts', 'crates/rup/src/mcp.rs': 'agents',
                'crates/rup/tests/common/': 'desktop', 'crates/rup/tests/e2e/': 'rupd', 'crates/rupd/src/': 'agents'}
-# Browser tests serve the whole App through Vite, outside vitest's module graph, so `vitest related` cannot select them:
-# on a PR, an App source file goes to `vitest related` anyway, and a browser test it breaks shows on `main`, which runs
-# every web test. The App's other files (its config, its HTML), the contracts the App imports and the documents tests
+# CI7438a: browser tests serve App files through Vite, outside vitest's module graph, so `vitest related` cannot select
+# them. `Served` finds, per test that reaches Chrome or the App server, the files it serves: a `.html` page named in the
+# test or in a helper of its import closure that imports a browser module, with the page's `<script src>` entries; an
+# `import('/src/…')` or `fetch('/src/…')` string; and `harness.html` when its imports reach `appServer.ts` other than
+# through `chromePage.ts`. A test is selected when a changed file lies in the static-import closure of what it serves.
+# CI7438b: `served_problems` names a reference it cannot resolve and a Chrome test with no served file that `UNSERVED`
+# does not list. The browser module names are read from `browserTests.ts`, which holds them. The App's other files (its config, its HTML), the contracts the App imports and the documents tests
 # read from disk reach every test.
 APP = 'apps/desktop/'
 WEB_EVERYTHING = ('contracts/', 'docs/wireframes.md', 'docs/design-system.md', 'scenarios/app.md')
@@ -49,6 +53,20 @@ WEB_SCAN = re.compile(r'\b(readdirSync|globSync)\(')
 DAEMON = 'apps/desktop/src/testing/realDaemonPlugin.ts'
 # Web tests that read a folder outside the App from disk: a change under the folder reaches each.
 WEB_READS = {'artifacts/ux/': ('apps/desktop/src/testing/captures.test.ts',)}
+# Tests that reach Chrome and serve no file the scan can name, each with its reason (CI7438b).
+UNSERVED = {
+    'apps/desktop/src/app/u23_layout.test.ts': 'reads Chrome\'s path and executable only',
+    'apps/desktop/src/testing/u26_chromePage.test.ts': 'drives `chromePage` itself on its own fixed document',
+    'apps/desktop/src/testing/u26_chromePage_pipe.test.ts': 'drives `chromePage` itself over a fake DevTools pipe',
+    'apps/desktop/src/testing/u445_chromePage.test.ts': 'drives `chromePage` itself on an exiting Chrome',
+}
+BROWSER_TESTS = 'apps/desktop/src/testing/browserTests.ts'
+HARNESS = 'apps/desktop/harness.html'
+IMPORT = re.compile(r'\b(?:from|import)\s*\(?\s*["\'](\.[^"\']*)["\']')
+SUFFIXES = ('', '.ts', '.tsx', '/index.ts', '/index.tsx')
+PAGE = re.compile(r'(?:["\'`]|\})(/[^"\'`\s?#]*\.html)\b')
+SCRIPT_SRC = re.compile(r'<script\b[^>]*\bsrc="([^"]+)"')
+SERVED_CALL = re.compile(r'\b(?:import|fetch)\(\s*["\'`](/src/[^"\'`]*)')
 # L121: the prepared runner, its callers and the package/CI configuration its regressions execute under.
 BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
               '.github/workflows/', '.github/actions/setup/', '.github/actionlint.yaml',
@@ -121,6 +139,7 @@ def web(changed):
     return sorted(set(app) |
                   {test for prefix, tests in WEB_READS.items() if any(under(path, [prefix]) for path in changed)
                    for test in tests} |
+                  set(served_tests(changed)) |
                   ({DAEMON} if any(path.startswith('crates/') for path in changed) else set()))
 
 
@@ -137,6 +156,106 @@ def app_scans(changed):
         return []
     return sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / APP / 'src').rglob('*.test.ts*')
                   if WEB_SCAN.search(text := path.read_text()) and 'readFileSync' in text)
+
+
+class Served:
+    """CI7438a: the served closure of each web test under `root`, on a text scan that starts no node and no browser."""
+
+    def __init__(self, root):
+        self.root, self.texts, self.edges, self.closures = root, {}, {}, {}
+        names = re.search(r'BROWSER_MODULES\s*=\s*\[([^\]]*)\]', (root / BROWSER_TESTS).read_text())
+        modules = [APP + name for name in re.findall(r'"([^"]+)"', names.group(1))]
+        self.chrome, self.server = (next(m for m in modules if m.endswith(f'/{stem}.ts')) for stem in ('chromePage', 'appServer'))
+        self.modules = set(modules)
+
+    def text(self, path):
+        if path not in self.texts:
+            self.texts[path] = (self.root / path).read_text()
+        return self.texts[path]
+
+    def resolve(self, origin, specifier):
+        """The repository path of the file `specifier` names from `origin`, as `browserTests.ts` resolves it, or None."""
+        base = os.path.normpath(os.path.join(os.path.dirname(origin), specifier))
+        return next((base + suffix for suffix in SUFFIXES if (self.root / (base + suffix)).is_file()), None)
+
+    def imports(self, path):
+        """The files the relative imports of `path` name."""
+        if path not in self.edges:
+            self.edges[path] = [t for spec in IMPORT.findall(self.text(path)) if (t := self.resolve(path, spec))]
+        return self.edges[path]
+
+    def closure(self, entry, stop=()):
+        """`entry` and every file its relative imports reach; a file in `stop` is kept and not read."""
+        key = (entry, tuple(stop))
+        if key not in self.closures:
+            seen, todo = set(), [entry]
+            while todo:
+                path = todo.pop()
+                if path in seen:
+                    continue
+                seen.add(path)
+                if path not in stop and re.search(r'\.[jt]sx?$', path):
+                    todo += self.imports(path)
+            self.closures[key] = seen
+        return self.closures[key]
+
+    def page(self, path):
+        """A served page, its `<script src>` entries and their import closures, or None for a missing page."""
+        if not (self.root / path).is_file():
+            return None
+        files = {path}
+        for src in SCRIPT_SRC.findall(self.text(path)):
+            entry = self.resolve(path, src) if src.startswith('.') else self.resolve('', APP + src.lstrip('/'))
+            files |= self.closure(entry) if entry else set()
+        return files
+
+    def serve(self, test):
+        """(the files `test` serves, its unresolved references, whether it reaches Chrome or the App server)."""
+        reach = self.closure(test)
+        if not reach & self.modules:
+            return set(), [], False
+        served, problems = set(), []
+        for path in sorted(reach):
+            if path in self.modules or not re.search(r'\.tsx?$', path):
+                continue
+            if path != test and not self.modules & set(self.imports(path)):
+                continue
+            text = self.text(path)
+            for page in PAGE.findall(text):
+                files = self.page(APP + page.lstrip('/'))
+                served |= files or set()
+                problems += [] if files else [f'{path}: the page {page} is no file']
+            for ref in SERVED_CALL.findall(text):
+                target = None if '$' in ref else self.resolve('', APP + ref)
+                served |= self.closure(target) if target else set()
+                problems += [] if target else [f'{path}: the served module {ref} resolves to no file']
+        if self.server in self.closure(test, stop=(self.chrome,)):
+            served |= self.page(HARNESS) or set()
+        return served, problems, True
+
+
+def tests_under(root):
+    return sorted(p.relative_to(root).as_posix() for p in (root / APP / 'src').rglob('*.test.ts*'))
+
+
+def served_tests(changed, root=ROOT):
+    """CI7438a: the web tests that serve a file of `changed`, as repository paths."""
+    if not any(path.startswith(APP + 'src/') for path in changed):
+        return []
+    scan = Served(root)
+    return [test for test in tests_under(root) if scan.serve(test)[0] & set(changed)]
+
+
+def served_problems(root=ROOT):
+    """CI7438b: one line per served reference the scan cannot resolve, and per test that reaches Chrome and serves
+    nothing while `UNSERVED` does not list it."""
+    scan, problems = Served(root), set()
+    for test in tests_under(root):
+        served, found, chrome = scan.serve(test)
+        problems |= set(found)
+        if chrome and not served and not found and test not in UNSERVED:
+            problems.add(f'{test}: reaches Chrome and serves no file; list it in UNSERVED with its reason')
+    return sorted(problems)
 
 
 def boxd(changed):

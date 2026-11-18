@@ -23,6 +23,8 @@
   inset: 0 0 auto;
   z-index: 0;
   display: block;
+  /* The library gives its card a gap; the card is one block, so the gap would be space no Token names (D2). */
+  gap: 0;
   height: var(--toast-height);
   padding: 0;
   border: 0;

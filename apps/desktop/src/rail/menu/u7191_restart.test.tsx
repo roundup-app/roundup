@@ -1,3 +1,4 @@
+import { notice } from "../../testing/notices";
 import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -115,7 +116,7 @@ it("u7191a_an_exited_restart_with_a_lost_reply_retries_the_same_request", async 
 
   open("a");
   await app.pickMenu(copy.restart);
-  await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+  await waitFor(() => expect(notice("alert")).toBeTruthy());
   await rail.settled();
   open("a");
   await app.pickMenu(copy.restart);

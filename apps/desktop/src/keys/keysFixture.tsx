@@ -9,6 +9,7 @@ import { Rail } from "../rail/Rail";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { NOW } from "../testing/nodes";
+import { ToastHost } from "../testing/toastHost";
 import { Pane } from "../terminal/Pane";
 import type { EmulatorFactory } from "../terminal/emulator";
 
@@ -24,15 +25,17 @@ export const mountKeys = async (tree: RailNode[], neighbors: KeysNeighbors = {})
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, now, () => null);
 
   render(() => (
-    <ConnectedProjectContext value={connected}>
-      <Rail />
-      <Show when={neighbors.pane}>
-        <Pane createEmulator={neighbors.pane} />
-      </Show>
-      <Show when={neighbors.drawer}>
-        <DrawerHost drawer={connected.drawer} reducedMotion={() => false} />
-      </Show>
-    </ConnectedProjectContext>
+    <ToastHost>
+      <ConnectedProjectContext value={connected}>
+        <Rail />
+        <Show when={neighbors.pane}>
+          <Pane createEmulator={neighbors.pane} />
+        </Show>
+        <Show when={neighbors.drawer}>
+          <DrawerHost drawer={connected.drawer} reducedMotion={() => false} />
+        </Show>
+      </ConnectedProjectContext>
+    </ToastHost>
   ));
 
   await connected.rail.settled();

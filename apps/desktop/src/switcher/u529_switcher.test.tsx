@@ -6,6 +6,7 @@ import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
 import { storageIdle } from "../state/storage";
+import { notice, notices } from "../testing/notices";
 
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await storageIdle(); localStorage.clear(); });
 
@@ -239,7 +240,7 @@ it("u2773e_unreadable_query_offers_only_retry_until_there_is_text", async () => 
   localStorage.setItem("roundup:drafts:/p", "{broken");
   await mountSwitcher();
   openSwitcher();
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   expect(field()!.value).toBe("");
   expect(screen.queryByRole("button", { name: "Copy query" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Discard query" })).toBeNull();
@@ -314,7 +315,7 @@ it("p3557c_failure_lifetime_switcher_late_copy_cannot_fail_a_new_revision", asyn
   const drafts = connected.drafts.list();
   reject(new Error("denied"));
   await waitFor(() => expect(screen.getByRole("alert", { name: /won't be kept/ })).toBeDefined());
-  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(notices("alert")).toHaveLength(1);
   expect(field()!.value).toBe(" newer 東京 query ");
   expect(connected.drafts.list()).toEqual(drafts);
 });
