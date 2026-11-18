@@ -57,7 +57,7 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
           window.__fake.recoverActivity = () => { recoveredSource = true; };
           app.handlers['todo.comments'] = () => {
             if ('${failed}' === 'comments' && !recoveredSource) { throw new Error('Comments could not load because the connection was lost. Retry to recover comments; your unfinished comment is retained.'); }
-            return ('${failed}' === 'comments' ? recovered : available).map(id => ({ id, created_at: 1700000000000 + id * 1000, read: true, author: {kind:'agent', id:'tokens', parent:null}, body: '::status Verified release ' + id + '\\n  Tests passed and dependencies checked.\\n  日本語 release notes remain available.' }));
+            return ('${failed}' === 'comments' ? recovered : available).map(id => ({ id, created_at: 1700000000000 + id * 1000, read: true, author: {kind:'agent', id:'tokens', parent:null}, body: 'Verified release ' + id + '\\n\\n<details><summary>For Agents</summary>\\n\\nTests passed and dependencies checked.\\n日本語 release notes remain available.\\n\\n</details>' }));
           };
           app.handlers['todo.getHistory'] = () => {
             if ('${failed}' === 'history' && !recoveredSource) { throw new Error('History could not load because the connection was lost. Retry to recover changes; your unfinished comment is retained.'); }
@@ -80,11 +80,11 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
           await settle();
         }
 
-        if (await evaluate("!!document.querySelector('.todo-status-summary')")) {
-          await evaluate("document.querySelector('.todo-status-summary').scrollIntoView({block:'center'}); true");
+        if (await evaluate("!!document.querySelector('.todo-comment summary')")) {
+          await evaluate("document.querySelector('.todo-comment summary').scrollIntoView({block:'center'}); true");
           await settle();
-          await browser("click", ".todo-status-summary");
-          await browser("wait", '.todo-status-summary[aria-expanded="true"]');
+          await browser("click", ".todo-comment summary");
+          await browser("wait", ".todo-comment details[open]");
         }
 
         await evaluate("document.querySelector('.app-toast [role=alert]').scrollIntoView({block:'center'}); true");
