@@ -5,7 +5,7 @@ import type { OwnerGroup } from "../shelf/scope";
 import { ownersOnRail } from "../shelf/scope";
 import { useConnectedProject } from "../state/connectedProject";
 import { Switch } from "../ui/Switch";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { copy } from "./copy";
 
@@ -32,6 +32,7 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   const [failure, setFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal(false);
   createEffect(createMemo(() => current()?.id), () => { setFailure(null); });
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
   onCleanup(connected.events.subscribe(event => {
     if (event.name === "workstream.updated") {
       if (event.data.id === current()?.id) setFailure(null);
@@ -49,6 +50,5 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
       if (current()?.id === id) setFailure(message);
       setPending(false);
     }}>{copy.todoAuto}</Switch>
-    <ReservedLine overlay message={failure()} dismiss={() => setFailure(null)} />
   </div>}</Show>;
 };

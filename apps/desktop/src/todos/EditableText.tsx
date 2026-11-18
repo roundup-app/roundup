@@ -113,13 +113,13 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     </>; },
   };
 
-  // U7310d: in the Drawer a failure is a toast and the kept drafts stay a line at the view's end; beside the list both share one line.
-  createMessageToast({ get message() { return props.inDrawer && line.message; }, dismiss: line.dismiss, get recover() { return line.recover; } });
+  // The failure is a toast; the kept drafts stay a line, a status, in the view.
+  createMessageToast({ get message() { return line.message; }, dismiss: line.dismiss, get recover() { return line.recover; } });
 
-  return <Show when={props.inDrawer ? line.status : !drawer.content()}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
+  return <Show when={line.status && (props.inDrawer || !drawer.content())}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} {...line} message={!props.inDrawer && line.message} />
+    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} status={line.status} action={line.action} />
   </section></Show>;
 };
 

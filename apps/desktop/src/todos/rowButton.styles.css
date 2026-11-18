@@ -236,10 +236,6 @@ input.todo-tick {
   display: contents;
 }
 
-.todo-row-notice {
-  position: relative;
-}
-
 /* U3768/U4463: scope progress keeps its quiet count when composed into the head. */
 .todo-progress {
   padding-inline: var(--space-2);
@@ -352,20 +348,8 @@ input.todo-tick {
   position: relative;
 }
 .todo-row .shelf-text:empty { display: none; }
-.todo-row-notice { grid-column: 1 / -1; }
-.todo-row .todo-row-notice:has([role="alert"]) { padding-block-start: var(--space-1); }
 .todo-row [data-group-toggle] { position: absolute; right: 100%; }
 .todo-group-content { position: relative; }
-.todo-row-notice .reserved-line[data-overlay="true"] {
-  position: relative;
-  block-size: auto;
-  max-block-size: none;
-}
-.todo-row-notice .reserved-line[data-empty="true"] { display: none; }
-.todo-row-notice :is(.ink, .reserved-status) {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
 
 /* Keep aggregate progress available to assistive technology without a detail row. */
 .todo-row .todo-group-status {
@@ -376,7 +360,6 @@ input.todo-tick {
   clip-path: inset(50%);
 }
 .shelf-row.todo-row .shelf-text { min-block-size: 0; }
-.shelf-row.todo-row .todo-row-notice { block-size: auto; }
 .shelf-row.todo-row .shelf-text {
   column-gap: 0;
   display: grid;

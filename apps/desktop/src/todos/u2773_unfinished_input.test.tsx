@@ -319,13 +319,13 @@ it("u2773e_todos_incompatible_form_keeps_original_bytes_and_newer_work", async (
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   fireEvent.click(recovery.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith(exact);
-  fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Retry storage only" }));
   fireEvent.click(within(await screen.findByRole("region", { name: "Todo · 42" })).getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(localStorage.getItem(key)).toBe(bytes);
   expect(field.value).toBe(exact);
   expect(connected.drafts.list().find(draft => draft.revision === "independent")).toEqual(independent);
   localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [independent] }));
-  fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(connected.drafts.problem()).toBeNull());
   expect(app.calls.filter(call => call.method === "todo.create" || call.method === "todo.update")).toEqual([]);
   unmount();
