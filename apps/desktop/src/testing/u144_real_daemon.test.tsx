@@ -431,8 +431,10 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
       localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
     }
 
+    // The restored draft then shows its own "original unavailable" Toast, so the retention failure is the card that goes.
+    const retention = notice("alert");
     fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(notices("alert")).toEqual([]));
+    await waitFor(() => expect(retention.isConnected).toBe(false));
     expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
     const methods = calls.flatMap(spy => spy.mock.calls.map(([method]) => method));
     expect(methods.filter(method => method === "agent.setOrder" || method === "message.send" || method === "agent.prompt" || method === "agent.spawn")).toEqual([]);
