@@ -683,6 +683,9 @@ jobs:
           chrome=("$HOME"/.agent-browser/browsers/chrome-*/chrome)
           [ "${#chrome[@]}" = 1 ] && [ -x "${chrome[0]}" ] || { echo "::error::expected one prepared Chrome, found: ${chrome[*]}"; exit 1; }
           sudo ln -s "${chrome[0]}" /usr/bin/google-chrome
+      # U4649b drives Playwright's WebKit, the Mac App's engine; Chrome alone cannot fail it.
+      - name: U4649b WebKit browser
+        run: pnpm --filter desktop exec playwright install --with-deps webkit
       - name: CI5330a disk before tests
         run: bash .github/actions/setup/disk.sh report before
       - name: C9c production desktop size
