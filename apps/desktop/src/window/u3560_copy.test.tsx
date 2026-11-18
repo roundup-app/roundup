@@ -6,6 +6,8 @@ import { DrawerHost } from "../drawer/DrawerHost";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { linkEntries } from "../ui/contextMenu";
 import { info, terminal } from "../testing/nodes";
+import { notice, notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 import { callsTo, mountPane } from "../terminal/paneHarness";
 
 const Recovery = () => {
@@ -34,7 +36,7 @@ it.each(["terminal", "link", "draft"])("u3560c_copy_preserves_the_source_%s", as
     await entries.find(entry => entry.id === "copy-link")!.run?.();
     expected = "roundup://agent/a?project=project-0000000000000000";
   } else {
-    render(() => <ConnectedProjectContext value={connected}><Recovery /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
+    render(() => <ToastHost><ConnectedProjectContext value={connected}><Recovery /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
     fireEvent.click(screen.getByRole("button", { name: "Recover" }));
     const region = await screen.findByRole("region", { name: "Unfinished work" });
     fireEvent.click(within(region).getByRole("button", { name: "Copy" }));
@@ -52,7 +54,8 @@ it.each(["link", "draft"])("u3560d_clipboard_failure_preserves_input_copy_action
   const text = "retained exact e\u0301 雪";
   const draft = connected.drafts.edit({ surface: "rail", object: "missing-agent", recipient: null }, { text }, null, "ordinary").draft;
   flush();
-  app.clipboardFailure = new Error("pasteboard unavailable");
+  const failure = new Error("pasteboard unavailable");
+  app.clipboardFailure = failure;
   let cause: string | null = null;
   let invoke: () => void | Promise<void>;
 
@@ -60,19 +63,19 @@ it.each(["link", "draft"])("u3560d_clipboard_failure_preserves_input_copy_action
     const entries = linkEntries(app, { kind: "agent", id: "a" }, connected.rail.nodes, () => true, message => { cause = message; }, () => { cause = null; });
     invoke = () => entries.find(entry => entry.id === "copy-link")!.run?.();
   } else {
-    render(() => <ConnectedProjectContext value={connected}><Recovery /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
+    render(() => <ToastHost><ConnectedProjectContext value={connected}><Recovery /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
     fireEvent.click(screen.getByRole("button", { name: "Recover" }));
     const region = await screen.findByRole("region", { name: "Unfinished work" });
     invoke = () => { fireEvent.click(within(region).getByRole("button", { name: "Copy" })); };
   }
 
   await invoke();
-  await vi.waitFor(() => expect(surface === "link" ? cause : screen.getByRole("alert").textContent).toContain("Copy failed: pasteboard unavailable"));
+  await vi.waitFor(() => expect(surface === "link" ? cause : notice("alert").textContent).toContain(failure.message));
   expect(app.clipboardWrites).toEqual([]);
   expect(connected.drafts.list()).toContainEqual(draft);
   expect(callsTo(app, "terminal.write")).toEqual([]);
   app.clipboardFailure = null;
   await invoke();
-  await vi.waitFor(() => expect(surface === "link" ? cause : screen.queryByRole("alert")).toBeNull());
+  await vi.waitFor(() => expect(surface === "link" ? cause : notices("alert")[0] ?? null).toBeNull());
   expect(app.clipboardWrites).toEqual([surface === "link" ? "roundup://agent/a?project=project-0000000000000000" : text]);
 });

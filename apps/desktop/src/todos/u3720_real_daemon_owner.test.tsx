@@ -175,7 +175,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await focus(made[5]!.id);
     await lane.evaluate("window.__failure = {method:'todo.assign',message:'Agent unavailable; choose another owner'}");
     await key("3", "Digit3");
-    await lane.until(`!!document.querySelector('.shelf [data-todo="${made[5]!.id}"] [role=alert]')`);
+    await lane.until(`!!document.querySelector('.app-toast [role=alert]')`);
     expect(await app.rpc("todo.get", { id: made[5]!.id })).toMatchObject({ id: made[5]!.id, home: home.id, owner: me, ...saved.get(made[5]!.id) });
     await capture("assign-failure");
     await key("3", "Digit3");

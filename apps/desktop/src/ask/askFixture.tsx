@@ -11,6 +11,7 @@ import type { AskRouting } from "../state/asks";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { shownText } from "../testing/rowTip";
+import { ToastHost } from "../testing/toastHost";
 import { agent, door, workstream } from "../testing/nodes";
 import { createRailState } from "../state/rail";
 import { Pane } from "../terminal/Pane";
@@ -56,12 +57,12 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
 
   const view = render(() => (
-    <ConnectedProjectContext value={connected}>
+    <ToastHost><ConnectedProjectContext value={connected}>
       <aside class="rail"><RecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
       <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar recovery={recovery()} /></div>
-    </ConnectedProjectContext>
+    </ConnectedProjectContext></ToastHost>
   ));
 
   await connected.rail.settled();

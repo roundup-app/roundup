@@ -2,6 +2,7 @@ import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
+import { notice } from "../testing/notices";
 import { agent, workstream } from "../testing/nodes";
 import { mountTodos, todo as makeTodo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
@@ -153,13 +154,14 @@ it("u3753_the_keys_do_nothing_outside_the_mode", async () => {
 
 it("u3754_a_refused_key_keeps_mode_focus_and_shows_the_cause", async () => {
   const { app } = await enter();
+  const refusal = new RpcError(-32003, "already moved");
 
-  app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32003, "already moved"));
+  app.handlers["todo.complete"] = () => Promise.reject(refusal);
   press(row(2), "x");
-  await screen.findByText("already moved");
+  await screen.findByText(refusal.message);
   expect(shelf().getAttribute("data-triage")).toBe("on");
   expect(document.activeElement).toBe(row(2));
-  expect(document.querySelector('[data-todo="2"] [role="alert"]')?.textContent).toContain("already moved");
+  expect(notice("alert").textContent).toContain(refusal.message);
 });
 
 it("u3755_esc_in_the_comment_field_keeps_the_draft", async () => {

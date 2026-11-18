@@ -82,7 +82,6 @@ export const copy = {
   questionMark: sharedCopy.questionMark,
   switcherPlaceholder: sharedCopy.switcherPlaceholder,
   noMatch: sharedCopy.noMatch,
-  failed: sharedCopy.failed,
   changedTodo: sharedCopy.changedTodo,
   body: "Body",
   move: sharedCopy.move,

@@ -5,6 +5,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it } from "vitest";
 import { SCOPE_ROW, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
+import { notice } from "../testing/notices";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(cleanup);
@@ -104,23 +105,24 @@ describe("u3709 Tab nests a row and shift Tab un-nests it", () => {
 describe("u3711 a move that would make a cycle is refused and says why", () => {
   it("u3711_a_refused_move_returns_the_row_and_shows_the_cause", async () => {
     const { app, store } = await mountTodos([todo(1), todo(2)]);
+    const refusal = new RpcError(-32003, "todo 1 would wait on itself through todo 2");
 
-    app.handlers["todo.setBlockers"] = () => { throw new RpcError(-32003, "todo 1 would wait on itself through todo 2"); };
+    app.handlers["todo.setBlockers"] = () => { throw refusal; };
 
     await screen.findByRole("tree", { name: "Todos" });
     buttonOf(2).focus();
     fireEvent.keyDown(buttonOf(2), { key: "Tab" });
 
-    await waitFor(() => expect(within(rowOf(2)).getByRole("alert").textContent).toBe("todo 1 would wait on itself through todo 2"));
+    await waitFor(() => expect(notice("alert").textContent).toBe(refusal.message));
     expect(ids()).toEqual([1, 2]);
     expect(document.activeElement).toBe(buttonOf(2));
 
     fireEvent.click(document.body);
-    expect(within(rowOf(2)).getByRole("alert")).toBeTruthy();
+    expect(notice("alert")).toBeTruthy();
     store.todos = store.todos.map((item) => item.id === 1 ? { ...item, title: "renamed" } : item);
     app.emit(todoEvent("todo.updated", store.todos[0]!));
     await waitFor(() => expect(buttonOf(1).textContent).toBe("renamed"));
-    expect(within(rowOf(2)).getByRole("alert").textContent).toBe("todo 1 would wait on itself through todo 2");
+    expect(notice("alert").textContent).toBe(refusal.message);
   });
 
   it("u3515c_nesting_excludes_transitive_cycles_before_mutation", async () => {
@@ -258,7 +260,7 @@ it("u3810_locked_ticks_keep_the_same_calls_refetch_and_failure", async () => {
   mounted.app.handlers["todo.complete"] = () => { throw new RpcError(-32003, "completion refused; retry"); };
 
   fireEvent.click(tick);
-  await within(rowOf(2)).findByRole("alert");
+  await waitFor(() => notice("alert"));
   expect(tick.checked).toBe(false);
   expect(document.activeElement).toBe(tick);
   expect(callsTo(mounted.app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 2 } }]);

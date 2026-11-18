@@ -22,11 +22,14 @@ import { EmptyState } from "../ink/EmptyState";
 
 import { createEffect, createMemo, createProjection, createSignal, For, onCleanup, Show, untrack, useContext, type Accessor, type Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
+import { failedLabel } from "../ink/failedLabel";
 import { OpenButton } from "../ink/OpenButton";
 import { ShelfRow } from "../ink/ShelfRow";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
-import { createFailure } from "./failure";
+import { createFailure, type Failure } from "./failure";
+import type { App } from "../app/seam";
 import { PadDrawer } from "./PadDrawer";
 import { padGroups, shownPads } from "./shownPads";
 import { shelfScope } from "../shelf/scope";
@@ -36,6 +39,12 @@ import { Sortable } from "../ui/sortable";
 import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
 import type { PadList } from "./padList";
+
+/** The Pad name a retention failure keeps: Copy it, or discard it. */
+const NameRecovery = (props: { app: Pick<App, "writeClipboardText">; text: string; failure: Failure; label: string; discard: () => void }) => <>
+  <CopyButton app={props.app} text={props.text} onSuccess={() => props.failure.clear()} onFailure={error => props.failure.show(copy.copyDraftFailure(String(error)))}>{props.label}</CopyButton>
+  <button data-button="quiet" type="button" onClick={() => props.discard()}>{copy.discardRevision}</button>
+</>;
 
 /** The failure of one action on one Pad. It shows while that Pad is listed: a late reply for a deleted source never brings its error back. */
 const createPadFailure = (pads: () => readonly Pad[]) => {
@@ -57,7 +66,13 @@ const createPadFailure = (pads: () => readonly Pad[]) => {
     if (orphaned) setItemFailure(null);
   });
 
-  return { itemFailure, setItemFailure, reportItemFailure };
+  const itemLabel = () => {
+    const item = itemFailure();
+
+    return item ? failedLabel(item.action, item.message) : undefined;
+  };
+
+  return { itemFailure, setItemFailure, reportItemFailure, itemLabel };
 };
 
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
@@ -103,7 +118,12 @@ export const Pads = (props: {
   let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
   const listNote = dismissable(() => list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null));
-  const { itemFailure, setItemFailure, reportItemFailure } = createPadFailure(pads);
+  const { itemFailure, setItemFailure, reportItemFailure, itemLabel } = createPadFailure(pads);
+  createMessageToast({
+    get message() { return itemFailure()?.message ?? failure.message() ?? listNote.message(); }, dismiss: () => itemFailure() ? setItemFailure(null) : failure.message() ? failure.clear() : listNote.dismiss(),
+    get content() { return itemLabel(); }, get recover() { return retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined; },
+    get action() { return <Show when={retentionProblem()}><NameRecovery app={connected.app} text={name()} failure={failure} label={nameLabel} discard={() => { forget(); setInvalid(false); }} /></Show>; },
+  });
   const scope = shelfScope(connected);
 
   const create = () =>
@@ -225,12 +245,6 @@ export const Pads = (props: {
           <span>{copy.pad}</span>
         </button>
       </ScopeAction>
-      <ReservedLine content={itemFailure() ? <>{copy.failed(itemFailure()!.action, "")}<span>{itemFailure()!.message}</span></> : undefined} message={itemFailure()?.message ?? failure.message() ?? listNote.message()} dismiss={() => itemFailure() ? setItemFailure(null) : failure.message() ? failure.clear() : listNote.dismiss()} recover={retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined} action={<>
-        <Show when={retentionProblem()}>
-        <CopyButton app={connected.app} text={name()} onSuccess={() => failure.clear()} onFailure={error => failure.show(copy.copyDraftFailure(String(error)))}>{nameLabel}</CopyButton>
-        <button data-button="quiet" type="button" onClick={() => { forget(); setInvalid(false); }}>{copy.discardRevision}</button>
-
-      </Show></>} />
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
         <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
