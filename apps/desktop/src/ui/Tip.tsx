@@ -2,6 +2,7 @@ import { createSignal, merge, omit } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Chord } from "../keys/chords";
 import { saveAppSettings, storedSettings } from "../settings/preferences";
+import { storageProblems } from "../state/storage";
 import { Tooltip } from "./Tooltip";
 
 /** The props a control spreads: its own, and the Tooltip trigger's. */
@@ -46,7 +47,10 @@ const pending: Record<string, number> = {};
 
 const shown = (name: string): number => Math.max(storedSettings().tipShows[name] ?? 0, pending[name] ?? 0);
 
+/** A count never joins a settings save that is failing: the store keeps one retry per key, and a count's write would replace the user's. */
 const countShow = (name: string) => {
+  if (storageProblems().some(problem => problem.key === "roundup:app-settings")) return Promise.resolve(null);
+
   const next = shown(name) + 1;
 
   pending[name] = next;
