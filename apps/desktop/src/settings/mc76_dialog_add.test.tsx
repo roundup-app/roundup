@@ -7,6 +7,7 @@ import { createMachines } from "../state/machines";
 import { useBrowserStorage } from "../state/storage";
 import { AppSettings } from "./AppSettings";
 import { copy } from "./copy";
+import { ToastHost } from "../testing/toastHost";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -30,7 +31,7 @@ it("mc76_adding_through_the_dialog_shows_the_field", async () => {
     return made;
   });
 
-  render(() => <AppSettings app={app} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => "/p"} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByLabelText("Settings", { selector: "section" });

@@ -8,6 +8,7 @@ import { appSettings, saveAppSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
 import { ACTION_ROWS, CHORDS, type ChordName, HELP_ROWS, type Chord } from "../keys/chords";
 import { copy } from "./copy";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await saveAppSettings({ shortcuts: {}, quickAdd: "meta+shift+KeyT" }); localStorage.clear(); });
 
@@ -17,7 +18,7 @@ const mount = async () => {
 
   const app = createFakeApp();
 
-  render(() => <AppSettings app={app} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => "/p"} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   const view = within(await screen.findByRole("region", { name: "Settings" }));
@@ -74,11 +75,11 @@ it("u5239b_a_clash_or_reserved_chord_is_refused_naming_the_holder", async () => 
 
   fireEvent.click(rowOf(view, "terminal.new"));
   press("KeyN", { metaKey: true });
-  expect(await view.findByText(copy.shortcutRefusal("⌘N", chord("agent.new").what))).toBeTruthy();
+  expect(await screen.findByText(copy.shortcutRefusal("⌘N", chord("agent.new").what))).toBeTruthy();
   press("KeyQ", { metaKey: true });
-  expect(await view.findByText(copy.shortcutRefusal("⌘Q", copy.quitApp))).toBeTruthy();
+  expect(await screen.findByText(copy.shortcutRefusal("⌘Q", copy.quitApp))).toBeTruthy();
   press("KeyY", {});
-  expect(await view.findByText(copy.shortcutModifier)).toBeTruthy();
+  expect(await screen.findByText(copy.shortcutModifier)).toBeTruthy();
   expect(appSettings().shortcuts).toEqual({});
 });
 
@@ -130,7 +131,7 @@ it("u5239d_a_chord_a_terminal_needs_is_refused", async () => {
   for (const [code, mods, label] of [["KeyV", { metaKey: true }, "⌘V"], ["KeyY", { ctrlKey: true }, "⌃Y"], ["KeyY", { altKey: true, metaKey: true }, "⌥⌘Y"]] as const) {
     fireEvent.click(rowOf(view, "terminal.new"));
     press(code, mods);
-    expect(await view.findByText(copy.shortcutTerminal(label))).toBeTruthy();
+    expect(await screen.findByText(copy.shortcutTerminal(label))).toBeTruthy();
   }
 
   expect(appSettings().shortcuts).toEqual({});

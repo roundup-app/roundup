@@ -170,7 +170,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       document.querySelectorAll('.import-check')[2].click();
       return true;
     })()`);
-    await lane.until("!!document.querySelector('.import-panel [role=status][aria-label=\"Import choices conflict\"]')");
+    await lane.until("!!document.querySelector('.import-recovery')");
     await lane.capture("U3049a", "conflict");
     expect(await lane.calls("project.importCommit")).toEqual([]);
     await lane.evaluate("[...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').focus()");
@@ -184,7 +184,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       return true;
     })()`);
     await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
-    await lane.browser("scrollintoview", ".import-panel [role=alert]");
+    await lane.browser("scrollintoview", ".app-toasts [role=alert]");
     await lane.capture("U3049b", "retention-failure");
     expect(await lane.calls("project.importCommit")).toEqual([]);
   } finally {
@@ -247,7 +247,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.queryByRole("checkbox", { name: /first/ })).toBeNull();
 
-  if (action !== "dismiss") expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("alert")).toBeTruthy();
+  if (action !== "dismiss") expect(notice("alert")).toBeTruthy();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
 });
 
@@ -736,8 +736,8 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await capture("U5558d", "saved-listing");
     await evaluate("window.__fake.app.handlers['project.importDiscover'] = () => { throw new Error('Saved listing unavailable: permission denied. Retry to read the listing again.'); }");
     await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
-    await wait("document.querySelector('.import-panel [role=alert]')?.textContent.includes('permission denied')");
-    await browser("scrollintoview", ".import-panel [role=alert]");
+    await wait("document.querySelector('.app-toasts [role=alert]')?.textContent.includes('permission denied')");
+    await browser("scrollintoview", ".app-toasts [role=alert]");
     await capture("U5558e", "import-reload-failed");
 
     await evaluate("localStorage.clear()");

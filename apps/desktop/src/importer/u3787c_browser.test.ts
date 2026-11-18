@@ -69,10 +69,10 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
     expect(await lane.evaluate(`${daemon}.calls`)).toEqual([]);
     await lane.capture("U3787c", `import-${seed}-selected`);
     await lane.browser("click", ".import-confirm");
-    await lane.until("document.querySelector('.import-panel [role=alert]')?.textContent.includes('Import unavailable. Refresh the saved conversations and retry Import.')");
+    await lane.until("document.querySelector('.app-toasts [role=alert]')?.textContent.includes('Import unavailable. Refresh the saved conversations and retry Import.')");
     expect(await lane.evaluate(`${daemon}.calls.filter(call=>call.method==='project.importCommit').map(call=>call.params)`)).toEqual([{selections:[0,1,2,3,4].map(at=>({source:`source-${at}`,revision:`revision-${at}`}))}]);
     expect(await lane.evaluate(`${daemon}.calls.filter(call=>call.method==='agent.spawn')`)).toEqual([]);
-    await lane.browser("scrollintoview", ".import-panel [role=alert]");
+    await lane.browser("scrollintoview", ".app-toasts [role=alert]");
     await lane.capture("U3787c", `import-${seed}-failure`);
   } finally { if (dir) await lane.browser("record", "stop"); }
 }, 180_000);

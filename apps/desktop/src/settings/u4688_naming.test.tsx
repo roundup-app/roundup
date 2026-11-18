@@ -4,6 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
 import { createFakeApp } from "../testing/fakeApp";
 import { RpcError } from "../app/seam";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -15,7 +16,7 @@ const mount = async (app = createFakeApp(), project: string | null = null) => {
 
  return null; };
 
-  render(() => <AppSettings app={app} project={() => project} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => project} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("textbox", { name: "Naming guide" });
