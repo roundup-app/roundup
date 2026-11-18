@@ -131,6 +131,8 @@ const mountApp = async (capture?: import("../app/seam").CapturePort, empty = fal
 
   if (second) app.of(path("second")).handlers["rail.tree"] = () => [workstream("other")];
   app.of(path("first")).handlers["terminal.list"] = () => empty ? [] : [info("7", { owner: "ops", title: "original" })];
+  app.of(path("first")).handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
+  app.of(path("first")).handlers["terminal.resize"] = () => null;
   let original: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { if (open.project.path === path("first")) original = open; }} />);
@@ -705,8 +707,6 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, 
     const retryBefore = app.calls.length;
     app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
     app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
-    // U7314a: a newer toast folds this one, and a folded card takes no click until the stack is hovered; the user hovers it, so the test does.
-    fireEvent.pointerEnter(document.querySelector<HTMLElement>(".app-toasts")!);
     fireEvent.click(await within(document.querySelector<HTMLElement>(".rail-command-notice")!).findByRole("button", { name: "Retry" }));
 
     if (outcome === "identity" || outcome === "missing") {
