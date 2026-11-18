@@ -2,7 +2,7 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Machine } from "@contracts/machine/Machine";
 import { queueFocus } from "../keys/focus";
 import { answerOf, type App } from "../app/seam";
-import { BlockedFailure } from "../ink/BlockedFailure";
+import { BlockedFailure } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { AddMachineDialog } from "./AddMachineDialog";
 import { copy } from "./copy";
