@@ -15,7 +15,7 @@ fn without_max_length(value: &mut Value) {
 
 #[test]
 fn c4_declarations_preserve_mcp_policy() {
-    // Captured from main 09f5f6611, plus D11's `kept` and U7287's report `confidence` and `caveats` and PW2's `walk` link kind: descriptions, names, schemas, reshaping, injection and role sets.
+    // Captured from main 09f5f6611, plus D11's `kept` and U7287's report `confidence` and `caveats` and PW2's `walk` link kind and T21's For Agents fold: descriptions, names, schemas, reshaping, injection and role sets.
     let before: Value = serde_json::from_str(include_str!("fixtures/c4-before.json")).unwrap();
     let rows: BTreeMap<_, _> = commands(true)
         .into_iter()

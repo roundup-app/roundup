@@ -293,5 +293,77 @@ class RustLane(Fixture):
         self.assertEqual(out.getvalue(), "")
 
 
+APP_FILES = {
+    "apps/desktop/src/testing/browserTests.ts": 'const BROWSER_MODULES = ["src/testing/chromePage.ts", "src/testing/appServer.ts"];\n',
+    "apps/desktop/src/testing/chromePage.ts": 'import { appServer } from "./appServer.ts";\n',
+    "apps/desktop/src/testing/appServer.ts": "export const appServer = 1;\n",
+    "apps/desktop/harness.html": '<script type="module" src="/src/testing/harness.tsx"></script>\n',
+    "apps/desktop/src/testing/harness.tsx": 'import App from "../App";\n',
+    "apps/desktop/src/App.tsx": 'import "./pad/Drawer";\n',
+    "apps/desktop/src/pad/page.html": '<script type="module" src="./entry.tsx"></script>\n',
+    "apps/desktop/src/pad/entry.tsx": 'import "./Pad";\n',
+    "apps/desktop/src/pad/Pad.tsx": "export {};\n",
+    "apps/desktop/src/pad/Drawer.tsx": "export {};\n",
+    "apps/desktop/src/pad/page.test.ts": 'import { openPage } from "../testing/chromePage";\nopenPage("/src/pad/page.html?x");\n',
+    "apps/desktop/src/pad/eval.test.ts": 'import { openPage } from "../testing/chromePage";\nopenPage(`import("/src/pad/Drawer.tsx")`);\n',
+    "apps/desktop/src/pad/app.test.ts": 'import { startAppServer } from "../testing/appServer";\n',
+}
+
+
+class Served(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.dir.name)
+        self.addCleanup(self.dir.cleanup)
+        self.write(APP_FILES)
+
+    def write(self, files):
+        for name, text in files.items():
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_text(text)
+
+    def served(self, path):
+        return affected.served_tests([f"apps/desktop/src/{path}"], self.root)
+
+    def test_ci7438a_a_page_an_eval_string_and_the_harness_select_the_tests_that_serve_them(self):
+        self.assertEqual(self.served("pad/Pad.tsx"), ["apps/desktop/src/pad/page.test.ts"])
+        self.assertEqual(self.served("pad/Drawer.tsx"), ["apps/desktop/src/pad/app.test.ts", "apps/desktop/src/pad/eval.test.ts"])
+        self.assertEqual(self.served("pad/page.html"), ["apps/desktop/src/pad/page.test.ts"])
+
+    def test_ci7438b_a_page_that_is_no_file_fails_the_guard_naming_its_test(self):
+        self.write({"apps/desktop/src/pad/gone.test.ts": 'import { openPage } from "../testing/chromePage";\nopenPage("/src/pad/gone.html");\n'})
+        self.assertEqual(affected.served_problems(self.root), ["apps/desktop/src/pad/gone.test.ts: the page /src/pad/gone.html is no file"])
+
+    def test_ci7438b_a_computed_specifier_fails_the_guard_naming_its_helper(self):
+        self.write({"apps/desktop/src/pad/help.ts": 'import { openPage } from "../testing/chromePage";\nopenPage(`import("/src/pad/${name}.tsx")`);\n',
+                    "apps/desktop/src/pad/uses.test.ts": 'import "./help";\n'})
+        self.assertEqual(affected.served_problems(self.root),
+                         ["apps/desktop/src/pad/help.ts: the served module /src/pad/${name}.tsx resolves to no file"])
+
+    def test_ci7438b_a_chrome_test_serving_nothing_fails_unless_listed(self):
+        self.write({"apps/desktop/src/pad/bare.test.ts": 'import { openPage } from "../testing/chromePage";\n'})
+        self.assertEqual(affected.served_problems(self.root), [
+            "apps/desktop/src/pad/bare.test.ts: reaches Chrome and serves no file; list it in UNSERVED with its reason"])
+        with patch.dict(affected.UNSERVED, {"apps/desktop/src/pad/bare.test.ts": "a planted reason"}):
+            self.assertEqual(affected.served_problems(self.root), [])
+
+    def test_ci7438b_the_web_tests_of_main_pass_the_guard_and_the_names_come_from_browser_tests(self):
+        self.assertEqual(affected.served_problems(), [])
+        scan = affected.Served(affected.ROOT)
+        self.assertEqual(sorted(scan.modules), ["apps/desktop/src/testing/appServer.ts", "apps/desktop/src/testing/chromePage.ts"])
+        self.assertTrue(all(reason for reason in affected.UNSERVED.values()))
+
+    def test_ci7438a_a_product_file_a_browser_test_loads_selects_it_on_main(self):
+        base = "apps/desktop/src/"
+        for changed, tests in {"pads/PadRichEditor.tsx": ("pads/u5561a_browser", "pads/u5575a_browser"),
+                               "pads/PadDrawer.tsx": ("pads/p2544a_browser",),
+                               "toasts/queue.tsx": ("pads/u5808b_colour_palette_capture", "todos/u3720_real_daemon_owner")}.items():
+            out = io.StringIO()
+            with patch.object(affected, "changed_since", return_value=[base + changed]), contextlib.redirect_stdout(out):
+                self.assertEqual(affected.main(["affected.py", "web", "HEAD^1"]), 0)
+            for test in tests:
+                self.assertTrue(any(line.startswith(str(affected.ROOT / base / test)) for line in out.getvalue().split("\n")), (changed, test))
+
+
 if __name__ == "__main__":
     unittest.main()

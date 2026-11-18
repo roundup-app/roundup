@@ -201,7 +201,7 @@ pub struct Comment {
     pub read: bool,
 }
 
-/// Adds a comment to a Todo. The author is the calling Actor, never a param. An Agent's body is one line of at most 280 characters (T21).
+/// Adds a comment to a Todo. The author is the calling Actor, never a param. An Agent's body is one line of at most 280 characters, then at most one closed `For Agents` fold (T21).
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CommentParams {
     pub id: u32,

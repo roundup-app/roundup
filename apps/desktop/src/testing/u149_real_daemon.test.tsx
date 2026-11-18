@@ -35,6 +35,8 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
         Excalidraw: () => createElement("div", { "data-testid": "canvas" }),
         convertToExcalidrawElements: (skeleton) => skeleton.map((element, index) => ({ id: String(element.id ?? index), version: 1 })),
         restoreElements: (stored) => stored.map((element, index) => ({ id: String(element.id ?? index), version: 1 })),
+        exportToSvg: async () => "",
+        fromMermaid: async () => [],
       }),
     });
     const app = createFakeApp();
