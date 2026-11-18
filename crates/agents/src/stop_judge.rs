@@ -88,7 +88,7 @@ impl Shared {
 }
 
 /// Phrases that ask, offer a choice or wait on the user, with or without a question mark.
-const ASKS: [&str; 19] = [
+const ASKS: [&str; 21] = [
     "should i",
     "shall i",
     "do you want",
@@ -102,6 +102,8 @@ const ASKS: [&str; 19] = [
     "blocked on you",
     "need your",
     "need you to",
+    "needs you",
+    "input needed",
     "awaiting your",
     "please confirm",
     "please choose",
@@ -158,7 +160,7 @@ pub(crate) fn rules(text: &str) -> Verdict {
     if let Some(line) = question_line(&tail) {
         return Verdict::Asks(sentence(line));
     }
-    let flat = format!(" {} ", words(&tail).join(" "));
+    let flat = format!(" {} ", without_denied(&tail).join(" "));
     let has = |list: &[&str]| {
         list.iter()
             .any(|phrase| flat.contains(&format!(" {phrase} ")))
@@ -222,6 +224,30 @@ fn sentence(text: &str) -> String {
         .unwrap_or(upto)
         .trim_matches(|mark: char| mark.is_whitespace() || "-*#>_\"'".contains(mark));
     cut(text)
+}
+
+/// Words that deny a phrase that follows them in the same sentence.
+const NEGATORS: [&str; 6] = ["nothing", "no", "not", "never", "nobody", "none"];
+
+/// The words of `text` less each sentence in which a negator comes before an `ASKS` phrase: such a
+/// sentence denies the ask, so it is neither an ask nor an address.
+fn without_denied(text: &str) -> Vec<String> {
+    let mut kept = Vec::new();
+    for sentence in text.split(['.', '!', '\n']) {
+        let list = words(sentence);
+        let flat = format!(" {} ", list.join(" "));
+        let denied = ASKS.iter().any(|phrase| {
+            flat.find(&format!(" {phrase} ")).is_some_and(|at| {
+                flat[..at]
+                    .split(' ')
+                    .any(|word| NEGATORS.contains(&word) || word.ends_with("n't"))
+            })
+        });
+        if !denied {
+            kept.extend(list);
+        }
+    }
+    kept
 }
 
 /// Lowercase words, apostrophes kept inside a word.
@@ -340,6 +366,25 @@ mod tests {
             ("Merged. You can run `just check` now.", Verdict::Reports),
             ("Here is what you asked for.", Verdict::Unclear),
             ("Let me know if anything else breaks.", Verdict::Unclear),
+        ] {
+            assert_eq!(rules(text), expected, "{text}");
+        }
+    }
+
+    /// A7180a: a sentence that denies an ask is no ask.
+    #[test]
+    fn a7180a_a_denied_ask_is_no_ask() {
+        for (text, expected) in [
+            ("Nothing is waiting on you.", Verdict::Reports),
+            ("Nothing needs you right now.", Verdict::Reports),
+            ("No input needed from you.", Verdict::Reports),
+            ("I don't need you to do anything.", Verdict::Reports),
+            ("Not blocked on you.", Verdict::Reports),
+            (
+                "I'm waiting on you to pick one.",
+                asks("I'm waiting on you to pick one."),
+            ),
+            ("Should I ship it?", asks("Should I ship it?")),
         ] {
             assert_eq!(rules(text), expected, "{text}");
         }
