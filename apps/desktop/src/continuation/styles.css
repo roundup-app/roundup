@@ -4,7 +4,7 @@
 }
 
 /* #7271: a surface and one hairline on the lower edge (inside the row's height) read it as chrome, not output. */
-.floating-line.resume-bar:is(.resume-bar, [data-overlay="true"]) {
+.floating-line.resume-bar {
   background: var(--surface);
   border-block-end: var(--hairline-width) solid var(--hairline);
 }
