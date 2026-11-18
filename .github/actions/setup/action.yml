@@ -54,10 +54,6 @@ runs:
       shell: bash
       run: |
         setsid sudo bash -c 'apt-get update -qq && apt-get install -y -o DPkg::Lock::Timeout=300 bpftrace libfuse3-dev fuse3 pkg-config; echo $? >"$1"' _ "$RUNNER_TEMP/tracer.status" >"$RUNNER_TEMP/tracer.log" 2>&1 </dev/null &
-    - if: runner.environment == 'self-hosted'
-      name: Verify prepared boxd toolchain
-      shell: bash
-      run: python3 /opt/roundup-ci/image.py verify "${{ github.action_path }}/action.yml"
     # The browser downloads and its system packages install in about 30 s of waiting on the network: where no Tauri
     # install holds apt's lock, they run in the background while the toolchain, caches and Node install, and `Wait for
     # browser` joins them. Chrome's system libraries are preinstalled on the runner image: `--with-deps` (apt-get update plus
@@ -179,8 +175,7 @@ runs:
           apps/*/node_modules
           site/node_modules
           crates/agents/sidecar/node_modules
-          loop/agent-runners/node_modules
-        key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'patches/**', 'package.json', 'tools/lint/package.json', 'apps/*/package.json', 'site/package.json', 'crates/agents/sidecar/package.json', 'loop/agent-runners/package.json', '.npmrc') }}
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'patches/**', 'package.json', 'tools/lint/package.json', 'apps/*/package.json', 'site/package.json', 'crates/agents/sidecar/package.json', '.npmrc') }}
     - if: runner.environment != 'self-hosted' && inputs.node != 'false' && steps.node-modules.outputs.cache-hit == 'true'
       uses: actions/setup-node@v5
       with:
@@ -275,7 +270,6 @@ runs:
           apps/*/node_modules
           site/node_modules
           crates/agents/sidecar/node_modules
-          loop/agent-runners/node_modules
         key: ${{ steps.node-modules.outputs.cache-primary-key }}
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       name: Wait for Tauri packages

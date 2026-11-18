@@ -20,4 +20,5 @@ A scenario is the spec for a unit of work: given / when / then, in `GLOSSARY.md`
 
 Product roadmap: [Workstreams, Doors and Sketches](../docs/wireframes.md#accepted-product-direction-workstreams-doors-and-sketches); it needs scoped scenarios before dispatch.
 
-Retired ids: U3739, U3016c, U3016i, U3016j, CI5783a, T6011b. The old GitHub loop's L23, L24, L34, L34a, L79, L81, L82, L86, L93, L94, L96, L103, L118, L123 and L124 retired with it on 2026-11-18. SK1–SK12 retire with `scenarios/skill-removal.md`.
+Retired ids: U3739, U3016c, U3016i, U3016j, CI5783a, T6011b.
+The old GitHub loop's L23, L24, L34, L34a, L79, L81, L82, L86, L93, L94, L96, L103, L118, L121, L123 and L124 retired with it on 2026-11-18. SK1–SK12 retire with `scenarios/skill-removal.md`.

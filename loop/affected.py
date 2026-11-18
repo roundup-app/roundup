@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd|ping|first [base] | shards <count|all>
+"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|ping|first [base] | shards <count|all>
 | rust-targets <test id>... | rust-helpers [nextest args] | rust-lane <nextest profile> [base]
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
 the cargo selection of the tests to run (`-p <crate>` runs a crate's whole suite; `-p <crate> --test <binary>` compiles
 only that binary, for a diff of test files alone; T7188b), for `web` the files that still exist, as absolute paths, to pass
-`vitest related`. The `boxd` selector prints `all` only for runner, integration or package-configuration changes, and
-the `ping` selector (CI7295h) only when the diff reaches `mac-clippy`'s ping round trip or its guard observers. The diff
-runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
-counts. The `first` selector (CI7297b) prints the web test files the diff changes, existing ones only, and nothing else.
+`vitest related`. The `ping` selector (CI7295h) prints `all` only when the diff reaches `mac-clippy`'s ping round trip
+or its guard observers. The diff runs from where HEAD forked from <base> to the working tree, untracked files included,
+so a Builder's uncommitted change counts. The `first` selector (CI7297b) prints the web test files the diff changes, existing ones only, and nothing else.
 No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
 
 T7188a: `rust-targets` prints the same lines for test ids: `-p <crate> --test <binary>` (`--lib`, `--bin <name>`) for each target
@@ -67,12 +66,6 @@ SUFFIXES = ('', '.ts', '.tsx', '/index.ts', '/index.tsx')
 PAGE = re.compile(r'(?:["\'`]|\})(/[^"\'`\s?#]*\.html)\b')
 SCRIPT_SRC = re.compile(r'<script\b[^>]*\bsrc="([^"]+)"')
 SERVED_CALL = re.compile(r'\b(?:import|fetch)\(\s*["\'`](/src/[^"\'`]*)')
-# L121: the prepared runner, its callers and the package/CI configuration its regressions execute under.
-BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
-              '.github/workflows/', '.github/actions/setup/', '.github/actionlint.yaml',
-              'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
-              'AGENTS.md', 'scenarios/loop-boxd.md')
-
 # CI7295h: `mac-clippy`'s `rup ping` round trip and the N7/N8 guard observers after it start the `rupd` and `rup` the job
 # builds, which `desktop` starts and bundles as the App, and read these files.
 PING_CRATES = {'rupd', 'rup', 'desktop'}
@@ -256,11 +249,6 @@ def served_problems(root=ROOT):
         if chrome and not served and not found and test not in UNSERVED:
             problems.add(f'{test}: reaches Chrome and serves no file; list it in UNSERVED with its reason')
     return sorted(problems)
-
-
-def boxd(changed):
-    """Select the runner regressions only when their code, callers or execution configuration can change."""
-    return 'all' if any(under(path, BOXD_READS) for path in changed) else []
 
 
 def ping(changed, workspace):
@@ -524,7 +512,7 @@ def main(argv):
         if args := lane_args(argv[2], changed_since(base) if base else None, metadata(), ROOT, resolved_features()):
             print(args)
         return 0
-    selectors = {'rust': lambda changed: rust(changed, metadata(), ROOT), 'web': web, 'boxd': boxd,
+    selectors = {'rust': lambda changed: rust(changed, metadata(), ROOT), 'web': web,
                  'ping': lambda changed: ping(changed, workspace(metadata())), 'first': first}
     if len(argv) not in (2, 3) or argv[1] not in selectors:
         print(__doc__, file=sys.stderr)

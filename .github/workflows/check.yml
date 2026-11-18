@@ -176,7 +176,7 @@ jobs:
       fail-fast: false
       matrix:
         partition: [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-rust-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
+    runs-on: ubuntu-24.04
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35
     steps:
@@ -187,14 +187,6 @@ jobs:
           fetch-depth: ${{ env.CI3781_CACHE != '' && '0' || '2' }}
           # Repeated experiment pushes retain their source tree despite unrelated main merges.
           ref: ${{ env.CI3781_CACHE != '' && github.event.pull_request.head.sha || '' }}
-      # Hosted runners set SHELL; the boxd runner starts with a filtered environment without it, so rupd's Terminal
-      # would start /bin/sh instead of the login shell a user's session names. Name it as a session does.
-      - name: Name the login shell
-        if: runner.environment == 'self-hosted'
-        run: |
-          shell=$(getent passwd "$(id -un)" | cut -d: -f7)
-          [ -x "$shell" ] || { echo "::error::no login shell for $(id -un): '$shell'"; exit 1; }
-          echo "SHELL=$shell" >>"$GITHUB_ENV"
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
@@ -619,7 +611,7 @@ jobs:
       fail-fast: false
       matrix:
         partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
-    runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-web-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
+    runs-on: ubuntu-24.04
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35
     steps:
@@ -627,14 +619,6 @@ jobs:
         with:
           clean: ${{ runner.environment != 'self-hosted' }}
           fetch-depth: 2
-      # Hosted runners set SHELL; the boxd runner starts with a filtered environment without it, so rupd's Terminal
-      # would start /bin/sh instead of the login shell a user's session names. Name it as a session does.
-      - name: Name the login shell
-        if: runner.environment == 'self-hosted'
-        run: |
-          shell=$(getent passwd "$(id -un)" | cut -d: -f7)
-          [ -x "$shell" ] || { echo "::error::no login shell for $(id -un): '$shell'"; exit 1; }
-          echo "SHELL=$shell" >>"$GITHUB_ENV"
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
@@ -687,24 +671,6 @@ jobs:
           rust: 'false'
           browser: 'true'
           tracer: 'true'
-      - name: Refresh prepared runtime for this checkout
-        if: runner.environment == 'self-hosted'
-        run: just build-debug
-      # Hosted runners ship Google Chrome on a system path, where `chromePage.ts` and agent-browser find it; the prepared
-      # boxd image holds only agent-browser's Chrome for Testing, under the HOME that `loop/app-data.py` replaces. Link it
-      # onto the same lookup. Exporting AGENT_BROWSER_EXECUTABLE_PATH instead gives every agent-browser command launch
-      # options, and agent-browser 0.27 relaunches a session opened with `--profile` on a blank page at the next command
-      # that omits it. Fail unless there is exactly one prepared Chrome and nothing on the path yet.
-      - name: Link the prepared browser
-        if: runner.environment == 'self-hosted'
-        run: |
-          chrome=("$HOME"/.agent-browser/browsers/chrome-*/chrome)
-          [ "${#chrome[@]}" = 1 ] && [ -x "${chrome[0]}" ] || { echo "::error::expected one prepared Chrome, found: ${chrome[*]}"; exit 1; }
-          sudo ln -s "${chrome[0]}" /usr/bin/google-chrome
-      # U4649b drives Playwright's WebKit, the Mac App's engine; Chrome alone cannot fail it.
-      - name: U4649b WebKit browser
-        if: matrix.partition == 1 && runner.environment == 'self-hosted'
-        run: pnpm --filter desktop exec playwright install --with-deps webkit
       - name: Wait for WebKit
         if: matrix.partition == 1 && runner.environment != 'self-hosted'
         run: |
@@ -731,8 +697,8 @@ jobs:
             target/release-modules.json
           if-no-files-found: error
           retention-days: 30
-      # U26: the file-fault tracer needs kernel BTF, kprobes and tracepoints, which boxd's kernel lacks, so only a
-      # hosted shard runs its tests under it (setup's `tracer`); U26's cold Chromium command runs on the hosted `chromium` runner.
+      # U26: each shard runs its tests under the file-fault tracer (setup's `tracer`), which needs kernel BTF, kprobes and
+      # tracepoints; U26's cold Chromium command runs on the hosted `chromium` runner.
       - name: test-web
         timeout-minutes: 15
         run: |
