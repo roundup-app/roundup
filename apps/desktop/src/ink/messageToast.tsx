@@ -22,7 +22,7 @@ type FailureLine = Dismissible & { message: string | null | false | undefined; c
 export const MessageBody = (props: FailureLine) => (
   // The card is the only place a message wraps whole; its title holds the lines the text cuts.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass
-  <div class="message-body" title={props.message || undefined}>
+  <div class={`message-body${props.class ? ` ${props.class}` : ""}`} title={props.message || undefined}>
     <Show when={props.message}>{message => <ErrorLine message={message()} content={props.content} />}</Show>
     <div class="message-actions">{props.action}<RecoveryButtons recover={props.recover} dismiss={props.dismiss} dismissIn={props.dismissIn} /></div>
   </div>
