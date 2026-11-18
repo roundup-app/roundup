@@ -71,4 +71,4 @@ Specification validation (policy): report a failed command on #4542 with its exi
 |---|---|---|
 | `loop/rules.sh vocab` | Public vocabulary violates rule 6 | 1 |
 | `loop/rules.sh scenario-ids` | A scenario heading breaks the id inventory | 1 |
-| `just ready` | A required lint, trailer or frozen-boundary check fails | 1 |
+| `just ready` | A required lint or check fails | 1 |

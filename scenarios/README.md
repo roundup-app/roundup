@@ -7,7 +7,6 @@ A scenario is the spec for a unit of work: given / when / then, in `GLOSSARY.md`
 - Methods and events are the ones in `crates/contracts`; errors use the codes in `rpc::code`.
 - Every write or read of a Todo or Pad is a Touch: `ctx.touch(verb, "todo:<id>" | "pad:<name>")`.
 - Tests run without Claude, a network or a display; anything needing a real `claude` replays `spikes/hooks-state/*.jsonl`.
-
 - Work items are roundup Todos; hum builds the ones assigned to its Agent. Scenario files contain acceptance, not scheduling tables.
 
 ## Deferred past the MVP (no scenario yet)
