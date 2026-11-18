@@ -305,7 +305,7 @@ it.each(["recover", "unrelated"] as const)("p3557c_failure_lifetime_inbox_%s", a
   if (transition === "recover") {
     m.app.handlers["todo.unread"] = () => [];
     fireEvent.click(toasts().getByRole("button", { name: "Retry Inbox" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Retry Inbox" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alert", { name: /cannot load/ })).toBeNull());
   } else {
     m.app.handlers["rail.tree"] = () => NODES.filter((node) => node.id !== "c");
     await send(m, event({ name: "rail.changed" }));
