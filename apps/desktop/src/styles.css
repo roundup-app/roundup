@@ -99,7 +99,7 @@ p {
   padding-left: 0;
 }
 
-/* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The failure line takes the Rail's side padding; the list and footer reach both edges. */
+/* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The recovery list takes the Rail's side padding; the list and footer reach both edges. */
 .rail {
   display: flex;
   flex-direction: column;
@@ -108,7 +108,7 @@ p {
   overflow: clip;
 }
 
-.rail :is(.rail-recovery, .rail-command-notice) {
+.rail .rail-recovery {
   box-sizing: border-box;
   padding-right: var(--space-4);
   padding-left: var(--space-4);

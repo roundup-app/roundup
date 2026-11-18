@@ -1,3 +1,4 @@
+import { notices } from "../testing/notices";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Machine } from "@contracts/machine/Machine";
@@ -40,7 +41,7 @@ it("u7205d_a_remote_agent_shows_the_server_icon_with_the_machine_name_or_offline
 
 
   expect(icon.hasAttribute("data-offline")).toBe(false);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   fireEvent.pointerEnter(icon, { pointerType: "mouse", clientX: 0, clientY: 0 });
   await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(icon.getAttribute("aria-label")));
 });

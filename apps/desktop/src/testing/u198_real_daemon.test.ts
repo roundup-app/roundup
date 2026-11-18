@@ -13,6 +13,7 @@ import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { Rail } from "../rail/Rail";
 import { rowNames } from "../rail/railFixture";
+import { ToastHost } from "./toastHost";
 
 it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () => {
   // Use the same vendor as rupd's b50_note_inbox observer: a real PTY,
@@ -48,7 +49,7 @@ it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () 
     });
     const [now, setNow] = createSignal(Date.now());
     const connected = await connectProject(app, { name: "Project", path: real.dir }, () => true, now);
-    render(() => createComponent(ConnectedProjectContext, { value: connected, get children() { return createComponent(Rail, {}); } }));
+    render(() => createComponent(ToastHost, { get children() { return createComponent(ConnectedProjectContext, { value: connected, get children() { return createComponent(Rail, {}); } }); } }));
     await waitFor(() => expect(rowNames()).toContain("Child"));
 
     const typed = () => readFile(join(vendor, "typed.bin")).catch(error => {
