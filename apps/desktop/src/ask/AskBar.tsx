@@ -345,8 +345,7 @@ export const AskBar = (props: {
           </span>}</For>
         </div></Show>
         <DialogFailure message={sendLine.message()} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
-        <Show when={records().some(draft => draft.status === "unknown")}><div class="mounted-line ask-send-status" role="status">
-        <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
+        <Show when={records().some(draft => draft.status === "unknown")}><div class="mounted-line ask-send-status" role="status"><For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
 

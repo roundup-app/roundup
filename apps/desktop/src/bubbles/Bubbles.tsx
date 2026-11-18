@@ -299,17 +299,8 @@ export const Bubbles = (props: {
 
   const { close, closing, toastFailure, reportFailure, mounted } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure, failure);
 
-  const reopen = () => {
-    setFailure(null);
-
-    return open();
-  };
-
-  toastFailure({
-    message: () => failure()?.message ?? null,
-    dismiss: () => setFailure(null),
-    again: () => failure()?.terminal === null ? reopen : undefined,
-  });
+  toastFailure({ message: () => failure()?.message ?? null, dismiss: () => setFailure(null),
+    again: () => failure()?.terminal === null ? async () => { setFailure(null); await open(); } : undefined });
 
   const focusItem = (id: string, place = places()[id]) => focusBubble(id, place, props.screens);
 

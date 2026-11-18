@@ -86,15 +86,19 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
     get message() { return line.message(); },
     dismiss: line.dismiss,
     get recover() {
-      const failed = retry()?.message === line.message() ? retry() : null;
+      const failed = retry()?.message === line.message();
       const again = line.again();
 
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
       if (failed) {
         return { run: () => {
-          focusTarget(`bubble.${failed.id}.close`)?.focus();
+          const id = retry()?.id;
 
-          return void close(failed.id);
+          if (id === undefined) return;
+
+          focusTarget(`bubble.${id}.close`)?.focus();
+
+          return void close(id);
         } };
       }
 
