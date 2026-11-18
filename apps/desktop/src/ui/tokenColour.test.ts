@@ -25,9 +25,9 @@ it("u148_a_display_p3_token_reaches_mermaid_as_srgb", async () => {
   } as never);
   const host = document.createElement("div");
 
-  // SAFETY: the Pad hands a mount its text; the block reads nothing else.
+  // SAFETY: the Pad hands a mount its text; the block reads nothing else. `xyChart` is the one nested theme record; every other theme value but the font, the pie's opacity and its text sizes is a colour string.
   mountMermaid({
-    initialize: (config) => colours.push(...Object.entries(config.themeVariables).filter(([key]) => key !== "fontFamily").map(([, value]) => value)),
+    initialize: (config) => colours.push(...Object.entries(config.themeVariables).filter(([key]) => !["fontFamily", "pieOpacity"].includes(key) && !key.endsWith("TextSize")).flatMap(([key, value]) => (key === "xyChart" ? Object.values(value as Record<string, string>) : [value as string]))),
     parse: async () => {},
     render: async () => ({ svg: "<svg></svg>" }),
   })(host, { text: "graph TD\nA-->B" } as never);

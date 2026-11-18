@@ -19,6 +19,8 @@ import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { Collapsible } from "../ui/Collapsible";
+import { Markdown } from "../plain/Markdown";
+import { agentCommentLine } from "./agentCommentLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import { commentSchema, createSavedFailure, sentFailure } from "./EditableText";
@@ -28,41 +30,6 @@ import { rowButtonOf, triage } from "./triage";
 // Rows are keyed by id so fold state, focus and fade survive an arrival.
 const byId = "id";
 
-
-type Part = { text: string } | { summary: string; details: string };
-
-const isStatus = (part: Part): part is Extract<Part, { summary: string }> => "summary" in part;
-
-const STATUS = "::status ";
-
-/** U3775: an Agent writes `::status <summary>` and indents its detail lines by two spaces; a status line with no details stays plain text. */
-const partsOf = (body: string, marked: boolean): Part[] => {
-  const parts: Part[] = [];
-  const plain: string[] = [];
-
-  const flush = () => { if (plain.length > 0) parts.push({ text: plain.splice(0).join("\n") }); };
-
-  const lines = body.split("\n");
-
-  for (let at = 0; at < lines.length; at++) {
-    const line = lines[at]!;
-
-    if (!marked || !line.startsWith(STATUS)) { plain.push(line); continue; }
-
-    const details: string[] = [];
-
-    while (lines[at + 1]?.startsWith("  ")) details.push(lines[++at]!.slice(2));
-
-    if (details.length === 0) { plain.push(line.slice(STATUS.length)); continue; }
-
-    flush();
-    parts.push({ summary: line.slice(STATUS.length), details: details.join("\n") });
-  }
-
-  flush();
-
-  return parts;
-};
 
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
 export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<typeof captureFocus>) => void) | undefined; saved?: () => number; onSaved?: () => void; onCapture?: (change: Change | undefined) => void }) => {
@@ -135,8 +102,8 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   let shown: Set<number> | null = null;
   let field: HTMLTextAreaElement | undefined;
 
-  // The rendered text, never the `::status` marker or indent; it stays until the next arrival replaces it.
-  const spoken = (comment: Comment) => partsOf(comment.body, comment.author.kind === "agent").map((part) => "summary" in part ? `${part.summary}\n${part.details}` : part.text).join("\n");
+  // The line the thread shows, never a closed fold's source; it stays until the next arrival replaces it.
+  const spoken = (comment: Comment) => comment.author.kind === "agent" ? agentCommentLine(comment.body) : comment.body;
 
   // The store follows the thread the resource holds; a comment not shown before is announced once.
   createEffect(() => loaded()?.list, list => {
@@ -197,7 +164,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     if (comment) void contextMenu(app, [
       ...(comment.author.kind === "agent" ? [{ id: "reply", label: copy.reply, run: () => field?.focus() }] : []),
-      { id: "copy", label: copy.copy, run: () => { void failureOf(() => writeText(app, spoken(comment))).then(failCopy); } },
+      { id: "copy", label: copy.copy, run: () => { void failureOf(() => writeText(app, comment.body)).then(failCopy); } },
     ], x, y);
   });
 
@@ -205,15 +172,11 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
   const renderComment = (comment: Comment) => <div class="todo-comment" data-comment={comment.id}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={shownKind(node().status, rail.dismissed(node()))} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at, now())}</time>
-        <span class="todo-comment-actions"><CopyButton data-button="icon" class="word" app={app} text={spoken(comment)} aria-label={copy.copy} onSuccess={() => failCopy(null)} onFailure={error => failCopy(error.message)}><Icon name="copy" /></CopyButton>
+        <span class="todo-comment-actions"><CopyButton data-button="icon" class="word" app={app} text={comment.body} aria-label={copy.copy} onSuccess={() => failCopy(null)} onFailure={error => failCopy(error.message)}><Icon name="copy" /></CopyButton>
           <Show when={comment.author.kind === "agent"}><IconButton aria-label={copy.reply} onClick={() => field?.focus()}><Icon name="reply" /></IconButton></Show></span></p>
       <Show when={glyphOf(comment)}>{(node) => <Show when={!rail.dismissed(node())}><FailureLine status={node().status} dismiss={() => rail.dismiss(node())} /></Show>}</Show>
-      <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)
-        ? <Collapsible.Root class="todo-status">
-          <Collapsible.Trigger data-button="quiet" class="word todo-status-summary">{part.summary}</Collapsible.Trigger>
-          <Collapsible.Content class="todo-status-details">{part.details}</Collapsible.Content>
-        </Collapsible.Root>
-        : <p class="todo-comment-body">{part.text}</p>}</For></div>
+      {/* U7312a: an Agent's comment is Markdown with a closed fold; the user's stays as typed. */}
+      <Show when={comment.author.kind === "agent"} fallback={<p class="todo-comment-body">{comment.body}</p>}><Markdown class="todo-comment-body" body={comment.body} /></Show>
     </div>;
 
   // U7310d: the thread's failures show as toasts.
