@@ -17,9 +17,6 @@ pub enum Error {
     /// E3: the start Context holds no `additionalContext` to extend.
     #[error("start Context has no additionalContext")]
     StartContextEmpty,
-    /// SK1: no config folder can be chosen.
-    #[error("neither CLAUDE_CONFIG_DIR nor HOME is set")]
-    NoConfigDir,
     /// DCL3: the process table could not be read.
     #[error("cannot read the process table: {0}")]
     ProcessTableUnreadable(std::io::Error),

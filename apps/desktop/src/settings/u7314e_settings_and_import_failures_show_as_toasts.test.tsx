@@ -51,7 +51,7 @@ it("u7314e_settings_and_import_failures_show_as_toasts: Settings", async () => {
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("textbox", { name: "Naming guide" });
   const content = screen.getByRole("tabpanel");
-  // The skill control loads after the page; its own loading line is #7407's, so the elements are read once it is gone.
+  // The deferred controls load after the page; its own loading line is #7407's, so the elements are read once it is gone.
   await waitFor(() => expect(reservedLines()).toEqual([]));
   const before = elements(content);
 
