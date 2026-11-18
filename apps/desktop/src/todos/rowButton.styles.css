@@ -309,6 +309,13 @@ input.todo-tick {
 .todo-row:focus-within [data-group-toggle],
 .todo-row[data-selected="true"] [data-group-toggle] { opacity: 1; pointer-events: auto; }
 .row-name-editor { flex: 1; min-width: 0; position: relative; z-index: 1; }
+
+/* U7314g: the draft-conflict note takes its own line under the field, in flow, so the rows below move down and none is covered. */
+.row-name-editor .mounted-line {
+  padding-block: var(--space-1);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .row-name-editor input {
   box-sizing: border-box;
   width: 100%;
