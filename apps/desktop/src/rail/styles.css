@@ -69,6 +69,7 @@
 }
 
 .rail-row .mounted-line {
+  order: 1;
   flex: 1 0 100%;
   padding-block: var(--space-1);
   white-space: normal;
