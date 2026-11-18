@@ -49,8 +49,9 @@ pub struct SpawnParams {
     pub cwd: String,
     pub prompt: Option<String>,
     pub parent: Option<String>,
-    /// DCL9: an Agent's spawn names the Subagent's role, `job` or `consult`; without one the call
-    /// is refused. The user's own spawn has no role.
+    /// DCL9: an Agent's spawn names the Subagent's role, `job`, `consult` or `mode`; without one
+    /// the call is refused. The user's own spawn has no role. A `mode` (A7494a) takes `name` and
+    /// the first `prompt`, no `order`.
     #[serde(default)]
     #[specta(optional, type = SpawnRole)]
     pub role: Option<SpawnRole>,
@@ -93,12 +94,14 @@ pub struct SpawnParams {
 }
 
 /// DCL9: what a Subagent is for. A Job owns one bounded outcome and ends with a report; a Consult
-/// answers questions and rests when idle.
+/// answers questions and rests when idle; a Mode (A7494a) is an Agent with a saved first prompt
+/// that nests under its starter and asks the user.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SpawnRole {
     Job,
     Consult,
+    Mode,
 }
 
 impl SpawnRole {
@@ -107,6 +110,7 @@ impl SpawnRole {
         match self {
             Self::Job => "job",
             Self::Consult => "consult",
+            Self::Mode => "mode",
         }
     }
 }

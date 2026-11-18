@@ -326,6 +326,9 @@ impl Daemon {
                 self.reset_orphans().await?;
                 return outcome;
             }
+            After::Spawn if params["role"] == "mode" => {
+                return self.start_nested_mode(outcome?).await;
+            }
             After::PadDelete if outcome.is_ok() => {
                 self.publications.invalidate_revoked()?;
             }

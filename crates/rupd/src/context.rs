@@ -39,7 +39,11 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
             .and_then(|node| node.parent.as_deref())
             .and_then(|id| nodes.iter().find(|candidate| candidate.id == id));
     }
+    // A7494b: a nested Mode keeps its starter as Parent but asks the user.
     let ask = match parent {
+        Some(_) if node.mode_prompt().is_some_and(|prompt| !prompt.trim().is_empty()) => {
+            Actor::user().id
+        }
         Some(parent) if is_agent(parent) => parent.id.clone(),
         _ => Actor::user().id,
     };

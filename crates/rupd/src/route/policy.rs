@@ -53,6 +53,8 @@ pub(crate) enum After {
     PadCreate,
     RailRemove,
     PadDelete,
+    /// A7494a: a `mode` spawn starts the Mode it saved.
+    Spawn,
 }
 
 /// Whether Auto's gate serializes the call.
@@ -160,7 +162,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.setVisibility", Policy { actor: Actor::Caller, gate: Gate::SetVisibility, inputs: Inputs::Id, ..PLAIN }),
     ("agent.signal", Policy { after: After::AgentSignal, inputs: Inputs::Id, ..PLAIN }),
     ("agent.skills", Policy { inputs: Inputs::Id, ..PLAIN }),
-    ("agent.spawn", Policy { actor: Actor::Caller, gate: Gate::Spawn, observes: true, capped: true, inputs: Inputs::Spawn, ..PLAIN }),
+    ("agent.spawn", Policy { actor: Actor::Caller, gate: Gate::Spawn, after: After::Spawn, observes: true, capped: true, inputs: Inputs::Spawn, ..PLAIN }),
     ("agent.spawnPrompt", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.stop", Policy { actor: Actor::Caller, observed: true, inputs: Inputs::Id, ..PLAIN }),
     ("agent.wake", Policy { inputs: Inputs::Wake, ..PLAIN }),

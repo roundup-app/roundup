@@ -98,7 +98,12 @@ impl Messages {
             let retained_target = match node.kind() {
                 contracts::agent::NodeKind::Workstream => true,
                 contracts::agent::NodeKind::Agent => {
-                    node.parent.is_none() && node.mode_prompt().as_deref() == Some(prompt)
+                    node.mode_prompt().as_deref() == Some(prompt)
+                        && node.parent.as_deref().is_none_or(|parent| {
+                            nodes
+                                .iter()
+                                .any(|n| n.id == parent && n.parent.is_none())
+                        })
                 }
                 contracts::agent::NodeKind::Group => false,
             };

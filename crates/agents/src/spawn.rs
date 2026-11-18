@@ -53,9 +53,11 @@ struct SpawnRequest {
     permission: Permission,
     /// H7200a: the caller's row, which the new Agent takes the place of.
     before: Option<String>,
+    /// A7494a: a `mode` spawn's saved first prompt.
+    mode_prompt: Option<String>,
 }
 
-/// DCL9: an Agent's spawn names Job or Consult; the user's names none.
+/// DCL9: an Agent's spawn names Job, Consult or Mode; the user's names none.
 fn check_role(
     role: Option<contracts::agent::SpawnRole>,
     by_agent: bool,
@@ -64,7 +66,8 @@ fn check_role(
         return Err(RpcError::new(
             code::INVALID_PARAMS,
             "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
-             report, `consult` for a Subagent that answers questions and rests",
+             report, `consult` for a Subagent that answers questions and rests, `mode` for a \
+             Mode under you that keeps a first prompt and asks the user",
         ));
     }
     if !by_agent && role.is_some() {
@@ -146,6 +149,9 @@ impl Agents {
                 request.machine = crate::pick::pick(&load);
             }
         }
+        if request.role == Some(contracts::agent::SpawnRole::Mode) {
+            return self.insert_nested_mode(ctx, &request);
+        }
         let (id, attempt) = self.insert_spawned(&request)?;
         // U6000e: the starting row is published before the worktree, config and launch steps.
         ctx.emit(EventData::RailChanged);
@@ -209,15 +215,25 @@ impl Agents {
     fn spawn_request(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<SpawnRequest, RpcError> {
         let size = self.check_spawner(ctx, &mut params)?;
         let by_agent = ctx.actor.kind == ActorKind::Agent;
-        let lean = self.lean_of(&mut params, by_agent)?;
         let role = check_role(params.role, by_agent)?;
+        let mode = role == Some(contracts::agent::SpawnRole::Mode);
+        let lean = if mode {
+            self.mode_of(ctx, &params)?;
+            None
+        } else {
+            self.lean_of(&mut params, by_agent)?
+        };
         let pair = self.choose(
             &ctx.actor,
             Role::Agent,
             params.model.take(),
             params.effort.take(),
         )?;
-        let (order, spawn_prompt) = order_of(params.prompt, params.order, by_agent)?;
+        let (mode_prompt, (order, spawn_prompt)) = if mode {
+            (params.prompt.take(), (None, None))
+        } else {
+            (None, order_of(params.prompt, params.order, by_agent)?)
+        };
         let given = params
             .name
             .as_deref()
@@ -248,7 +264,49 @@ impl Agents {
             },
             permission: params.permission_mode.into(),
             before: None,
+            mode_prompt,
         })
+    }
+
+    /// A7494a: a `mode` spawn is the root Agent's own, outside any Workstream, and gives a name and
+    /// a first prompt, with no order and none of a lean child's choices.
+    fn mode_of(&self, ctx: &Ctx, params: &SpawnParams) -> Result<(), RpcError> {
+        let refuse = |reason: &str| Err(RpcError::new(code::INVALID_PARAMS, reason.to_owned()));
+        let caller = self.shared.node(&ctx.actor.id)?;
+        if caller.kind() != NodeKind::Agent || caller.parent.is_some() {
+            return Err(RpcError::conflict(
+                "a Mode starts only under a root Agent outside any Workstream",
+            ));
+        }
+        if params.order.is_some() {
+            return refuse("a Mode takes a first prompt, not an order");
+        }
+        if params.scout.is_some() || params.extras.is_some() {
+            return refuse("a Mode launches with the user's whole setup: no scout or extras");
+        }
+        if params.name.as_deref().is_none_or(|name| name.trim().is_empty()) {
+            return refuse("a Mode needs a name");
+        }
+        match params.prompt.as_deref() {
+            Some(prompt) if !prompt.trim().is_empty() => {
+                if prompt.chars().count() > contracts::agent::MODE_PROMPT_MAX {
+                    return refuse("the Mode prompt is too long");
+                }
+            }
+            _ => return refuse("a Mode needs a first prompt"),
+        }
+        Ok(())
+    }
+
+    /// A7494a: the nested Mode's row, saved with its first prompt and not yet running; the Daemon
+    /// starts it through `agent.restartMode`'s reservation so the prompt is typed once.
+    fn insert_nested_mode(&self, ctx: &Ctx, request: &SpawnRequest) -> Result<RailNode, RpcError> {
+        let id = {
+            let mut rail = self.shared.rail();
+            self.insert_node(&mut rail, request)?.base.id
+        };
+        ctx.emit(EventData::RailChanged);
+        self.shared.node(&id)
     }
 
     /// Who may start what: start attribution and internal children, and an Agent's child sits
@@ -326,10 +384,12 @@ impl Agents {
         Ok(lean)
     }
 
-    /// Write the Agent node and mark its first attempt starting: one insert, so a failed write
-    /// leaves no node.
-    fn insert_spawned(&self, request: &SpawnRequest) -> Result<(String, Ordinal), RpcError> {
-        let mut rail = self.shared.rail();
+    /// Write the Agent node of `request`.
+    fn insert_node(
+        &self,
+        rail: &mut rail::Rail,
+        request: &SpawnRequest,
+    ) -> Result<RailNode, RpcError> {
         let name = match &request.given {
             Some(given) => {
                 let taken = rail
@@ -350,10 +410,11 @@ impl Agents {
             visibility: request.visibility,
             spawn_prompt: request.spawn_prompt.as_deref(),
             spawner: request.spawner.as_deref(),
-            role: request.role,
+            // A7494a: a Mode is told by its saved prompt, so no role is stored for it.
+            role: request.role.filter(|role| *role != contracts::agent::SpawnRole::Mode),
             model: request.pair.model.as_deref(),
             effort: request.pair.effort.as_deref(),
-            mode_prompt: None,
+            mode_prompt: request.mode_prompt.as_deref(),
             machine: request.machine.as_deref(),
         })?;
         if let Some(lean) = &request.lean {
@@ -365,6 +426,14 @@ impl Agents {
                 crate::rail::agent_id(before)?,
             )?;
         }
+        Ok(node)
+    }
+
+    /// Write the Agent node and mark its first attempt starting: one insert, so a failed write
+    /// leaves no node.
+    fn insert_spawned(&self, request: &SpawnRequest) -> Result<(String, Ordinal), RpcError> {
+        let mut rail = self.shared.rail();
+        let node = self.insert_node(&mut rail, request)?;
         let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;
         self.shared.mark_starting(&node.id, attempt.clone());
         if request.by_user_named {
