@@ -32,7 +32,7 @@ inputs:
     description: Install cargo-machete, which only `just lint` runs; a `check` lane sets `false` (CI7297a).
     default: 'true'
   nextest:
-    description: Install cargo-nextest, which only the lanes that run `just test-rust-lane` use; `contracts`, `observers` and `cache` set `false` (CI7297a).
+    description: Install cargo-nextest, which the lanes that run `just test-rust-lane` and `observers` (E14 tests) use; `contracts`, `cache` and `mac-clippy` set `false` (CI7297a).
     default: 'true'
   tracer:
     description: Install bpftrace and FUSE, which U26's file-fault tracer runs under, on a hosted Linux runner.
