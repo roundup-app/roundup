@@ -51,3 +51,15 @@ Rendered policy: the new row exposes attribution using source names, for example
 Implementation owns the typed Project relay in `crates/rupd` and `crates/rpc`, its launch/attribution support in `crates/agents`, contracts and generated callers, `crates/rup` CLI/MCP/help/tests, and the App's Project handler, state, confirmation, Rail attribution, copy and tests (including `crates/desktop`'s existing App relay adapter if its schema needs changing). This is one Contract change; do not ship a caller that still treats open as a fire-and-forget Event. No loop machinery changes, general cross-Project RPC proxy, source Agent conversion, new permission setting, Mode-copy/import, existing-row restart or arbitrary target Home selection. Engineering progress and prerequisite questions belong on #5765.
 
 Keep NA6–NA10's ordinary action authority/lost-answer observers, M8's rename observers, U3801's launch-permission observers, U4547b's Mode creation observers and P11's original-Project/draft identity behavior. P9 permits the explicit Agent tool call and exact first prompt; P4 keeps target vendor setup; P6 keeps every created row in its target Home. Implementation runs `just ready`, only its changed/named tests, vocabulary and scenario-id checks, the required rendered observer, and CI's `check`; this spec's observer is vocabulary/scenario-id checks plus review of every numbered main citation and each then-clause's named test or policy marker.
+
+## An unknown outcome is never a failure (#7498)
+
+Acceptance for #7498 item 2; extends A5765f. Module: `apps/desktop/src/window/ProjectOpening.tsx`, `window/copy.ts`, the Project start handler beside them and the reply to `rup project start`.
+
+**U7498b project start reports an unknown outcome as unknown.** Given a Project start whose row already exists and whose later step (`agent.restartMode` for a Mode, `rail.startDoor` for a Workstream) ends in an outcome `outcomeOf` (`apps/desktop/src/app/seam.ts`) reads as `unknown`, then:
+
+- `ProjectOpening` shows no "Opening failed", no "<stage> failed" and no "Use Open Project to try again". It says the outcome is unknown and names the row to check by its Rail name; the failed-stage copy stays for an outcome `outcomeOf` reads as `failed` (test: `u7498b_an_unknown_step_shows_unknown_copy_and_no_retry_line`, in `apps/desktop/src/window/`, asserting roles and the absence of the retry action, not exact prose).
+- The reply to the calling Agent (`rup project start`, I5765) says the outcome is unknown and carries the target path and row id in its text, as A5765f's created-row case does, so the Agent checks that row instead of starting another (test: `u7498b_the_agent_reply_names_the_row_of_an_unknown_start`, over both kinds).
+- Which copy shows depends on the typed code through `outcomeOf`, never on message text (U3791b).
+
+Policy: an unknown outcome before any row exists is out of scope. Moves D2, D5, D6 (`docs/design-system.md`, The checks); Tokens only, no new motion; the design critic judges the copy and its visibility on the dialog.
