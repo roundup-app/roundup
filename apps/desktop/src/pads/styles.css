@@ -220,6 +220,11 @@
   isolation: isolate;
 }
 
+/* U7414c: a clean drawing shows no Excalidraw chrome, including the compact layout's bottom bar and its main menu. */
+.visual-drawing:not(.visual-drawing-editing) :is(.App-bottom-bar, .main-menu-trigger) {
+  display: none;
+}
+
 .visual-drawing-edit {
   position: absolute;
   top: var(--space-2);

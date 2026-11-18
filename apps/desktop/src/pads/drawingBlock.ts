@@ -83,7 +83,11 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
     if (editing === next) return;
     editing = next;
     edit.hidden = next;
+    host.classList.toggle("visual-drawing-editing", next);
     render();
+
+    // Focus moves into the canvas once React has mounted the editing layers, so Esc reaches this block's capture handler.
+    if (next) requestAnimationFrame(() => host.querySelector<HTMLElement>(".excalidraw")?.focus());
 
     // listener-owner: removed when Edit ends and on release
     if (next) document.addEventListener("pointerdown", outside, true);
