@@ -129,9 +129,10 @@ async fn updates<R: Runtime>(app: AppHandle<R>) -> Result<Updates, RpcError> {
 /// U7208g: reads both feeds now, as the hourly look does, and sends `updates-changed`.
 #[tauri::command]
 async fn check_updates<R: Runtime>(app: AppHandle<R>) -> Result<(), RpcError> {
-    crate::updates::look(&app)
-        .await
-        .map_err(|why| RpcError::new(rpc::code::INTERNAL, why))
+    crate::updates::look(&app).await.map_err(|why| {
+        crate::diagnostics::report("read the update feeds", &why);
+        RpcError::new(rpc::code::INTERNAL, why)
+    })
 }
 
 /// U7208b: installs the offered roundup update, leaves every Daemon, then relaunches.
