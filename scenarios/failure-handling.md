@@ -48,19 +48,6 @@ Policy: keep error identity from Daemon to App. If prose-only rejection causes n
 - All production swallowed catches in ItemDrawer and Terminal scheme synchronization are removed. A final failure reaches its owning line after any eligible read/local-write retry; scheme synchronization is a remote command, not a safe local write. Planned `u3791c_rejected_actions_reach_their_owner` rejects those actual operations and checks the user can recover without losing input. Keep scheme synchronization and its subscription disposal (Check 5).
 - A lint run exits nonzero for `.catch(() => undefined)` and `.catch(console.warn)` under `apps/desktop/src` production files. Exclude `*.test.*`, `src/testing/**` and explicitly identified test-only browser helpers such as `todos/laneBrowser.ts`; never exclude a production directory merely to make lint pass. Planned `u3791c_swallowed_catch_lint` runs the real lint rule on temporary production-path fixtures for both forbidden forms, a handled rejection and the test-helper exclusions. Policy: extend the installed oxlint plugin/configuration; frozen loop machinery stays untouched.
 
-**U7498c a mutation's unknown outcome never reads as failed or offers a duplicating Retry.** Extends U3791b (#7498). Given a mutation whose thrown value `outcomeOf` reads as `unknown` on any of these surfaces, then it shows unknown copy, not a failure line, and no Retry or resubmit unless the call is safe to repeat:
-
-- New Agent in `rail/Rail.tsx` (`agent.spawn`);
-- Mode Restart in `rail/menu/modeRestart.ts` (`agent.restartMode`), whose Retry stays because it repeats the same request id;
-- Door start in `state/rail.ts` (`rail.startDoor`), including `boundedStart`'s own 10 s client timeout, which no longer says "Retry";
-- New Workstream in `todos/NewWorkstream.tsx` (`todo.startWorkstream`);
-- Save as Mode in `rail/SaveAsMode.tsx` (`agent.saveAsMode`);
-- Feedback in `feedback/Feedback.tsx` (`feedback.send`, `feedback.retry`).
-
-Two shared causes change. `failureOf` (`app/failureOf.ts`) stays for reads, whose retry is safe, and each listed mutation moves to `changeFailureOf` or an outcome-aware equivalent. `railCommand` (`rail/railCommands.ts`), when its caller gives no `unknown` handler, shows unknown copy and no Retry instead of a failure line and Retry. Each call's repeat-safety is decided per call in the implementing PR, which keeps a Retry only where repeating cannot make a duplicate.
-
-Guard: `u3791b_codes.test.ts` (`apps/desktop/src/app/`) gains one quick test, `u7498c_every_unknown_code_yields_unknown_copy_and_no_retry`: for each code in `crates/rpc/src/error.rs` that `outcomeOf` reads as `unknown`, both `changeFailureOf` and `railCommand` yield the copy table's unknown copy and no Retry, and each code it reads as `failed` still yields its failure copy. Per-surface tests (`u7498c_<surface>_unknown_outcome_offers_no_duplicating_retry`) assert roles and call counts, not exact prose or layout. Moves D2, D5, D6; Tokens only.
-
 ## Links resolve what roundup can (#6249, audit rows B1 to B5)
 
 Policy: this section is U6249c of Issue #6249. Its verdicts: B1 RESOLVE, B2 MERGE into B1, B3 KEEP for a closed Project and HIDE for a malformed link, B4 RESOLVE, B5 RESOLVE then HIDE. The Daemon parser (`crates/rupd/src/link.rs`, `parse`) keeps requiring `project`: an OS link has no surface, and `watchNativeOpen` in `apps/desktop/src/app/nativeOpen.tsx` offers it to every running Project, so a default there would let the first Project claim it. The App completes the link, not the Daemon. Mutations and the user's send never retry (P11).
