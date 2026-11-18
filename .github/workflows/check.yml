@@ -263,6 +263,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           machete: 'false'
+          nextest: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
           node-cache: 'true'
           save-node: 'true'
@@ -290,6 +291,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           machete: 'false'
+          nextest: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C9b native release size
         run: |
@@ -342,6 +344,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           machete: 'false'
+          nextest: 'false'
           save-cache: 'true'
           experiment-cache: ${{ env.CI3781_CACHE }}
           node: 'false'

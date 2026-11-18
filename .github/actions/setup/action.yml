@@ -31,6 +31,9 @@ inputs:
   machete:
     description: Install cargo-machete, which only `just lint` runs; a `check` lane sets `false` (CI7297a).
     default: 'true'
+  nextest:
+    description: Install cargo-nextest, which only the lanes that run `just test-rust-lane` use; `contracts`, `observers` and `cache` set `false` (CI7297a).
+    default: 'true'
   tracer:
     description: Install bpftrace and FUSE, which U26's file-fault tracer runs under, on a hosted Linux runner.
     default: 'false'
@@ -152,7 +155,7 @@ runs:
       shell: bash
       run: |
         setsid bash -c 'cargo build -p rupd -p rup -p terminal --features terminal/test-support; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
-    - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && inputs.nextest != 'false'
       uses: taiki-e/install-action@nextest
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && inputs.machete != 'false'
       uses: taiki-e/install-action@cargo-machete
