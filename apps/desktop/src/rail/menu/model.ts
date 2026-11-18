@@ -340,7 +340,6 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
     return [
       renameEntry(node),
-      // U7493a: a Mode's Restart always types its saved prompt; `R` reaches Modes only.
       { when: hasConversation(node) || isMode(node), id: "restart", label: copy.restart, shortcut: isMode(node) ? "R" : undefined, run: () => { if (isMode(node)) restartRow(node.id); else requestRestart(node, exit); } },
       { when: isYolo(node) && !isMode(node) && running, id: "normal", label: copy.startNormal, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
