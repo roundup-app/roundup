@@ -67,7 +67,6 @@ export const copy = {
   padName: sharedCopy.padName,
   newPadPlaceholder: "New Pad",
   notAnExcalidrawScene: "This file is not an Excalidraw scene. Choose another.",
-  drawing: (value1: CopyValue) => `Drawing: ${value1}`,
   invalidDiagram: "Invalid diagram",
   mermaid: (value1: CopyValue) => `Mermaid: ${value1}`,
   failed: sharedCopy.failed,

@@ -19,6 +19,7 @@
     "@dnd-kit/dom": "0.5.1",
     "@dnd-kit/state": "0.5.1",
     "@excalidraw/excalidraw": "^0.18.1",
+    "@excalidraw/mermaid-to-excalidraw": "2.2.2",
     "@json-render/core": "0.23.1",
     "@json-render/solid": "0.23.1",
     "@lezer/highlight": "1.2.5",
