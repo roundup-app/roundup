@@ -122,7 +122,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
           <DialogFailure message={failure()} dismiss={() => setFailure(null)} />
           <div class="app-dialog-actions">
             <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
-            <Tip disabled={ready()} text={createBlocked()}>{trigger =>
+            <Tip kind="changing" disabled={ready()} text={createBlocked()}>{trigger =>
               <BusyButton {...trigger()} kind="primary" type="submit" busy={pending()} disabled={!ready()} busyLabel={copy.creating}>{copy.createWorkstream}</BusyButton>
             }</Tip>
           </div>

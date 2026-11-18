@@ -199,7 +199,11 @@ it.concurrent.each(cases)(
         window.__writes = 0;
         window.__restoreStorage = () => { Storage.prototype.setItem = original; };
         Storage.prototype.setItem = function(key, value) {
-          if (key === 'roundup:app-settings') { window.__writes++; throw new Error('disk is full. Free space and retry.'); }
+          if (key === 'roundup:app-settings') {
+            // U7489a: a tooltip's show count is saved too; only a write that changes anything else is the user's save.
+            const shows = text => JSON.stringify(JSON.parse(text ?? '{}').tipShows ?? {});
+            if (shows(value) === shows(localStorage.getItem(key))) window.__writes++;
+            throw new Error('disk is full. Free space and retry.'); }
           return original.call(this, key, value);
         };
         await (await import('/src/settings/preferences.ts')).saveAppSettings({fontFamily:'Original font 雪'});
