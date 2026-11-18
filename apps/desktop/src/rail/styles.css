@@ -139,7 +139,7 @@
 }
 .rail-row :is(.row-slot, .row-state, .row-tail) { flex: none; }
 .rail-row .row-slot { display: inline-flex; align-items: center; justify-content: center; inline-size: var(--space-4); color: var(--grey); }
-.rail-row :is(.machine-icon, .attribution-icon) { display: inline-flex; align-items: center; cursor: default; }
+.rail-row .machine-icon { display: inline-flex; align-items: center; cursor: default; }
 .rail-row .machine-icon[data-offline] { color: var(--red); }
 .rail-row .name { flex: 1 1 0; }
 
@@ -333,9 +333,22 @@
   --button-inline: 0;
   --button-lead: 0;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
   font-size: var(--text-caption);
+  color: var(--grey);
 }
+/* U7488c: the ring is a conic fill over the track, cut to a ring by a mask; `--ring-ratio` is the done share. */
+.todo-ring {
+  flex: none;
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--ring-ratio) * 1turn), var(--progress-track) 0); /* taste-skill-ignore: a progress ring is a conic fill, not a decorative gradient. */
+  mask-image: radial-gradient(circle, var(--transparent) 0 calc(50% - var(--space-1) / 2 - var(--hairline-width)), var(--text) calc(50% - var(--space-1) / 2 - var(--hairline-width)));
+}
+.todo-ring-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .rail-fold button {
   min-height: var(--space-6);
@@ -629,34 +642,9 @@
 /* U4707: the 32px Token leaves no column left of the glyph, so the chevron takes the glyph's place only while the pointer or keyboard is on it; selection and focus keep the glyph. */
 .rail-row .rail-chevron { left: calc(var(--rail-inset) + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
 .rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .row-state { opacity: 0; }
-.rail-row .row-icons {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  position: relative;
-  padding-inline-end: var(--rail-gap);
-  background-color: var(--sunken);
-  background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
-  opacity: 0;
-  pointer-events: none;
-}
-.rail-row .row-icons::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 100%;
-  width: var(--space-4);
-  background: inherit;
-  mask-image: linear-gradient(to right, var(--transparent), var(--text)); /* taste-skill-ignore: existing row-action edge mask preserves readable names. */
-  pointer-events: none;
-}
-.rail-row[data-id]:not(:hover, :focus-within) .row-controls { opacity: 0; pointer-events: none; }
-.rail-row:is(:hover, :focus-within) :is(.row-icons, .row-controls) {
-  opacity: 1;
-  pointer-events: auto;
-}
-.rail-row[data-lifted="true"]:is(:hover, :focus-within) :is(.row-icons, .row-controls) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
-.rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
+.rail-row .row-icons { display: inline-flex; align-items: center; flex: none; }
+.rail-row[data-lifted="true"] :is(.row-icons, .row-controls) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
+.rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 
 .rail-leaf[data-leaf="todo"] { padding-inline-start: 0; grid-template-columns: var(--indent) minmax(0, 1fr); }
@@ -741,25 +729,13 @@
   width: var(--rail-slot);
   flex: none;
 }
-/* U7205c: what hover, focus or selection reveals (quick actions, Pads) overlays the name's end and reserves no room at rest, so a name that fits the visible row is never cut. Only the group chevron, visible at rest, keeps its slot. */
-.rail-row .row-tail {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: calc(var(--rail-edge) + 6ch + var(--rail-gap));
-  inline-size: 0;
-  min-inline-size: 0;
-  justify-content: flex-end;
-}
-.rail-row .row-tail:has(.rail-group-chevron) {
-  position: relative;
-  inset: auto;
-  inline-size: var(--rail-slot);
-  min-inline-size: var(--rail-slot);
-}
-.rail-row .row-controls {
-  background-color: var(--sunken);
-  background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
-}
+/* U7488a: the tail is in the row's flow, left of the age, with one fixed slot per action. A slot's width is reserved at rest, so an action sits at one x on every row and hover, focus or selection moves nothing; the name cuts with `…` before any slot moves. A group's chevron keeps its one slot. */
+.rail-row .row-tail { position: relative; justify-content: flex-end; }
+.rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
+.rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
+/* The ring and the count, and the changes mark and its count, are wider than an icon. */
+.rail-row .action-slot[data-slot="todos"] { inline-size: calc(var(--space-4) + 5ch); min-inline-size: calc(var(--space-4) + 5ch); justify-content: flex-start; font-size: var(--text-caption); }
+.rail-row .action-slot[data-slot="changes"] { inline-size: calc(var(--space-4) + 3ch); min-inline-size: calc(var(--space-4) + 3ch); justify-content: flex-start; }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
