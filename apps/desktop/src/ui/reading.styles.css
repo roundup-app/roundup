@@ -123,8 +123,9 @@ mark[data-pad-color="amber"], mark [data-pad-color="amber"], [data-pad-color="am
 .reading [data-pad-callout="important"] { --pad-callout-tone: var(--pad-purple); }
 .reading [data-pad-callout="caution"] { --pad-callout-tone: var(--red); }
 .reading [data-pad-callout="warning"] { --pad-callout-tone: var(--pad-amber); }
-/* Every border is a hairline (D8), so the tone's leading rule is painted into the background. */
-.reading [data-pad-callout] { color: var(--text); padding: var(--space-3); background-color: var(--sunken); background-image: linear-gradient(to right, var(--pad-callout-tone) var(--stroke-width), var(--transparent) var(--stroke-width)); background-origin: border-box; border: var(--hairline-width) solid var(--hairline); border-radius: var(--radius-control); }
+/* Every border is a hairline (D8) and the ground stays one colour (D5), so the tone's leading rule is a bar inside the box, as the resize edge draws its own. */
+.reading [data-pad-callout] { position: relative; color: var(--text); padding: var(--space-3); background: var(--sunken); border: var(--hairline-width) solid var(--hairline); border-radius: var(--radius-control); }
+.reading [data-pad-callout]::before { content: ""; position: absolute; inset-block: var(--space-2); inset-inline-start: 0; inline-size: var(--stroke-width); background-color: var(--pad-callout-tone); }
 .pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); color: var(--pad-callout-tone); }
 
 /* U7312c: the For Agents fold sits last under a hairline, its summary 12/500 grey, in Pads, Todo bodies and comments. */
