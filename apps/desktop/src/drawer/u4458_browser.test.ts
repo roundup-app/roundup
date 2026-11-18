@@ -239,6 +239,9 @@ it.concurrent.each(cases)(
       await lane.until("!!document.querySelector('.drawer[data-open=true]')");
       await lane.until(kind === "pad" ? "!!document.querySelector('.drawer .ProseMirror')" : "!!document.querySelector('.drawer .todo-detail-title')");
 
+      // A title on two lines pushes the editor toolbar down; the Toast stack must still leave Restore and Maximise clear.
+      if (kind === "todo") await lane.evaluate("document.querySelector('.drawer .todo-detail-title p[tabindex]').textContent = 'a very long todo title that goes on and on past the width of the shelf column and wraps onto a second line of the Drawer head'");
+
       // The previous iteration leaves the remembered size filled.
       if (await lane.evaluate("document.querySelector('.drawer').dataset.fill !== 'true'")) await lane.browser("click", '.drawer button[aria-label=Maximise]');
       await lane.until("!!document.querySelector('.drawer[data-fill=true]')");

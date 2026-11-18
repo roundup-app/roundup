@@ -358,8 +358,8 @@ p {
 .window[data-shelf-mode="reserved"][data-shelf-shown="true"]:not([data-shelf-maximised="true"]) { --fill-reserve: var(--shelf-span); }
 /* U7192: a shown Shelf holds the top right under the window bar, so the Toast stack ends at its leading edge, clear of its header controls. */
 .window[data-shelf-shown="true"] { --toast-inset: var(--shelf-span); }
-/* U7310d: an open Drawer keeps Close in its head and Maximise or Restore in its editor toolbar below the title, so the Toast stack starts below that toolbar row (the first 240px of the Drawer), clear of every Drawer control. */
-.window:has(.drawer[data-open="true"]) { --toast-top: calc(var(--space-6) * 6); }
+/* U7310d: an open Drawer keeps Close in its head and Maximise or Restore in its editor toolbar, whose row moves down when a title wraps, so the Toast stack holds the Drawer's bottom-right corner above the Rail actions bar, a corner no Drawer control uses at any title length. */
+.window:has(.drawer[data-open="true"]) .app-toasts { top: auto; bottom: calc(var(--rail-actions-height) + var(--space-3)); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
   --drawer-bottom: var(--rail-actions-height);
