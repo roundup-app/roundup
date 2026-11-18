@@ -15,33 +15,33 @@ const openApp = async () => {
 
   await waitFor(() => expect(container.querySelector(".pane")).not.toBeNull());
 
-  return { app, header: screen.getByRole("region", { name: "Rail" }) };
+  return { app, toasts: () => screen.getByRole("region", { name: "Updates" }) };
 };
 
 afterEach(cleanup);
 
 describe("u25 disconnected protections after U3791a recovery exhaustion", () => {
   it("u25_the_header_names_the_exit_code_in_ink_after_the_project", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
 
     app.exitDaemon({ code: 1, recovery: "waiting" });
 
-    expect(within(header).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
+    expect(screen.queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
     app.exitDaemon({ code: 1 });
 
     // The ink line is a tooltip trigger; ui-sdk keeps its hidden tooltip content in the page, so the text query names the line.
-    expect(within(header).getByText(appCopy.daemonExit("exited 1"), { selector: ".ink" })).toBeTruthy();
+    expect(within(toasts()).getByText(appCopy.daemonExit("exited 1"), { selector: ".ink" })).toBeTruthy();
   });
 
   it("u25_a_signal_exit_reads_by_signal", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
 
     app.exitDaemon({ code: null, recovery: "waiting" });
 
-    expect(within(header).queryByText(appCopy.daemonExit("exited by signal"))).toBeNull();
+    expect(screen.queryByText(appCopy.daemonExit("exited by signal"))).toBeNull();
     app.exitDaemon({ code: null });
 
-    expect(within(header).getByText(appCopy.daemonExit("exited by signal"), { selector: ".ink" })).toBeTruthy();
+    expect(within(toasts()).getByText(appCopy.daemonExit("exited by signal"), { selector: ".ink" })).toBeTruthy();
   });
 
   it("u25_the_spawn_actions_are_disabled", async () => {

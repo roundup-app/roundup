@@ -4,7 +4,7 @@ import type { JSX } from "@solidjs/web";
 import { Bubbles } from "../bubbles/Bubbles";
 import { copy } from "./copy";
 import { InProject } from "./InProject";
-import { failureLine } from "../ink/ReservedLine";
+import { BlockedFailure } from "../ink/MountedLine";
 import { captureActions } from "../keys/registry";
 import { ProjectSettingsView } from "../rail/ProjectSettings";
 import { ResourceStrip } from "../resources/ResourceStrip";
@@ -28,7 +28,7 @@ export const ProjectCentre = (props: {
       <InProject
         open={props.open}
         failure={props.failure}
-        failed={failure => <div class="project-pending">{failureLine(failure, props.retry)}</div>}
+        failed={failure => <div class="project-pending"><BlockedFailure message={failure.message} recover={{ run: props.retry }} /></div>}
         pending={<div class="project-pending"><div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div></div>}
       >
         {() => <ProjectSettingsView />}

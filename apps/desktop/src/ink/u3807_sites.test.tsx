@@ -87,7 +87,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: first Project", () => {
   const [failure, setFailure] = createSignal<string | null>(null);
-  const view = render(() => <section><ChooseProject app={createFakeApp()} onOpen={() => {}} failure={failure()} onChoose={() => {}} /></section>);
+  const view = render(() => <ToastHost><section><ChooseProject app={createFakeApp()} onOpen={() => {}} failure={failure()} onChoose={() => {}} /></section></ToastHost>);
   setFailure(FAILURE);
   flush();
   within(view.container).getByRole("alert");
@@ -320,7 +320,8 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo field recovery 
 
 it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message_in_the_reserved_line: App %s", async site => {
   const { app, container } = await mountApp();
-  const surface = container.querySelector<HTMLElement>(".rail")!.parentElement!;
+  // A window failure is a toast, so the whole document is its place.
+  const surface = document.body;
 
   if (site === "window") {
     app.windowTitleHandler = async () => { throw new Error(FAILURE); };
@@ -331,7 +332,7 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
     const message = await within(surface).findByText(new RegExp(appCopy.daemonExit("exited")));
     const place = message.closest<HTMLElement>(".reserved-line")!;
     fireEvent.click(within(place).getByRole("button", { name: "Reopen" }));
-    await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert", surface)).toEqual([]));
   } else {
     const original = app.chooseProjectPath;
     await cycle(surface,

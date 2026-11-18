@@ -191,7 +191,7 @@ it.concurrent.each(cases)(
     // U6244c: the Ask is a modal layer that makes the Drawer and Shelf inert, so the draft waits behind Escape.
     await lane.browser("press", "Escape");
     await lane.until("!document.querySelector('.ask-input')");
-    let target = ".storage-failure button";
+    let target = ".app-toast .reserved-actions > button:not([data-dismiss-failure])";
 
     if (background === "save") {
       await lane.evaluate(`(async () => {
@@ -214,7 +214,7 @@ it.concurrent.each(cases)(
       await lane.browser("find", "role", "menuitem", "click", "--name", "Workstream");
       await lane.until("!!document.querySelector('.rail-command-notice button')");
       await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] [role=tab]');
-      target = ".centre-failures > .reserved-line button:last-child";
+      target = ".app-toast [data-dismiss-failure]";
     } else {
       if (background === "app-settings") await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
       else await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'project-settings'}}))");
@@ -238,6 +238,9 @@ it.concurrent.each(cases)(
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer[data-open=true]')");
       await lane.until(kind === "pad" ? "!!document.querySelector('.drawer .ProseMirror')" : "!!document.querySelector('.drawer .todo-detail-title')");
+
+      // A title on two lines pushes the editor toolbar down; the Toast stack must still leave Restore and Maximise clear.
+      if (kind === "todo") await lane.evaluate("document.querySelector('.drawer .todo-detail-title p[tabindex]').textContent = 'a very long todo title that goes on and on past the width of the shelf column and wraps onto a second line of the Drawer head'");
 
       // The previous iteration leaves the remembered size filled.
       if (await lane.evaluate("document.querySelector('.drawer').dataset.fill !== 'true'")) await lane.browser("click", '.drawer button[aria-label=Maximise]');
@@ -279,7 +282,7 @@ it.concurrent.each(cases)(
     await lane.browser("press", "Enter");
 
     if (background === "save") {
-      await lane.until("!document.querySelector('.storage-failure')");
+      await lane.until("!document.querySelector('.app-toast [role=alert]')");
       expect(await lane.evaluate("(async () => (await import('/src/settings/preferences.ts')).appSettings().fontFamily)()")).toBe("Original font 雪");
     } else if (background === "project-failure") await lane.until(`!document.querySelector(${JSON.stringify(target)})`);
     else await lane.until("!document.querySelector('.settings-view')");

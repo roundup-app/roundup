@@ -5,6 +5,7 @@ import { ChooseProject } from "../window/FirstRun";
 import { EmptyRail } from "./EmptyRail";
 import { ariaChord, CHORDS, leaderKeys, LEADER, SHELF_KEYS, LEADER_ROWS } from "../keys/chords";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
 import { appSettings, saveAppSettings } from "../settings/preferences";
 
 afterEach(cleanup);
@@ -20,7 +21,7 @@ it("u5557a_empty_rail_chips_match_the_actions_they_start", () => {
 });
 
 it("u5557a_choose_folder_chip_matches_its_action", () => {
-  render(() => <ChooseProject app={createFakeApp()} failure={null} onOpen={() => {}} onChoose={() => {}} />);
+  render(() => <ToastHost><ChooseProject app={createFakeApp()} failure={null} onOpen={() => {}} onChoose={() => {}} /></ToastHost>);
   const button = screen.getByRole("button", { name: CHORDS["project.choose-folder"].what });
   expect(button.querySelector("kbd")?.textContent).toBe(CHORDS["project.choose-folder"].keys);
   expect(button.getAttribute("aria-keyshortcuts")).toBe(ariaChord(CHORDS["project.choose-folder"]));

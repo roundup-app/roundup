@@ -22,25 +22,25 @@ const openApp = async () => {
 
   await waitFor(() => expect(container.querySelector(".pane")).not.toBeNull());
 
-  return { app, header: screen.getByRole("region", { name: "Rail" }) };
+  return { app, toasts: () => screen.getByRole("region", { name: "Updates" }) };
 };
 
 const callsOf = (app: FakeApp, method: string) => app.calls.filter((call) => call.method === method).length;
 
-const reopen = (header: HTMLElement) => fireEvent.click(within(header).getByRole("button", { name: windowCopy.reopen }));
+const reopen = (toasts: HTMLElement) => fireEvent.click(within(toasts).getByRole("button", { name: windowCopy.reopen }));
 
 afterEach(cleanup);
 
 describe("u37 Reopen after the Daemon exits", () => {
   it("u37_reopen_shows_after_the_exit_text_and_not_before", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
 
-    expect(within(header).queryByRole("button", { name: windowCopy.reopen })).toBeNull();
+    expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull();
 
     app.exitDaemon({ code: 1 });
 
-    expect(within(header).getByText(appCopy.daemonExit("exited 1"), { selector: ".ink" })).toBeTruthy();
-    expect(within(header).getByRole("button", { name: windowCopy.reopen })).toBeTruthy();
+    expect(within(toasts()).getByText(appCopy.daemonExit("exited 1"), { selector: ".ink" })).toBeTruthy();
+    expect(within(toasts()).getByRole("button", { name: windowCopy.reopen })).toBeTruthy();
   });
 
   it("u37_an_exit_during_connection_stays_actionable", async () => {
@@ -64,22 +64,22 @@ describe("u37 Reopen after the Daemon exits", () => {
   });
 
   it("u37_clicking_reopen_calls_open_project_with_the_project_path", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
     const paths: string[] = [];
     const open = app.openProject;
 
     app.openProject = (path) => (paths.push(path), open(path));
     app.exitDaemon({ code: 1 });
-    reopen(header);
+    reopen(toasts());
 
     expect(paths).toEqual(["/work/payments-api"]);
   });
 
   it("u37_success_restores_the_header_and_enables_the_controls", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
 
     app.exitDaemon({ code: 1 });
-    reopen(header);
+    reopen(toasts());
 
     await waitFor(() => expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull());
 
@@ -91,7 +91,7 @@ describe("u37 Reopen after the Daemon exits", () => {
   });
 
   it("u37_success_refetches_every_region_and_subscribes_again", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
     const subscribed = { count: 0 };
     const subscribe = app.subscribe;
 
@@ -100,19 +100,19 @@ describe("u37 Reopen after the Daemon exits", () => {
     const before = REGIONS.map((method) => callsOf(app, method));
 
     app.exitDaemon({ code: 1 });
-    reopen(header);
+    reopen(toasts());
 
     await waitFor(() => expect(subscribed.count).toBe(1));
     await waitFor(() => REGIONS.forEach((method, index) => expect(callsOf(app, method)).toBeGreaterThan(before[index]!)));
   });
 
   it("u37_the_rail_shows_the_new_daemons_tree_never_a_mix", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
 
     app.handlers["rail.tree"] = () => [node("old", { name: "old-agent" })];
     app.exitDaemon({ code: 1 });
     app.handlers["rail.tree"] = () => [node("new", { name: "new-agent" })];
-    reopen(header);
+    reopen(toasts());
 
     await waitFor(() => expect(screen.queryByText("new-agent")).not.toBeNull());
 
@@ -120,17 +120,17 @@ describe("u37 Reopen after the Daemon exits", () => {
   });
 
   it("u37_a_failed_reopen_shows_the_message_in_ink_and_offers_reopen_again", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
 
     app.exitDaemon({ code: 1 });
     const failure = new RpcError(-32603, "rupd stayed silent");
     app.opened.failure = failure;
-    reopen(header);
+    reopen(toasts());
 
-    await waitFor(() => expect(within(header).queryByText(failure.message, { selector: ".ink" })).not.toBeNull());
+    await waitFor(() => expect(within(toasts()).queryByText(failure.message, { selector: ".ink" })).not.toBeNull());
 
-    expect(within(header).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
-    expect(within(header).getByRole("button", { name: windowCopy.reopen })).not.toBeNull();
+    expect(screen.queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
+    expect(within(toasts()).getByRole("button", { name: windowCopy.reopen })).not.toBeNull();
   });
 
   it("u37_the_pane_works_again_after_a_successful_reopen", async () => {
@@ -146,7 +146,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     await screen.findByText("a");
 
     app.exitDaemon({ code: 1 });
-    reopen(screen.getByRole("region", { name: "Rail" }));
+    reopen(screen.getByRole("region", { name: "Updates" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull());
 
     // A pointer press focuses the row before the click lands; the Rail's Tree takes focus on click too, and that move would cancel the Pane's own claim on focus.
@@ -161,32 +161,32 @@ describe("u37 Reopen after the Daemon exits", () => {
   });
 
   it("u37_a_second_click_while_a_reopen_is_starting_asks_for_one_daemon", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
     const asked = { count: 0 };
     const open = app.openProject;
 
     app.openProject = (path) => (asked.count++, open(path));
     app.exitDaemon({ code: 1 });
-    reopen(header);
+    reopen(toasts());
     // A second click is a task of its own: the first has applied by then.
     flush();
-    reopen(header);
+    reopen(toasts());
 
     expect(asked.count).toBe(1);
-    expect(within(header).getByRole("button", { name: windowCopy.reopen }).matches('[aria-disabled="true"]')).toBe(true);
+    expect(within(toasts()).getByRole("button", { name: windowCopy.reopen }).matches('[aria-disabled="true"]')).toBe(true);
   });
 
   it("u37_a_reopen_after_a_failed_one_can_succeed", async () => {
-    const { app, header } = await openApp();
+    const { app, toasts } = await openApp();
 
     app.exitDaemon({ code: 1 });
     const failure = new RpcError(-32603, "rupd stayed silent");
     app.opened.failure = failure;
-    reopen(header);
-    await waitFor(() => expect(within(header).queryByText(failure.message, { selector: ".ink" })).not.toBeNull());
+    reopen(toasts());
+    await waitFor(() => expect(within(toasts()).queryByText(failure.message, { selector: ".ink" })).not.toBeNull());
 
     app.opened.failure = null;
-    reopen(header);
+    reopen(toasts());
 
     await waitFor(() => expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull());
   });

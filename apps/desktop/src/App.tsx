@@ -39,8 +39,7 @@ import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
-import { ReservedLine } from "./ink/ReservedLine";
-import { dismissable } from "./ink/ReservedLine";
+import { ReservedLine, dismissable } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
@@ -67,7 +66,7 @@ import type { Chime } from "./toasts/chime";
 import { AskBar } from "./ask/AskBar";
 import { Feedback } from "./feedback/Feedback";
 import { createToastQueue } from "./toasts/queue";
-import { ToastQueueContext } from "./ink/messageToast";
+import { createMessageToast, createMessageToasts, ToastQueueContext } from "./ink/messageToast";
 import { Toasts } from "./toasts/Toasts";
 import { UpdatesHost } from "./toasts/UpdatesHost";
 import { watchProject } from "./toasts/watch";
@@ -440,6 +439,21 @@ export const App = (props: {
     arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }), over: active => <ResumeBar notify={toasts.notify} active={active} />, header: active => <LinksHeader active={active} />,
   });
 
+  // U7314g: the window's failures show in the Toast queue this component provides, so the queue is passed, not read from context.
+  createMessageToast({ get message() { return railLine.message(); }, dismiss: railLine.dismiss, get recover() { return projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => projects.reload() } : undefined; },
+    get action() { return <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>; } }, toasts);
+
+  createMessageToasts(keys, path => {
+    const failure = () => connectionOf(path)?.rail.commandFailure;
+    const name = () => tabOf(path)()?.project.name ?? "";
+    const text = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
+
+    return { get message() { return text() && `${name()}: ${text()}`; }, dismiss: () => failure()?.clear(), action: <button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button> };
+  }, toasts);
+
+  createMessageToast({ get message() { return nativeFailure()?.message; }, dismiss: () => setNativeFailure(null), get recover() { return nativeFailure()?.action; } }, toasts);
+  createMessageToast({ get message() { return storageLine.message(); }, dismiss: storageLine.dismiss, recover: { run: () => Promise.all(storageFailures().map(problem => problem.retry())), label: storageCopy.saveRetry } }, toasts);
+
   return (
     <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><ToastQueueContext value={toasts}><Show when={projects.loaded()}>
       <ProjectOpening opening={opening} />
@@ -482,10 +496,6 @@ export const App = (props: {
         railSlide={railSlide.motion()}
         railStrip={<InProject open={activeConnection()} failure={activeFailure()}>{() => <RailStrip />}</InProject>}
         rail={
-          <>
-            <ReservedLine overlay message={railLine.message()} dismiss={railLine.dismiss} recover={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => projects.reload() } : undefined} action={<>
-              <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
-            </>} />
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
               <InProject open={activeConnection()} failure={activeFailure()}>
                 {() => (
@@ -496,7 +506,6 @@ export const App = (props: {
                 )}
               </InProject>
             </Show>
-          </>
         }
         centre={
           <div class="storage-center">
@@ -507,17 +516,6 @@ export const App = (props: {
 
             return <ReservedLine class="todo-undo" overlay message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><BusyButton kind="quiet" busy={undo.pending()} busyLabel={copy.retrying} onClick={() => undo.retryDelete()}>{copy.todoDeleteRetry}</BusyButton></Show>} />;
           }}</For>
-          <div class="centre-failures">
-            <For each={keys()}>{path => {
-              const failure = () => connectionOf(path)?.rail.commandFailure;
-              const message = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
-              const name = () => tabOf(path)()?.project.name ?? "";
-  
-              return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`} dismiss={() => failure()?.clear()} action={<button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>} />}</Show>;
-            }}</For>
-            <Show when={nativeFailure()}>{failure => <ReservedLine class="centre-notice" message={failure().message} dismiss={() => setNativeFailure(null)} recover={failure().action ?? undefined} />}</Show>
-            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageLine.message()} dismiss={storageLine.dismiss} recover={{ run: () => Promise.all(storageFailures().map(problem => problem.retry())), label: storageCopy.saveRetry }} /></div></Show>
-          </div>
           <div class="centre-frame">
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
