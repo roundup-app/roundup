@@ -75,6 +75,8 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
 
   const show = (elements: CanvasElement[]) => {
     let last = signature(elements);
+    let fitted = false;
+    let handle: Parameters<CanvasProps["excalidrawAPI"]>[0] | undefined;
 
     const initialData = { elements, scrollToContent: true };
 
@@ -86,9 +88,16 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
         viewModeEnabled: readonly,
         theme: appDark() ? "dark" : "light",
         UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } },
-        // Leaves the toolbar, tool column and footer clear: the scene fills 70% of the canvas.
-        excalidrawAPI: (api) => api.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.7 }),
+        excalidrawAPI: (api) => (handle ??= fitted ? undefined : api),
         onChange: (current) => {
+          // Excalidraw's constructor-time scroll is lost and measures the window; fit once the canvas has mounted and been measured.
+          // The scene fills 70% of the canvas, leaving the toolbar, tool column and footer clear.
+          if (handle) {
+            handle.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.7 });
+            handle = undefined;
+            fitted = true;
+          }
+
           if (readonly) return;
 
           if (!touched) {
