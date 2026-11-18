@@ -101,7 +101,7 @@ it.each([true, false].flatMap(base => [1280, 1512].map(width => ({base, width}))
       await browser("eval", "window.__fake.failNext(-32003, 'Cannot move this Todo because its dependency changed. Refresh and try again.', 'todo.setBlockers')");
       await browser("focus", selector);
       await browser("press", "Alt+ArrowLeft");
-      await wait("!!document.querySelector('.todo-row [role=alert]')");
+      await wait("!!document.querySelector('.app-toast [role=alert]')");
       await browser("mouse", "move", "1", "1");
       await wait("!Array.from(document.querySelectorAll('[role=tooltip]')).some(element => element.checkVisibility())");
       await shot("failure");

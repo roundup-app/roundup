@@ -12,7 +12,7 @@ import { deferred, openShelf, padOf, AGENT } from "./padsFixture";
 import { notice, notices } from "../testing/notices";
 import { ToastHost } from "../testing/toastHost";
 
-const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}>{view()}</DisplayClockContext>);
+const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}><ToastHost>{view()}</ToastHost></DisplayClockContext>);
 
 afterEach(cleanup);
 

@@ -6,6 +6,8 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { ImportPanel } from "./ImportPanel";
 import { connectProject } from "../state/connectedProject";
 import { agent, event } from "../testing/nodes";
+import { ToastHost } from "../testing/toastHost";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -13,7 +15,7 @@ it("u3523c_explicit_prompt_starts_one_import_agent", async () => {
   const { app, connected } = await connectFakeProject([]);
   let finish!: () => void;
   app.handlers["agent.spawn"] = () => new Promise(resolve => { finish = () => resolve(agent("importer", "working", "starting")); });
-  render(() => <ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   const field = screen.getByRole("textbox", { name: "Import instructions" });
   fireEvent.input(field, { target: { value: "  List yesterday’s work\nwithout importing.  " } });
   flush();
@@ -33,7 +35,7 @@ it("u3523d_listed_candidates_require_user_confirm", async () => {
   app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
   app.handlers["project.importDiscover"] = () => ({ candidates: [{ source: "candidate", title: "Listed work", cwd: "", revision: "preview", last_activity_ms: 1n }], excluded: [] });
   app.handlers["project.importCommit"] = () => ({ outcomes: [] });
-  render(() => <ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   fireEvent.click(screen.getByRole("button", { name: "Start import Agent" }));
   await waitFor(() => expect(connected.importing.listingAgent()).toBe("importer"));
   // start() releases the controls after its draft persistence acknowledges the launch.
@@ -49,7 +51,7 @@ it("u3523c_import_draft_keeps_project_and_revisions", async () => {
   const { app, connected } = await connectFakeProject([]);
   app.handlers["agent.spawn"] = () => { throw new Error("Launch unavailable. Retry."); };
 
-  const mount = () => render(() => <ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  const mount = () => render(() => <ToastHost><ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   const first = mount();
   fireEvent.input(screen.getByRole("textbox", { name: "Import instructions" }), { target: { value: "  exact\nunfinished 🪁  " } });
   flush();
@@ -58,7 +60,7 @@ it("u3523c_import_draft_keeps_project_and_revisions", async () => {
   await connected.importing.setPrompt("  exact\nunfinished 🪁  ");
   first.unmount();
   const reopened = await connectProject(app, connected.project, () => false, () => 0, () => null);
-  render(() => <ConnectedProjectContext value={reopened}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={reopened}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   flush();
   const restored = screen.getByRole("textbox", { name: "Import instructions" });
 
@@ -71,7 +73,7 @@ it("u5558d_listing_signal_updates_candidates", async () => {
   const { app, connected } = await connectFakeProject([]);
   app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
   app.handlers["project.importDiscover"] = () => ({ candidates: [], excluded: [] });
-  render(() => <ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   await connected.importing.start();
   const before = app.calls.filter(call => call.method === "project.importDiscover").length;
   app.handlers["project.importDiscover"] = () => ({ candidates: [{ source: "new-listing", revision: "new-revision", title: "Saved candidate", cwd: "", last_activity_ms: 1n }], excluded: [] });
@@ -89,7 +91,7 @@ it("u5558d_new_listing_revalidates_existing_choices", async () => {
   app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
   let revision = "original";
   app.handlers["project.importDiscover"] = () => ({ candidates: [{ source: "chosen", revision, title: "Chosen work", cwd: "", last_activity_ms: 1n }], excluded: [] });
-  render(() => <ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   await connected.importing.start();
   await connected.importing.setPrompt("  retain exact 🐝\n  ");
   app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "importer", parent: null } });
@@ -109,7 +111,7 @@ it("u5558e_failed_reload_retains_data", async () => {
   app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
   const result = { candidates: [{ source: "kept", revision: "r1", title: "Kept listing", cwd: "", last_activity_ms: 1n }], excluded: [] };
   app.handlers["project.importDiscover"] = () => result;
-  render(() => <ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   await connected.importing.start();
   const signal = () => app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "importer", parent: null } });
   signal();
@@ -122,5 +124,5 @@ it("u5558e_failed_reload_retains_data", async () => {
   app.handlers["project.importDiscover"] = () => result;
   signal();
   await waitFor(() => expect(connected.importing.loading()).toBe(false));
-  expect(screen.queryByRole("alert")).toBeNull();
+  await waitFor(() => expect(notices("alert")).toEqual([]));
 });

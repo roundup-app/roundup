@@ -2,7 +2,8 @@ import { createMemo, createSignal, Errored, Loading, onCleanup, refresh, Show, u
 import type { JSX } from "@solidjs/web";
 import type { Event } from "@contracts/Event";
 import { copy } from "./copy";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { BlockedFailure } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { lastTouchLine, padTouchSentence } from "./touchLine";
@@ -69,7 +70,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
     <Errored fallback={(error, reset) => {
       const failed = error();
 
-      return <ReservedLine message={failed instanceof Error ? failed.message : String(failed)} blocked recover={{ run: () => { refresh(loaded); reset(); }, label: copy.tryAgain }} />;
+      return <BlockedFailure message={failed instanceof Error ? failed.message : String(failed)} recover={{ run: () => { refresh(loaded); reset(); }, label: copy.tryAgain }} />;
     }}>
       <Loading><Show when={loaded()}>
         {(item) => (

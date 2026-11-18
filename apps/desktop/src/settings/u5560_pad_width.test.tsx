@@ -7,9 +7,10 @@ import { createFakeApp } from "../testing/fakeApp";
 import { openPad, openShelf, padOf } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
 import { useBrowserStorage } from "../state/storage";
+import { ToastHost } from "../testing/toastHost";
 
 const settings = async () => {
-  render(() => <AppSettings app={createFakeApp()} project={() => null} />);
+  render(() => <ToastHost><AppSettings app={createFakeApp()} project={() => null} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));

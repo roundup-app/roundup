@@ -7,13 +7,14 @@ import { createFakeApp } from "../testing/fakeApp";
 import { mountRail } from "../rail/railFixture";
 import { agent, event } from "../testing/nodes";
 import { useBrowserStorage } from "../state/storage";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 const open = async () => {
   const app = createFakeApp();
 
-  render(() => <AppSettings app={app} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => "/p"} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("region", { name: "Settings" });

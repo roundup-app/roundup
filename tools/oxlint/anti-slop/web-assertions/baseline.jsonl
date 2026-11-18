@@ -1,8 +1,5 @@
 {"file":"apps/desktop/src/window/m8_project_requested.test.tsx","test":"u2773h_credential_values_remain_hidden_until_copy","identity":"6cd1fa0fe6a3df93adb6ce0bd2aabe3460071930c64226fc28061007df8c3962"}
 {"file":"apps/desktop/src/app/u135_schemes.test.tsx","test":"u135 schemes > u135_reduced_motion_makes_every_duration_but_the_instant_changes_0s","identity":"938a7a40cebb8716be9a2a09393f971a1b865f19a4976f39f67f83433edadec5"}
-{"file":"apps/desktop/src/window/u3560_copy.test.tsx","test":"u3560d_clipboard_failure_preserves_input_copy_action_%s","identity":"cc9338fcee7edcf066485d644eab3dd6fce881a2481abce33f6215d918486f04"}
-{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_rail_shows_the_new_daemons_tree_never_a_mix","identity":"505ca685ece89f248205c5bfb73fd2a3e7fa7082e46dd29f998d561aa73ea84f"}
-{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_rail_shows_the_new_daemons_tree_never_a_mix","identity":"7299987c1db5ec4fd135ddd7b7495bd754e5e51beefe6b27212da12035b22056"}
 {"file":"apps/desktop/src/window/u3791a_recovery.test.tsx","test":"u3791a_recovery_sends_no_agent_input","identity":"e44fa3f4b78aaa9e9256fb463ad6251a6a4355d77bc7615a858dca2046c6d1c2"}
 {"file":"apps/desktop/src/ask/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_ask_bar_send_dismiss_once","identity":"d9436131ec8a5bad9c8a0d9479e86be223f7f428ceb355e23592504c87f079f6"}
 {"file":"apps/desktop/src/ask/u2749_tooltip_anchor.test.tsx","test":"u2749a_project_root_kind_owns_its_tooltip","identity":"882dd94733138b7bb538919c668ecb248658adf1350670e381039ae9ca76c9fe"}
@@ -128,8 +125,6 @@
 {"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write","identity":"20e12da6e5a14a1baaabbc720529d9e6d9057693be3ff673a6aeb3354d9bf1ef"}
 {"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u3021c_open_restores_exact_revision_without_rpc_pads_%s","identity":"064a644fb510d832c5d252370c25919ef8fa8928b94eb7fd3c5b0b9f4bb8ec72"}
 {"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u3021c_open_restores_exact_revision_without_rpc_pads_%s","identity":"b6e6c3ca5a6453c44df16bd356af5e6e2970fbcefd3cc38332cef519335b22bf"}
-{"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_the_pad_head_has_no_glyph_and_a_status_after_the_name","identity":"9b70963d43123b5d4b4c10aae0bac4076b4caeda04c92dfc9888b25eda274568"}
-{"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_the_pad_head_has_no_glyph_and_a_status_after_the_name","identity":"eaa82ca736bfbf89ca5678e61bb672a3d191b423e4b89a094d31867161467297"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_no_pads_yet_disappears_once_a_pad_exists","identity":"6ca2afc95e7cdac0940c18e17982a6034db16737d2327cb41731894f124f63c1"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"bcad2209228b21c1619c036e649296f7d470c6beedde3c6f66e047f4be265a9e"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"67720e3d6cfc74afb607c9aaf83626d6657c29e746f6b766791fd67397f11767"}
@@ -195,9 +190,7 @@
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_the_switch_is_absent_without_a_workstream","identity":"5701c4135075bbbcbbce87d2865b482482ab310ef1a3e7509e343c5c6780961b"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3708 the Todos list is a tree drawn from blockers > u3708_depth_is_read_from_the_first_blocker","identity":"b602b2e44217621c5bed80941f9e922e0feac01f651765735c9ec3e60d3e725c"}
-{"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3711 a move that would make a cycle is refused and says why > u3711_a_refused_move_returns_the_row_and_shows_the_cause","identity":"036a5fec73bb7a21bb3d80d28f8f69bed820b1ccd305c6a2b4dcd87df18636ea"}
-{"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3711 a move that would make a cycle is refused and says why > u3711_a_refused_move_returns_the_row_and_shows_the_cause","identity":"a6a200e95f1e02c259394eabece6264c676a1cc68705f4ac2cdd422f8dea6637"}
-{"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3711 a move that would make a cycle is refused and says why > u3711_a_refused_move_returns_the_row_and_shows_the_cause","identity":"5489df0433d67faeaa6b3ec12758916ac3c4101e4fa465ed29c6efcbb5515690"}
+{"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3711 a move that would make a cycle is refused and says why > u3711_a_refused_move_returns_the_row_and_shows_the_cause","identity":"17a806c30b02c97791d52d67bcbd8a0046c342144922419f5a88355f8da76ead"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3809 dependency groups retain their members > u3809_disclosure_toggles_only_its_inert_contents (u3809_closed_groups_preserve_focus_and_done_rows_are_not_duplicated)","identity":"c37e0a23edafea48c039913d5b47df9d72765d118fa9211e21807f188cb40c1b"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3809 dependency groups retain their members > u3809_disclosure_toggles_only_its_inert_contents (u3809_closed_groups_preserve_focus_and_done_rows_are_not_duplicated)","identity":"a78121e069990afa738c34c4ce90914f93b301e688fc8cc6b9dc0b107f6621ac"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3811 completion advances the visible dependency groups > u3811_mount_navigation_and_folded_updates_settle_without_replay","identity":"428024e7038cccae636c58d4b01edf47b4da03f221d6935bfe9ddc6b099e94d3"}
@@ -206,7 +199,6 @@
 {"file":"apps/desktop/src/todos/u3743_new_workstream.test.tsx","test":"u3743_esc_cancels_with_no_call_and_a_refusal_keeps_the_values","identity":"d0300c74c186b3181d4610e6883aa7004f63d049dbb67ac592ea621f158828fb"}
 {"file":"apps/desktop/src/todos/u3743_new_workstream.test.tsx","test":"u3743_esc_cancels_with_no_call_and_a_refusal_keeps_the_values","identity":"a0c3b0bd208d674c868b035144618a14df06e5b3ca4794541a924abc910f0d95"}
 {"file":"apps/desktop/src/todos/u3743_new_workstream.test.tsx","test":"u3743_esc_cancels_with_no_call_and_a_refusal_keeps_the_values","identity":"ae49ae6b2566ab9d93f5880866d30f6b600e9b203a89c1d0d6b1f2ff3fb2fbdc"}
-{"file":"apps/desktop/src/todos/u3751_triage.test.tsx","test":"u3754_a_refused_key_keeps_mode_focus_and_shows_the_cause","identity":"6a6194f25d234d47ea661bed63a3958a2dd71973d735aab8c5737b615be6f7c7"}
 {"file":"apps/desktop/src/todos/u3760_refs.test.tsx","test":"u3760_a_missing_ref_is_not_activatable","identity":"3680f6594c539ae062c67a3914945b3a1c5d2dd9f0bfc22726ddd5d81b22b3b2"}
 {"file":"apps/desktop/src/todos/u3760_refs.test.tsx","test":"u3760_a_missing_ref_is_not_activatable","identity":"a1f532f07a2af2ac4b803d127421646359afc8172cae73c90d4780b93b2547b6"}
 {"file":"apps/desktop/src/todos/u3760_refs.test.tsx","test":"u3760_a_missing_ref_is_not_activatable","identity":"e42a266d6d2708c7336d3432999d753ac7cf42d08e90345639bf365769296674"}
@@ -274,3 +266,5 @@
 {"file":"apps/desktop/src/ui/u492_provider.test.tsx","test":"u492_configurable_provider_lifecycle_%s","identity":"b1aff7e997fd805d9494755713a1cf80f7c8628021e8fdd3f77f52533acf4658"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"e4bc6c1afbcf467f70117f27f48b3ad486cb429ebb7a44d2d196c54dc4d1f29d"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"d5a59ea7326312e6e127e4adbc0a2e512ca300ee4f07b6ab974e57b51008823c"}
+{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_rail_shows_the_new_daemons_tree_never_a_mix","identity":"505ca685ece89f248205c5bfb73fd2a3e7fa7082e46dd29f998d561aa73ea84f"}
+{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_rail_shows_the_new_daemons_tree_never_a_mix","identity":"7299987c1db5ec4fd135ddd7b7495bd754e5e51beefe6b27212da12035b22056"}

@@ -17,6 +17,7 @@ it("u7222_a_mermaid_flowchart_imports_into_the_drawing", async () => {
   await browser("press", "Enter");
   await wait("Boolean(document.querySelector('.visual-drawing .excalidraw'))");
   // Real pointer events: the Drawing saves only a scene the user's own gesture changed.
+  await browser("click", ".visual-drawing-edit");
   await browser("click", ".visual-drawing .App-toolbar__extra-tools-trigger");
   await browser("find", "text", "Mermaid to Excalidraw", "click");
   await browser("fill", ".ttd-dialog-input", "flowchart TD\n A[plan] --> B[ship]");

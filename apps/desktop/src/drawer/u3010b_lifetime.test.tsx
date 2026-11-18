@@ -35,10 +35,11 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
       vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
       await store.retry();
       flush();
-      expect(within(panel).getAllByRole("alert")).toHaveLength(2);
+      expect(notices("alert")).toHaveLength(2);
     }
 
-    fireEvent.click(within(screen.getByText(/clipboard refused/).closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
+    // The older card sits folded behind the newer one, out of the accessibility tree.
+    fireEvent.click(screen.getByText(/clipboard refused/).closest<HTMLElement>(".reserved-line")!.querySelector("[data-dismiss-failure]")!);
   } else if (action === "discard") {
     fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
   } else if (action === "acknowledged" || action === "failed") {

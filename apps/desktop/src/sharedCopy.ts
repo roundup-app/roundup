@@ -41,6 +41,7 @@ export const copy = {
   dottedAfter: (value: string) => ` · ${value}`,
   move: "Move",
   comment: "Comment",
+  editAction: "Edit",
   bold: "Bold",
   italic: "Italic",
   quote: "Quote",

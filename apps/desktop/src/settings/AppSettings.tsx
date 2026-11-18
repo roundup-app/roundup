@@ -5,7 +5,8 @@ import type { App, AppSettingsPage } from "../app/seam";
 import { useUpdates } from "../state/updates";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
@@ -23,7 +24,7 @@ import { ResetWarnings } from "./ResetWarnings";
 import { MachinesSettings } from "./MachinesSettings";
 import { settingsEntries } from "./entries";
 import { markControls, registerSettingsPlace } from "./place";
-import { UpdateRow } from "./UpdateRow";
+import { UpdateRow, updateFailure } from "./UpdateRow";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 
 /** The segment control loads with the first page that shows one, not with the App. */
@@ -237,7 +238,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
             onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
           <Show when={setByFile(name) ? copy.setByFile("look.json") : hint}>{text => <Field.HelperText>{text()}</Field.HelperText>}</Show>
-          <ReservedLine status={numericFailure()[name]} />
         </Field.Root>
   </>;
 
@@ -311,6 +311,18 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     ),
   });
 
+  // U7314e: every failure of this screen is a Toast, whichever page or search result holds its field.
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ get message() { return offeredLine.message(); }, dismiss: offeredLine.dismiss, recover: { run: () => refresh(offered), label: copy.storageRetry } });
+  createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
+  createMessageToast({ get message() { return conflictLine.message(); }, dismiss: conflictLine.dismiss, action: <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => { const draft = current(name);
+
+ return draft ? drafts.discard(draft.revision) : undefined; }}>{copy.discardSettingsEdit(label)}</BusyButton>}</For> });
+
+  for (const { name } of numericFields) createMessageToast({ get message() { return numericFailure()[name]; }, dismiss: () => setNumericFailure(previous => ({ ...previous, [name]: null })) });
+
+  for (const program of ["roundup", "core"] as const) createMessageToast({ get message() { return updateFailure(updates, program); }, dismiss: () => updates.dismiss(program) });
+
   const entries = () => settingsEntries({ project: props.project, updates, numericFields });
 
   // U5243a: `fuzzysort` ranks the live entries by label, description, page and group.
@@ -372,7 +384,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Show>
         {controls.naming()}
         {controls.skill()}
-        <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => refresh(offered), label: copy.storageRetry }} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
@@ -402,13 +413,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <AlertSettings save={save} /><ResetWarnings onFailure={setFailure} />
       </SettingsGroup></Tabs.Content>
       </Show>
-      <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
-      <ReservedLine message={conflictLine.message()} dismiss={conflictLine.dismiss} action={<>
-        <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => { const draft = current(name);
-
- return draft ? drafts.discard(draft.revision) : undefined; }}>{copy.discardSettingsEdit(label)}</BusyButton>}</For>
-      </>} />
-      <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
       </div></Tabs.Root>
     </SettingsShell>
     </Show>

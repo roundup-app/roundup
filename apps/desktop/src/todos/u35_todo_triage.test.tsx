@@ -23,11 +23,12 @@ describe("u35 Todo triage without the Drawer", () => {
     expect([callsTo(app, "todo.get"), connected.drawer.content()]).toEqual([[], null]);
   });
 
-  it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () => {
+  it("u7314f_an_open_row_failure_is_a_toast_and_the_row_keeps_its_nodes", async () => {
     const { app } = await mountTodos(shelf());
     await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 session store/ });
-    const place = rowOf(5).querySelector(".reserved-line")!;
-    const siblings = [...place.parentElement!.children];
+    const before = [...rowOf(5).children];
+    const kept = () => before.length === rowOf(5).children.length && before.every((child, index) => child === rowOf(5).children[index]);
+    expect(rowOf(5).querySelector(".reserved-line")).toBeNull();
     const failure = new RpcError(-32003, "cannot complete");
     app.handlers["todo.complete"] = () => Promise.reject(failure);
 
@@ -35,12 +36,13 @@ describe("u35 Todo triage without the Drawer", () => {
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
 
     expect((await waitFor(() => notice("alert"))).textContent).toContain(failure.message);
-    expect([...place.parentElement!.children]).toEqual(siblings);
+    expect(rowOf(5).querySelector(".reserved-line")).toBeNull();
+    expect(kept()).toBe(true);
     app.handlers["todo.complete"] = () => new Promise(() => {});
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
     expect(notice("alert").textContent).toContain(failure.message);
-    expect(rowOf(5).querySelector(".reserved-line")).toBe(place);
-    expect([...place.parentElement!.children]).toEqual(siblings);
+    expect(rowOf(5).querySelector(".reserved-line")).toBeNull();
+    expect(kept()).toBe(true);
   });
 
   it("u35_a_failed_complete_still_calls_todo_complete_with_the_rows_id", async () => {

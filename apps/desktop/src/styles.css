@@ -363,6 +363,10 @@ p {
 /* A filled Drawer has no free column: the stack holds its bottom-right corner above the Rail actions bar, and the Drawer's scroll end keeps a stack's height free while a Toast shows, so the Activity and comment block stay clear. */
 .window:has(.drawer[data-fill="true"]) .app-toasts { top: auto; bottom: calc(var(--rail-actions-height) + var(--space-3)); }
 .window:has(.app-toast) .drawer[data-fill="true"] { padding-bottom: calc(var(--space-6) * 6); }
+/* U7314e: a settings page keeps Close in its head at the top right of the centre, so the Toast stack starts below that head. */
+.window:has(.settings-head) { --toast-top: calc(var(--space-4) + var(--space-5)); }
+/* U7314e: the importer keeps Start import Agent in its head row, so the Toast stack starts below that row and never covers the control whose failure it reports. */
+.window:has(.import-panel) { --toast-top: calc(var(--space-6) * 3 + var(--space-5)); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
   --drawer-bottom: var(--rail-actions-height);

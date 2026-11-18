@@ -11,7 +11,8 @@ import type { ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
+import { failedLabel } from "../ink/failedLabel";
 import { useConnectedProject } from "../state/connectedProject";
 import { useTodoList } from "./todoList";
 
@@ -124,6 +125,8 @@ export const OpenRow = (props: {
 
   const clearFailure = () => { setFailure(null); setMoveFailure(null); };
 
+  createMessageToast({ get message() { return failure(); }, dismiss: clearFailure, get content() { return failedAction() && actionFailure() && !moveFailure() ? failedLabel(failedAction() ?? "", failure()) : undefined; } });
+
   createEffect(createMemo(() => props.todo.id), clearFailure);
   onCleanup(connected.events.subscribe(event => {
     if (doesClearTodoFailure(event, props.todo.id)) clearFailure();
@@ -231,7 +234,6 @@ export const OpenRow = (props: {
       <Show when={props.nested}>{head}</Show>
       {props.connections}
       <div class="todo-group-status">{props.groupProgress}</div>
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()} dismiss={clearFailure} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined} /></div>
     </ShelfRow>
   );
 };

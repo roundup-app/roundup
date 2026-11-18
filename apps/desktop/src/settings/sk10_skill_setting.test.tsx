@@ -3,6 +3,8 @@ import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
 import { createFakeApp } from "../testing/fakeApp";
 import { RpcError } from "../app/seam";
+import { ToastHost } from "../testing/toastHost";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -22,7 +24,7 @@ const mount = async (files: { state: ReturnType<typeof items> }, tweak: (app: Re
  return items("removed"); };
 
   tweak(app);
-  render(() => <AppSettings app={app} project={() => null} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => null} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("switch", { name: label });
@@ -73,7 +75,7 @@ it("sk11_a_refused_setup_shows_cause_and_fix_and_the_switch_returns", async () =
   await screen.findByText(/roundup skill is there that roundup did not install/);
   expect(screen.getByText(/rup skill setup --force/)).toBeTruthy();
   await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("false"));
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   expect(app.calls.some(call => call.method === "skill.remove")).toBe(false);
 });
 

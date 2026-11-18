@@ -189,6 +189,10 @@
   flex: none;
 }
 
+.import-panel .mounted-line {
+  line-height: var(--line);
+}
+
 .import-listing {
   display: flex;
   align-items: center;

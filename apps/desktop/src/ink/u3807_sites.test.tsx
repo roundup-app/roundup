@@ -169,17 +169,18 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext></ToastHost>);
   const surface = await within(document.body).findByRole("region", { name: "Import Claude Code" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   const pending = mounted.connected.importing.refresh();
   read.reject(new RpcError(-32003, FAILURE));
   await pending;
-  await within(surface).findByRole("alert");
+  await waitFor(() => notice("alert"));
+  expect(within(surface).queryByRole("alert")).toBeNull();
   mounted.app.handlers["project.importDiscover"] = () => new Promise(() => {});
   void mounted.connected.importing.refresh();
-  await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
   mounted.connected.importing.cancel();
 });
 
@@ -248,15 +249,6 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Switcher", async () 
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
 });
 
-
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Pad drawer Saved", async () => {
-  const { app } = await openShelf([padOf("notes", USER, "old")]);
-  const field = await openPad("notes");
-  const surface = field.closest<HTMLElement>(".pad-body")!;
-  app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
-  await cycle(surface, () => { fireEvent.input(field, { target: { value: "new" } }); flush(); fireEvent.focusOut(field); },
-    () => fireEvent.input(field, { target: { value: "another" } }), "status");
-});
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Capture", async () => {
   const mounted = await mountTodos([]);

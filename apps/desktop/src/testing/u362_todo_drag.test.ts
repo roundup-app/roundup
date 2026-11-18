@@ -164,13 +164,13 @@ run('u362 rendered move failure', () => {
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
       await page.call(`() => window.__fake.failNext(-32003, 'Cannot move this Todo', 'todo.move')`);
       await page.pointer('up', to.x, to.y);
-      await page.until(`() => document.querySelector('.shelf [role="alert"]')?.textContent.includes('Cannot move this Todo')`);
+      await page.until(`() => document.querySelector('.app-toast [role="alert"]')?.textContent.includes('Cannot move this Todo')`);
       await page.call(`async () => {
         await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
       expect(await page.call<boolean>(`id => {
         const row = document.querySelector('.shelf [data-todo="' + id + '"]');
-        return row?.checkVisibility() && row.querySelector('[role="alert"]')?.textContent.includes('Cannot move this Todo');
+        return row?.checkVisibility() && document.querySelector('.app-toast [role="alert"]')?.textContent.includes('Cannot move this Todo');
       }`, id)).toBe(true);
     }, 30_000);
   }

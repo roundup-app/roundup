@@ -129,6 +129,16 @@ const focusedView = (crepe: CrepeBuilder | undefined) => crepe?.editor.action((c
   return view.dom;
 });
 
+/** U7414b: a click in the body area outside the document's own blocks puts the cursor at the end, which is the start of an empty Pad. */
+const focusAtEnd = (crepe: CrepeBuilder | undefined, event: MouseEvent) => crepe?.editor.action((ctx) => {
+  const view = ctx.get(editorViewCtx);
+
+  // A block that opened its text on this click has already left the DOM.
+  if (event.target instanceof Node && (view.dom.contains(event.target) || !event.target.isConnected)) return;
+  view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
+  view.focus();
+});
+
 function MountedEditor(props: EditorProps & { remount: (() => void) | undefined }) {
   const mountExpand = useContext(DrawerExpandContext);
   const [toolbarHost, setToolbarHost] = createSignal<HTMLElement>();
@@ -648,7 +658,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
         </div>
       </Portal>
       <div
-        class={["pad-editor pad-rich-editor reading", { "pad-readonly": props.readonly }]}
+        class={["pad-editor pad-rich-editor reading", { "pad-readonly": props.readonly }]} onClick={(event) => !props.readonly && focusAtEnd(crepe, event)}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
         <div class="pad-editor-host" ref={(element) => (host = element)} />
       </div>

@@ -1,4 +1,5 @@
 import { copy } from "./copy";
+import { copy as importerCopy } from "../importer/copy";
 import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -14,11 +15,18 @@ import { openTabs, tab, path } from "../header/stripFixture";
 import { createImport } from "../state/importState";
 import { exitedTerminal, mountRail, rowOf } from "./railFixture";
 import { isChecked } from "../testing/checked";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 // Resolve the current panel after navigation or remount; role queries stay inside its content.
 const panel = () => within(screen.getByLabelText(copy.importTitle, { selector: "section" }));
+
+// U7314e: the panel shows its failures and its conflict as Toasts, so their Retry is in the Toast region.
+const toasts = () => within(screen.getByRole("region", { name: "Updates" }));
+
+// ui-sdk announces each Toast once more in its own live region, so the name matches both.
+const conflictToast = async () => (await screen.findAllByRole("alert", { name: importerCopy.importConflictExplanation }))[0]!;
 
 const found = (revision = "r1"): ImportDiscovery => ({
   candidates: [
@@ -159,7 +167,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       expect((await screen.findByRole("button", { name: "Import 1" })).getAttribute("aria-disabled")).not.toBe("true");
       expect(screen.getByText(/Import choices.*could not be saved for reload/)).toBeTruthy();
       writes.mockRestore();
-      fireEvent.click(panel().getByRole("button", { name: copy.retryStorage }));
+      fireEvent.click(toasts().getByRole("button", { name: copy.retryStorage }));
       await waitFor(() => expect(screen.queryByText(/Import choices.*could not be saved for reload/)).toBeNull());
       cleanup();
       const restored = createImport(daemon, path("api"), () => undefined);
@@ -284,7 +292,7 @@ it.each([false, true])("u3049a_external_save_keeps_both_versions_shared_record_%
 
   localStorage.setItem("roundup:import:/p", JSON.stringify({ revision: externalRevision, open: true, period: "month", selected: [{ source: "s2", revision: "preview-2", title: titles[1] }] }));
   await clickSource("三つ目");
-  expect(await screen.findByRole("status", { name: /conflict/i })).toBeTruthy();
+  expect(await conflictToast()).toBeTruthy();
   const forms = connected.drafts.list().filter(draft => draft.destination.surface === "import").map(draft => draft.value);
   expect(forms).toHaveLength(2);
   expect(forms).toEqual(expect.arrayContaining([
@@ -303,7 +311,7 @@ it("u3049a_unchanged_record_saves_normally", async () => {
   await screen.findByRole("checkbox", { name: /一つ目/ });
   await clickSource("一つ目");
   await clickSource("三つ目");
-  expect(screen.queryByRole("status", { name: /conflict/i })).toBeNull();
+  expect(notices("alert")).toEqual([]);
   cleanup();
   const { connected } = await mountRail([]);
   expect([connected.importing.period(), [...connected.importing.selected()].map(([source, { revision, title }]) => [source, { revision, title }])]).toEqual(["week", [
@@ -334,7 +342,7 @@ const conflictingProjects = async () => {
   await state.choose("s3", titles[2]!, "preview-3", true);
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   fireEvent.click(await screen.findByRole("tab", { name: /^api/ }));
-  await screen.findByRole("status", { name: /conflict/i });
+  await conflictToast();
 
   return { app, daemon, other };
 };
@@ -361,7 +369,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
   await waitFor(() => expect(retry.isConnected).toBe(false));
   cleanup();
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-  await screen.findByRole("status", { name: /conflict/i });
+  await conflictToast();
 
   for (const [number, period, sources] of [[1, "month", ["s2"]], [2, "week", ["s1", "s3"]]] as const) {
     fireEvent.click(panel().getByRole("button", { name: `Open choices ${number}` }));
@@ -381,7 +389,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
 it.each([1, 2])("u3049b_discard_consumes_only_selected_version_%s", async (number) => {
   const { app, daemon, other } = await conflictingProjects();
   fireEvent.click(panel().getByRole("button", { name: `Discard choices ${number}` }));
-  await waitFor(() => expect(screen.queryByRole("status", { name: /conflict/i })).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
   const sources = number === 2 ? ["s2"] : ["s1", "s3"];
   await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected.map((entry: { source: string }) => entry.source)).toEqual(sources));
   cleanup();
@@ -431,8 +439,8 @@ it.each(["read", "json", "schema", "write", "draft-write"])("u3049b_retention_fa
   }
 
   localStorage.setItem(importKey(), externalChoices);
-  fireEvent.click(panel().getByRole("button", { name: copy.retryStorage }));
-  await screen.findByRole("status", { name: /conflict/i });
+  fireEvent.click(toasts().getByRole("button", { name: copy.retryStorage }));
+  await conflictToast();
   expect(connected.importing.choices().sort((a, b) => a.period.localeCompare(b.period)).map(entry => [entry.period, entry.sources, entry.revisions, entry.titles])).toEqual([
     ["month", ["s2"], ["preview-2"], [titles[1]]], ["week", ["s1", "s3"], ["preview-1", "preview-3"], [titles[0], titles[2]]],
   ]);
@@ -457,9 +465,9 @@ it.each(["discovery", "retry"])("u3049a_detects_external_record_before_%s_write"
 
   localStorage.setItem(importKey(), externalChoices);
 
-  if (operation === "retry") fireEvent.click(panel().getByRole("button", { name: copy.retryStorage }));
+  if (operation === "retry") fireEvent.click(toasts().getByRole("button", { name: copy.retryStorage }));
   else await connected.importing.refresh();
-  await screen.findByRole("status", { name: /conflict/i });
+  await conflictToast();
   expect(panel().getAllByRole("button", { name: /Open choices/ })).toHaveLength(2);
   expect(calls(app, "project.importCommit")).toEqual([]);
 });
@@ -494,8 +502,8 @@ it.each([false, true])("u3049b_initial_restore_retry_keeps_versions_separate_rec
     await connected.importing.choose("s3", titles[2]!, "preview-3", true);
     expect(read.call(localStorage, importKey())).toBe(externalChoices);
     unreadable = false;
-    fireEvent.click(panel().getByRole("button", { name: copy.retryStorage }));
-    await screen.findByRole("status", { name: /conflict/i });
+    fireEvent.click(toasts().getByRole("button", { name: copy.retryStorage }));
+    await conflictToast();
     expect(connected.importing.choices().sort((a, b) => a.period.localeCompare(b.period)).map(entry => [entry.period, entry.sources, entry.revisions, entry.titles])).toEqual([
       ["month", ["s2"], ["preview-2"], [titles[1]]], ["week", ["s1", "s3"], ["preview-1", "preview-3"], [titles[0], titles[2]]],
     ]);
