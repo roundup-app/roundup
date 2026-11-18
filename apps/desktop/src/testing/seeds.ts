@@ -350,7 +350,10 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["agent.restartMode"] = ({ id }) => {
     const target = find(id);
 
-    if (target.kind !== "agent" || target.parent !== null || !target.mode_prompt?.trim()) throw new RpcError(CONFLICT, "only a root Mode Agent can be restarted");
+    const starter = target.parent === null ? undefined : find(target.parent);
+
+    // A7494c: a Mode sits at the root or directly under its root starter.
+    if (target.kind !== "agent" || !target.mode_prompt?.trim() || (starter !== undefined && (starter.kind !== "agent" || starter.parent !== null))) throw new RpcError(CONFLICT, "only a Mode Agent at the root or under its root starter can be restarted");
     const attempt = String(BigInt(target.attempt ?? "0") + 1n);
 
     return changed(Object.assign(target, { attempt, status_revision: "1", terminal_id: `t-${id}-${attempt}`, status: statusAt(Date.now(), "working", "starting", 0) }));

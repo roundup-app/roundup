@@ -58,14 +58,6 @@ export const settingsEntries = ({
       hiddenHint: true,
     },
     {
-      id: "skill",
-      page: copy.settingsAgents,
-      group: copy.groupSkill,
-      label: copy.skill,
-      description: copy.skillHint,
-      hiddenHint: true,
-    },
-    {
       id: "fontFamily",
       page: copy.settingsTerminal,
       group: copy.groupFont,

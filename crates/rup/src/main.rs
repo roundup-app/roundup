@@ -19,7 +19,6 @@ mod cli;
 mod machine;
 mod mcp;
 mod seq;
-mod skill;
 
 /// What comes before the command.
 #[derive(Default)]
@@ -93,19 +92,6 @@ async fn main() -> ExitCode {
         return ExitCode::from(2);
     }
     let outcome = match command[..] {
-        // SK9: no Daemon and no Agent id; `skill report` is the hook's and never exits 2.
-        ["skill", ..] => {
-            let flags: Vec<String> = command
-                .iter()
-                .skip(1)
-                .map(|flag| (*flag).to_owned())
-                .collect();
-            return skill::run(&flags);
-        }
-        ["help", "skill"] => {
-            print!("{}", skill::help_text());
-            return ExitCode::SUCCESS;
-        }
         // MC25: the Mac compares this line with the one a machine's `rup` prints.
         ["--version" | "-V"] => {
             println!("rup {}", env!("CARGO_PKG_VERSION"));

@@ -143,7 +143,6 @@ import type { SetMachine as project_SetMachine } from "./project/SetMachine";
 import type { StartParams as project_StartParams } from "./project/StartParams";
 import type { StartedRow as project_StartedRow } from "./project/StartedRow";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
-import type { SkillFiles as skill_SkillFiles } from "./skill/SkillFiles";
 import type { CatchUp as terminal_CatchUp } from "./terminal/CatchUp";
 import type { CatchUpParams as terminal_CatchUpParams } from "./terminal/CatchUpParams";
 import type { MeasureParams as terminal_MeasureParams } from "./terminal/MeasureParams";
@@ -316,9 +315,6 @@ export type RpcMethods = {
   "machine.add": { params: machine_AddParams; result: machine_Machine[] };
   "machine.remove": { params: machine_RemoveParams; result: machine_Machine[] };
   "machine.update": { params: machine_UpdateParams; result: machine_Machine[] };
-  "skill.status": { params: null; result: skill_SkillFiles };
-  "skill.setup": { params: null; result: skill_SkillFiles };
-  "skill.remove": { params: null; result: skill_SkillFiles };
   "rail.deletion": { params: agent_DeletionParams; result: agent_Removal | null };
   "rail.redo": { params: agent_RedoParams; result: agent_Removal };
   "rail.restore": { params: agent_DeletionParams; result: agent_Removal };

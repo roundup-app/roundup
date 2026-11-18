@@ -32,7 +32,7 @@ impl Daemon {
             .into_iter()
             .find(|n| n.id == actor.id)
             .ok_or_else(|| RpcError::not_found(&actor.id))?;
-        let mode = caller.parent.is_none() && caller.mode_prompt().is_some();
+        let mode = caller.mode_prompt().is_some();
         let builder = self.agents.start_handoff(&ctx, p.order, &p.pad).await?;
         self.handoffs.lock().push(Pending {
             caller: actor.id.clone(),

@@ -19,12 +19,11 @@ impl Agents {
         pad: &str,
     ) -> Result<RailNode, RpcError> {
         let caller = self.shared.node(&ctx.actor.id)?;
-        let mode = caller.parent.is_none()
-            && caller
-                .mode_prompt()
-                .is_some_and(|prompt| !prompt.trim().is_empty());
+        let mode = caller
+            .mode_prompt()
+            .is_some_and(|prompt| !prompt.trim().is_empty());
         let takes = Takes {
-            parent: caller.parent.clone(),
+            parent: caller.parent.clone().filter(|_| !mode),
             before: (!mode).then(|| caller.id.clone()),
         };
         let params = serde_json::from_value(serde_json::json!({
