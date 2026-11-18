@@ -9,7 +9,9 @@ import { BusyButton } from "../ui/BusyButton";
 import { createWritableMemo } from "@solid-primitives/memo";
 import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure, StatusNote } from "../ink/MountedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { modalOutside } from "../keys/registry";
 import { Dialog } from "../ui/Dialog";
 import { useConnectedProject } from "../state/connectedProject";
@@ -43,14 +45,19 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 
   const noteLine = dismissable(() => props.notes.problem() ?? props.notes.failure(props.id));
 
+  createMessageToast({
+    get message() { return noteLine.message(); },
+    dismiss: () => props.notes.failure(props.id) ? props.notes.dismiss(props.id) : noteLine.dismiss(),
+    get action() { return <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show>; },
+  });
+
   return <section class="note-batch" aria-label={copy.notesRegion}>
-      <ReservedLine message={noteLine.message()} status={status()} dismiss={() => props.notes.failure(props.id) ? props.notes.dismiss(props.id) : noteLine.dismiss()} action={<>
-        <Show when={uncertain()}><BusyButton kind="quiet" busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</BusyButton></Show>
-        <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show></>} />
+      <StatusNote text={noteLine.message() ? null : status()} />
+      <Show when={uncertain()}><BusyButton kind="quiet" busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</BusyButton></Show>
       <Show when={props.notes.list(props.id).length}>
         <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
           <NotePath path={note.comparison.newPath} />
-          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<ReservedLine status={older(note) ? copy.originalContext : null} /></p>
+          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<Show when={older(note)}><span role="status">{copy.originalContext}</span></Show></p>
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">
             <button type="button" data-button="quiet" aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}>{copy.editNoteAction}</button>
@@ -140,13 +147,13 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
     <Dialog.Content ref={setElement} class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" onClick={close}>{copy.close}</button></header>
       <Show when={!retained()}><EmptyState art="clumsy" {...{ title: copy.noNoteDrafts }} line={copy.emptyNotesLine} /></Show>
-      <Show when={props.notes.problem()}><ReservedLine message={problemLine.message()} dismiss={problemLine.dismiss} recover={{ run: props.notes.retry }} /></Show>
-      <For each={failed()}>{([key, text]) => <ReservedLine message={text} dismiss={() => clear(key)} />}</For>
+      <DialogFailure message={problemLine.message()} dismiss={problemLine.dismiss} recover={{ run: props.notes.retry }} />
+      <For each={failed()}>{([key, text]) => <DialogFailure message={text} dismiss={() => clear(key)} />}</For>
 
       <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={comparisons().get(`${value.id}:${value.form.comparison.newPath}`) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>
       <For each={entries()}>{([id, value]) => <section class="note-batch">
         <h3>{copy.noteDraftStatus(props.name(id), value.submissions[0]?.status ?? copy.noteDraft)}</h3>
-        <ReservedLine status={!props.available(id) ? copy.originalRecipientUnavailable : null} />
+        <StatusNote text={!props.available(id) ? copy.originalRecipientUnavailable : null} />
         <For each={value.forms}>{form => <div class="note-recovered-batch">
           <p class="note-path">{form.comparison.newPath}<Show when={older(id, form.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(form.side, Number(form.start) === Number(form.end) ? `${Number(form.start)}` : `${Number(form.start)}–${Number(form.end)}`, Number(form.start) === Number(form.end))}</p><p class="note-text">{form.text}</p>
           <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, form }, null, 2)} identity={form.revision} onSuccess={() => clear(form.revision)} onFailure={error => failures.fail(form.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><Show when={props.available(id)}><button type="button" data-note-action="resume" onClick={() => setEditing({ id, form })}>{copy.resumeNote}</button></Show><button type="button" onClick={() => { props.notes.discardForm(id, form.revision); setEditing(undefined); }}>{copy.discardDraft}</button></div>
@@ -157,7 +164,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
         </div>}</For>
         <For each={value.recovered}>{recovered => <div class="note-recovered-batch"><RecordPreview older={comparison => older(id, comparison)} rows={[...recovered.data.forms, ...recovered.data.notes, ...recovered.data.submissions.flatMap(submission => submission.notes)]} /><div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, ...recovered }, null, 2)} identity={recovered.revision} onSuccess={() => clear(recovered.revision)} onFailure={error => failures.fail(recovered.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.discardRecovered(id, recovered.revision)}>{copy.discardDraft}</button></div></div>}</For>
         <For each={value.submissions}>{submission => <div class="note-recovered-batch">
-          <ReservedLine status={`${copy.noteDraftStatus(props.name(id), submission.status)} ${submission.text}`} /><RecordPreview older={comparison => older(id, comparison)} rows={submission.notes} />
+          <StatusNote text={`${copy.noteDraftStatus(props.name(id), submission.status)} ${submission.text}`} /><RecordPreview older={comparison => older(id, comparison)} rows={submission.notes} />
           <div class="diff-actions"><CopyButton data-button={null} app={app} text={submission.body} identity={submission.revision} onSuccess={() => clear(submission.revision)} onFailure={error => failures.fail(submission.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><Show when={submission.status === "unknown"}><BusyButton kind={null} busyLabel={copy.checking} onClick={() => props.notes.reconcile(id)}>{copy.checkMessageHistory}</BusyButton></Show><Show when={submission.status !== "pending"}><button type="button" onClick={() => props.notes.discardSubmission(id, submission.revision)}>{copy.discardSubmission}</button></Show></div>
         </div>}</For>
       </section>}</For>

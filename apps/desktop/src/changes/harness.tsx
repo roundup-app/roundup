@@ -5,6 +5,7 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, NOW } from "../testing/nodes";
+import { ToastHost } from "../testing/toastHost";
 import { WorktreeControl } from "./WorktreeControl";
 
 export const WORKTREE = { path: "/p/.roundup/a", branch: "roundup/a", base: "main" };
@@ -36,9 +37,11 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
     connected.worktrees.watch(() => true);
 
     return (
-      <ConnectedProjectContext value={connected}>
-        <WorktreeControl />
-      </ConnectedProjectContext>
+      <ToastHost>
+        <ConnectedProjectContext value={connected}>
+          <WorktreeControl />
+        </ConnectedProjectContext>
+      </ToastHost>
     );
   });
 

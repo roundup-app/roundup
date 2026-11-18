@@ -11,7 +11,7 @@ import { Field } from "../ui/Field";
 import { RadioGroup } from "../ui/RadioGroup";
 import { AppTree } from "../ui/TreeView";
 import { branchesOf } from "../rail/collection";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DialogFailure } from "../ink/MountedLine";
 import { forkCopy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { ForkList } from "./ForkList";
@@ -149,8 +149,8 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
     <Show when={free().length > 0} fallback={<p class="fork-colours-full">{forkCopy.colourTaken}</p>}>
       <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={free().map(value => ({ value, label: value }))} value={colour()} onValueChange={setPicked} />
     </Show>
+    <DialogFailure message={failure()} dismiss={() => setFailure(null)} />
     <div class="app-dialog-actions">
-      <ReservedLine class="fork-failure" message={failure()} dismiss={() => setFailure(null)} />
       <Dialog.CloseTrigger type="button" data-button="quiet">{forkCopy.close}</Dialog.CloseTrigger>
       <BusyButton kind="primary" type="submit" busy={busy()} busyLabel={forkCopy.making}>{forkCopy.make}</BusyButton>
     </div>

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { mountPane, subscribed } from "../terminal/paneHarness";
 import { agent, info } from "../testing/nodes";
+import { ToastHost } from "../testing/toastHost";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "./WorktreeControl";
 import { STATE, WORKTREE } from "./harness";
@@ -16,7 +17,7 @@ const mount = async () => {
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", line: 1, status: "modified" }] });
   app.handlers["agent.compareFile"] = () => COMPARISON;
   connected.rail.select("a");
-  render(() => <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   await subscribed(app, "t-a");
 
   return mounted;

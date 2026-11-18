@@ -8,7 +8,7 @@ import { agent, event } from "../testing/nodes";
 import { WORKTREE } from "./harness";
 import { message } from "../testing/centreFixture";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote } from "./noteHarness";
 
 import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
@@ -114,7 +114,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   // The selection is a user's own event; the test queries in the same turn, so it settles the write first.
   flush();
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
-  expect(screen.queryByRole("list")).toBeNull();
+  expect(noteList()).toBeNull();
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: secondText } });
@@ -405,7 +405,7 @@ it("u3474e_mutation_keeps_the_next_key_live", async () => {
   const next = screen.getByRole("button", { name: "Remove note 1" });
   await waitFor(() => expect(document.activeElement).toBe(next));
   fireEvent.click(document.activeElement!);
-  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
+  await waitFor(() => expect(noteList()).toBeNull());
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
 });
 
