@@ -5,7 +5,7 @@ import { railCommand } from "../railCommands";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
 
-/** A Mode's Restart. A saved conversation resumes through `resume` (U7191a); else the saved-prompt restart (`agent.restartMode`) runs, with one request id per Mode until the Daemon acknowledges it. */
+/** A Mode's Restart. Restart always runs the saved-prompt restart (`agent.restartMode`, U7493a), with one request id per Mode until the Daemon acknowledges it. */
 export const createModeRestart = (app: AppSeam, rail: RailState, resume: (node: RailNode, exit: ExitState | null) => void) => {
   const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
 
@@ -36,13 +36,16 @@ export const createModeRestart = (app: AppSeam, rail: RailState, resume: (node: 
     }
   };
 
-  /** U7191a: the row's icon, its `R` key and its menu run this one action. */
-  const restartRow = (id: string) => {
+  /** U7493a: Restart, whether or not a conversation is saved. */
+  const restartRow = (id: string) => { void restartMode(id); };
+
+  /** U7493a: a stopped Mode's play icon resumes its saved conversation; with none it restarts. */
+  const playRow = (id: string) => {
     const node = rail.nodes.find(candidate => candidate.id === id);
 
     if (node && hasConversation(node)) resume(node, rail.exitOf(node));
     else void restartMode(id);
   };
 
-  return { restartMode, restartRow, restartPending: (id: string) => restarts[id]?.pending ?? false };
+  return { restartMode, restartRow, playRow, restartPending: (id: string) => restarts[id]?.pending ?? false };
 };

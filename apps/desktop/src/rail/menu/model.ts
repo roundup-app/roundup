@@ -68,7 +68,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   const [state, setState] = createSignal<Confirming | null>(null);
   let removingSelection = false;
   const resuming = new Set<string>();
-  const { restartMode, restartRow, restartPending } = createModeRestart(app, rail, (node, exit) => requestRestart(node, exit));
+  const { restartMode, restartRow, playRow, restartPending } = createModeRestart(app, rail, (node, exit) => requestRestart(node, exit));
 
   const lossesOf = (chosen: readonly RailNode[]) => chosen.flatMap(node => [
     ...(isDoor(node) && node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
@@ -340,8 +340,8 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
     return [
       renameEntry(node),
-      // U7191a: a Mode without a conversation types its saved prompt on Restart; `R` reaches Modes only.
-      { when: hasConversation(node) || isMode(node), id: "restart", label: copy.restart, shortcut: isMode(node) ? "R" : undefined, run: () => restartRow(node.id) },
+      // U7493a: a Mode's Restart always types its saved prompt; `R` reaches Modes only.
+      { when: hasConversation(node) || isMode(node), id: "restart", label: copy.restart, shortcut: isMode(node) ? "R" : undefined, run: () => { if (isMode(node)) restartRow(node.id); else requestRestart(node, exit); } },
       { when: isYolo(node) && !isMode(node) && running, id: "normal", label: copy.startNormal, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
@@ -379,6 +379,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     requestRemoveSelection,
     restartMode,
     restartRow,
+    playRow,
     makeWorkstream,
     restartPending,
     requestStop,

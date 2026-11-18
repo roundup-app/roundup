@@ -28,25 +28,46 @@ it("u7191a_yolo_to_normal_is_start_normal", async () => {
   expect(app.menuLabels().filter(label => label === copy.restart || label === copy.startNormal)).toEqual([copy.restart, copy.startNormal]);
 });
 
-it("u7191a_a_mode_restart_icon_menu_and_key_run_one_action", async () => {
-  const saved = mode("m", "saved", { status: { kind: "idle", label: "", since: 0, finished: "0" }, has_conversation: true });
-  const { app, rail } = await mountRail([saved]);
-  app.handlers["agent.resume"] = () => saved;
+const stopped = (conversation: boolean) => mode("m", "saved", { status: { kind: "idle", label: "", since: 0, finished: "0" }, has_conversation: conversation });
+
+it("u7493a_a_mode_restart_always_runs_restart_mode", async () => {
+  const { app, rail } = await mountRail([stopped(true)]);
+  app.handlers["agent.restartMode"] = () => stopped(true);
   const row = rowOf("m");
 
   fireEvent.click(within(row).getByRole("button", { name: copy.restart }));
-  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toHaveLength(1));
+  await waitFor(() => expect(railCallsTo(app, "agent.restartMode")).toHaveLength(1));
   await rail.settled();
   open("m");
   expect(app.shownMenus.at(-1)?.items.find(item => item.label === copy.restart)?.shortcut).toBe("R");
   await app.pickMenu(copy.restart);
-  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toHaveLength(2));
+  await waitFor(() => expect(railCallsTo(app, "agent.restartMode")).toHaveLength(2));
   await rail.settled();
   row.focus();
   fireEvent.keyDown(row, { key: "r", code: "KeyR" });
 
-  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual(Array.from({ length: 3 }, () => ({ id: "m", mode: "normal" }))));
+  await waitFor(() => expect(railCallsTo(app, "agent.restartMode")).toHaveLength(3));
+  expect(railCallsTo(app, "agent.resume")).toEqual([]);
+});
+
+it("u7493a_a_stopped_mode_play_icon_resumes_its_conversation", async () => {
+  const { app } = await mountRail([stopped(true)], [exitedTerminal("m", 0)]);
+  app.handlers["agent.resume"] = () => stopped(true);
+
+  fireEvent.click(within(rowOf("m")).getByRole("button", { name: copy.resume }));
+
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "m", mode: "normal" }]));
   expect(railCallsTo(app, "agent.restartMode")).toEqual([]);
+});
+
+it("u7493a_a_mode_without_a_conversation_plays_restart_mode", async () => {
+  const { app } = await mountRail([stopped(false)], [exitedTerminal("m", 0)]);
+  app.handlers["agent.restartMode"] = () => stopped(false);
+
+  fireEvent.click(within(rowOf("m")).getByRole("button", { name: copy.resume }));
+
+  await waitFor(() => expect(railCallsTo(app, "agent.restartMode")).toHaveLength(1));
+  expect(railCallsTo(app, "agent.resume")).toEqual([]);
 });
 
 it("u7191a_an_exited_row_lists_one_restart_and_no_resume", async () => {
@@ -142,4 +163,15 @@ it("u7191a_the_exited_row_icon_is_labelled_restart", async () => {
   fireEvent.click(within(rowOf("a")).getByRole("button", { name: copy.restart }));
 
   await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]));
+});
+
+it("u7493a_other_agents_keep_restart_on_resume", async () => {
+  const { app } = await mountRail([agent("a", "idle", "ready", { has_conversation: true })]);
+  app.handlers["agent.resume"] = () => agent("a", "idle", "ready", { has_conversation: true });
+
+  open("a");
+  await app.pickMenu(copy.restart);
+
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toHaveLength(1));
+  expect(railCallsTo(app, "agent.restartMode")).toEqual([]);
 });
