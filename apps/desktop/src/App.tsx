@@ -435,8 +435,7 @@ export const App = (props: {
   createDockBadge({ app: untrack(() => props.app), rails: () => connectedEntries(connections()).map(([path, connection]) => ({ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) })), onFailure: hide });
 
   const panes = createProjectPanes({
-    toasts,
-    active: projects.active, connectionOf, createEmulator: () => props.createEmulator ?? lazyXtermEmulators(), observeTerminal: (path, id) => props.observeTerminal?.(path, id),
+    toasts, active: projects.active, connectionOf, createEmulator: () => props.createEmulator ?? lazyXtermEmulators(), observeTerminal: (path, id) => props.observeTerminal?.(path, id),
     arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }), over: active => <ResumeBar notify={toasts.notify} active={active} />, header: active => <LinksHeader active={active} />,
   });
 
