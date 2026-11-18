@@ -1,4 +1,4 @@
-# UI: icons on a Rail row (U426 to U429, U7488a to U7488c)
+# UI: icons on a Rail row (U426 to U429, U7488a to U7488d)
 
 Module: `apps/desktop/src/rail/` (the webview) and `crates/desktop` (U429's one App seam command). Ids: U426, U427, U428, U429. Found by the user's report #1098 (Solo's Project list shows a folder and a `</>` icon on a hovered row: "tasteful and meaningful and needed"). The owner’s 2026-11-02 decision supersedes the original folder/editor icons: Workstream and Agent rows offer those actions only in their right-click menus, leaving more width for names. Other quick actions retain their existing applicability and behavior. Project tabs gain no icons. U429 still governs opening an editor through the existing App command; no contract changes. U416 governs the controls’ sentence case.
 
@@ -54,14 +54,14 @@ Only existing Tokens and menu/App seams are used. This specification changes acc
 
 Tests (`u429_`, Rust in `crates/desktop/src/`, with the launcher behind a function the test replaces; Vitest for the Rail's message). Observer: the Rust tests run on Linux with a fake `open`; the real launch is read from the user's Mac report (the _Done_ rule of `.agents/builder.md`). Owns `crates/desktop/**`, `scenarios/app.md` and `GLOSSARY.md`.
 
-## Row action slots and the Todos ring (U7488a to U7488c)
+## Row action slots and the Todos ring (U7488a to U7488d)
 
 Source: the owner, 2026-11-18, with a screenshot (#7488): "the rail icons why start/resume/restart is not aligned … the todos icon should change … it should have the number and proper colors … be consistent of visibility and alignment of icons on hover or on being active". The owner picked the ring over a count badge and over the old grey `◇3`. Amends U426, U4896, U7205c and U404. Module: `apps/desktop/src/rail/` and the shared row-control styles in `apps/desktop/src/todos/rowButton.styles.css`. No contract, RPC, App seam command or Token; the ring uses `--accent` and `--progress-track`. Terms: Todos, Agent, Rail, Shelf and Bench as `GLOSSARY.md` has them; the action names are the user labels of U426 to U428.
 
 **U7488a Each row action has a fixed slot.** Amends U7205c's packing of the row tail to the right. Given Rail rows of every kind that show actions, at the narrowest and widest Rail, depths 0 to 3 and the largest text scale, then:
 - **Slots.** Restart, play or stop, more, Todos and changes each take one fixed slot in the row tail, left of the age slot (U7205c) and in that order. Play and stop share one slot. A row without an action leaves its slot empty, so an action sits at one x on every row, whatever else the row shows. Asserted in `u7488a_each_action_renders_in_its_own_slot` (jsdom: each action's button is the child of its slot element, play and stop share one, and an absent action leaves its slot element present and empty), with the order in `u7488a_slots_keep_one_order`.
 - **Nothing moves.** A slot's width is reserved at rest, so hover, focus, selection and a Status change move no control and no text. Policy, observed on the capture below.
-- **Marks stay visible.** A row's marks (started-by ↳, machine, unread dot, queue badge, worktree chips, alert level) sit left of the action slots, and no revealed action covers one in rest, hover, focus or selection. Source: the owner, 2026-11-18, second screenshot on #7488: the revealed ↻ □ ⋯ covered a row's started-by ↳, leaving only its arrowhead. Policy, observed on the capture.
+- **Marks stay visible.** A row's marks (machine, unread dot, queue badge, worktree chips, alert level) sit left of the action slots, and no revealed action covers one in rest, hover, focus or selection. Source: the owner, 2026-11-18, second screenshot on #7488: the revealed ↻ □ ⋯ covered a row's mark. Policy, observed on the capture.
 - **Name.** The name truncates with `…` before any slot moves, as U7205c orders for the age.
 
 Policy (design critic, `window.__checks()` and a bounding-box reading on the capture): each action's x is equal across rows within 1 CSS px at the narrowest and widest Rail and the largest text scale, in rest, hover, focus and selection. Moves: D2, D5, D6.
@@ -79,3 +79,5 @@ Policy: the rendered capture shows the four row kinds hovered, focused and selec
 - **Contrast.** The ring's fill meets 3:1 against its track and against the row on resting and selected rows, light and dark, by `window.__checks()` (D5).
 
 Policy (design critic): screenshots of mixed rows (with and without Todos, with play, stop and restart) hovered, focused and selected, light and dark, at the narrowest and widest Rail. Run `just capture U7488a U7488b U7488c`; leave images under `artifacts/ux/U7488a/`, `U7488b/` and `U7488c/` (`.agents/data/harness.md`, Captures), dark and light. The user reports what they meet on the Mac. Moves: D2, D5, D6.
+
+**U7488d Rail rows show no started-by icon.** Source: the owner, 2026-11-18: "the information about what spawned the rail item on the rail is not needed to be an icon on the rail - remove it". Retires U5765's rendered attribution icon (`scenarios/agent-project-start.md`). Given a Rail row whose Agent, Workstream or Mode another Project's Agent started, then the row shows no started-by icon and no started-by Tooltip. The Rail data keeps the attribution (A5765e). App code that only that icon read is deleted. Asserted in `u7488d_a_started_row_shows_no_started_by_icon` (jsdom: a row with attribution renders no `.attribution-icon`).
