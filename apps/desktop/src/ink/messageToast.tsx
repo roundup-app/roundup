@@ -40,5 +40,5 @@ export const createMessageToast = (line: FailureLine): void => {
 
 /** A toast per failure in a list, each living as long as its failure is in the list. */
 export const createMessageToasts = <T,>(failures: () => readonly T[], line: (failure: T) => FailureLine): void => {
-  createMemo(mapArray(failures, failure => createMessageToast(line(failure()))));
+  createMemo(mapArray(failures, failure => createMessageToast(line(failure))));
 };
