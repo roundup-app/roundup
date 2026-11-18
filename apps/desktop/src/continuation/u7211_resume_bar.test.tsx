@@ -12,6 +12,7 @@ import { captureActions } from "../keys/registry";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
+import { ToastHost } from "../testing/toastHost";
 import type { Candidate } from "../toasts/queue";
 import { copy } from "./copy";
 import { ResumeBar } from "./ResumeBar";
@@ -62,7 +63,7 @@ const mount = async (setup: Setup) => {
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
-  render(() => <ConnectedProjectContext value={connected}><ResumeBar notify={candidate => toasts.push(candidate)} active={() => setup.shown ?? true} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><ResumeBar notify={candidate => toasts.push(candidate)} active={() => setup.shown ?? true} /></ConnectedProjectContext></ToastHost>);
   await connected.rail.settled();
 
   // The line stays mounted and goes empty; it shows only while it has something to say.
@@ -111,13 +112,16 @@ it("u7211a_a_failed_read_says_so_and_retries", async () => {
     return planOf(id, id === "a" ? [action("x1")] : []);
   } });
 
+  // U7314b: the failed read is a Toast with Retry, and holds no place over the Terminal.
   select("a");
-  await waitFor(() => expect(bar()?.textContent).toContain(copy.checkFailed(copy.rpcFailure(CODE))));
+  const shown = await screen.findByRole("alert", { name: new RegExp(copy.checkFailed(copy.rpcFailure(CODE))) });
+  expect(shown.closest(".app-toasts")).not.toBeNull();
+  expect(bar()).toBeNull();
 
   failing = false;
-  fireEvent.click(inBar().getByRole("button", { name: inkCopy.retry }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: inkCopy.retry }));
   await waitFor(() => expect(inBar().getByRole("button", { name: copy.resume })).toBeTruthy());
-  expect(bar()?.textContent).not.toContain(copy.checkFailed(copy.rpcFailure(CODE)));
+  expect(screen.queryByRole("alert", { name: /could not be checked/i })).toBeNull();
 });
 
 it("u7211b_resume_sends_one_request_and_the_bar_goes_once_it_succeeds", async () => {

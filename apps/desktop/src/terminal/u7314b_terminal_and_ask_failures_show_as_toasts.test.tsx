@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { flush } from "solid-js";
 import { RpcError } from "../app/seam";
 import { info, node } from "../testing/nodes";
-import { notice, notices } from "../testing/notices";
+import { notices } from "../testing/notices";
 import { mountPane } from "./paneHarness";
 
 afterEach(cleanup);
@@ -40,5 +40,4 @@ it("u7314b_terminal_and_ask_failures_show_as_toasts", async () => {
   fireEvent.click(within(region).getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(order()).toEqual(before);
-  expect(notice).toBeTypeOf("function");
 });

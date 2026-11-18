@@ -2,6 +2,7 @@ import "./styles.css";
 import { createEffect, Show, untrack } from "solid-js";
 import { RpcError } from "../app/seam";
 import { dismissable, RecoveryButtons, ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { focusCentre, queueFocus } from "../keys/focus";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -43,10 +44,17 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
     return error === null ? null : reason(error);
   };
 
-  const message = () => pending() ? failed() : unchecked.message();
-  const visible = () => pending() || !!message();
-  const dismiss = () => pending() ? work.dismiss(id()) : unchecked.dismiss();
-  const recover = () => pending() ? { run: () => work.resume(id()), label: copy.resume } : { run: work.reread };
+  const message = () => pending() ? failed() : null;
+  const visible = () => pending();
+  const dismiss = () => work.dismiss(id());
+  const recover = () => ({ run: () => work.resume(id()), label: copy.resume });
+
+  // U7314b: the failed read of unfinished work is a Toast, not a line over the Terminal.
+  createMessageToast({
+    get message() { return pending() ? null : unchecked.message(); },
+    dismiss: () => unchecked.dismiss(),
+    recover: { run: work.reread },
+  });
 
   const report = (tally: Tally) => props.notify({ key: `resume:${project.path}`, item: `resume:${project.path}`, project: project.path, selected: false, kind: tally.failed > 0 ? "error" : "done", name: copy.title, line: lineOf(tally), open: () => null });
 
@@ -64,7 +72,7 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
       status={visible() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
       dismiss={dismiss}
       recover={recover()}
-      action={<Show when={pending() && !message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
+      action={<Show when={!message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
       onKeyDown={event => {
         if (event.key !== "Escape") return;
 
