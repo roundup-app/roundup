@@ -11,7 +11,7 @@ it("u7314a_rail_failures_show_as_toasts", async () => {
   const tree = screen.getByRole("tree", { name: "Rail" });
   const rows = () => [...tree.querySelectorAll("[role=treeitem]")];
   const before = rows();
-  const lines = () => [...document.querySelectorAll(".reserved-line:not([data-empty='true'])")].filter(line => !line.closest(".app-toasts"));
+  const lines = () => [...document.querySelectorAll(".message-body")].filter(line => !line.closest(".app-toasts"));
   mounted.app.handlers["rail.createWorkstream"] = () => { throw new Error("new command failure"); };
 
   await mounted.rail.createWorkstream();

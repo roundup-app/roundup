@@ -35,7 +35,7 @@ it("u7314d_inbox_and_switcher_failures_show_as_toasts: Inbox", async () => {
   const shown = await waitFor(() => notice("alert"));
   expect(notices("alert")).toEqual([shown]);
   expect(toasts().contains(shown)).toBe(true);
-  expect(ownElements(document).filter(line => line.matches(".reserved-line"))).toEqual([]);
+  expect(ownElements(document).filter(line => line.matches(".message-body"))).toEqual([]);
   same(elements(), before);
 
   Object.assign(mounted.app.handlers, { "todo.unread": original });

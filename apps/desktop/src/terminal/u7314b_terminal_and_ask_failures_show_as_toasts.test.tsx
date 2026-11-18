@@ -21,7 +21,7 @@ it("u7314b_terminal_and_ask_failures_show_as_toasts", async () => {
 
   const order = () => [...pane().querySelectorAll(".pane-origin > *, .pane-origin")].map(element => element.className);
 
-  const lines = () => [...document.querySelectorAll(".reserved-line:not([data-empty='true'])")].filter(line => !line.closest(".app-toasts"));
+  const lines = () => [...document.querySelectorAll(".message-body")].filter(line => !line.closest(".app-toasts"));
 
   const before = order();
 

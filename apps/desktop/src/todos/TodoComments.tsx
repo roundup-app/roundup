@@ -13,7 +13,7 @@ import { IconButton } from "../ui/IconButton";
 import { contextMenu } from "../ui/contextMenu";
 import { createRowMenu } from "../ui/rowMenu";
 import { writeText } from "../app/clipboard";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -197,7 +197,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
       <Collapsible.Content class="todo-activity-entries"><For each={older()}>{renderEntry}</For></Collapsible.Content>
     </Collapsible.Root>
     <div class="todo-activity-entries"><For each={recent()}>{renderEntry}</For></div>
-    <ReservedLine class="todo-comments-live" status={announcement()} aria-live="polite" aria-atomic="true" />
+    <StatusNote class="todo-comments-live" text={announcement()} live="polite" />
     <div class="todo-composer"><span class="todo-composer-actor" aria-hidden="true"><Icon name="circle" /></span><textarea spellcheck="false" autocorrect="off" autocapitalize="off" class="todo-comment-field field-frame" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => { const typed = event.currentTarget; draft.keep({ text: typed.value }, { start: typed.selectionStart, end: typed.selectionEnd, direction: typed.selectionDirection }); }}

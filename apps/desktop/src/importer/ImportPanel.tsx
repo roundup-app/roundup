@@ -1,7 +1,7 @@
 import { doorStatus } from "../state/doorNode";
 import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import "./import.css";

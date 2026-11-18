@@ -40,7 +40,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
     }
 
     // The older card sits folded behind the newer one, out of the accessibility tree.
-    fireEvent.click(screen.getByText(/clipboard refused/).closest<HTMLElement>(".reserved-line")!.querySelector("[data-dismiss-failure]")!);
+    fireEvent.click(screen.getByText(/clipboard refused/).closest<HTMLElement>(".message-body")!.querySelector("[data-dismiss-failure]")!);
   } else if (action === "discard") {
     fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
   } else if (action === "acknowledged" || action === "failed") {

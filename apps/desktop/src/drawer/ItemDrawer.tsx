@@ -2,7 +2,7 @@ import { createMemo, createSignal, Errored, Loading, onCleanup, refresh, Show, u
 import type { JSX } from "@solidjs/web";
 import type { Event } from "@contracts/Event";
 import { copy } from "./copy";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { BlockedFailure } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";

@@ -554,10 +554,6 @@
   text-overflow: clip;
 }
 
-.ask-row .reserved-line {
-  grid-column: 1 / -1;
-}
-
 .ask-chip {
   display: inline-flex;
   align-items: center;

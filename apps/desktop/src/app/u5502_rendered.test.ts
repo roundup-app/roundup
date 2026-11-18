@@ -54,7 +54,7 @@ describe.each(["U5502", "U5503"])("%s native menu navigation", id => {
     expect(await page.evaluate("document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id') ?? null")).toBe(selected);
     await page.capture(id, "failure");
     await page.evaluate("window.__fake.app.menuBarAction({kind:'agent',path:'/Users/you/harness',agent:'agent-2'}); true");
-    await page.until("document.querySelector('[role=treeitem][data-id=agent-2]')?.getAttribute('aria-selected') === 'true' && !document.querySelector('.reserved-line [role=alert]')");
+    await page.until("document.querySelector('[role=treeitem][data-id=agent-2]')?.getAttribute('aria-selected') === 'true' && !document.querySelector('.message-body [role=alert]')");
     await page.capture(id, "recovered");
   });
 

@@ -16,6 +16,6 @@ Checks on main:
 
 1. `apps/desktop/src/settings/AppSettings.tsx`, `.settings-forward`: the in-flow Forward row to remove.
 2. `apps/desktop/src/App.tsx`, `.storage-center`, `.centre-notice`, `.storage-failure`: the in-flow failures above `.centre-frame`.
-3. `apps/desktop/src/ink/ReservedLine.tsx`, `ReservedLine`: the `overlay` option.
+3. `apps/desktop/src/ink/FloatingLine.tsx`, `FloatingLine`.
 4. `apps/desktop/src/terminal/Pane.tsx`, `Pane`: the resize observer that refits the Terminal.
 5. `scenarios/remove-time-timeline.md`, U4454a; `scenarios/ui-navigation-always.md`, U4453a; `scenarios/ui-app-settings.md`, U5242c: the clauses widened or amended.

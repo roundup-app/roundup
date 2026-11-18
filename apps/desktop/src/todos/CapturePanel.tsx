@@ -1,7 +1,7 @@
 import { createSignal, onCleanup, untrack, For } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { CapturePort, CaptureState } from "../app/seam";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure } from "../ink/MountedLine";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";

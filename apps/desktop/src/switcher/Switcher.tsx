@@ -3,7 +3,7 @@ import type { KeyText } from "../keys/chords";
 import { Dialog, DialogContent } from "@ui-sdk/solid/dialog";
 import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure } from "../ink/MountedLine";
 import { lazy, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";

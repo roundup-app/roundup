@@ -103,4 +103,4 @@ export const openSwitcher = (): void => {
 
 export const field = (): HTMLInputElement | null => document.querySelector<HTMLInputElement>(".switcher input");
 
-export const rows = (): string[] => [...document.querySelectorAll('.switcher .app-combobox-item:not([data-value^="action:"])')].map((row) => [...row.querySelectorAll("span:not(.glyph, .switcher-mark, .switcher-row, .failure-line):not(.glyph *, .reserved-line *)")].map((part) => part.textContent).join(" "));
+export const rows = (): string[] => [...document.querySelectorAll('.switcher .app-combobox-item:not([data-value^="action:"])')].map((row) => [...row.querySelectorAll("span:not(.glyph, .switcher-mark, .switcher-row, .failure-line):not(.glyph *)")].map((part) => part.textContent).join(" "));

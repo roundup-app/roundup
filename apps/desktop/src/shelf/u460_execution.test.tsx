@@ -242,7 +242,7 @@ for (const owner of ["todos", "pads"] as const) {
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
       // The Todos list shows its own failure as a card with its Retry too (U7314f), and a card behind the newest is hidden from the tree while the stack is folded; the newest is the readback of the deletion.
       const deletion = () => within(screen.getByRole("region", { name: "Updates" }));
-      const readbackActions = () => within(deletion().getAllByRole("alert", { hidden: true }).find(alert => alert.textContent?.includes(readbackError.message))!.closest<HTMLElement>(".reserved-line")!).getAllByRole("button", { hidden: true });
+      const readbackActions = () => within(deletion().getAllByRole("alert", { hidden: true }).find(alert => alert.textContent?.includes(readbackError.message))!.closest<HTMLElement>(".message-body")!).getAllByRole("button", { hidden: true });
       await waitFor(() => expect(readbackActions()).toHaveLength(2), { timeout: 5000 });
 
       if (listTodos) app.handlers["todo.list"] = listTodos;
@@ -268,7 +268,7 @@ for (const owner of ["todos", "pads"] as const) {
     }
 
     if (action === "dismissed") {
-            const card = document.querySelector<HTMLElement>(`.app-toast [role=alert][aria-label="${message("first")}"]`)!.closest<HTMLElement>(".reserved-line")!;
+            const card = document.querySelector<HTMLElement>(`.app-toast [role=alert][aria-label="${message("first")}"]`)!.closest<HTMLElement>(".message-body")!;
       fireEvent.click(card.querySelector("[data-dismiss-failure]")!);
     } else if (action === "removed-event") {
       if ("store" in fixture) {

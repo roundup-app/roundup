@@ -4,7 +4,7 @@ import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast, createMessageToasts } from "../ink/messageToast";
 import { StatusNote } from "../ink/MountedLine";
 import { registerKeys } from "../keys/registry";

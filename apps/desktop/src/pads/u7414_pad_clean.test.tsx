@@ -43,7 +43,7 @@ it("u7414a_the_pad_shows_no_saved_caption", async () => {
   fireEvent.focusOut(field);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(1));
   await new Promise((done) => setTimeout(done, 0));
-  expect(document.querySelector(".pad-head .reserved-line")).toBeNull();
+  expect(document.querySelector(".pad-head .message-body")).toBeNull();
   expect(notices("status")).toEqual([]);
 
   app.handlers["pad.write"] = () => { throw new RpcError(-32002, "Write refused"); };

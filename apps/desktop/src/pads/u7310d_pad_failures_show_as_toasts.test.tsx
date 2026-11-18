@@ -10,7 +10,7 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const toasts = () => screen.getByRole("region", { name: "Updates" });
 
-const messageLines = () => [...panel().querySelectorAll(".reserved-line")];
+const messageLines = () => [...panel().querySelectorAll(".message-body")];
 
 it("u7310d_pad_failures_show_as_toasts", async () => {
   const { app, state } = await openShelf([padOf("notes", USER, "one")]);

@@ -22,7 +22,7 @@ import { EmptyState } from "../ink/EmptyState";
 
 import { createEffect, createMemo, createProjection, createSignal, For, onCleanup, Show, untrack, useContext, type Accessor, type Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { failedLabel } from "../ink/failedLabel";
 import { OpenButton } from "../ink/OpenButton";

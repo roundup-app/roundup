@@ -425,7 +425,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       await lane.browser("fill", ".spawn-prompt-field", "Exact retained task /Users/authored/path");
       await lane.until("!!document.querySelector('.rail-command-notice [role=alert]')");
       await lane.browser("click", '.rail-row[data-id="backend"]');
-      await lane.until("!!document.querySelector('.rail-tree .reserved-line[role=status]')");
+      await lane.until("!!document.querySelector('.rail-tree .mounted-line[role=status]')");
       await capture("U3299c", side!, "retained-task");
       await lane.browser("focus", ".spawn-prompt-field");
       await lane.until("document.activeElement === document.querySelector('.spawn-prompt-field')");

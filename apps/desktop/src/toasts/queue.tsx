@@ -1,4 +1,4 @@
-import { ReservedLine } from "../ink/ReservedLine";
+import { MessageBody } from "../ink/messageToast";
 import type { ActivationSource } from "../keys/registry";
 import { createEventListener } from "@solid-primitives/event-listener";
 import { createMemo, createSignal, getOwner, runWithOwner, type Accessor } from "solid-js";
@@ -142,7 +142,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     failures.delete(id);
     failures.set(id, { item: entry.item, message });
     setFailure(message);
-    toast.show({ id, name: "", content: "", body: () => <ReservedLine message={message} dismiss={() => toast.dismiss(id)} />, duration: NO_TIME, extra: true });
+    toast.show({ id, name: "", content: "", body: () => <MessageBody message={message} dismiss={() => toast.dismiss(id)} />, duration: NO_TIME, extra: true });
   }
 
   const shown = createMemo(() => Math.min(published().length, MOST_SHOWN));

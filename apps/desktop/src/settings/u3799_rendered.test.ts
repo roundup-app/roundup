@@ -143,7 +143,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           const refusal = copy.importRowRefusal({code: -32003, outcome: "failed"});
 
           if (!refusal) throw new Error("The failed Import source has no recovery guidance");
-          await lane.until(`document.querySelector('.import-candidate:nth-child(2) .reserved-line:not([data-empty])')?.textContent.includes(${JSON.stringify(refusal)})`);
+          await lane.until(`document.querySelector('.import-candidate:nth-child(2) .message-body')?.textContent.includes(${JSON.stringify(refusal)})`);
         }
 
         await capture(`${view}-${filled ? "filled" : "empty"}`);

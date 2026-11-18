@@ -63,7 +63,7 @@ it("u7205e_attribution_is_an_icon_with_the_started_by_tooltip", async () => {
   const row = itemOf("alpha");
   const icon = find(row, ".attribution-icon");
 
-  expect(row.querySelector(".reserved-line")).toBeNull();
+  expect(row.querySelector(".message-body")).toBeNull();
   fireEvent.pointerEnter(icon, { pointerType: "mouse", clientX: 0, clientY: 0 });
   await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(icon.getAttribute("aria-label")));
 });
@@ -95,7 +95,7 @@ it("u7205a_u7205g_every_row_kind_holds_one_line_with_its_reasons_in_the_tooltip"
     const row = itemOf(name);
 
     expect(row.querySelectorAll(".line"), name).toHaveLength(1);
-    expect(row.querySelector(".reserved-line, .failure-line, [data-failure], .row-status"), name).toBeNull();
+    expect(row.querySelector(".message-body, .failure-line, [data-failure], .row-status"), name).toBeNull();
     expect(find(row, ".line").lastElementChild?.classList.contains("row-age"), name).toBe(true);
   }
 

@@ -5,7 +5,7 @@ import type { App, AppSettingsPage } from "../app/seam";
 import { useUpdates } from "../state/updates";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";

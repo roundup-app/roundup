@@ -10,7 +10,7 @@ import { BusyButton } from "../ui/BusyButton";
 import { createEffect, createMemo, createRoot, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
-import { ReservedLine } from "../ink/ReservedLine";
+import { MountedStatus, StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { TodoComments } from "./TodoComments";
 import { TodoRefs } from "./TodoRefs";
@@ -44,7 +44,7 @@ export const TodoDrawer = (props: DrawerProps) => <Show when={props.id} keyed>{i
 
 /** U3787h: a delete refused while a restore runs is a polite status in place, repeated on each refused press; a toast holds failures only (U7310d). */
 const RestorePending = (props: { refusal: string | null; uncertain: boolean; press: number }) =>
-  <Show when={!props.uncertain && props.refusal}>{refusal => <ReservedLine class="todo-delete-feedback" aria-live="polite" aria-atomic="true" status={refusal()} content={<Show when={props.press} keyed>{press => <span>{press > 0 && refusal()}</span>}</Show>} />}</Show>;
+  <Show when={!props.uncertain && props.refusal}>{refusal => <StatusNote class="todo-delete-feedback" live="polite" text={refusal()} content={<Show when={props.press} keyed>{press => <span>{press > 0 && refusal()}</span>}</Show>} />}</Show>;
 
 /** `navigation` names the header button that had focus when the body was replaced, so the new body returns focus to it. */
 const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
@@ -316,7 +316,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
           <Show
             when={todo()}
             fallback={
-              <ReservedLine status={!removedByMe() && !deleting() && !noticeDismissed() ? copy.todoDeleted(props.id) : null}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>{copy.dismissFailure}</button></ReservedLine>
+              <MountedStatus when={!removedByMe() && !deleting() && !noticeDismissed()} class="todo-deleted-notice"><span class="ink">{copy.todoDeleted(props.id)}</span><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>{copy.dismissFailure}</button></MountedStatus>
             }
           >
             {(current) => (

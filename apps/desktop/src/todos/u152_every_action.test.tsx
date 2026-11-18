@@ -314,7 +314,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
         fireEvent.contextMenu(rowOf(1));
         await m.app.pickMenu("Dismiss");
       } else {
-        const dismiss = within(failure.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" });
+        const dismiss = within(failure.closest<HTMLElement>(".message-body")!).getByRole("button", { name: "Dismiss" });
         const editor = within(drawer()).queryByRole("textbox", { name: fieldName });
 
         if (editor && fieldName === "Title") fireEvent.focusIn(dismiss);

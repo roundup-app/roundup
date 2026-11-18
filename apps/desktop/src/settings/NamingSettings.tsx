@@ -6,7 +6,7 @@ import { copy } from "./copy";
 import { draftStorage } from "../state/storage";
 import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 
 /** Global naming preferences use the existing RPC seam even before a Project is open. */

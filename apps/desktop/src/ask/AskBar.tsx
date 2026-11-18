@@ -12,7 +12,7 @@ import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure, MountedStatus } from "../ink/MountedLine";
 import { Line } from "../ink/FailureLine";
 import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
@@ -349,7 +349,7 @@ export const AskBar = (props: {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
 
-          return <div class="reserved-unknown">
+          return <div class="ask-unknown-line">
             <div class="ask-unknown-content">
               <span class="ask-unknown-text">{label()}</span>
               <span data-state="unknown">{cause() ? copy.askUnknown + cause() : copy.askUnknownState}</span>

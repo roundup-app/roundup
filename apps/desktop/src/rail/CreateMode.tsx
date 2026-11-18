@@ -7,7 +7,7 @@ import { BusyButton } from "../ui/BusyButton";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure } from "../ink/MountedLine";
 
 /** U4547b: retain the created identity before saving or starting, so retry resumes it. */

@@ -2,7 +2,7 @@ import { eventListener } from "@solid-primitives/event-listener";
 import { lazy, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from "solid-js";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "./copy";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { KindGlyph } from "../ink/KindGlyph";
 import { queueFocus } from "../keys/focus";

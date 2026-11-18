@@ -28,7 +28,7 @@ import { createEffect, createMemo, createSignal, flush, For, onCleanup, Show, un
 import type { JSX } from "@solidjs/web";
 import { useTabsContext } from "../ui/Tabs";
 import type { Todo } from "@contracts/todo/Todo";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";

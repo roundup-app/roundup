@@ -1,7 +1,7 @@
 import { Disclosure } from "../ui/Disclosure";
 import { KindGlyph } from "../ink/KindGlyph";
 import { createSignal, For, Show } from "solid-js";
-import { dismissable, type Dismissible } from "../ink/ReservedLine";
+import { dismissable, type Dismissible } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { StatusNote } from "../ink/MountedLine";
 import { Icon } from "../ink/Icon";

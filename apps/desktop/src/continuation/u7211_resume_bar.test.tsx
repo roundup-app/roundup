@@ -68,7 +68,7 @@ const mount = async (setup: Setup) => {
   await connected.rail.settled();
 
   // The line stays mounted and goes empty; it shows only while it has something to say.
-  const bar = () => document.querySelector<HTMLElement>(".resume-bar:not([data-empty])");
+  const bar = () => document.querySelector<HTMLElement>(".resume-bar");
 
   const inBar = () => {
     const found = bar();

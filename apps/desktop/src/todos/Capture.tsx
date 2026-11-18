@@ -9,7 +9,7 @@ import * as v from "valibot";
 import { createEffect, createMemo, createSignal, createUniqueId, flush, For, onCleanup, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
-import { dismissable } from "../ink/ReservedLine";
+import { dismissable } from "../ink/recovery";
 import { DialogFailure } from "../ink/MountedLine";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, LEADER } from "../keys/chords";

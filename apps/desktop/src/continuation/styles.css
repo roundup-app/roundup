@@ -1,15 +1,15 @@
 /* U7211a: the line floats over one Terminal row (Pane's `over`), on its own ground like any overlay line. */
-.reserved-line.resume-bar {
+.floating-line.resume-bar {
   padding-inline: var(--space-2);
 }
 
 /* #7271: a surface and one hairline on the lower edge (inside the row's height) read it as chrome, not output. */
-.reserved-line.resume-bar:is(.resume-bar, [data-overlay="true"]) {
+.floating-line.resume-bar:is(.resume-bar, [data-overlay="true"]) {
   background: var(--surface);
   border-block-end: var(--hairline-width) solid var(--hairline);
 }
 
 /* The actions follow the text they act on instead of sitting at the far edge. */
-.reserved-line.resume-bar :is(.ink, .reserved-status) {
+.floating-line.resume-bar :is(.ink, .floating-status) {
   flex: 0 1 auto;
 }

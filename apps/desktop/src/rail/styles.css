@@ -58,7 +58,7 @@
   padding-right: var(--rail-edge, var(--space-4));
 }
 
-.rail-row :is(.line, .reserved-line, .failure-line, .failure-actions),
+.rail-row :is(.line, .failure-line, .failure-actions),
 .rail-fold button {
   grid-column: 2;
 }
@@ -689,13 +689,8 @@
 }
 .mode-prompt-dialog .mode-prompt-field { gap: var(--space-2); }
 .mode-prompt-dialog .app-dialog-actions { align-items: center; }
-.mode-prompt-dialog .reserved-line {
-  block-size: auto;
-  max-block-size: none;
-}
-.mode-prompt-dialog .reserved-content { align-items: baseline; }
-.mode-prompt-dialog .ink[role="alert"],
-.mode-prompt-dialog .reserved-status {
+.mode-prompt-dialog .mounted-line { align-items: baseline; }
+.mode-prompt-dialog .ink[role="alert"] {
   white-space: normal;
   overflow-wrap: anywhere;
   text-overflow: clip;
