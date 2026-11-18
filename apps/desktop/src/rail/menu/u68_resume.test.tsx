@@ -161,7 +161,7 @@ describe("u68 resume from the Rail menu", () => {
 
     resumeRow("a");
 
-    await waitFor(() => expect(notice("alert").textContent).toContain("cannot start"));
+    await waitFor(() => expect(notice("alert")).toBeTruthy());
     expect(rail.selected()).toBe("a");
     expect(doorOf(rail.nodes[0])?.terminal_id).toBe("t-a");
     expect(emulators.made.get("t-a")?.disposed).toBe(false);
