@@ -413,3 +413,36 @@ async fn assert_start(
     assert!(text.contains("Your Rail name is"), "{text}");
     text
 }
+
+fn description<'a>(tools: &'a rmcp::model::ListToolsResult, name: &str) -> &'a str {
+    tools
+        .tools
+        .iter()
+        .find(|tool| tool.name == name)
+        .unwrap()
+        .description
+        .as_deref()
+        .unwrap()
+}
+
+#[tokio::test]
+async fn u7499c_the_naming_guide_reaches_pad_create_only() {
+    let project = daemon::start(&[]);
+    let user = project.client().await;
+    save(&user, G1).await;
+    let parent = spawn(&project, &user).await;
+    let (mcp, _child) = shim(&project, &parent.id).await;
+    let tools = mcp.list_tools(None).await.unwrap();
+    assert!(description(&tools, "pad_create").ends_with(&format!("Naming guide: {G1}")));
+    assert!(!description(&tools, "pad_read").contains("Naming guide"));
+}
+
+#[tokio::test]
+async fn u7499c_pad_create_is_unchanged_without_a_guide() {
+    let project = daemon::start(&[]);
+    let user = project.client().await;
+    let parent = spawn(&project, &user).await;
+    let (mcp, _child) = shim(&project, &parent.id).await;
+    let tools = mcp.list_tools(None).await.unwrap();
+    assert!(!description(&tools, "pad_create").contains("Naming guide"));
+}

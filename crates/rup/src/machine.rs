@@ -24,7 +24,7 @@ pub const AWAY: &str = r#"{"error":"away"}"#;
 pub const WAITS: [&str; 1] = ["message_send"];
 
 /// MC22: the tools that need rupd's answer, so they fail with `away` when no bridge is up.
-pub const FAIL_LOUD: [&str; 29] = [
+pub const FAIL_LOUD: [&str; 30] = [
     "message_get",
     "message_list",
     "todo_create",
@@ -41,6 +41,7 @@ pub const FAIL_LOUD: [&str; 29] = [
     "pad_write",
     "pad_append",
     "pad_move",
+    "pad_setVisibility",
     "pad_delete",
     "pad_appendSection",
     "terminal_screen",

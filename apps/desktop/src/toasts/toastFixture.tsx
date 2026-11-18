@@ -22,7 +22,7 @@ export const TOAST_AGENT: Actor = { kind: "agent", id: "a", parent: null };
 
 export const toastTodo = (id: number, creator: Actor, title = "ship it"): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator, home: null, owner: null, refs: [], priority: null });
 
-export const pad = (name: string, _actor: Actor): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null });
+export const pad = (name: string, _actor: Actor): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const });
 
 /** U5151a: the Adapter-mapped cause and next action a failed turn carries. */
 export const FAILURE = "Claude's servers failed; send the Agent a message to retry.";

@@ -28,6 +28,7 @@ import { createDraftField } from "../state/draftField";
 
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
+import { usePadRead } from "./padRead";
 import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
 
@@ -548,6 +549,27 @@ export const PadDrawer = (props: {
 
     return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }
+
+  // U7499b: the Pad is read when the Drawer opens on it and when it leaves it, and it keeps its place on the Pads tab meanwhile.
+  const padRead = usePadRead();
+  const list = usePadList();
+  const seen = () => untrack(() => list.pads().find(pad => pad.name === props.name));
+
+  createEffect(() => props.name, name => {
+    padRead.setOpen(name);
+
+    const pad = seen();
+
+    if (pad) padRead.record(pad);
+
+    return () => {
+      const left = seen();
+
+      if (left) padRead.record(left);
+
+      if (untrack(padRead.open) === name) padRead.setOpen(null);
+    };
+  });
 
   return (
     <ItemDrawer

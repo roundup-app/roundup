@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use contracts::agent::RailVisibility;
 use contracts::pad::Pad;
 use rpc::OpenError;
 
@@ -39,7 +40,7 @@ pub enum PadSourceState {
 /// One SELECT reads identity, text and Revision coherently; no file mirror is read.
 pub fn source(db: &Connection, name: &str) -> rusqlite::Result<Option<PadSource>> {
     db.query_row(
-        "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation
+        "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, p.visibility
          FROM pads p JOIN pad_sources s ON s.pad_key = p.key WHERE p.key = ?1",
         [key(name)],
         |row| {
@@ -57,11 +58,11 @@ pub fn source(db: &Connection, name: &str) -> rusqlite::Result<Option<PadSource>
 /// without racing source deletion. This supplies facts, not an access grant.
 pub fn source_state(db: &Connection, incarnation: i64) -> rusqlite::Result<PadSourceState> {
     db.query_row(
-        "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, s.deletion
+        "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, p.visibility, s.deletion
          FROM pad_sources s LEFT JOIN pads p ON p.key = s.pad_key WHERE s.incarnation = ?1",
         [incarnation],
         |row| {
-            let deletion: Option<String> = row.get(6)?;
+            let deletion: Option<String> = row.get(7)?;
             match deletion.as_deref() {
                 None => Ok(PadSourceState::Live(PadSource {
                     incarnation: row.get(5)?,
@@ -107,13 +108,14 @@ impl Store {
     /// False when a Pad with this name already exists.
     pub fn insert(&self, pad: &Pad) -> rusqlite::Result<bool> {
         let changed = self.db.execute(
-            "INSERT OR IGNORE INTO pads (key, name, text, updated_at, home, revision, position) VALUES (?1, ?2, ?3, ?4, ?5, 1, (SELECT MAX(position) + 1 FROM pads))",
+            "INSERT OR IGNORE INTO pads (key, name, text, updated_at, home, revision, visibility, position) VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, (SELECT MAX(position) + 1 FROM pads))",
             params![
                 key(&pad.name),
                 pad.name,
                 pad.text,
                 pad.updated_at,
-                pad.home
+                pad.home,
+                visibility_text(pad.visibility)
             ],
         )?;
         Ok(changed == 1)
@@ -122,7 +124,7 @@ impl Store {
     pub fn get(&self, name: &str) -> rusqlite::Result<Option<Pad>> {
         self.db
             .query_row(
-                "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation
+                "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, p.visibility
                  FROM pads p JOIN pad_sources s ON s.pad_key = p.key WHERE p.key = ?1",
                 [key(name)],
                 row_to_pad,
@@ -133,12 +135,12 @@ impl Store {
     /// Positioned Pads first in position order, then the rest by name as Finder sorts: ignoring case, digit runs by value.
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self.db.prepare(
-            "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, p.position
+            "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, p.visibility, p.position
              FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.position IS NULL, p.position",
         )?;
         let mut rows = stmt
             .query_map([], |row| {
-                Ok((row_to_pad(row)?, row.get::<_, Option<i64>>(6)?))
+                Ok((row_to_pad(row)?, row.get::<_, Option<i64>>(7)?))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         // The query puts positioned rows first; only the rest has a name order, so a positioned Pad never enters a comparison.
@@ -179,6 +181,15 @@ impl Store {
                  updated_at = CASE WHEN text = ?2 THEN updated_at ELSE ?3 END,
                  text = ?2 WHERE key = ?1",
             params![key(name), text, at],
+        )?;
+        Ok(changed == 1)
+    }
+
+    /// Leaves Revision and `updated_at` alone: a visibility is not an edit of the text.
+    pub fn set_visibility(&self, name: &str, visibility: RailVisibility) -> rusqlite::Result<bool> {
+        let changed = self.db.execute(
+            "UPDATE pads SET visibility = ?2 WHERE key = ?1",
+            params![key(name), visibility_text(visibility)],
         )?;
         Ok(changed == 1)
     }
@@ -259,7 +270,18 @@ fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
         updated_at: row.get(2)?,
         home: row.get(3)?,
         revision: u64::try_from(row.get::<_, i64>(4)?).unwrap_or(1),
+        visibility: match row.get::<_, String>(6)?.as_str() {
+            "internal" => RailVisibility::Internal,
+            _ => RailVisibility::Shown,
+        },
     })
+}
+
+fn visibility_text(visibility: RailVisibility) -> &'static str {
+    match visibility {
+        RailVisibility::Shown => "shown",
+        RailVisibility::Internal => "internal",
+    }
 }
 
 #[cfg(test)]
@@ -281,6 +303,7 @@ mod tests {
             updated_at: 0,
             revision: 1,
             home: None,
+            visibility: RailVisibility::Shown,
         };
         one.insert(&pad).unwrap();
         other.delete("notes").unwrap();

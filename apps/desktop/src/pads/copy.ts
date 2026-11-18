@@ -27,6 +27,8 @@ export const copy = {
   exportMd: sharedCopy.exportMd,
   delete: sharedCopy.delete,
   padChanged: "Pad changed",
+  newPad: "New",
+  changedPad: "Changed since you read it",
   padDeleted: (name: string) => `Pad ${name} was deleted`,
   padSourceMappingFailed: "Pad not saved: edited blocks did not match the source.",
   changedBy: "Changed by ",

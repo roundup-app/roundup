@@ -11,7 +11,7 @@ Range.prototype.getClientRects ??= () => document.body.getClientRects();
 Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientRect();
 
 it("p2544d_stale_write_without_event_keeps_draft", async () => {
-  const pad = { incarnation: "original-notes", name: "notes", text: "original", revision: 1, updated_at: 0, home: null };
+  const pad = { incarnation: "original-notes", name: "notes", text: "original", revision: 1, updated_at: 0, home: null, visibility: "shown" as const };
   const { app } = await openShelf([pad]);
   const remote = { ...pad, text: "original remote", revision: 2 };
   const intervening = { ...pad, text: "original remote intervening", revision: 3 };
@@ -182,7 +182,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("wait", ".visual-mermaid svg");
     await browser("wait", ".visual-drawing .excalidraw");
     expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe(expected.split("\n")[0]);
-    expect(await app.rpc("pad.read", { name: currentName })).toMatchObject({ text: expected, revision: 2, home: destination.id });
+    expect(await app.rpc("pad.read", { name: currentName })).toMatchObject({ text: expected, revision: 2, home: destination.id, visibility: "shown" as const });
     const evidence = process.env.ROUNDUP_PAD_EVIDENCE;
 
     if (evidence) {

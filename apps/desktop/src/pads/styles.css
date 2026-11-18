@@ -474,3 +474,24 @@ li[aria-selected="true"] svg {
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
+
+/* U7499a: one dot slot before the age on every row above the folds, so the dots line up down the list. */
+.pad-mark-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-1);
+}
+
+.pad-mark[data-mark="changed"] {
+  color: var(--amber);
+}
+
+.pad-fold {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: start;
+}

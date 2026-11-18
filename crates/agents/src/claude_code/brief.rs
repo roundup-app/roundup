@@ -89,7 +89,11 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "pad_create",
-        "start a Pad, a named text you own, for notes you want to keep",
+        "start a Pad, a named text, for notes you want to keep. Your Pads start `internal`, folded away from the user; pass `visibility: \"shown\"` (or call `pad_setVisibility` later) when the user should read it, and link it from a Todo as usual. Name it for what the reader learns, in words, with any Issue or PR number after the words",
+    ),
+    (
+        "pad_setVisibility",
+        "make a Pad `shown` when the user should read it, or `internal` when only Agents need it",
     ),
     ("pad_read", "read one Pad"),
     (
@@ -777,5 +781,19 @@ mod tests {
                 && brief.contains("name the new Agent"),
             "{brief}"
         );
+    }
+
+    #[test]
+    fn p7499a_the_brief_names_the_default_and_how_to_show_a_pad() {
+        let brief = text(Role::Door, true);
+        for phrase in [
+            "Your Pads start `internal`",
+            "pad_setVisibility",
+            "when the user should read it",
+            "what the reader learns",
+            "number after the words",
+        ] {
+            assert!(brief.contains(phrase), "missing: {phrase}");
+        }
     }
 }

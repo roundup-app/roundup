@@ -157,6 +157,7 @@ const padsAt = (now: number): Pad[] =>
     updated_at: now,
     revision: 1,
     home: index % 2 === 1 ? "payments" : null,
+    visibility: "shown" as const,
   }));
 
 const exitCodeOf = (target: RailNode): number | null => {

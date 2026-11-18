@@ -38,6 +38,9 @@ import { OwnerGroups } from "../shelf/OwnerGroups";
 import { Sortable } from "../ui/sortable";
 import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
+import { usePadRead, type PadMark } from "./padRead";
+import { foldPads, type FoldedPads } from "./padFolds";
+import { FoldContent } from "../rail/FoldRow";
 import type { PadList } from "./padList";
 
 /** The Pad name a retention failure keeps: Copy it, or discard it. */
@@ -137,6 +140,8 @@ export const Pads = (props: {
 
       const sent = await draft.send(() => applying(async () => {
         await applied(() => connected.app.rpc("pad.create", { name: target, text: null }));
+        // U7499b: a Pad the user creates is read at its creation.
+        padRead.created(target);
 
         if (targetHome !== null) {
           action = copy.moveItem(target);
@@ -156,7 +161,23 @@ export const Pads = (props: {
 
   const shown = shownPads(connected, list);
   const groups = createMemo(() => padGroups(connected, shown()));
-  const selection = createSelection(() => shown().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
+  const padRead = usePadRead();
+  // U7499a: both folds of every group start closed; a key is `<group id>:<fold>`.
+  const [unfolded, setUnfolded] = createSignal<readonly string[]>([]);
+  const toggleFold = (key: string) => setUnfolded(open => open.includes(key) ? open.filter(each => each !== key) : [...open, key]);
+  const folded = createMemo(() => new Map(groups().map(group => [group.id, foldPads(group.items, padRead, connected.now(), padRead.open())] as const)));
+  const walked = createMemo(() => groups().flatMap(group => {
+    const fold = folded().get(group.id);
+
+    if (!fold) return [];
+
+    return [
+      ...fold.above.map(each => each.pad),
+      ...(unfolded().includes(`${group.id}:internal`) ? fold.internal : []),
+      ...(unfolded().includes(`${group.id}:idle`) ? fold.idle : []),
+    ];
+  }));
+  const selection = createSelection(() => walked().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
   const bulk = createBulkDelete({
     app: connected.app,
@@ -249,6 +270,9 @@ export const Pads = (props: {
         <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
       <OwnerGroups groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows
+        folded={() => folded().get(group().id) ?? { above: [], internal: [], idle: [] }}
+        isFoldOpen={fold => unfolded().includes(`${group().id}:${fold}`)}
+        toggleFold={fold => toggleFold(`${group().id}:${fold}`)}
         selection={selection}
         bulk={bulk}
         pads={pads}
@@ -294,6 +318,9 @@ export const Pads = (props: {
 };
 
 const PadRows = (props: {
+  folded: Accessor<FoldedPads>;
+  isFoldOpen: (fold: "internal" | "idle") => boolean;
+  toggleFold: (fold: "internal" | "idle") => void;
   selection: ReturnType<typeof createSelection<string>>;
   bulk: ReturnType<typeof createBulkDelete<string>>;
   pads: Accessor<readonly Pad[]>;
@@ -306,14 +333,47 @@ const PadRows = (props: {
   const picked = createProjection(() => Object.fromEntries(props.selection.selected().map(incarnation => [incarnation, true])));
   const isSelected = (incarnation: string) => picked[incarnation] === true;
 
+  // U7499a: a drag orders the Pads above the folds only; `pad.reorder` takes its `before` from the full Home order, where those Pads keep their slots.
+  const fullOrder = (above: string[]) => {
+    const ranks = new Set(props.folded().above.map(each => each.pad.name));
+    const queue = [...above];
+
+    return props.shown().map(pad => ranks.has(pad.name) ? queue.shift() ?? pad.name : pad.name);
+  };
+
+  const onOrderChange = (ids: string[], moved: string) => props.onOrderChange(fullOrder(ids), moved);
+
+  const foldRows = (fold: "internal" | "idle") => (
+    <Show when={props.folded()[fold].length > 0}>
+      <button type="button" class="rail-fold pad-fold row-wash row-wash-inert" data-fold={fold} aria-expanded={props.isFoldOpen(fold) ? "true" : "false"}
+        onClick={() => props.toggleFold(fold)}
+        onKeyDown={event => {
+          if (event.key === "ArrowRight" && !props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
+          else if (event.key === "ArrowLeft" && props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
+        }}>
+        <FoldContent count={props.folded()[fold].length} group={fold} />
+        <Icon name={props.isFoldOpen(fold) ? "down" : "right"} />
+      </button>
+      <Show when={props.isFoldOpen(fold)}>
+        <div class="shelf-list" role="list">
+          <For each={props.folded()[fold]}>{pad => <PadRow {...props} pad={pad} mark={null} parts={undefined} isSelected={isSelected} onOrderChange={onOrderChange} />}</For>
+        </div>
+      </Show>
+    </Show>
+  );
+
   return (
-    <Sortable.Root class="shelf-list" role="list" ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
-      <For each={props.shown()}>
-        {(pad, at) => (
-          <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} isSelected={isSelected} {...props} />}</Sortable.Item>
-        )}
-      </For>
-    </Sortable.Root>
+    <>
+      <Sortable.Root class="shelf-list" role="list" ids={props.folded().above.map(each => each.pad.name)} onOrderChange={onOrderChange} onDrag={props.onDrag}>
+        <For each={props.folded().above} keyed={each => each.pad.incarnation}>
+          {(each, at) => (
+            <Sortable.Item id={each().pad.name} index={at()}>{parts => <PadRow {...props} pad={each().pad} mark={each().mark} parts={parts} isSelected={isSelected} onOrderChange={onOrderChange} />}</Sortable.Item>
+          )}
+        </For>
+      </Sortable.Root>
+      {foldRows("internal")}
+      {foldRows("idle")}
+    </>
   );
 };
 
@@ -336,7 +396,7 @@ const chordOrder = (event: KeyboardEvent, names: readonly string[], name: string
 
 const selectedPad = (selection: Parameters<typeof PadRows>[0]["selection"], incarnation: string, name: string) => (selection.focused() ?? selection.selected()[0]) === incarnation ? name : undefined;
 
-const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (incarnation: string) => boolean; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
+const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; mark: PadMark; isSelected: (incarnation: string) => boolean; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] | undefined }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
   const copied = createCopyFeedback();
@@ -389,7 +449,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
 
   return (
           <ShelfRow
-            ref={props.parts.ref}
+            ref={props.parts?.ref}
             data-pad={pad.name}
             onClick={event => {
               if (!editing() && !props.bulk.pending() && event.target instanceof Element && !event.target.closest("button, input")) { props.selection.click(pad.incarnation, event); row?.focus(); }
@@ -433,7 +493,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
                 props.selection.register(pad.incarnation, element);
                 makeEventListener(element, "keydown", (event) => {
                   // U7276c: one chord press is one `pad.reorder`.
-                  const order = chordOrder(event, props.shown().map(each => each.name), pad.name);
+                  const order = chordOrder(event, props.folded().above.map(each => each.pad.name), pad.name);
 
                   if (order !== undefined) {
                     event.preventDefault();
@@ -459,6 +519,9 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
             </button>
             </Show>
             <Show when={!editing()}>
+              <span class="pad-mark-slot">
+                <Show when={props.mark}>{mark => <span class="unread-dot pad-mark" data-mark={mark()} role="img" aria-label={mark() === "new" ? copy.newPad : copy.changedPad} />}</Show>
+              </span>
               <Age updatedAt={pad.updated_at} />
               <OpenButton name={pad.name} onOpen={() => open("pointer")} />
             </Show>

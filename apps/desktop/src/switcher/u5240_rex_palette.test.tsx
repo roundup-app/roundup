@@ -16,7 +16,7 @@ const chord = (name: ChordName) => CHORDS[name];
 
 const todo = (id: number, title: string, home: string | null = null): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner: null, refs: [], priority: null });
 
-const pad = (name: string, home: string | null = null): Pad => ({ incarnation: `i-${name}`, name, text: "", updated_at: 0, revision: 1, home });
+const pad = (name: string, home: string | null = null): Pad => ({ incarnation: `i-${name}`, name, text: "", updated_at: 0, revision: 1, home, visibility: "shown" });
 
 const options = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('.switcher [role="option"]')];
 

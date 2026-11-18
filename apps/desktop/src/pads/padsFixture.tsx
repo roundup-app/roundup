@@ -1,5 +1,6 @@
 import { createNow, DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
+import { padReadStorage } from "./padRead";
 import { usePadList } from "./padList";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect } from "vitest";
@@ -43,7 +44,7 @@ export const padOf = (name: string, _actor: Actor, text = ""): Pad => ({
   text,
   updated_at: 0,
   revision: 1,
-  home: null,
+  home: null, visibility: "shown" as const,
 });
 
 export const CONFLICT = -32003;
@@ -72,8 +73,10 @@ export const deferred = <T,>(): Deferred<T> => {
 const reloaded = new WeakMap<FakeApp, () => Promise<void>>();
 
 /** The Shelf and the Drawer over a fake Daemon whose Pads are `state.pads`, with `AGENT` off the Rail unless `onRail`; `state.history` answers `provenance.history`. */
-export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p") => {
+export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p", reading: { now?: number; read?: Record<string, string> } = {}) => {
   if (!keepDrafts) localStorage.removeItem(`roundup:drafts:${project}`);
+  // An empty read record: the Pads are unread, so they list above the folds (U7499b); only the first list of a Project with no record counts them read.
+  padReadStorage(project).write(reading.read ?? {});
   const history: Touch[] = [];
   const state: PadStore = { pads, history };
   const app = createFakeApp();
@@ -102,7 +105,7 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
     app,
     { name: "p", path: project },
     () => false,
-    () => 0,
+    () => reading.now ?? 0,
   );
 
   await showEverything(connected);
@@ -123,7 +126,9 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
     return <DisplayClockContext value={now.subscribe}><ToastHost><ConnectedProjectContext value={connected}><Content /></ConnectedProjectContext></ToastHost></DisplayClockContext>;
   });
 
-  await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
+  // Folded Pads draw no row, so a test that folds Pads waits for the group instead.
+  if (reading.read === undefined) await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
+  else await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"]')).not.toBeNull());
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control');
 
   if (disclosure?.getAttribute("aria-expanded") === "false") {
