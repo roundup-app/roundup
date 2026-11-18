@@ -498,7 +498,8 @@ class Delivers(unittest.TestCase):
     def test_l82_a_pr_delivers_when_it_changes_code_and_adds_a_test_named_after_each_scenario(self):
         for scenarios, file, tests in [('U83', 'ui.md', ['fn u83_a() {}']), ('V4b', 'proofs.md', ['it("v4b_a")']),
                                        ('LC11-LC13', 'ui.md', ['fn lc11_a() {}', 'fn lc12_a() {}', 'fn lc13_a() {}']),
-                                       ('U83, V4b', 'ui.md', ['fn u83_a() {}', 'fn v4b_a() {}'])]:
+                                       ('U83, V4b', 'ui.md', ['fn u83_a() {}', 'fn v4b_a() {}']),
+                                       ('U83', 'ui.md', ['    def test_u83_a(self):'])]:
             with self.subTest(scenarios=scenarios):
                 self.assertTrue(self.delivers(added('crates/x/src/lib.rs', *tests), scenarios, file))
 
@@ -509,6 +510,7 @@ class Delivers(unittest.TestCase):
                 'spec-only': self.delivers(added('scenarios/ui.md', '- test `u83_a`')),
                 'a test for two of three scenarios': self.delivers(added('x.rs', 'fn lc11_a() {}', 'fn lc13_a() {}'), 'LC11-LC13'),
                 'a test whose name only starts like the id': self.delivers(added('x.rs', 'fn u831_a() {}')),
+                'a test whose name only ends like the id': self.delivers(added('x.py', 'def test_xu83_a(self):')),
                 'a test the diff does not add': self.delivers(old_test),
                 'Mode: specify': self.delivers(code, extra='Mode: specify\n'),
                 'a scenario main lacks': self.delivers(code, 'U9999'),

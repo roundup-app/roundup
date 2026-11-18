@@ -120,7 +120,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
             <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
               <button {...linkCut.attrs()} data-button="quiet" data-reads="text" type="button" role="link" class="word todo-ref-link" onClick={(event) => openPad(target, activationSource(event))}>{label}</button>
             </Show>
-            <BusyButton kind="icon" class="word todo-ref-remove" busyLabel={copy.removing} aria-label={copy.removePadRef(target.name)} onClick={event => remove(ref.url, event.currentTarget)}><Icon name="unlink" /></BusyButton>
+            <BusyButton kind="icon" icon="delete" class="word todo-ref-remove" busyLabel={copy.removing} aria-label={copy.removePadRef(target.name)} onClick={event => remove(ref.url, event.currentTarget)}><Icon name="unlink" /></BusyButton>
           </div>;
         }}</For>
     </section>

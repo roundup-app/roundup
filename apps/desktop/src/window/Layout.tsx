@@ -177,7 +177,7 @@ export const Layout = (props: {
           </IconButton>
         </Show>
         <Show when={placement().onClose}>
-          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} action={shelfFocus()?.closest(".shelf-controls") && !triage.on() ? "shelf.close" : undefined} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
+          <IconButton icon="close" aria-label={copy.closeShelf} action={shelfFocus()?.closest(".shelf-controls") && !triage.on() ? "shelf.close" : undefined} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
         </Show>
       </div>
       {props.shelf}
