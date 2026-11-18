@@ -9,6 +9,8 @@ type Kind = "diagram" | "drawing";
 
 type Fence = { start: number; end: number; kind: Kind; body: string };
 
+const imageLabel: Record<Kind, string> = { diagram: copy.exportDiagramLabel, drawing: copy.drawingItem };
+
 const languages = new Map<string, Kind>([["mermaid", "diagram"], ["excalidraw", "drawing"]]);
 
 const OPENING = /^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)[^`]*$/;
@@ -62,7 +64,7 @@ export const exportWithImages = async (stored: string, folder: string): Promise<
     const svg = drawn.value;
     const number = ++counts[block.kind];
     const file = `${block.kind}-${number}.svg`;
-    const label = `${copy.exportImageLabel[block.kind]} ${number}`;
+    const label = `${imageLabel[block.kind]} ${number}`;
 
     images.push({ name: file, svg });
     text += `${stored.slice(at, block.start)}![${label}](${folder}/${file})`;
