@@ -53,6 +53,7 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   let render = () => {};
 
   const surface = document.createElement("div");
+  surface.className = "visual-drawing-surface";
   const edit = document.createElement("button");
 
   const setEditing = (next: boolean) => {

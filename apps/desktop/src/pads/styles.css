@@ -208,7 +208,7 @@
   position: relative;
 }
 
-.visual-drawing > div:first-child {
+.visual-drawing-surface {
   height: 100%;
 }
 

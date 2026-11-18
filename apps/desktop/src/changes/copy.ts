@@ -45,7 +45,7 @@ export const copy = {
   notes: sharedCopy.draftSurface("notes"),
   originalContext: " · Original context",
   originalContextStatus: "Original context",
-  editNoteAction: "Edit",
+  editNoteAction: sharedCopy.editAction,
   checkMessageHistory: "Check Message history",
   editNote: (number: number) => `Edit note ${number}`,
   removeNote: (number: number) => `Remove note ${number}`,
