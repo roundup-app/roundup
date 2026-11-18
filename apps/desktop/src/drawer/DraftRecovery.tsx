@@ -2,7 +2,8 @@ import { applied } from "../app/pending";
 import { EmptyState } from "../ink/EmptyState";
 import { NameField } from "../ui/Editable";
 import { CopyButton } from "../ui/CopyButton";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
@@ -40,6 +41,13 @@ export const useRecoveryMenu = (): ((source?: ActivationSource) => MenuEntry[]) 
       run: () => connected.drawer.open(() => <DraftRecoveryPanel />, source),
     }];
   };
+};
+
+/** U7314f: a draft's failed Copy shows as a toast, kept while the row is there. */
+const RowFailure = (props: { message: string | null | undefined; dismiss: () => void }) => {
+  createMessageToast({ get message() { return props.message; }, dismiss: () => props.dismiss() });
+
+  return null;
 };
 
 const DraftRecoveryPanel = () => {
@@ -104,10 +112,11 @@ const DraftRecoveryPanel = () => {
   };
 
   const problemLine = dismissable(() => drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null);
+  // U7314f: a draft-store problem shows as a toast, the retry kept.
+  createMessageToast({ get message() { return problemLine.message(); }, dismiss: problemLine.dismiss, get recover() { return drafts.problem() ? { run: () => drafts.retry(), label: copy.tryAgain } : undefined; } });
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
-    <ReservedLine message={problemLine.message()} dismiss={problemLine.dismiss} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.tryAgain } : undefined} />
     <Show when={work.rows().length} fallback={<EmptyState art="clumsy" {...{ title: copy.noUnfinishedWork }} line={copy.emptyDraftsLine} />}>
       <ul class="draft-revisions">
         <For each={work.rows()}>{(row) => <li data-revision={row.draft.revision}>
@@ -116,7 +125,7 @@ const DraftRecoveryPanel = () => {
             <div class="draft-text">
               <span class="draft-name">{copy.draftTitle(title(row).place, title(row).name)}</span>
               <span class="draft-cause">{copy.riskLine(copy.riskCause[row.cause], copy.riskTime(Math.floor((Date.now() - row.since) / 60000)))}</span>
-              <Show when={failures.failure(row.draft.revision)}>{message => <ReservedLine message={message()} dismiss={() => clear(row.draft.revision)} />}</Show>
+              <RowFailure message={failures.failure(row.draft.revision)} dismiss={() => clear(row.draft.revision)} />
             </div>
           </div>
           <div class="draft-actions">

@@ -148,7 +148,9 @@ describe("u3715 a failed create keeps the text and says why", () => {
 
     await waitFor(() => expect(field()?.value).toBe("  keep me  "));
     await waitFor(() => expect(notices("alert")).toHaveLength(1));
-    expect(screen.queryByRole("listitem")).toBeNull();
+    // U7314f: the failure is a card in the Updates region.
+    expect(screen.getByRole("region", { name: "Updates" }).contains(notices("alert")[0]!)).toBe(true);
+    expect(screen.queryAllByRole("listitem").filter(item => !item.closest("[aria-label='Updates']"))).toEqual([]);
   });
 
   it("u3715_text_typed_during_a_pending_create_survives_its_rejection", async () => {
@@ -472,7 +474,7 @@ it("u6845_ready_waits_for_the_state_subscription_and_the_first_snapshot_enables_
     },
   };
 
-  render(() => <CapturePanel port={port} />);
+  render(() => <ToastHost><CapturePanel port={port} /></ToastHost>);
   expect(actions).toEqual([]);
   registered?.();
   await waitFor(() => expect(actions).toEqual([{ kind: "ready" }]));
@@ -503,7 +505,7 @@ it("u6845_a_panel_closed_before_the_subscription_attaches_releases_it_and_sends_
 
   try {
     const real = createTauriApp().capture!;
-    render(() => <CapturePanel port={{ ...real, act: async action => { actions.push(action); } }} />);
+    render(() => <ToastHost><CapturePanel port={{ ...real, act: async action => { actions.push(action); } }} /></ToastHost>);
     cleanup();
     attach();
     await waitFor(() => expect(released).toHaveLength(1));

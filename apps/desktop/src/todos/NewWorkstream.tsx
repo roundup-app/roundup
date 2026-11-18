@@ -4,7 +4,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { StartChoice } from "@contracts/workstream/StartChoice";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { Dialog } from "../ui/Dialog";
@@ -72,6 +72,8 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
     const [after, setAfter] = createSignal<string>("");
     const [failure, setFailure] = createSignal<string | null>(null);
     const [pending, setPending] = createSignal(false);
+    // U7314f: a failed rename or start shows as a toast.
+    createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
     createEffect(createMemo(props.target), target => {
       if (target === null) return;
       setName(untrack(() => todos.byId().get(target)?.title ?? ""));
@@ -119,7 +121,6 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
               <WaitFor todos={others()} value={after()} onPick={setAfter} />
             </div>
           </Show>
-          <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
           <div class="app-dialog-actions">
             <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
             <Tip disabled={ready()} text={createBlocked()}>{trigger =>

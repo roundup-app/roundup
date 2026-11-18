@@ -2,7 +2,7 @@ import { createMemo, createSignal, Errored, Loading, onCleanup, refresh, Show, u
 import type { JSX } from "@solidjs/web";
 import type { Event } from "@contracts/Event";
 import { copy } from "./copy";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { lastTouchLine, padTouchSentence } from "./touchLine";
@@ -19,6 +19,15 @@ type Props<Value> = {
   /** U190: an Event that makes a new Touch, so the line is read again. */
   touchedBy?: (event: Event) => boolean;
   children: (value: Value) => JSX.Element;
+};
+
+/** U7314f: a failed load shows as a toast with Retry; the Retry remounts the drawer's content. */
+const LoadFailure = (props: { message: string; retry: () => void }) => {
+  const [shown, setShown] = createSignal(true);
+
+  createMessageToast({ get message() { return shown() ? props.message : null; }, dismiss: () => setShown(false), recover: { run: () => props.retry(), label: copy.tryAgain } });
+
+  return null;
 };
 
 export const ItemDrawer = <Value,>(props: Props<Value>) => (
@@ -69,7 +78,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
     <Errored fallback={(error, reset) => {
       const failed = error();
 
-      return <ReservedLine message={failed instanceof Error ? failed.message : String(failed)} blocked recover={{ run: () => { refresh(loaded); reset(); }, label: copy.tryAgain }} />;
+      return <LoadFailure message={failed instanceof Error ? failed.message : String(failed)} retry={() => { refresh(loaded); reset(); }} />;
     }}>
       <Loading><Show when={loaded()}>
         {(item) => (

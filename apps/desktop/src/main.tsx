@@ -4,6 +4,9 @@ import { StorageRecovery } from "./window/StorageRecovery";
 import { createRoot } from "solid-js";
 import { render } from "@solidjs/web";
 import { CapturePanel } from "./todos/CapturePanel";
+import { ToastQueueContext } from "./ink/messageToast";
+import { createToastQueue } from "./toasts/queue";
+import { Toasts } from "./toasts/Toasts";
 import { App } from "./App";
 import { createReducedMotion } from "./app/reducedMotion";
 import { createTauriApp, followMaterial } from "./app/tauri";
@@ -67,7 +70,12 @@ routeWebLinks(document, tauri);
 
 // The panel never initializes storage, opens Projects or mounts another App.
 if (new URLSearchParams(location.search).has("capture") && tauri.capture) {
-  render(() => <CapturePanel port={tauri.capture!} />, root);
+  // U7314f: the panel's failures show as Toasts, in a region of its own window.
+  render(() => {
+    const toasts = createToastQueue(() => true, () => {});
+
+    return <ToastQueueContext value={toasts}><CapturePanel port={tauri.capture!} /><Toasts queue={toasts} /></ToastQueueContext>;
+  }, root);
 } else render(() => <StorageRecovery>
   <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={idle?.createEmulator ?? keystrokes?.createEmulator} observeTerminal={idle?.selected} prepareIdle={idle?.prepare} />
 </StorageRecovery>, root);

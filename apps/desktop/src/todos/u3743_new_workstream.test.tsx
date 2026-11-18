@@ -94,7 +94,10 @@ it("u3743_esc_cancels_with_no_call_and_a_refusal_keeps_the_values", async () => 
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Keep me" } });
   fireEvent.click(dialog.getByRole("button", { name: "Create" }));
 
-  expect(await dialog.findByText("todo 1 is done")).toBeTruthy();
+  // U7314f: the refusal is a toast in the Updates region, not a line in the dialog.
+  const refusal = await screen.findByText("todo 1 is done");
+  expect(within(screen.getByRole("region", { name: "Updates" })).getByText("todo 1 is done")).toBe(refusal);
+  expect(screen.getByRole("dialog", { name: "New Workstream" }).contains(refusal)).toBe(false);
   expect(dialog.getByLabelText<HTMLTextAreaElement>("Workstream name").value).toBe("Keep me");
   expect(screen.getByRole("dialog", { name: "New Workstream" })).toBeTruthy();
 

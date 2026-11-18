@@ -213,11 +213,12 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo drawer", async 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: New Workstream", async () => {
   const mounted = await mountTodos([todo(1)]);
   const [target] = createSignal<number | null>(1);
-  render(() => <ConnectedProjectContext value={mounted.connected}><NewWorkstream target={target} done={() => {}} returnTo={() => null} /></ConnectedProjectContext>);
+  render(() => <ConnectedProjectContext value={mounted.connected}><ToastHost><NewWorkstream target={target} done={() => {}} returnTo={() => null} /></ToastHost></ConnectedProjectContext>);
   const surface = await within(document.body).findByRole("dialog", { name: "New Workstream" });
   mounted.app.handlers["todo.startWorkstream"] = () => { throw new RpcError(-32003, FAILURE); };
 
-  await cycle(surface,
+  // U7314f: the failure is a Toast, outside the dialog.
+  await cycle(document.body,
     () => fireEvent.click(within(surface).getByRole("button", { name: "Create" })),
     () => { mounted.app.handlers["todo.startWorkstream"] = () => new Promise(() => {}); fireEvent.click(within(surface).getByRole("button", { name: "Create" })); });
 });
@@ -242,10 +243,13 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Switcher", async () 
   const surface = document.querySelector<HTMLElement>(".switcher")!;
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
   fireEvent.input(within(surface).getByRole("combobox"), { target: { value: "retained search" } });
-  await within(surface).findByRole("alert");
+  // U7314f: the storage problem is a Toast with its Retry, outside the dialog.
+  await waitFor(() => { if (!notices("alert").length) { console.log("DUMP", document.body.innerHTML.slice(-1500)); throw new Error("none"); } }, { timeout: 1500 });
+  const problem = await within(document.body).findByRole("alert");
+  expect(surface.contains(problem)).toBe(false);
   storage.mockRestore();
   mounted.connected.drafts.retry();
-  await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(within(document.body).queryByRole("alert")).toBeNull());
 });
 
 
@@ -260,17 +264,19 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Pad drawer Saved", a
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Capture", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext value={mounted.connected}><Capture onFile={undefined} /></ConnectedProjectContext>);
+  render(() => <ConnectedProjectContext value={mounted.connected}><ToastHost><Capture onFile={undefined} /></ToastHost></ConnectedProjectContext>);
   fireEvent.keyDown(document.body, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   const surface = await within(document.body).findByRole("dialog");
   const field = within(surface).getByRole("textbox");
   fireEvent.input(field, { target: { value: "kept capture" } });
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
   fireEvent.input(field, { target: { value: "retained capture" } });
-  await within(surface).findByRole("alert");
+  // U7314f: the storage problem is a Toast with its Retry, outside the dialog.
+  const problem = await within(document.body).findByRole("alert");
+  expect(surface.contains(problem)).toBe(false);
   storage.mockRestore();
   mounted.connected.drafts.retry();
-  await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
 });
 
 

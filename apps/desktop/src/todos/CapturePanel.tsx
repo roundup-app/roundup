@@ -1,7 +1,8 @@
 import { createSignal, onCleanup, untrack, For } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { CapturePort, CaptureState } from "../app/seam";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import "./capture.styles.css";
@@ -10,6 +11,12 @@ import "./capture.styles.css";
 export const CapturePanel = (props: { port: CapturePort }) => {
   const [state, setState] = createSignal<CaptureState>();
   const published = dismissable(() => state()?.failure);
+  // U7314f: a failed filing and a kept draft's problem show as toasts, the retry kept.
+  createMessageToast({ get message() { return failure() ?? published.message(); }, dismiss: () => failure() ? setFailure(null) : published.dismiss(), get recover() { return state()?.retention ? { run: () => {
+    const current = state();
+
+    return current ? send({ kind: "retry", session: current.session }) : undefined;
+  } } : undefined; } });
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
   let sequence = 0;
@@ -57,11 +64,6 @@ export const CapturePanel = (props: { port: CapturePort }) => {
         if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); void file(event.shiftKey); }
       }} />
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
-    <ReservedLine message={failure() ?? published.message()} dismiss={() => failure() ? setFailure(null) : published.dismiss()} recover={state()?.retention ? { run: () => {
-      const current = state();
-
-      return current ? send({ kind: "retry", session: current.session }) : undefined;
-    } } : undefined} />
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
       <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readonly value={draft.text} />

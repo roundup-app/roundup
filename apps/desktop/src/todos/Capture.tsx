@@ -9,7 +9,8 @@ import * as v from "valibot";
 import { createEffect, createMemo, createSignal, createUniqueId, flush, For, onCleanup, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, LEADER } from "../keys/chords";
 import { resolvedWorkstream } from "../state/railTopology";
@@ -83,6 +84,8 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   let stranded: { title: string; id: number } | null = null;
   const [failure, setFailure] = createSignal<string | null>(null);
   const problem = dismissable(() => drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null);
+  // U7314f: a failed filing and a storage problem show as toasts, the retry kept.
+  createMessageToast({ get message() { return failure() ?? problem.message(); }, dismiss: () => failure() ? setFailure(null) : problem.dismiss(), get recover() { return drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined; } });
   let returnTo: Element | null = null;
   let input: HTMLTextAreaElement | undefined;
   let panel: HTMLElement | undefined;
@@ -350,7 +353,6 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
             <span {...ownerCut.attrs()}>{ownerLine()}</span>
             <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
-          <ReservedLine message={failure() ?? problem.message()} dismiss={() => failure() ? setFailure(null) : problem.dismiss()} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
           <For each={recovered()}>{each => <div class="capture-recovery">
             <span class="ink" data-state={each.status}>{copy.draftStatus[each.status]}</span>
             <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readonly value={String(each.value.text)} />
