@@ -265,7 +265,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /><Field.HelperText>{copy.modelHint}</Field.HelperText></Field.Root>
     ),
     naming: () => <Deferred load={() => import("./NamingSettings")} label={copy.automaticRenaming}>{module => <module.NamingSettings app={props.app} />}</Deferred>,
-    skill: () => <Deferred load={() => import("./SkillSetting")} label={copy.skill}>{module => <module.SkillSetting app={props.app} />}</Deferred>,
     codeEditor: () => {
       const saved = appSettings().codeEditor;
       const installed = editors() ?? [];
@@ -384,7 +383,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           {controls.model()}
         </Show>
         {controls.naming()}
-        {controls.skill()}
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
@@ -393,7 +391,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Editor"><SettingsGroup hideHeading name={copy.settingsEditor}>{controls.codeEditor()}</SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><Deferred load={() => import("./ShortcutSetting")} label={copy.settingsShortcuts}>{module => <module.ShortcutSettings capture={props.app.capture} app={props.app} onFailure={setFailure} />}</Deferred></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><Deferred load={() => import("./ShortcutSetting")} label={copy.settingsShortcuts}>{module => <module.ShortcutSettings capture={props.app.capture} app={props.app} project={props.project} onFailure={setFailure} />}</Deferred></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         {controls.mode()}
         {controls.interfaceScale()}

@@ -167,6 +167,23 @@ fn s2_before_a_project_is_open_rpc_and_subscribe_fail_at_once_with_conflict() {
 }
 
 #[test]
+fn a7505b_a_blank_project_path_says_open_a_project_first() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    let (_app, webview) = app(fx.config.clone(), None);
+
+    let error = invoke(
+        &webview,
+        "rpc",
+        json!({ "path": "", "method": "daemon.ping", "params": null }),
+    )
+    .unwrap_err();
+
+    let message = error["message"].as_str().unwrap();
+    assert!(message.contains("Open a Project first"), "{message}");
+    assert!(!message.contains("at ") && !message.contains("writable"), "{message}");
+}
+
+#[test]
 fn s3_when_the_app_exits_the_daemons_stdin_closes() {
     let fx = Fixture::new("{link}\ncat > /dev/null\ntouch '{dir}/stdin-closed'");
     fx.serve_real_daemon();

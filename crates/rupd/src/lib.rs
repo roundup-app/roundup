@@ -57,7 +57,6 @@ mod resume;
 mod route;
 mod selectors;
 mod settlement;
-pub mod skill;
 mod ssh_hosts;
 #[cfg(test)]
 mod storage_tests;

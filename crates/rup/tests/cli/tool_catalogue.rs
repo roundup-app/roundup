@@ -41,7 +41,17 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
         .filter(|line| line.starts_with("    rup "))
         .map(|line| line.split_whitespace().nth(1).unwrap())
         .collect();
-    assert_eq!(other, ["help", "ping", "mcp", "signal", "context", "skill"]);
+    assert_eq!(other, ["help", "ping", "mcp", "signal", "context"]);
+}
+
+#[tokio::test]
+async fn a7505a_rup_skill_is_an_unknown_noun() {
+    let dir = tempfile::tempdir().unwrap();
+    let run = on(&dir.path().join("none"));
+    let reply = run.rup(&["skill", "status"]).await;
+    assert_eq!(reply.status.code(), Some(2));
+    let help = out(&run.rup(&["help"]).await);
+    assert!(!listed_commands(&help).iter().any(|(usage, _)| usage.contains("skill")));
 }
 
 #[tokio::test]
