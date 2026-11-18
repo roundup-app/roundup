@@ -182,6 +182,13 @@
   padding-inline: var(--space-2);
 }
 
+.pane .terminal-find input {
+  /* LH12: the field and its focus ring end at the inset's bottom edge, never on row 1. */
+  box-sizing: border-box;
+  block-size: calc(var(--terminal-inset) - 2 * var(--space-1));
+  min-block-size: 0;
+}
+
 .terminal-find .mounted-line {
   color: var(--grey);
 }
