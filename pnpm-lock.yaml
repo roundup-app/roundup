@@ -42,7 +42,7 @@ patchedDependencies:
     hash: 2d9b4fc8e52a9668b83ef6e36c9a2be571ee3bf4e55df147b9839ac2978eba4b
     path: patches/@xterm__addon-image@0.10.0-beta.331.patch
   '@xterm/xterm@6.1.0-beta.336':
-    hash: 1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802
+    hash: 7bb7672bae63cdc1e3a03644adede759acff8a5242a7cd32d50f82ee654f39ac
     path: patches/@xterm__xterm@6.1.0-beta.336.patch
   overlayscrollbars@2.17.0:
     hash: 48ea6e1b4ef70e00b426ff0f9c65fe4f2a63755b5e029d009e8a072c884b39cd
@@ -198,7 +198,7 @@ importers:
         version: 0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)
       '@xterm/addon-image':
         specifier: 0.10.0-beta.331
-        version: 0.10.0-beta.331(patch_hash=2d9b4fc8e52a9668b83ef6e36c9a2be571ee3bf4e55df147b9839ac2978eba4b)(@xterm/xterm@6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802))
+        version: 0.10.0-beta.331(patch_hash=2d9b4fc8e52a9668b83ef6e36c9a2be571ee3bf4e55df147b9839ac2978eba4b)(@xterm/xterm@6.1.0-beta.336(patch_hash=7bb7672bae63cdc1e3a03644adede759acff8a5242a7cd32d50f82ee654f39ac))
       '@xterm/addon-ligatures':
         specifier: 0.10.0
         version: 0.10.0
@@ -216,7 +216,7 @@ importers:
         version: 0.19.0
       '@xterm/xterm':
         specifier: 6.1.0-beta.336
-        version: 6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802)
+        version: 6.1.0-beta.336(patch_hash=7bb7672bae63cdc1e3a03644adede759acff8a5242a7cd32d50f82ee654f39ac)
       diff:
         specifier: ^9.0.0
         version: 9.0.0
@@ -317,6 +317,9 @@ importers:
       natural:
         specifier: 8.2.3
         version: 8.2.3(@opentelemetry/api@1.10.0)
+      playwright:
+        specifier: 1.65.1
+        version: 1.65.1
       postcss:
         specifier: ^8.5.31
         version: 8.5.31
@@ -5286,6 +5289,16 @@ packages:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
     engines: {node: '>=16.20.0'}
 
+  playwright-core@1.65.1:
+    resolution: {integrity: sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.65.1:
+    resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -9373,9 +9386,9 @@ snapshots:
 
   '@xterm/addon-fit@0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)': {}
 
-  '@xterm/addon-image@0.10.0-beta.331(patch_hash=2d9b4fc8e52a9668b83ef6e36c9a2be571ee3bf4e55df147b9839ac2978eba4b)(@xterm/xterm@6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802))':
+  '@xterm/addon-image@0.10.0-beta.331(patch_hash=2d9b4fc8e52a9668b83ef6e36c9a2be571ee3bf4e55df147b9839ac2978eba4b)(@xterm/xterm@6.1.0-beta.336(patch_hash=7bb7672bae63cdc1e3a03644adede759acff8a5242a7cd32d50f82ee654f39ac))':
     dependencies:
-      '@xterm/xterm': 6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802)
+      '@xterm/xterm': 6.1.0-beta.336(patch_hash=7bb7672bae63cdc1e3a03644adede759acff8a5242a7cd32d50f82ee654f39ac)
 
   '@xterm/addon-ligatures@0.10.0':
     dependencies:
@@ -9390,7 +9403,7 @@ snapshots:
 
   '@xterm/addon-webgl@0.19.0': {}
 
-  '@xterm/xterm@6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802)': {}
+  '@xterm/xterm@6.1.0-beta.336(patch_hash=7bb7672bae63cdc1e3a03644adede759acff8a5242a7cd32d50f82ee654f39ac)': {}
 
   '@zag-js/collection@1.45.0':
     dependencies:
@@ -12081,6 +12094,12 @@ snapshots:
   picomatch@4.0.7: {}
 
   pkce-challenge@5.0.1: {}
+
+  playwright-core@1.65.1: {}
+
+  playwright@1.65.1:
+    dependencies:
+      playwright-core: 1.65.1
 
   pluralize@8.0.0: {}
 
