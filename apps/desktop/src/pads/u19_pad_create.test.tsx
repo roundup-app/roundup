@@ -7,6 +7,7 @@ import { DrawerHost } from "../drawer/DrawerHost";
 import { Pads } from "./Pads";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { agent, terminal, USER, workstream } from "../testing/nodes";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -176,7 +177,7 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   flush();
   const retained = structuredClone(connected.drafts.list());
   cleanup();
-  render(() => <ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
   const calls = [...app.calls];
   connected.drawer.open(() => <ConnectedProjectContext value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext>, "key");
   flush();

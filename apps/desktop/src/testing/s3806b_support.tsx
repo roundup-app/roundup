@@ -21,6 +21,7 @@ import { rowOf, settled } from "../rail/railFixture";
 import type { ConnectedProject } from "../state/connectedProject";
 import { useBrowserStorage } from "../state/storage";
 import { agent, event, info, workstream } from "./nodes";
+import { ToastHost } from "./toastHost";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
 /** Each test file registers this as its afterEach hook: Vitest hooks are per file. */
@@ -554,7 +555,7 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
         expect(connected.drafts.list()).toContainEqual(newer);
       }
 
-      if (row.owner !== "App") render(() => <ConnectedProjectContext value={connected}><Rail /></ConnectedProjectContext>);
+      if (row.owner !== "App") render(() => <ToastHost><ConnectedProjectContext value={connected}><Rail /></ConnectedProjectContext></ToastHost>);
       app.handlers["agent.spawn"] = () => agent("recovered", "idle", "idle");
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
 

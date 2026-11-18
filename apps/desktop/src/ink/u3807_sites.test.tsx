@@ -107,10 +107,10 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Rail", async () => {
   fireEvent.input(field, { target: { value: "renamed" } });
   flush();
   fireEvent.keyDown(field, { key: "Enter" });
-  await within(surface).findByRole("alert");
-  fireEvent.click(within(surface).getByRole("button", { name: "Dismiss" }));
+  const shown = await waitFor(() => notice("alert"));
+  fireEvent.click(within(shown.closest<HTMLElement>("[data-scope=toast], .app-toasts") ?? document.body).getByRole("button", { name: "Dismiss" }));
   flush();
-  expect(within(surface).queryByRole("alert")).toBeNull();
+  await waitFor(() => expect(notices("alert")).toEqual([]));
 });
 
 
@@ -187,12 +187,12 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectSettings", as
   const mounted = await mountTodos([]);
   mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [] }, workstreamCap: 1, machine: null });
   mounted.connected.settingsView.show(document.body);
-  const view = render(() => <ConnectedProjectContext value={mounted.connected}><ProjectSettingsView /></ConnectedProjectContext>);
+  const view = render(() => <ToastHost><ConnectedProjectContext value={mounted.connected}><ProjectSettingsView /></ConnectedProjectContext></ToastHost>);
   const field = within(view.container).getByRole("textbox");
   await waitFor(() => expect(field).toHaveProperty("disabled", false));
   mounted.app.handlers["project.setWorkstreamCap"] = () => { throw new RpcError(-32003, FAILURE); };
 
-  await cycle(view.container,
+  await cycle(document.body,
     () => { fireEvent.input(field, { target: { value: "2" } }); flush(); fireEvent.keyDown(field, { key: "Enter" }); },
     () => { fireEvent.input(field, { target: { value: "1" } }); flush(); fireEvent.keyDown(field, { key: "Enter" }); });
 });
@@ -286,14 +286,14 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
     return <bulk.Bar />;
   };
 
-  const view = render(() => <Site />);
+  const view = render(() => <ToastHost><Site /></ToastHost>);
   const surface = view.container;
   fireEvent.click(within(surface).getByRole("button", { name: "Delete 2" }));
-  await within(surface).findByRole("alert");
+  await waitFor(() => notice("alert"));
   // Keep one selected item so the bar remains mounted while its failure clears.
   failure = null;
   fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
-  await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async () => {

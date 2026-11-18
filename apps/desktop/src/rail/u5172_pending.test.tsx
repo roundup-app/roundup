@@ -1,3 +1,4 @@
+import { notice, notices } from "../testing/notices";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
@@ -35,7 +36,7 @@ it("u5172a_unknown_rename_shows_the_asked_name_throughout", async () => {
   await waitFor(() => expect(row()?.getAttribute("aria-busy")).toBeNull());
   seen.push(nameOf(mounted));
   expect(seen).toEqual(["New", "New"]);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   expect(railCallsTo(mounted.app, "rail.rename")).toHaveLength(1);
 });
 
@@ -62,7 +63,7 @@ it("u5172a_refused_rename_restores_and_shows_why", async () => {
   mounted.app.handlers["rail.rename"] = () => { throw new RpcError(-32003, "name taken"); };
 
   rename("New");
-  await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+  await waitFor(() => expect(notice("alert")).toBeTruthy());
   expect(mounted.connected.rail.pendingOf("a")).toBeNull();
   expect(mounted.connected.rail.nodes[0]?.name).toBe("Old");
 });
@@ -86,7 +87,7 @@ it("u5172a_contradicting_read_shows_the_daemon_value", async () => {
   await mounted.connected.rail.settled();
   expect(mounted.connected.rail.pendingOf("a")).toBeNull();
   expect(mounted.connected.rail.nodes[0]?.name).toBe("Other");
-  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(notices("alert")).toHaveLength(1);
 });
 
 it("u5172b_pending_remove_keeps_the_row_marked", async () => {
@@ -145,7 +146,7 @@ it("u5172a_unanswered_rail_move_shows_the_asked_place_marked_until_a_read_settle
   fireEvent.click(await screen.findByRole("option", { name: "Research" }));
   await waitFor(() => expect(mounted.connected.rail.pendingOf("free")).not.toBeNull());
   expect(mounted.connected.rail.nodes.find(node => node.id === "free")?.parent).toBe("Research");
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   mounted.app.emit({ name: "rail.changed", actor });
   await mounted.connected.rail.settled();
   expect(mounted.connected.rail.nodes.find(node => node.id === "free")?.parent).toBe("Research");
@@ -153,5 +154,5 @@ it("u5172a_unanswered_rail_move_shows_the_asked_place_marked_until_a_read_settle
   mounted.app.emit({ name: "rail.changed", actor });
   await mounted.connected.rail.settled();
   expect(mounted.connected.rail.pendingOf("free")).toBeNull();
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });

@@ -9,6 +9,7 @@ import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedPro
 import { createFakeApp } from "../testing/fakeApp";
 import { Tabs } from "../ui/Tabs";
 import { ProjectTab } from "./ProjectTab";
+import { ToastHost } from "../testing/toastHost";
 import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
 import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
@@ -467,11 +468,11 @@ const selectedHeader = async (outcome: "failed" | "unknown" = "failed") => {
   const view = render(() => {
     projects = createProjectsState(app);
 
-    return <ProjectDraftsContext value={authority}><Tabs.Root value={path("api")}><Tabs.List aria-label="Projects">
+    return <ToastHost><ProjectDraftsContext value={authority}><Tabs.Root value={path("api")}><Tabs.List aria-label="Projects">
       <ProjectTab tab={{ path: path("api"), name: "same name", base: "same name", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
         selected app={app} alerts="all" onAlerts={() => {}} recovery={recovery()} onMark={() => {}} onClose={() => {}}
         onRename={(name, base) => projects.rename(path("api"), name, base)} />
-    </Tabs.List></Tabs.Root></ProjectDraftsContext>;
+    </Tabs.List></Tabs.Root></ProjectDraftsContext></ToastHost>;
   });
 
   await waitFor(() => expect(projects.loaded()).toBe(true));

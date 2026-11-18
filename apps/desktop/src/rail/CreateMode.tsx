@@ -7,7 +7,8 @@ import { BusyButton } from "../ui/BusyButton";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure } from "../ink/MountedLine";
 
 /** U4547b: retain the created identity before saving or starting, so retry resumes it. */
 export const CreateMode = (props: { onClose: () => void; onCreated: (id: string, request: string) => void; finalFocus: (id: string) => HTMLElement | null }) => {
@@ -89,7 +90,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={value().name} onInput={event => edit({ name: event.currentTarget.value })} /></Field.Root>
         <Field.Root disabled={busy()} class="mode-prompt-field"><Field.Label>{copy.modePrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck="false" autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.modePromptHint}</Field.HelperText></Field.Root>
-        <ReservedLine message={line.message()} dismiss={dismissLine} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.railDraftRetry } : undefined} />
+        <DialogFailure message={line.message()} dismiss={dismissLine} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.railDraftRetry } : undefined} />
         <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><BusyButton kind="primary" type="submit" busy={busy()} disabled={!value().name.trim() || !value().text.trim()} busyLabel={copy.creating}>{copy.createMode}</BusyButton></div>
       </form>
     </Dialog.Content>

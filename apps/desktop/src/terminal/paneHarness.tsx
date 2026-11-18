@@ -10,6 +10,7 @@ import type { FakeApp } from "../testing/fakeApp";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
+import { ToastHost } from "../testing/toastHost";
 import { Pane } from "./Pane";
 import type { Emulator, EmulatorFactory, Size, ViewRows } from "./emulator";
 import type { Printed } from "./links";
@@ -217,10 +218,12 @@ export const mountRailAndPane = async (tree: RailNode[]): Promise<Mounted> => {
   const { factory, made } = fakeEmulators();
 
   const { container } = render(() => (
-    <ConnectedProjectContext value={connected}>
-      <Rail />
-      <Pane createEmulator={factory} />
-    </ConnectedProjectContext>
+    <ToastHost>
+      <ConnectedProjectContext value={connected}>
+        <Rail />
+        <Pane createEmulator={factory} />
+      </ConnectedProjectContext>
+    </ToastHost>
   ));
 
   return { app, connected, emulators: made, container, screens: () => { throw new Error("mountRailAndPane holds no shared screens"); } };

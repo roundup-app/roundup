@@ -129,12 +129,12 @@ jobs:
         with:
           rust: 'false'
       # CI7295a: the fewest shards whose measured time, heavy files counted whole, stays within BUDGET. Run 44165190898's
-      # 180 s of measured tests ran 153 s in the test step, so 235 s measured is about 200 s there, inside CI7297c's 240 s,
+      # 180 s of measured tests ran 153 s in the test step, so 255 s measured is about 217 s there, inside CI7297c's 240 s,
       # and ends the verdict near 5 min: every shard fewer saves its 31 s of setup and a runner slot (CI7297a).
       - id: shards
         env:
           COUNT: ${{ steps.plan.outputs.count }}
-          BUDGET: '235'
+          BUDGET: '255'
         run: |
           count=all
           if [ -n "$COUNT" ]; then
@@ -209,15 +209,18 @@ jobs:
         with:
           machete: 'false'
           experiment-cache: ${{ env.CI3781_CACHE }}
+      # CI7297a: the apt install of strace, iproute2 and util-linux starts after setup's `Wait for Tauri packages` has released apt's locks (one apt process at a time) and a later step joins it.
+      - name: Start E12 network observer dependencies
+        run: |
+          setsid bash -c 'if command -v strace && command -v ip && command -v setpriv; then echo 0; else sudo apt-get update -qq && sudo apt-get install -y -o DPkg::Lock::Timeout=300 strace iproute2 util-linux; echo $?; fi >"$1.out" 2>&1; tail -n 1 "$1.out" >"$1.status"' _ "$RUNNER_TEMP/e12" </dev/null >/dev/null 2>&1 &
       # A4691: the sidecar the agent tests start. The test build makes `rupd`, `rup` and the test core a lane's tests start.
       - name: A4691 debug runtime preparation
         run: tools/sidecar/bundle.sh target/debug/sidecar --local-node
-      - name: E12 network observer dependencies
+      - name: Wait for E12 network observer dependencies
         run: |
-          if ! command -v strace || ! command -v ip || ! command -v setpriv; then
-            sudo apt-get update -qq
-            sudo apt-get install -y strace iproute2 util-linux
-          fi
+          until [ -s "$RUNNER_TEMP/e12.status" ]; do sleep 1; done
+          cat "$RUNNER_TEMP/e12.out"
+          [ "$(cat "$RUNNER_TEMP/e12.status")" = 0 ]
       - name: CI5330f disk before tests
         run: bash .github/actions/setup/disk.sh report before
       - name: test-rust
@@ -680,6 +683,9 @@ jobs:
           chrome=("$HOME"/.agent-browser/browsers/chrome-*/chrome)
           [ "${#chrome[@]}" = 1 ] && [ -x "${chrome[0]}" ] || { echo "::error::expected one prepared Chrome, found: ${chrome[*]}"; exit 1; }
           sudo ln -s "${chrome[0]}" /usr/bin/google-chrome
+      # U4649b drives Playwright's WebKit, the Mac App's engine; Chrome alone cannot fail it.
+      - name: U4649b WebKit browser
+        run: pnpm --filter desktop exec playwright install --with-deps webkit
       - name: CI5330a disk before tests
         run: bash .github/actions/setup/disk.sh report before
       - name: C9c production desktop size

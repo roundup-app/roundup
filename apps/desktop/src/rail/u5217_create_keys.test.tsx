@@ -1,3 +1,4 @@
+import { notice, notices } from "../testing/notices";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { appSettings, saveAppSettings } from "../settings/preferences";
 import { ariaChord, CHORDS } from "../keys/chords";
@@ -124,7 +125,7 @@ it.each(["pointer", "Enter", " "])("u5629_open_and_escape_keep_the_failed_start_
   m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
 
   fireEvent.keyDown(document, { key: "n", metaKey: true });
-  const failure = await screen.findByRole("alert");
+  const failure = await waitFor(() => notice("alert"));
   await screen.findByText("Spawn refused. Check setup and retry.");
   const retry = screen.getByRole("button", { name: "Retry" });
   expect(retry.isConnected).toBe(true);
@@ -138,7 +139,7 @@ it.each(["pointer", "Enter", " "])("u5629_open_and_escape_keep_the_failed_start_
 
   const menu = await screen.findByRole("menu");
   await waitFor(() => expect(document.activeElement).toBe(within(menu).getAllByRole("menuitem")[0]));
-  expect(screen.getByRole("alert")).toBe(failure);
+  expect(notice("alert")).toBe(failure);
   expect(retry.isConnected).toBe(true);
   expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
@@ -148,7 +149,7 @@ it.each(["pointer", "Enter", " "])("u5629_open_and_escape_keep_the_failed_start_
   fireEvent.keyDown(menu, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(plus));
-  expect(screen.getByRole("alert")).toBe(failure);
+  expect(notice("alert")).toBe(failure);
   expect(retry.isConnected).toBe(true);
   expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
@@ -164,7 +165,7 @@ it("u5629_retry_after_escape_repeats_only_the_failed_start", async () => {
   m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
 
   fireEvent.keyDown(document, { key: "n", metaKey: true });
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
   const menu = await screen.findByRole("menu");
   await waitFor(() => expect(document.activeElement).toBe(within(menu).getAllByRole("menuitem")[0]));
@@ -185,7 +186,7 @@ it("u5629_retry_after_escape_repeats_only_the_failed_start", async () => {
   expect(calls[1]).toEqual(calls[0]);
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
   expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   expect(retry.isConnected).toBe(false);
 });
 
@@ -196,7 +197,7 @@ it("u5629_dismiss_after_escape_clears_only_feedback", async () => {
   m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
 
   fireEvent.keyDown(document, { key: "n", metaKey: true });
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
   const menu = await screen.findByRole("menu");
   await waitFor(() => expect(document.activeElement).toBe(within(menu).getAllByRole("menuitem")[0]));
@@ -204,7 +205,7 @@ it("u5629_dismiss_after_escape_clears_only_feedback", async () => {
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Create" })));
   const retry = screen.getByRole("button", { name: "Retry" });
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(retry.isConnected).toBe(false);
   expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);

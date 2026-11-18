@@ -19,6 +19,7 @@ import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { createMessageToast } from "../ink/messageToast";
+import { exportPad } from "./padExport";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
@@ -365,9 +366,7 @@ const PadBody = (props: {
 
   const exportToFile = () =>
     act(async () => {
-      const path = await connected.app.chooseSavePath([name, ".md"].join(""));
-
-      if (path !== null) await connected.app.rpc("pad.export", { name, path });
+      await exportPad(connected.app, name);
     });
 
   const remove = (source: ActivationSource) =>
