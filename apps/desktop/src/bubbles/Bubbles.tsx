@@ -759,7 +759,7 @@ export const Bubbles = (props: {
           }}>
             <div class="terminal-tab-list"><For each={shownIds()}>{id => <Tab id={id} ctx={tabContext} />}</For></div>
             <div class="terminal-tabs-actions">
-              <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger({ ref: element => { newTerminal = element; }, onClick: () => void open() })} data-button="add" class="terminal-new" aria-label={copy.newTerminal}><Icon name="plus" /></FlatAdd>}</Tip>
+              <Tip kind="fixed" name={copy.newTerminal} text={copy.newTerminal}>{trigger => <FlatAdd {...trigger({ ref: element => { newTerminal = element; }, onClick: () => void open() })} data-button="add" class="terminal-new" aria-label={copy.newTerminal}><Icon name="plus" /></FlatAdd>}</Tip>
               <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
             </div>
           </div>

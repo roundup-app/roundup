@@ -139,7 +139,7 @@ const MachineIcon = (props: { node: RailNode }) => {
   const text = (name: string) => connected.machines.offline(name) ? copy.machineOffline : name;
 
   return <Show when={machine()}>{name => <span class="row-slot row-machine">
-    <Tip text={text(name())}>{trigger => <span {...trigger()} class="machine-icon" data-offline={connected.machines.offline(name()) ? "" : undefined} role="img" aria-label={text(name())}><Icon name="server" /></span>}</Tip>
+    <Tip kind="changing" text={text(name())}>{trigger => <span {...trigger()} class="machine-icon" data-offline={connected.machines.offline(name()) ? "" : undefined} role="img" aria-label={text(name())}><Icon name="server" /></span>}</Tip>
   </span>}</Show>;
 };
 
@@ -338,7 +338,7 @@ export const RailRowView = (props: {
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={folds()}><FoldControl class="rail-chevron row-control" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
-      <Tip text={glyphText()}>{(trigger, focus) => {
+      <Tip kind="changing" text={glyphText()}>{(trigger, focus) => {
         glyphFocus = focus;
 
         return <span {...trigger()} class="row-state"><KindGlyph kind={kind() ?? "idle"} label={glyphText()} /></span>;

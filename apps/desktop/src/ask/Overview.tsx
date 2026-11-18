@@ -81,13 +81,13 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
   const status = () => props.status ? door()?.status ?? null : null;
   const [cutRef, cut] = createCut();
 
-  return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
+  return <Tip kind="changing" text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
     const tip = trigger({ ref: cutRef });
 
     return <button {...focus} ref={props.head} data-row-selected={String(props.selected)} onClick={props.select} type="button" class="overview-entry row-wash"
       data-overview-item={props.node.id + ":" + door()?.attempt + ":" + door()?.status_revision} aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet">
-      <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
+      <Tip kind="changing" text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
         <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status()?.kind} data-tone={status()?.kind === "error" ? "red" : undefined}>
           <Show when={status()}>{(status) => <KindGlyph kind={status().kind} />}</Show>
         </span>
