@@ -4,7 +4,8 @@ import type { Actor } from "@contracts/Actor";
 import { applied, applying } from "../app/pending";
 import { failureOf } from "../app/failureOf";
 import { EntryRow } from "../ink/EntryRow";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
+import { failedLabel } from "../ink/failedLabel";
 import { registerKeys } from "../keys/registry";
 import { todoCreationKeys } from "../shelf/keys";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
@@ -52,6 +53,13 @@ export const createTodoCreation = (inputs: {
   );
 
   let creationRow: HTMLDivElement | undefined;
+
+  // While the field is open the failure names the action; beside a closed field the shelf's own line shows it.
+  createMessageToast({
+    get message() { return typing() && createFailure(); },
+    dismiss: () => setCreateFailure(null),
+    get content() { return failedLabel(copy.addTodo, createFailure()); },
+  });
 
   registerKeys({ kind: "region", element: () => creationRow }, [{
     chords: ["Enter"],
@@ -160,7 +168,6 @@ export const createTodoCreation = (inputs: {
           if (reason !== "blur") plusButton()?.focus();
         }}
       />
-      <ReservedLine message={createFailure()} dismiss={() => setCreateFailure(null)} content={createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
     </div>
   );
 

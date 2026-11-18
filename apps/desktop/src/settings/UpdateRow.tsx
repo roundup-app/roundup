@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
 import { BusyButton } from "../ui/BusyButton";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import type { Program, Updates } from "../state/updates";
 import { copy } from "./copy";
 import { kindOf } from "./machineFailure";
@@ -20,7 +20,16 @@ const shown = {
 
 const roundupFailures = new Map<string, string>(Object.entries(copy.updateFailures));
 
-/** U7208a: one program's name and version, whether a newer one is ready, and the button that updates it. Its failure shows below, in one line. */
+/** U7208b: roundup's failure is the catalogue's sentence for the kind the App leads it with; herdr-core's is the line it printed (U7208c). Settings shows it as a toast (U7314e). */
+export const updateFailure = (updates: Updates, program: Program) => {
+  const message = updates.failure(program);
+
+  if (message === null || program === "core") return message;
+
+  return roundupFailures.get(kindOf(message)) ?? copy.updateFailed;
+};
+
+/** U7208a: one program's name and version, whether a newer one is ready, and the button that updates it. Its download progress shows below, in one line. */
 export const UpdateRow = (props: { program: Program; updates: Updates }) => {
   const own = () => shown[props.program];
 
@@ -39,15 +48,6 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
     if (!now) return null;
 
     return now.stage === "installing" ? copy.updateInstalling : copy.updateDownloading(now.downloaded, now.total);
-  };
-
-  /** U7208b: roundup's failure is the catalogue's sentence for the kind the App leads it with; herdr-core's is the line it printed (U7208c). */
-  const failure = () => {
-    const message = props.updates.failure(props.program);
-
-    if (message === null || props.program === "core") return message;
-
-    return roundupFailures.get(kindOf(message)) ?? copy.updateFailed;
   };
 
   const state = () => {
@@ -77,11 +77,7 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
           {own().button}
         </BusyButton>
       </Show>
-      <ReservedLine
-        message={failure()}
-        dismiss={() => props.updates.dismiss(props.program)}
-        status={progress()}
-      />
+      <StatusNote text={progress()} />
     </div>
   );
 };

@@ -160,7 +160,7 @@ jobs:
           fi
           echo "web_shards=$(python3 loop/affected.py shards "$count")" >>"$GITHUB_OUTPUT"
 
-  # L89: the Rust suite in ten lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
+  # L89: the Rust suite in nine lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
   # the timed waits of daemons, fake Claude and sqlite. Lane N runs profile `ciN` of `.config/nextest.toml`, which names
   # the test binaries packed to equal seconds, and builds only those (`just test-rust-lane`): about a tenth of the test
   # binaries, under `--workspace` so every lane restores the dependencies `cache` built. A test stays in its lane across
@@ -181,7 +181,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        partition: [1, 2, 3, 4, 5, 6, 7, 8, 9]
     runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-rust-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35

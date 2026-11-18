@@ -2,7 +2,8 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Machine } from "@contracts/machine/Machine";
 import { queueFocus } from "../keys/focus";
 import { answerOf, type App } from "../app/seam";
-import { ReservedLine } from "../ink/ReservedLine";
+import { BlockedFailure } from "../ink/MountedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { AddMachineDialog } from "./AddMachineDialog";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
@@ -49,6 +50,11 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   const [updating, setUpdating] = createSignal<ReadonlySet<string>>(new Set());
   const [removing, setRemoving] = createSignal<string | null>(null);
   const [rowFailure, setRowFailure] = createSignal<{ name: string; sentence: string } | null>(null);
+
+  createMessageToast({
+    get message() { return rowFailure()?.sentence; },
+    dismiss: () => setRowFailure(null),
+  });
 
   const closeAdd = () => { setAdding(false); queueFocus(() => trigger?.focus({ preventScroll: true })); };
 
@@ -127,7 +133,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
           <span class="settings-machine-dot" aria-hidden="true" />
           {failure() === null && listed() !== undefined ? copy.machineConnected(listed()?.version ?? "") : copy.machineNotConnected}
         </span>
-        <Show when={failure()}>{sentence => <ReservedLine message={sentence()} blocked />}</Show>
+        <BlockedFailure message={failure()} />
       </li>
       <For each={machines()}>{machine => <li class="settings-machine">
         <span class="settings-machine-name">{machine.name}</span>
@@ -139,7 +145,6 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
           <BusyButton kind="quiet" class="settings-machine-update" busy={updating().has(machine.name)} busyLabel={copy.updating} aria-label={copy.machineUpdateLabel(machine.name)} onClick={() => update(machine.name)}>{copy.update}</BusyButton>
         </Show>
         <BusyButton kind="quiet" class="settings-machine-remove" busy={removing() === machine.name} disabled={updating().has(machine.name)} busyLabel={copy.removing} aria-label={copy.machineRemoveLabel(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</BusyButton>
-        <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{row => <ReservedLine message={row().sentence} dismiss={() => setRowFailure(null)} />}</Show>
       </li>}</For>
     </ul>
     <Show when={listed() !== undefined && failure() === null && machines().length === 0}><p class="settings-hint settings-machines-note">{copy.noOtherMachines}</p></Show>

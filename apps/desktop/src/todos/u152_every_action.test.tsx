@@ -296,8 +296,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       fireEvent.click(await within(drawer()).findByRole("button", { name: "Copy" }));
     }
 
-    const region = () => owner.startsWith("open_row") ? within(rowOf(1)) : screen;
-    const failure = await region().findByRole("alert", { name: /Item unavailable; retry/ });
+    const failure = await screen.findByRole("alert", { name: /Item unavailable; retry/ });
     const message = failure.getAttribute("aria-label")!;
     const retained = m.connected.drafts.list();
     const calls = [...m.app.calls];
@@ -306,7 +305,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
     m.app.emit(todoEvent("todo.updated", m.store.todos[1]!));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 3 } });
     await m.todos.reload();
-    expect(region().getByRole("alert", { name: message })).toBeTruthy();
+    expect(screen.getByRole("alert", { name: message })).toBeTruthy();
     expect(comment.value).toBe(exactDraft);
     expect(m.connected.drafts.list()).toEqual(retained);
 
@@ -333,7 +332,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       m.app.handlers["todo.complete"] = () => new Promise(resolve => { acknowledge = resolve; });
       fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
       await waitFor(() => expect(callsTo(m.app, "todo.complete").length).toBe(owner === "open_row" ? 2 : 1));
-      expect(region().getByRole("alert", { name: message })).toBeTruthy();
+      expect(screen.getByRole("alert", { name: message })).toBeTruthy();
       acknowledge(todo(1));
 
       // The row receives the acknowledged change through the existing Daemon Event.
@@ -357,7 +356,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       expect(within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe(exactDraft);
     } else {
       const remains = action === "failed-delete";
-      await waitFor(() => expect(region().queryByRole("alert", { name: message }) !== null).toBe(remains));
+      await waitFor(() => expect(screen.queryByRole("alert", { name: message }) !== null).toBe(remains));
       expect(comment.value).toBe(exactDraft);
 
       if (field && remains) expect(within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: fieldName }).value).toBe(fieldName === "Title" ? "  e\u0301 🧪 title  " : exactDraft);

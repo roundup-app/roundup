@@ -4,6 +4,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { AppSettings } from "./AppSettings";
 import { useBrowserStorage } from "../state/storage";
 import { askOnce, isSuppressed } from "./warnings";
+import { ToastHost } from "../testing/toastHost";
 
 beforeEach(() => { window.localStorage.clear(); useBrowserStorage(window.localStorage); });
 
@@ -21,7 +22,7 @@ it("u7157d_reset_warnings_asks_every_question_again", async () => {
   const { app, ask } = stub({ accepted: true, suppressed: true });
 
   await askOnce(app, "close-terminal", question);
-  render(() => <AppSettings app={createFakeApp()} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={createFakeApp()} project={() => "/p"} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByLabelText("Settings", { selector: "section" });

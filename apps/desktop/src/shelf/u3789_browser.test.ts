@@ -252,7 +252,7 @@ it.skipIf(!captureDir("U4908") && !ageCaptures().length).each([true, false].flat
       await wait("document.body.textContent.includes('Rename refused')");
       await browser("press", "Escape");
       await wait("!document.querySelector('.row-name-editor')");
-      await browser("hover", `.${kind}-tab .ink[role=alert]`);
+      await browser("hover", ".app-toast [role=alert]");
       await shot("U4908", stage, `${prefix}-failure`);
       await browser("press", "Escape");
     }

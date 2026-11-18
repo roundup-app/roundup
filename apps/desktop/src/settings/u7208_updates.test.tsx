@@ -13,6 +13,10 @@ import { useBrowserStorage } from "../state/storage";
 import { createFakeApp } from "../testing/fakeApp";
 import { AppSettings } from "./AppSettings";
 import { copy } from "./copy";
+import { ToastHost } from "../testing/toastHost";
+
+/** U7314e: an update failure shows in the App's Toast region, not in its row. */
+const toasts = () => within(screen.getByRole("region", { name: "Updates" }));
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -32,9 +36,11 @@ const mount = async (facts: UpdateFacts, page?: "updates") => {
 
   app.updateFacts = facts;
   render(() => (
-    <UpdatesProvider value={createUpdates(app)}>
-      <AppSettings app={app} project={() => "/p"} />
-    </UpdatesProvider>
+    <ToastHost>
+      <UpdatesProvider value={createUpdates(app)}>
+        <AppSettings app={app} project={() => "/p"} />
+      </UpdatesProvider>
+    </ToastHost>
   ));
   await Promise.resolve();
   window.dispatchEvent(new CustomEvent("open-app-settings", { detail: page }));
@@ -130,8 +136,8 @@ it("u7208b_a_failed_install_shows_its_cause_and_keeps_the_button", async () => {
   };
 
   fireEvent.click(press);
-  expect(await row(copy.roundup).findByText(copy.updateFailures.broke_off)).toBeTruthy();
-  expect(row(copy.roundup).queryByText(cutOff.message)).toBeNull();
+  expect(await waitFor(() => toasts().getByText(copy.updateFailures.broke_off))).toBeTruthy();
+  expect(screen.queryByText(cutOff.message)).toBeNull();
   expect(installs).toBe(2);
   expect(press.matches("[aria-busy]")).toBe(false);
   expect(
@@ -189,7 +195,7 @@ it("u7208c_the_core_row_shows_the_new_version_or_the_failure", async () => {
 
   app.coreUpdateFailure = noSpace;
   fireEvent.click(await screen.findByRole("button", { name: copy.updateCore }));
-  expect(await row(copy.herdrCore).findByText(noSpace.message)).toBeTruthy();
+  expect(await waitFor(() => toasts().getByText(noSpace.message))).toBeTruthy();
   expect(
     row(copy.herdrCore).getByRole("button", { name: copy.updateCore }),
   ).toBeTruthy();

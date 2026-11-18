@@ -8,6 +8,8 @@ import { AppSettings } from "./AppSettings";
 import { copy } from "./copy";
 import { appSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
+import { ToastHost } from "../testing/toastHost";
+import { notice } from "../testing/notices";
 
 beforeEach(() => {
   vi.spyOn(Terminal.prototype, "open").mockImplementation(() => {});
@@ -19,7 +21,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 const mount = async (navigation: () => string = () => "") => {
   const app = createFakeApp();
   app.handlers["models.list"] = () => ({ engines: [{ id: "engine-one", label: "Engine One" }], models: [{ id: "model-one", label: "Model One" }], efforts: [] });
-  render(() => <AppSettings app={app} project={() => "/p"} navigation={navigation} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => "/p"} navigation={navigation} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("region", { name: "Settings" });
@@ -150,7 +152,7 @@ it("u5243a_search_results_show_place_control_and_description", async () => {
   }
 
   fireEvent.input(search(), { target: { value: "zzzzqx" } });
-  expect((await screen.findByRole("status")).textContent).toBe(copy.settingsNoResults);
+  expect((await waitFor(() => notice("status"))).textContent).toBe(copy.settingsNoResults);
   expect(screen.queryAllByRole("listitem")).toHaveLength(0);
   fireEvent.input(search(), { target: { value: "" } });
   expect((await screen.findByRole("tab", { name: "Terminal" })).getAttribute("aria-selected")).toBe("true");

@@ -14,6 +14,7 @@ import { copy } from "./copy";
 import { DEFAULT_FONT_SIZE } from "../terminal/fontSize";
 import { xtermOptions } from "../terminal/emulator";
 import { useBrowserStorage } from "../state/storage";
+import { ToastHost } from "../testing/toastHost";
 
 beforeEach(() => {
   vi.spyOn(Terminal.prototype, "open").mockImplementation(() => {});
@@ -30,7 +31,7 @@ const mount = async (fail = false) => {
     return { engines: [{ id: "engine-one", label: "Engine One" }, { id: "engine-two", label: "Engine Two" }], models: [{ id: "model-one", label: "Model One" }], efforts: [] };
   };
 
-  render(() => <AppSettings app={app} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => "/p"} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByLabelText("Settings", { selector: "section" });
@@ -354,7 +355,7 @@ it("u4687c_a_failed_save_keeps_its_revision_and_a_newer_edit", async () => {
 it("u4687c_saved_changes_reach_other_project_tabs", async () => {
   await mount();
   const other = createFakeApp();
-  render(() => <AppSettings app={other} project={() => "/other"} />);
+  render(() => <ToastHost><AppSettings app={other} project={() => "/other"} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
 
@@ -391,7 +392,7 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   const app = await mount();
   const configure = vi.fn(async (_press: string | null) => {});
   cleanup();
-  render(() => <AppSettings app={Object.assign(app, { capture: portWith(configure) })} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={Object.assign(app, { capture: portWith(configure) })} project={() => "/p"} /></ToastHost>);
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByLabelText("Settings", { selector: "section" });
   await section("Shortcuts");

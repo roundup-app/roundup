@@ -6,7 +6,8 @@ import { copy } from "./copy";
 import { draftStorage } from "../state/storage";
 import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 
 /** Global naming preferences use the existing RPC seam even before a Project is open. */
 export const NamingSettings = (props: { app: App }) => {
@@ -25,6 +26,18 @@ export const NamingSettings = (props: { app: App }) => {
 
  return null; }
   }, { loadingValue: null });
+
+  createMessageToast({
+    get message() { return failure(); },
+    dismiss: () => setFailure(null),
+    get recover() { return settings() ? undefined : { run: () => refresh(settings), label: copy.storageRetry }; },
+  });
+
+  createMessageToast({
+    get message() { return draftLine.message(); },
+    dismiss: draftLine.dismiss,
+    recover: { run: () => drafts.retry(), label: copy.storageRetry },
+  });
 
   const text = () => String(draft()?.value.text ?? settings()?.namingGuide ?? "");
 
@@ -52,7 +65,7 @@ export const NamingSettings = (props: { app: App }) => {
     <Show when={settings()}>{value => <>
       <Switch checked={value().automaticRenaming} disabled={saving()} description={copy.automaticRenamingHint}
         onCheckedChange={checked => void save(checked, value().namingGuide)}>{copy.automaticRenaming}</Switch>
-      <Field.Root class="settings-field settings-naming" invalid={!!failure()}>
+      <Field.Root class="settings-field settings-naming">
         <Field.Label>{copy.namingGuide}</Field.Label>
         <Field.Textarea rows={4} spellcheck="false" autocorrect="off" autocapitalize="off" value={text()} onInput={event => {
           const input = event.currentTarget;
@@ -60,10 +73,7 @@ export const NamingSettings = (props: { app: App }) => {
         }} />
         <Field.HelperText>{copy.namingGuideHint}</Field.HelperText>
         <BusyButton kind="quiet" class="word" busyLabel={copy.saving} busy={saving()} onClick={() => save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</BusyButton>
-        <Field.ErrorText render={error => <div {...error}><ReservedLine message={failure()} dismiss={() => setFailure(null)} /></div>} />
       </Field.Root>
     </>}</Show>
-    <Show when={!settings() && failure()}><ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => refresh(settings), label: copy.storageRetry }} /></Show>
-    <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
   </>;
 };

@@ -6,6 +6,8 @@ import { createFakeApp } from "../testing/fakeApp";
 import { useBrowserStorage } from "../state/storage";
 import { AppSettings } from "./AppSettings";
 import { copy } from "./copy";
+import { ToastHost } from "../testing/toastHost";
+import { notice, notices } from "../testing/notices";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -27,7 +29,7 @@ const open = async (app: ReturnType<typeof createFakeApp>, machines: Machine[], 
   app.handlers["machine.sshHosts"] = () => hosts;
   app.handlers["machine.remove"] = ({ name }) => (list = list.filter(m => m.name !== name));
   app.handlers["machine.add"] = ({ name }) => (list = [...list, { name, details: {}, reachable: true }]);
-  render(() => <AppSettings app={app} project={() => "/p"} />);
+  render(() => <ToastHost><AppSettings app={app} project={() => "/p"} /></ToastHost>);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByLabelText("Settings", { selector: "section" });
@@ -181,13 +183,13 @@ it("mc71_a_failed_action_shows_the_mapped_sentence_and_no_core_text", async () =
     fireEvent.click(await within(list).findByRole("button", { name: "Remove box" }));
     await waitFor(() => expect(app.questions).toHaveLength(1));
     app.answerQuestion?.(true);
-    const alert = await screen.findByRole("alert");
+    const alert = await waitFor(() => notice("alert"));
     const text = document.body.textContent ?? "";
 
     expect(alert.textContent).toMatch(/\.$/);
     expect(text).not.toMatch(/-32602|invalid_params|see hc schema|\{|missing field/);
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toEqual([]));
     app.questions.length = 0;
   }
 });

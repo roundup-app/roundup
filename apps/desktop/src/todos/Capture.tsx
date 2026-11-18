@@ -9,7 +9,8 @@ import * as v from "valibot";
 import { createEffect, createMemo, createSignal, createUniqueId, flush, For, onCleanup, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { DialogFailure } from "../ink/MountedLine";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, LEADER } from "../keys/chords";
 import { resolvedWorkstream } from "../state/railTopology";
@@ -350,7 +351,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
             <span {...ownerCut.attrs()}>{ownerLine()}</span>
             <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
-          <ReservedLine message={failure() ?? problem.message()} dismiss={() => failure() ? setFailure(null) : problem.dismiss()} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
+          <DialogFailure message={failure() ?? problem.message()} dismiss={() => failure() ? setFailure(null) : problem.dismiss()} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
           <For each={recovered()}>{each => <div class="capture-recovery">
             <span class="ink" data-state={each.status}>{copy.draftStatus[each.status]}</span>
             <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readonly value={String(each.value.text)} />

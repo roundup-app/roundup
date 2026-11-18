@@ -57,7 +57,6 @@ export const copy = {
   importResults: "Conversations",
   importConfirm: (value1: CopyValue) => value1 === 0 ? sharedCopy.importAgentName : `Import ${value1}`,
   importChoices: "Saved Import choices",
-  importConflict: "Import choices conflict",
   importConflictExplanation: "Import choices changed in another window. Both versions are kept separately. Open either version to review it. Discard only the unwanted version.",
   importChoice: (number: number) => `Import choices ${number}`,
   importOpenChoice: (number: number) => `Open choices ${number}`,

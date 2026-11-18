@@ -28,7 +28,8 @@ import { createEffect, createMemo, createSignal, flush, For, onCleanup, Show, un
 import type { JSX } from "@solidjs/web";
 import { useTabsContext } from "../ui/Tabs";
 import type { Todo } from "@contracts/todo/Todo";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -56,6 +57,15 @@ import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
 import { doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeRows, type NestedRow } from "./todoView";
+
+/** U7314f: a kept draft whose Todo is gone says so in a toast, with Retry to read the list again. */
+const UnavailableDraft = (props: { object: string; reload: () => void }) => {
+  const unavailable = dismissable(() => copy.draftIdentity(copy.originalUnavailable, props.object));
+
+  createMessageToast({ get message() { return unavailable.message(); }, dismiss: unavailable.dismiss, recover: { run: () => props.reload() } });
+
+  return <TodoDraftRecovery object={props.object} />;
+};
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS: readonly ChordName[] = ["todo.triage-move", "todo.triage-assign", "todo.triage-done"];
@@ -98,6 +108,7 @@ export const Todos = (props: {
   const [typing, setTyping] = createSignal(retained !== undefined);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const shelfFailure = dismissable(() => todos.failure() || (!typing() ? createFailure() : null));
+  createMessageToast({ get message() { return shelfFailure.message(); }, dismiss: shelfFailure.dismiss, recover: { run: () => todos.reload() } });
   const [unfolded, setUnfolded] = createSignal(false);
   const scope = shelfScope(connected);
   const selectedWorkstream = scope.home;
@@ -683,7 +694,6 @@ export const Todos = (props: {
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={`${triage.on()}`} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
         <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
-      <ReservedLine overlay message={shelfFailure.message()} dismiss={shelfFailure.dismiss} recover={{ run: () => todos.reload() }} />
       <Show when={isEmpty() && !typing() && !todos.failure() && !createFailure()}>
         <EmptyState art="running" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
@@ -866,14 +876,7 @@ export const Todos = (props: {
       </Show>
       <Show when={todos.isLoaded()}>
         <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
-          && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => {
-          const unavailable = dismissable(() => copy.draftIdentity(copy.originalUnavailable, object));
-
-          return <div>
-            <ReservedLine message={unavailable.message()} dismiss={unavailable.dismiss} recover={{ run: () => todos.reload() }} />
-            <TodoDraftRecovery object={object} />
-          </div>;
-        }}</For>
+          && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <UnavailableDraft object={object} reload={() => todos.reload()} />}</For>
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>
