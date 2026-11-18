@@ -73,6 +73,3 @@ export const ReservedLine = (props: Props) => {
     </div>
   </div>;
 };
-
-/** Solid's ErrorBoundary fallback keeps the same presentation as an ordinary failure. */
-export const failureLine = (failure: Error, reset: () => void) => <ReservedLine message={failure.message} blocked recover={{ run: reset }} />;

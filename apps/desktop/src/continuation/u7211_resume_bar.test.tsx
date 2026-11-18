@@ -12,6 +12,7 @@ import { captureActions } from "../keys/registry";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
+import { notice, notices } from "../testing/notices";
 import { ToastHost } from "../testing/toastHost";
 import type { Candidate } from "../toasts/queue";
 import { copy } from "./copy";
@@ -80,6 +81,9 @@ const mount = async (setup: Setup) => {
   return { toasts, reads, sent, select: connected.rail.select, bar, inBar };
 };
 
+/** The card a failure of the line shows as, in the App's Toast region (U7314g). */
+const failure = () => within(screen.getByRole("region", { name: "Updates" }));
+
 const command = () => captureActions(document.body).find(each => each.name === "leader.resume");
 
 it("u7211a_the_bar_shows_only_while_the_selected_agent_has_unfinished_work", async () => {
@@ -114,14 +118,13 @@ it("u7211a_a_failed_read_says_so_and_retries", async () => {
 
   // U7314b: the failed read is a Toast with Retry, and holds no place over the Terminal.
   select("a");
-  const shown = await screen.findByRole("alert", { name: new RegExp(copy.checkFailed(copy.rpcFailure(CODE))) });
-  expect(shown.closest(".app-toasts")).not.toBeNull();
+  await waitFor(() => expect(notice("alert").textContent).toContain(copy.checkFailed(copy.rpcFailure(CODE))));
   expect(bar()).toBeNull();
 
   failing = false;
-  fireEvent.click(within(screen.getByRole("region", { name: "Updates" })).getByRole("button", { name: inkCopy.retry }));
+  fireEvent.click(failure().getByRole("button", { name: inkCopy.retry }));
   await waitFor(() => expect(inBar().getByRole("button", { name: copy.resume })).toBeTruthy());
-  expect(screen.queryByRole("alert", { name: /could not be checked/i })).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 it("u7211b_resume_sends_one_request_and_the_bar_goes_once_it_succeeds", async () => {
@@ -158,7 +161,7 @@ it("u7211b_while_resuming_the_line_says_so_and_offers_no_second_resume", async (
 it("u7211b_a_failed_resume_shows_its_error_and_retries_with_the_same_request", async () => {
   let failing = true;
 
-  const { sent, select, bar, inBar } = await mount({ work: { a: [action("x1")] }, resume: params => {
+  const { sent, select, bar } = await mount({ work: { a: [action("x1")] }, resume: params => {
     if (failing) throw new RpcError(CODE, "refused");
 
     return resumedOf(params.id, [action("x1")]);
@@ -166,11 +169,12 @@ it("u7211b_a_failed_resume_shows_its_error_and_retries_with_the_same_request", a
 
   select("a");
   fireEvent.click(await screen.findByRole("button", { name: copy.resume }));
-  await waitFor(() => expect(bar()?.textContent).toContain(copy.rpcFailure(CODE)));
+  await waitFor(() => expect(notice("alert").textContent).toContain(copy.rpcFailure(CODE)));
 
   failing = false;
-  fireEvent.click(inBar().getByRole("button", { name: copy.resume }));
+  fireEvent.click(failure().getByRole("button", { name: copy.resume }));
   await waitFor(() => expect(bar()).toBeNull());
+  expect(notices("alert")).toEqual([]);
 
   const [first, second] = sent;
 

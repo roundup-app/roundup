@@ -2,8 +2,8 @@ import "./styles.css";
 import { createEffect, Show, untrack } from "solid-js";
 import { RpcError } from "../app/seam";
 import { dismissable, RecoveryButtons, ReservedLine } from "../ink/ReservedLine";
-import { createMessageToast } from "../ink/messageToast";
 import { focusCentre, queueFocus } from "../keys/focus";
+import { createMessageToast } from "../ink/messageToast";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -23,8 +23,8 @@ const lineOf = ({ resumed, failed }: Tally): string => {
  * U7211a to U7211c: the one slim line floating over one row of the Terminal (Pane's `over`). It says so when the shown Project's
  * selected Agent has unfinished work the user has not dismissed, with Resume and Dismiss, and stays empty and hidden otherwise; showing it
  * resizes nothing (U3807, U4590) and Pane keeps it off the cursor's row (U7192). It never resumes by itself. `⌘K U` and the command
- * list resume every Agent's, while one has some, and a Toast says how many resumed. When the read of unfinished work
- * fails the line says so instead, with a retry.
+ * list resume every Agent's, while one has some, and a Toast says how many resumed. A failed resume, or a failed read of
+ * unfinished work, shows as a Toast with its retry and Dismiss (U7314g); the line is only the notice and holds no failure.
  */
 export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => boolean }) => {
   const { rail, continuation: work, project } = useConnectedProject();
@@ -44,17 +44,10 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
     return error === null ? null : reason(error);
   };
 
-  const message = () => pending() ? failed() : null;
-  const visible = () => pending();
-  const dismiss = () => work.dismiss(id());
-  const recover = () => ({ run: () => work.resume(id()), label: copy.resume });
-
-  // U7314b: the failed read of unfinished work is a Toast, not a line over the Terminal.
-  createMessageToast({
-    get message() { return pending() ? null : unchecked.message(); },
-    dismiss: () => unchecked.dismiss(),
-    recover: { run: work.reread },
-  });
+  const message = () => pending() ? failed() : unchecked.message();
+  const visible = () => pending() || !!message();
+  const dismiss = () => pending() ? work.dismiss(id()) : unchecked.dismiss();
+  const recover = () => pending() ? { run: () => work.resume(id()), label: copy.resume } : { run: work.reread };
 
   const report = (tally: Tally) => props.notify({ key: `resume:${project.path}`, item: `resume:${project.path}`, project: project.path, selected: false, kind: tally.failed > 0 ? "error" : "done", name: copy.title, line: lineOf(tally), open: () => null });
 
@@ -64,15 +57,14 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
     if (untrack(props.active) && was && !now && document.activeElement === document.body) queueFocus(() => void focusCentre());
   });
 
+  createMessageToast({ get message() { return message(); }, dismiss, get recover() { return recover(); } });
+
   return (
     <ReservedLine
       class="resume-bar"
       overlay
-      message={message()}
-      status={visible() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
-      dismiss={dismiss}
-      recover={recover()}
-      action={<Show when={!message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
+      status={pending() && !message() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
+      action={<Show when={pending() && !message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
       onKeyDown={event => {
         if (event.key !== "Escape") return;
 
