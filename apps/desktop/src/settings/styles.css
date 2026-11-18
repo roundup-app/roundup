@@ -38,6 +38,13 @@
   border-top: var(--hairline-width) solid var(--hairline);
 }
 
+.settings-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .settings-group-name {
   margin: 0;
   font-size: var(--text-small);

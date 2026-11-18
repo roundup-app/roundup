@@ -5,6 +5,7 @@ import type { App, AppSettingsPage } from "../app/seam";
 import { useUpdates } from "../state/updates";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
+import { Icon } from "../ink/Icon";
 import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { registerKeys } from "../keys/registry";
@@ -323,6 +324,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   for (const program of ["roundup", "core"] as const) createMessageToast({ get message() { return updateFailure(updates, program); }, dismiss: () => updates.dismiss(program) });
 
+  createMessageToast({ get message() { return updates.checkFailed() ? copy.updateCheckFailed : null; }, dismiss: updates.dismissCheck });
+
   const entries = () => settingsEntries({ project: props.project, updates, numericFields });
 
   // U5243a: `fuzzysort` ranks the live entries by label, description, page and group.
@@ -403,7 +406,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Machines"><SettingsGroup hideHeading name={copy.settingsMachines}><MachinesSettings app={props.app} project={props.project} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Updates"><SettingsGroup name={copy.settingsUpdates}>
+      <Tabs.Content value="Updates"><SettingsGroup name={copy.settingsUpdates} action={<BusyButton kind="icon" aria-label={copy.checkForUpdates} busyLabel={copy.checkingForUpdates} busy={updates.checking()} onClick={() => updates.check()}><Icon name="rotate-cw" /></BusyButton>}>
         <Show when={updates.facts()?.roundup}>{controls.updateRoundup()}</Show>
         <Show when={updates.facts()}>{controls.updateCore()}</Show>
       </SettingsGroup>

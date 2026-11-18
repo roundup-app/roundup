@@ -29,6 +29,7 @@ pub(crate) fn invoke_handler<R: Runtime>()
         close_project,
         exit_for_update,
         updates,
+        check_updates,
         install_update,
         update_core,
         fork_branch,
@@ -123,6 +124,14 @@ async fn exit_for_update<R: Runtime>(
 #[tauri::command]
 async fn updates<R: Runtime>(app: AppHandle<R>) -> Result<Updates, RpcError> {
     Ok(crate::updates::read(&app).await)
+}
+
+/// U7208g: reads both feeds now, as the hourly look does, and sends `updates-changed`.
+#[tauri::command]
+async fn check_updates<R: Runtime>(app: AppHandle<R>) -> Result<(), RpcError> {
+    crate::updates::look(&app)
+        .await
+        .map_err(|why| RpcError::new(rpc::code::INTERNAL, why))
 }
 
 /// U7208b: installs the offered roundup update, leaves every Daemon, then relaunches.

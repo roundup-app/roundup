@@ -111,6 +111,9 @@ export const copy = {
   updateReady: (version: string, keeps: string) => `${version} is ready. Your ${keeps} keep running through it.`,
   updateKeepsTerminals: sharedCopy.terminals,
   updatesFootnote: "roundup looks for both every hour and tells you in the corner.",
+  checkForUpdates: "Check for updates",
+  checkingForUpdates: sharedCopy.checking,
+  updateCheckFailed: "The check failed. Press Check for updates again.",
   updateRoundupHint: "Installs the new version and reopens roundup.",
   /** U7208b: why Update roundup failed, one sentence per kind the App leads its failure with. */
   updateFailures: {
