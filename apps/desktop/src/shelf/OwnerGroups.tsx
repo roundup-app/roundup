@@ -122,7 +122,7 @@ export const OwnerGroups = <T,>(props: {
               setClosed(kept => open() ? [...kept, id] : kept.filter(each => each !== id));
             }}>
               <TreeItemIndicator><Icon name={open() ? "down" : "right"} /></TreeItemIndicator>
-              <Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip>
+              <Tip kind="changing" text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip>
               <span class="shelf-group-count" data-state="">{props.count ? props.count(group()) : total(group())}</span>
             </TreeItem>
             {props.mark?.(group())}
