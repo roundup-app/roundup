@@ -739,7 +739,7 @@
 /* The ring and the count, and the changes mark and its count, are wider than an icon. */
 .rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); justify-content: flex-start; font-size: var(--text-caption); }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); justify-content: flex-start; }
-.rail-row .row-tail .row-icons { position: absolute; inset-block: 0; inset-inline-end: 100%; }
+.rail-row .row-icons { position: absolute; inset-block: 0; inset-inline-end: 100%; }
 .rail-row[data-reveal="shown"] .row-tail:has(.row-icons) { min-inline-size: calc(var(--rail-todos-room) + var(--rail-changes-room)); }
 .rail-row[data-reveal="shown"]:has(.row-icons) .name { padding-inline-end: calc(var(--rail-slot) * 3); }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
