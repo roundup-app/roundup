@@ -119,8 +119,9 @@ pub(super) fn started(run: &Run) -> Vec<Vec<String>> {
     rupd_turns(run)
         .into_iter()
         .filter(|turn| turn[0].contains(r#"from-name=\"rupd\""#))
-        // DCL6's settled note is its own turn and stays as it is.
-        .filter(|turn| !turn[0].contains("[settled]"))
+        // DCL6's settlement note, `[settled]` or `[stopped]` for a Job with no report, is its own turn and stays as
+        // it is.
+        .filter(|turn| !turn[0].contains("[settled]") && !turn[0].contains("[stopped]"))
         .collect()
 }
 

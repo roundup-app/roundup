@@ -1,5 +1,6 @@
 //! DTC3: the 2026-11-07 case, one Job, three Todos of the Door's own and a Wake request, costs the
 //! Door one turn. Real Daemon, fake `claude`: the Door's transcript counts the turns.
+use super::dtc4_catch_up::started;
 use super::*;
 
 /// The Door's turns a `rupd` note started, each as the notes the Door was given before it answered:
@@ -31,21 +32,11 @@ pub(super) fn rupd_turns(run: &Run) -> Vec<Vec<String>> {
     turns
 }
 
-/// The turns a `rupd` note about the Job's changes started. DCL6's settled note is its own turn and stays as it is
-/// (`scenarios/door-turn-cost.md`), and so is its stop note for an open Job (`scenarios/door-closed-loop.md`): the
-/// fake Job sends no report Message, so DCL6 tells the Door of it 2 s after the Job rests, after the report's turn.
-fn child_turns(run: &Run) -> Vec<Vec<String>> {
-    super::dtc4_catch_up::started(run)
-        .into_iter()
-        .filter(|turn| !turn[0].contains("[stopped]"))
-        .collect()
-}
-
 #[tokio::test]
 async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
     let run = Run::start_live().await;
     run.let_settled_pass().await;
-    let before = child_turns(&run).len();
+    let before = started(&run).len();
     let door = Client::connect(&run.daemon.socket).await.unwrap();
     door.request(
         "daemon.identify",
@@ -114,9 +105,9 @@ async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
         run.compared().await;
     }
     // The slow turn ends: the Job reports, and its Wake request fires.
-    wait(|| child_turns(&run).len() > before).await;
+    wait(|| started(&run).len() > before).await;
     tokio::time::sleep(Duration::from_secs(5)).await;
-    let turns = child_turns(&run);
+    let turns = started(&run);
     assert_eq!(turns.len() - before, 1, "{:#?}", &turns[before..]);
     let notes = turns.last().unwrap().join("\n");
     assert!(notes.contains("[wake]"), "the report's note: {notes}");
