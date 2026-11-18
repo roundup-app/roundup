@@ -215,14 +215,16 @@ impl Agents {
     fn spawn_request(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<SpawnRequest, RpcError> {
         let size = self.check_spawner(ctx, &mut params)?;
         let by_agent = ctx.actor.kind == ActorKind::Agent;
-        let role = check_role(params.role, by_agent)?;
-        let mode = role == Some(contracts::agent::SpawnRole::Mode);
+        let mode = params.role == Some(contracts::agent::SpawnRole::Mode);
         let lean = if mode {
-            self.mode_of(ctx, &params)?;
             None
         } else {
             self.lean_of(&mut params, by_agent)?
         };
+        let role = check_role(params.role, by_agent)?;
+        if mode {
+            self.mode_of(ctx, &params)?;
+        }
         let pair = self.choose(
             &ctx.actor,
             Role::Agent,
