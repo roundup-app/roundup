@@ -1,4 +1,4 @@
-import { createContext, createEffect, createMemo, createUniqueId, mapArray, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createUniqueId, mapArray, untrack, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ReservedLine, type Dismissible } from "./ReservedLine";
 
@@ -6,7 +6,10 @@ import { ReservedLine, type Dismissible } from "./ReservedLine";
 export type MessageCard = { id: string; body: () => JSX.Element; closed: () => void };
 
 /** U7310d: what a view needs of the App's Toast queue: it shows a card, and the returned call takes the card down. */
-export type MessageQueue = { message(card: MessageCard): () => void };
+export type MessageQueue = { message(card: MessageCard): () => void; /** U7471a: text a view's failure starts with when the card shows; empty when the view's Project is shown. */ origin?: () => string };
+
+/** U7471a: the queue a Project's views reach: a failure raised while the Project is not shown starts with its name and ` · `. */
+export const projectMessageQueue = (queue: MessageQueue, name: string, shown: () => boolean): MessageQueue => ({ message: card => queue.message(card), origin: () => (shown() ? "" : `${name} · `) });
 
 /** The App's Toast queue, as the views under it reach it. */
 export const ToastQueueContext = createContext<MessageQueue | null>(null);
@@ -24,8 +27,17 @@ export const createMessageToast = (line: FailureLine, queue: MessageQueue | null
 
   const id = createUniqueId();
   // The line is made under the view's owner, so it ends with the view; the card only shows it.
-  const body = <ReservedLine {...line} />;
+
   const text = createMemo(() => line.message || null);
+
+  // The origin is read once per message, so a card showing keeps its text when the user switches Project.
+  const full = createMemo(() => {
+    const message = text();
+
+    return message ? `${untrack(() => queue.origin?.()) ?? ""}${message}` : null;
+  });
+
+  const body = <ReservedLine {...line} message={full()} />;
 
   createEffect(text, shown => {
     if (!shown) return undefined;
