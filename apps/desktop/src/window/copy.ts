@@ -61,6 +61,11 @@ export const copy = {
   reopen: sharedCopy.reopen,
   /** @prose */
   projectStartRecovery: (name: string, stage: string, cause: string) => `${name}: ${stage} failed: ${cause}. Inspect it before retrying.`,
+  openProjectUnknown: "Outcome unknown",
+  /** @prose */
+  projectStartUnknown: (name: string) => `The outcome is unknown: ${name} was created and its launch may have happened. Check the Rail before starting again.`,
+  /** @prose */
+  projectStartUnknownReply: (path: string, id: string) => `The outcome is unknown: row ${id} in ${path} was created and its launch may have happened. Inspect that row before starting again.`,
   projectStartStage: "start",
   /** @prose */
   projectStartFailed: (path: string, id: string, stage: string, cause: string) => `${path}: row ${id} was created; ${stage} failed: ${cause}. Inspect it before retrying.`,
