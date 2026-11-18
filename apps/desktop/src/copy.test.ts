@@ -163,8 +163,8 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     if (ancestors.some((each) => each.type === "TemplateLiteral" && /^<a href=/.test(each.quasis[0]?.value.cooked ?? ""))) return;
 
-    // Pad Markdown wrappers are serialized source delimiters; their contents remain expressions checked below.
-    if (node.type === "TemplateLiteral" && /^(?:<span data-pad-color=" "> <\/span>|<mark> <\/mark>)$/.test(node.quasis.map(part => part.value.cooked ?? "").join(" "))) return;
+    // Pad Markdown wrappers and the For Agents fold (U7312a) are markup delimiters; their contents remain expressions checked below.
+    if (node.type === "TemplateLiteral" && /^(?:<span data-pad-color=" "> <\/span>|<mark> <\/mark>|<details data-pad-agents><summary> <\/summary> <\/details>)$/.test(node.quasis.map(part => part.value.cooked ?? "").join(" "))) return;
     const parent = ancestors.at(-1);
 
     // FontFaceSet.load consumes CSS font syntax, never App copy.

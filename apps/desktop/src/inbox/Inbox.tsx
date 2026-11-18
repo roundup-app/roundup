@@ -18,6 +18,7 @@ import type { AgentRow, RowActions } from "./InboxRow";
 import { sectionsOf } from "./rows";
 import { nameOf, revealTerminal } from "../bubbles/places";
 import { statusText } from "../terminal/programStatus";
+import { agentCommentLine } from "../todos/agentCommentLine";
 import "./inbox.styles.css";
 
 const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
@@ -115,7 +116,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
     const agent = byKey().get(row.value);
     const comment = rows().find(each => `c:${each.comment.id}` === row.value);
 
-    return [row.label, agent?.terminal ? statusText(agent.terminal.status!) : agent?.node?.status?.label ?? comment?.comment.body].filter(Boolean).join("\n");
+    return [row.label, agent?.terminal ? statusText(agent.terminal.status!) : agent?.node?.status?.label ?? (comment && agentCommentLine(comment.comment.body))].filter(Boolean).join("\n");
   }).join("\n\n");
 
   const head = (key: string, element: HTMLElement) => {
@@ -201,7 +202,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
       ref={element => head(`c:${row.comment.id}`, element)} data-selected={String(content.selection.isSelected(`c:${row.comment.id}`))}
       onClick={event => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event), { kind: "todo", project: project.path })}>
       <KindGlyph kind="needs-you" /><span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
-      <span class="inbox-row-line">{row.comment.body}</span>
+      <span class="inbox-row-line">{agentCommentLine(row.comment.body)}</span>
     </button></li>;
   };
 

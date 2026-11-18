@@ -463,7 +463,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer [contenteditable=true]')");
       await lane.browser("fill", ".drawer [contenteditable=true]", "Exact retained Pad body /Users/authored/path");
-      await lane.until("!!document.querySelector('.drawer .pad-body [role=alert]')");
+      await lane.until("!!document.querySelector('.app-toast [role=alert]')");
       await capture("U3299c", side!, "retained-pad-body");
       await lane.browser("click", ".drawer .close");
       await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");

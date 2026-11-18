@@ -13,6 +13,7 @@ let props: CanvasProps | undefined;
 const fake: CanvasApi = {
   convertToExcalidrawElements: (skeleton) => skeleton.map((element, index) => ({ id: String(element.id ?? `e${index}`), version: 1 })),
   restoreElements: (stored) => stored.map((element) => ({ id: String(element.id), version: element.version ?? 1 })),
+  fromMermaid: async () => [],
   Excalidraw: (next) => {
     props = next;
 
@@ -81,9 +82,11 @@ it("u7414c_edit_toggles_the_drawings_tools", async () => {
   await openPad("note");
   await screen.findByTestId("canvas");
   expect(tools()).toBe("false");
+  expect(props?.zenModeEnabled).toBe(true);
 
   fireEvent.click(screen.getByRole("button", { name: copy.editDrawing }));
   await waitFor(() => expect(tools()).toBe("true"));
+  expect(props?.zenModeEnabled).toBe(false);
   expect(screen.queryByRole("button", { name: copy.editDrawing })).toBeNull();
 
   fireEvent.pointerDown(document.body);

@@ -241,7 +241,7 @@ def order(issue):
 def delivers(pr, issue):
     """L82: whether PR number `pr` delivers all the work of `issue` (its JSON): an implementation order whose scenarios
     `main` holds, a change outside `scenarios/`, and for each scenario id a line the diff adds that names a test after it
-    (`u1_…`). An order the queue cannot read, or a diff GitHub refuses (over 300 files), delivers nothing."""
+    (`u1_…`, or Python's `test_u1_…`). An order the queue cannot read, or a diff GitHub refuses (over 300 files), delivers nothing."""
     try:
         row = order(issue)
         if row['mode'] != 'implement':
@@ -252,7 +252,7 @@ def delivers(pr, issue):
         return False
     added = '\n'.join(line for line in diff.splitlines() if line.startswith('+') and not line.startswith('+++ '))
     return any(not path.startswith('scenarios/') for path in re.findall(r'^diff --git a/(\S+) b/', diff, re.M)) and \
-        all(re.search(rf'\b{name.lower()}_', added) for name in scenario_ids(row['ids']))
+        all(re.search(rf'(?<![a-z0-9]){name.lower()}_', added) for name in scenario_ids(row['ids']))
 
 
 def waits(item):

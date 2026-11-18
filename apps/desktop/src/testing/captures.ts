@@ -129,6 +129,7 @@ const observerTable = {
   "src/toasts/p3557c_capture.test.ts": ["P3557c", "U411"],
   "src/todos/u5119_browser.test.ts": ["U5119"],
   "src/todos/u4698e_browser.test.ts": ["U4698e"],
+  "src/todos/u7312c_browser.test.ts": ["U7312c"],
   "src/todos/u4698d_browser.test.ts": ["U4698d"],
   "src/todos/u4698d_body_browser.test.ts": ["U4698d"],
   "src/todos/u4698d_refusal_browser.test.ts": ["U4698d"],
