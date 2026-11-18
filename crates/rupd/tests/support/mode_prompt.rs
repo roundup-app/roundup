@@ -419,6 +419,20 @@ async fn nested(run: &mut Run, prompt: &str) -> (String, rpc::Client) {
     (starter, agent)
 }
 
+async fn wait_status(run: &Run, kind: &str) -> String {
+    for _ in 0..100 {
+        let status = row(run, &run.child).await["status"]["kind"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        if status == kind {
+            return status;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    String::new()
+}
+
 async fn row(run: &Run, id: &str) -> Value {
     let tree = run.user.request("rail.tree", ()).await.unwrap();
     tree.as_array()
@@ -611,20 +625,33 @@ async fn a7494b_a_nested_modes_context_asks_the_user() {
 async fn a7494b_its_parent_gets_no_question_or_digest_push_from_it() {
     let mut run = mode("Planner words").await;
     let (starter, _agent) = nested(&mut run, "First").await;
-    // Only a Door is told a Digest of its children, and a nested Mode's parent is a root Agent.
+    let before = run
+        .user
+        .request("message.list", json!({"to":starter}))
+        .await
+        .unwrap();
+    // The nested Mode asks through its own prompt; its Status turns `needs-you`.
+    run.user
+        .request(
+            "agent.signal",
+            json!({"id":run.child,"attempt":run.attempt,"payload":{
+                "hook_event_name":"PermissionRequest","tool_name":"AskUserQuestion"}}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        wait_status(&run, "needs-you").await,
+        "needs-you",
+        "the child never needed the user"
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     let inbox = run
         .user
         .request("message.list", json!({"to":starter}))
         .await
         .unwrap();
-    assert!(
-        inbox
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|message| message["from"]["id"] != run.child && message["kind"] != "question"),
-        "{inbox}"
-    );
+    // B43's attention note would add an entry from the Daemon.
+    assert_eq!(inbox, before);
 }
 
 #[tokio::test]
