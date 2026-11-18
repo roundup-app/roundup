@@ -261,6 +261,15 @@ binary_id(=rup::alert_levels)
 | binary_id(=rupd::workstream_measurement)
 | binary_id(=rupd::z6395b_agent_catch_up)
 | binary_id(=todos::t26_handoff)
+| binary_id(=pads::order)
+| binary_id(=pads::pads)
+| binary_id(=pads::rename)
+| binary_id(=rpc::client)
+| binary_id(=rpc::d10)
+| binary_id(=rpc::d11)
+| binary_id(=rpc::dispatch)
+| binary_id(=rpc::output)
+| binary_id(=rpc::reply)
 '''
 
 [profile.ci4]
@@ -407,6 +416,9 @@ test(=dtc4_catch_up::dtc4_eight_reports_during_one_turn_cost_one_turn)
 | test(=dcl10c_running_door_with_a_pending_message_has_no_waiting_count)
 | test(=dcl10_waiting_count_follows_stored_backlog_without_double_count)
 ))
+| binary_id(=terminal::library_attach)
+| binary_id(=terminal::library_edits)
+| binary_id(=terminal::scenarios)
 '''
 
 [profile.ci9]
@@ -431,28 +443,12 @@ binary_id(=agents::amg1)
 | binary_id(=rupd::b6_cleanup_completion)
 | binary_id(=rupd::d1_attached)
 | binary_id(=rupd::n7_data)
-'''
-
-[profile.ci10]
-default-filter = '''
-binary_id(=pads::order)
-| binary_id(=pads::pads)
-| binary_id(=pads::rename)
-| binary_id(=rpc::client)
-| binary_id(=rpc::d10)
-| binary_id(=rpc::d11)
-| binary_id(=rpc::dispatch)
-| binary_id(=rpc::output)
-| binary_id(=rpc::reply)
 | (binary_id(=rupd::b21_stopped_door) & test(=b21_a_reopened_door_waits_until_explicit_start))
 | (binary_id(=rupd::b21_stopped_door) & test(=dcl10_start_replays_one_ordered_batch))
 | (binary_id(=rupd::b21_stopped_door) & test(=dcl10d_waking_replay::dcl10d_a_replayed_end_note_wakes_the_door_within_2s))
 | binary_id(=rupd::b50_note_inbox)
 | binary_id(=rupd::launch_choices)
 | binary_id(=rupd::u3787a_pad_restore)
-| binary_id(=terminal::library_attach)
-| binary_id(=terminal::library_edits)
-| binary_id(=terminal::scenarios)
 '''
 
 # E14: a real Claude uses up to 370 MB; bound the tests sharing these runners.
