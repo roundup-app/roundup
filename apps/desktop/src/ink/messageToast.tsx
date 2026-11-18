@@ -1,4 +1,4 @@
-import { createContext, createEffect, createMemo, createUniqueId, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createUniqueId, mapArray, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ReservedLine, type Dismissible } from "./ReservedLine";
 
@@ -36,4 +36,10 @@ export const createMessageToast = (line: FailureLine): void => {
 
     return queue.message(card);
   });
+};
+
+/** A toast per failure in a list, each living as long as its failure is in the list. */
+export const createMessageToasts = <T,>(failures: () => readonly T[], line: (failure: T) => FailureLine): void => {
+  // The memo only keeps the mapping read, so each failure's toast lives and goes with it.
+  const _toasts = createMemo(mapArray(failures, failure => createMessageToast(line(failure))));
 };

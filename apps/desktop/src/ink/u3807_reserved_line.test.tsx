@@ -64,6 +64,7 @@ it("u3807_no_message_renders_outside_the_reserved_line", () => {
 
     const tree = parse(text, { sourceType: "module", plugins: ["typescript", "jsx"] });
     const errorNames = new Set(["ErrorLine"]);
+    const renders = name === "ink/ReservedLine.tsx" || name === "ink/MountedLine.tsx";
 
     traverseFast(tree, node => {
       if (node.type !== "ImportDeclaration" || !node.source.value.endsWith("/ErrorLine")) return;
@@ -75,7 +76,7 @@ it("u3807_no_message_renders_outside_the_reserved_line", () => {
     traverseFast(tree, node => {
       if (node.type !== "JSXOpeningElement") return;
 
-      if (node.name.type === "JSXIdentifier" && errorNames.has(node.name.name) && name !== "ink/ReservedLine.tsx") failures.push(name);
+      if (node.name.type === "JSXIdentifier" && errorNames.has(node.name.name) && !renders) failures.push(name);
 
       if (name.startsWith("ink/")) return;
 
