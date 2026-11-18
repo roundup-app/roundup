@@ -6,6 +6,7 @@ import { useUpdates } from "../state/updates";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
@@ -41,6 +42,13 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const offeredLine = dismissable(() => offered()?.failure);
   const conflictLine = dismissable(() => numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null);
   const draftLine = dismissable(() => drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null);
+
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ get message() { return offeredLine.message(); }, dismiss: offeredLine.dismiss, recover: { run: () => refresh(offered), label: copy.storageRetry } });
+  createMessageToast({ get message() { return conflictLine.message(); }, dismiss: conflictLine.dismiss, get action() { return <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => { const draft = current(name);
+
+ return draft ? drafts.discard(draft.revision) : undefined; }}>{copy.discardSettingsEdit(label)}</BusyButton>}</For>; } });
+  createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
   drafts.validate("settings", v.object({ text: v.string(), saved: v.optional(v.string()) }));
   const destination = (field: string) => ({ surface: "settings", object: field, recipient: null });
   const current = (field: string) => drafts.list().findLast(draft => draft.destination.surface === "settings" && draft.destination.object === field);
@@ -372,7 +380,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Show>
         {controls.naming()}
         {controls.skill()}
-        <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => refresh(offered), label: copy.storageRetry }} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
@@ -402,13 +409,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <AlertSettings save={save} /><ResetWarnings onFailure={setFailure} />
       </SettingsGroup></Tabs.Content>
       </Show>
-      <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
-      <ReservedLine message={conflictLine.message()} dismiss={conflictLine.dismiss} action={<>
-        <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => { const draft = current(name);
-
- return draft ? drafts.discard(draft.revision) : undefined; }}>{copy.discardSettingsEdit(label)}</BusyButton>}</For>
-      </>} />
-      <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
       </div></Tabs.Root>
     </SettingsShell>
     </Show>

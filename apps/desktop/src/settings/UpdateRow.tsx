@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import { BusyButton } from "../ui/BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import type { Program, Updates } from "../state/updates";
 import { copy } from "./copy";
 import { kindOf } from "./machineFailure";
@@ -50,6 +51,8 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
     return roundupFailures.get(kindOf(message)) ?? copy.updateFailed;
   };
 
+  createMessageToast({ get message() { return failure(); }, dismiss: () => props.updates.dismiss(props.program) });
+
   const state = () => {
     const ready = row()?.ready;
 
@@ -77,11 +80,7 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
           {own().button}
         </BusyButton>
       </Show>
-      <ReservedLine
-        message={failure()}
-        dismiss={() => props.updates.dismiss(props.program)}
-        status={progress()}
-      />
+      <ReservedLine status={failure() ? null : progress()} />
     </div>
   );
 };

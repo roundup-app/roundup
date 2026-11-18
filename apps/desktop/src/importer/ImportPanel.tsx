@@ -2,6 +2,7 @@ import { doorStatus } from "../state/doorNode";
 import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import "./import.css";
 import { createSignal, For, onCleanup, onSettled, Show } from "solid-js";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
@@ -34,7 +35,12 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const failure = state.failure;
   const refused = state.failed;
   const uncertain = () => !state.verified() && [...refused().values()].some(failure => copy.importRowRefusal(failure) === null);
+  const conflict = dismissable(() => state.hasConflict() ? copy.importConflictExplanation : null);
   const line = dismissable(() => failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null));
+  createMessageToast({ get message() { return line.message(); }, dismiss: line.dismiss, get recover() { return failure() ? { run: () => state.refresh() } : state.restoreFailure() || state.retentionFailure() ? { run: state.retryStorage, label: copy.retryStorage } : undefined; } });
+  createMessageToast({ get message() { return conflict.message(); }, dismiss: conflict.dismiss });
+  createMessageToast({ get message() { return state.startFailure(); }, dismiss: state.dismissStartFailure });
+  createMessageToast({ get message() { return copyFailure(); }, dismiss: () => failCopy(null) });
   const pending = state.pending;
   const choose = state.setPeriod;
   const confirm = state.confirm;
@@ -77,7 +83,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           <textarea rows={1} class="import-prompt field-frame" aria-label={copy.importPrompt} value={state.prompt()} spellcheck="false" autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
           <BusyButton kind="quiet" busy={state.starting()} disabled={daemonExit() !== null || pending() || state.prompt().trim().length === 0} busyLabel={copy.starting} onClick={() => state.start()}>{copy.importStart}</BusyButton>
         </div>
-        <ReservedLine message={state.startFailure()} dismiss={state.dismissStartFailure} />
       </SettingsGroup>
       <SettingsGroup name={copy.importPeriod}>
           <div role="group" aria-label={copy.importPeriod} class="import-period">
@@ -91,8 +96,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       <SettingsGroup name={copy.importResults}><div class="import-panel">
           <ReservedLine status={state.listingAgent() && !found()?.candidates.length ? copy.importListing(listing()?.name ?? copy.importAgentName) : null}
             content={<span class="import-listing"><KindGlyph kind={doorStatus(listing())?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></span>} />
-          <ReservedLine message={line.message()} dismiss={line.dismiss} recover={failure() ? { run: () => state.refresh() } : state.restoreFailure() || state.retentionFailure() ? { run: state.retryStorage, label: copy.retryStorage } : undefined}
-            aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null} />
+          <ReservedLine aria-live="polite" status={!state.hasConflict() && !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : !state.hasConflict() && state.loading() ? copy.importLooking : !state.hasConflict() && found()?.candidates.length === 0 ? copy.importNone : null} />
           <Show when={state.hasConflict()}>
             <section class="import-recovery" aria-label={copy.importChoices}>
               <For each={state.choices()}>{(choice, at) => (
@@ -148,7 +152,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
               </Show>
             </>}
           </Show>
-          <ReservedLine message={copyFailure()} dismiss={() => failCopy(null)} />
       </div></SettingsGroup>
       </div>
           <p class="import-words">

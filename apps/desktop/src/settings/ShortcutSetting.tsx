@@ -4,6 +4,7 @@ import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { type KeyText, leaderKeys, ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
 import { checkRecorded, holderOf, isModifier, ownerOf, shortcutsWith } from "./shortcutRules";
 import { registerKeys } from "../keys/registry";
@@ -165,6 +166,8 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
     { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => !["Control", "Alt", "Meta", "Shift", "CapsLock"].includes(event.key) && !event.isComposing, run: take },
   ]);
 
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+
   return <>
     <div class="settings-field">
       <div class="settings-caption"><span id={caption} class="settings-field-caption">{row.label}</span></div>
@@ -176,6 +179,5 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
       </div>
       <span id={hint} class="settings-hint">{row.hint}</span>
     </div>
-    <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
   </>;
 };

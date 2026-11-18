@@ -6,7 +6,8 @@ import { copy } from "./copy";
 import { draftStorage } from "../state/storage";
 import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
-import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import { dismissable } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 
 /** Global naming preferences use the existing RPC seam even before a Project is open. */
 export const NamingSettings = (props: { app: App }) => {
@@ -48,6 +49,9 @@ export const NamingSettings = (props: { app: App }) => {
     } finally { setSaving(false); }
   };
 
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return settings() ? undefined : { run: () => refresh(settings), label: copy.storageRetry }; } });
+  createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
+
   return <>
     <Show when={settings()}>{value => <>
       <Switch checked={value().automaticRenaming} disabled={saving()} description={copy.automaticRenamingHint}
@@ -60,10 +64,7 @@ export const NamingSettings = (props: { app: App }) => {
         }} />
         <Field.HelperText>{copy.namingGuideHint}</Field.HelperText>
         <BusyButton kind="quiet" class="word" busyLabel={copy.saving} busy={saving()} onClick={() => save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</BusyButton>
-        <Field.ErrorText render={error => <div {...error}><ReservedLine message={failure()} dismiss={() => setFailure(null)} /></div>} />
       </Field.Root>
     </>}</Show>
-    <Show when={!settings() && failure()}><ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => refresh(settings), label: copy.storageRetry }} /></Show>
-    <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
   </>;
 };

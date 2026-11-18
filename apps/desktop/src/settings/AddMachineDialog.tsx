@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 
@@ -16,6 +16,8 @@ export const AddMachineDialog = (props: {
 }) => {
   const [typed, setTyped] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
+
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
 
   const submit = async (name: string) => {
     if (name.trim() === "") return;
@@ -59,7 +61,6 @@ export const AddMachineDialog = (props: {
           <Field.HelperText>{copy.sshTargetHint}</Field.HelperText>
         </Field.Root>
       </form>
-      <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
       <div class="app-dialog-actions">
         <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
       </div>
