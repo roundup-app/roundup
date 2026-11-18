@@ -29,7 +29,7 @@ export const SettingsShell = (props: { heading: string; hideHeading?: boolean; o
 
 export const SettingsGroup = (props: { name: string; hideHeading?: boolean; /** A control in the heading's row (U7208g). */ action?: JSX.Element; children: JSX.Element }) => (
   <section class="settings-group">
-    {!props.hideHeading && <div class="settings-group-head"><h3 class="settings-group-name">{props.name}</h3>{props.action}</div>}
+    {!props.hideHeading && <div class="settings-group-head"><h3 class="settings-group-name">{props.name}</h3>{props.action && <span class="settings-group-action">{props.action}</span>}</div>}
     <div class="settings-rows" role="group" aria-label={props.name}>{props.children}</div>
   </section>
 );
