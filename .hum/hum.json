@@ -1,0 +1,257 @@
+{
+	"schemaVersion": 3,
+	"levels": [
+		{
+			"name": "low",
+			"review": "none",
+			"release": "at-once",
+			"onBreak": "follow-up"
+		},
+		{
+			"name": "medium",
+			"review": "agent",
+			"release": "at-once",
+			"onBreak": "follow-up"
+		},
+		{
+			"name": "high",
+			"review": "owner",
+			"release": "at-once",
+			"onBreak": "follow-up"
+		},
+		{
+			"name": "critical",
+			"review": "owner",
+			"release": "after-proof",
+			"onBreak": "block"
+		}
+	],
+	"paths": [
+		{
+			"glob": ".agents/**",
+			"level": "medium"
+		},
+		{
+			"glob": ".claude/**",
+			"level": "medium"
+		},
+		{
+			"glob": ".config/**",
+			"level": "medium"
+		},
+		{
+			"glob": ".github/**",
+			"level": "high"
+		},
+		{
+			"glob": ".work/**",
+			"level": "medium"
+		},
+		{
+			"glob": "apps/**",
+			"level": "medium"
+		},
+		{
+			"glob": "artifacts/**",
+			"level": "medium"
+		},
+		{
+			"glob": "contracts/**",
+			"level": "medium"
+		},
+		{
+			"glob": "crates/**",
+			"level": "medium"
+		},
+		{
+			"glob": "docs/**",
+			"level": "low"
+		},
+		{
+			"glob": "loop/**",
+			"level": "medium"
+		},
+		{
+			"glob": "patches/**",
+			"level": "medium"
+		},
+		{
+			"glob": "proofs/**",
+			"level": "medium"
+		},
+		{
+			"glob": "scenarios/**",
+			"level": "medium"
+		},
+		{
+			"glob": "site/**",
+			"level": "medium"
+		},
+		{
+			"glob": "spikes/**",
+			"level": "medium"
+		},
+		{
+			"glob": "tools/**",
+			"level": "medium"
+		},
+		{
+			"glob": "vendor/**",
+			"level": "medium"
+		},
+		{
+			"glob": "*.md",
+			"level": "medium"
+		},
+		{
+			"glob": "*",
+			"level": "medium"
+		}
+	],
+	"roles": {
+		"plan": {
+			"file": "roles/plan.md",
+			"purpose": "plan",
+			"skills": [
+				"hope:intent",
+				"hope:shape",
+				"scenario-first"
+			]
+		},
+		"build": {
+			"file": "roles/build.md",
+			"purpose": "build",
+			"skills": [
+				"prime",
+				"scenario-first",
+				"anchor",
+				"tdd",
+				"codebase-design",
+				"change-rules",
+				"pr-shape",
+				"reduce",
+				"show-me",
+				"emil-design-eng",
+				"taste-skill",
+				"animate"
+			]
+		},
+		"fix": {
+			"file": "roles/fix.md",
+			"purpose": "fix",
+			"skills": [
+				"prime",
+				"tdd",
+				"change-rules",
+				"pr-shape",
+				"reduce",
+				"show-me"
+			]
+		},
+		"repro": {
+			"file": "roles/repro.md",
+			"purpose": "build",
+			"skills": [
+				"scenario-first",
+				"tdd"
+			]
+		},
+		"review": {
+			"file": "roles/review.md",
+			"purpose": "review",
+			"skills": [
+				"hope:judge"
+			]
+		}
+	},
+	"events": {
+		"plan-ready": {
+			"source": "plan"
+		},
+		"needs-split": {
+			"source": "plan"
+		},
+		"plan-blocked": {
+			"source": "plan"
+		},
+		"token-cap": {
+			"source": "worker"
+		},
+		"approve": {
+			"source": "review"
+		},
+		"request-changes": {
+			"source": "review"
+		},
+		"needs-owner": {
+			"source": "review"
+		},
+		"answered": {
+			"source": "owner"
+		},
+		"window-passed": {
+			"source": "shows-bug"
+		},
+		"owner-approved": {
+			"source": "owner"
+		},
+		"owner-rejected": {
+			"source": "owner"
+		},
+		"merged": {
+			"source": "work-source"
+		}
+	},
+	"kinds": [
+		"feature",
+		"fix",
+		"docs",
+		"hotfix",
+		"check"
+	],
+	"mergeMethod": "merge",
+	"runners": 2,
+	"strictPaths": [
+		"**/migrations/**",
+		"**/*.sql",
+		"**/*.key"
+	],
+	"runSlots": {
+		"enabled": true,
+		"pool": "../.hum-slots",
+		"services": "per-slot",
+		"ports": {
+			"base": 20000,
+			"stride": 10
+		},
+		"projectPrefix": "hum",
+		"stepTimeoutSeconds": 600,
+		"recipe": {
+			"prepare": [
+				"pnpm install --frozen-lockfile"
+			],
+			"refresh": [
+				{
+					"run": "pnpm install --frozen-lockfile",
+					"when": "lockfile-changed"
+				}
+			],
+			"ready": []
+		}
+	},
+	"checks": [
+		"nice -n 10 env CARGO_BUILD_JOBS=4 just ready"
+	],
+	"runPlaces": [
+		"mac"
+	],
+	"integrations": {
+		"work-source": "roundup",
+		"questions": "roundup",
+		"answers": "roundup"
+	},
+	"commitIdentity": {
+		"name": "Saad Shahd",
+		"email": "dev.saad.shahd@gmail.com"
+	}
+}
