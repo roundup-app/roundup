@@ -419,20 +419,6 @@ async fn nested(run: &mut Run, prompt: &str) -> (String, rpc::Client) {
     (starter, agent)
 }
 
-async fn wait_status(run: &Run, kind: &str) -> String {
-    for _ in 0..100 {
-        let status = row(run, &run.child).await["status"]["kind"]
-            .as_str()
-            .unwrap_or_default()
-            .to_owned();
-        if status == kind {
-            return status;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    }
-    String::new()
-}
-
 async fn row(run: &Run, id: &str) -> Value {
     let tree = run.user.request("rail.tree", ()).await.unwrap();
     tree.as_array()
@@ -640,7 +626,7 @@ async fn a7494b_its_parent_gets_no_question_or_digest_push_from_it() {
         .await
         .unwrap();
     assert_eq!(
-        wait_status(&run, "needs-you").await,
+        row(&run, &run.child).await["status"]["kind"],
         "needs-you",
         "the child never needed the user"
     );
