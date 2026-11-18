@@ -5,7 +5,7 @@ import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
 import type { CompareRef } from "@contracts/agent/CompareRef";
 import type { AppSeam } from "../app/seam";
 import { failureOf } from "../app/failureOf";
-import { ReservedLine } from "../ink/ReservedLine";
+import { BlockedFailure } from "../ink/MountedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Select } from "../ui/Select";
 import { copy } from "./copy";
@@ -143,7 +143,7 @@ const Surface = (props: { id: string; name: string }) => {
       <Select label={copy.compareFrom} choices={withEnd(current().from)} value={keyOf(current().from)} onValueChange={value => choose("from", value)} />
       <Select label={copy.compareTo} choices={withEnd(current().to)} value={keyOf(current().to)} onValueChange={value => choose("to", value)} />
     </div>}</Show>
-    <ReservedLine message={listed()?.failure ?? null} blocked recover={{ run: () => refresh(listed) }} />
+    <BlockedFailure message={listed()?.failure} recover={{ run: () => refresh(listed) }} />
     <div class="changes-body">
     <Show when={path()} fallback={<ul class="changes-files" aria-label={copy.changedFilesList}>
       <For each={files()}>{file => <FileRow id={props.id} file={file} from={ends()?.from ?? HEAD} to={ends()?.to ?? HEAD} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>

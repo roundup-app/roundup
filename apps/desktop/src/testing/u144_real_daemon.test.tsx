@@ -22,6 +22,7 @@ import { WorktreeControl } from "../changes/WorktreeControl";
 import { openFile } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { notice, notices } from "./notices";
+import { ToastHost } from "./toastHost";
 import { openRecovery as openMenu, recoveryLabel } from "./recovery";
 
 /** A row opens as left-unsent work and turns to Copy once its original is known gone, which waits on the Daemon's reads. */
@@ -43,7 +44,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   const mount = () => render(() => {
     connected.worktrees.watch(() => true);
 
-    return <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>;
+    return <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>;
   });
 
   beforeAll(async () => {

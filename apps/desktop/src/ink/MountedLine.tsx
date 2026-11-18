@@ -22,6 +22,11 @@ export const MountedStatus = (props: { when: boolean; class: string; children: J
   <Show when={props.when}><div class={`mounted-line ${props.class}`} role="status">{props.children}</div></Show>
 );
 
+/** U7314c: a status that continues the line of text before it (a marker after a count), mounted only while it holds. */
+export const InlineStatus = (props: { text: string | null | false | undefined }) => (
+  <Show when={props.text}>{text => <span role="status">{text()}</span>}</Show>
+);
+
 /** U7314e, U7314g: a failure the screen cannot go on without (a startup gate, an error boundary's fallback). It is that screen's own view, not a message beside it: no Dismiss, no toast, and no place before or after. */
 export const BlockedFailure = (props: Pick<Blocked, "recover"> & { message: string | null | false | undefined; content?: JSX.Element }) => (
   <Show when={props.message}>{message => <div class="mounted-line">

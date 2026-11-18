@@ -144,7 +144,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async 
   const mounted = await mountControl();
   mounted.app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
   const notes = notesFor(mounted.app, mounted.connected.project.path, mounted.connected.drafts);
-  const view = render(() => <ConnectedProjectContext value={mounted.connected}><DiffReader id="a" name="alpha" path="a.ts" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext>);
+  const view = render(() => <ToastHost><ConnectedProjectContext value={mounted.connected}><DiffReader id="a" name="alpha" path="a.ts" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext></ToastHost>);
   await within(view.container).findByText(/No remaining difference/);
   await cycle(view.container,
     () => { mounted.app.handlers["agent.compareFile"] = () => { throw new RpcError(-32003, FAILURE); };

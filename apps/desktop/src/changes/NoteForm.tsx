@@ -1,5 +1,5 @@
 import { queueFocus } from "../keys/focus";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { Tabs } from "../ui/Tabs";
@@ -86,7 +86,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
         if (selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
       });
     }} /></label>
-    <ReservedLine status={(comparison.oldPath !== props.comparison.oldPath || comparison.newPath !== props.comparison.newPath || comparison.base !== props.comparison.base || comparison.old.revision !== props.comparison.old.revision || comparison.new.revision !== props.comparison.new.revision ? copy.originalContextStatus : null) || (props.notes.list(props.id).length >= 200 ? copy.notesFull : copy.chooseLines) || null} />
+    <StatusNote text={(comparison.oldPath !== props.comparison.oldPath || comparison.newPath !== props.comparison.newPath || comparison.base !== props.comparison.base || comparison.old.revision !== props.comparison.old.revision || comparison.new.revision !== props.comparison.new.revision ? copy.originalContextStatus : null) || (props.notes.list(props.id).length >= 200 ? copy.notesFull : copy.chooseLines) || null} />
     <div class="diff-actions"><button type="button" data-button="quiet" onClick={() => props.close()}>{copy.close}</button><BusyButton kind="quiet" type="submit" disabled={!valid()} busyLabel={copy.saving} onClick={event => {
       event.preventDefault();
 

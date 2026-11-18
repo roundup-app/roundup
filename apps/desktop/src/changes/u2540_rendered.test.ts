@@ -122,7 +122,7 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
       await showDiff();
       await wait("document.querySelectorAll('[aria-label=Notes] > li').length === 100");
 
-      if (state.includes("retention")) await wait("!!document.querySelector('.note-batch [role=alert]')");
+      if (state.includes("retention")) await wait("!!document.querySelector('.app-toasts [role=alert]')");
       await capture(state.includes("retention") ? "dense-retention-failed" : "dense-before-failure", "U2773e");
     }
 
@@ -177,7 +177,7 @@ it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
     window.__fake.app.handlers['agent.compareFile'] = () => { throw new Error('Worktree read refused; retry loading this diff'); };
     return window.__worktrees.refresh('agent-1');
   })()`);
-  await wait("!!document.querySelector('.diff-reader [role=alert]')");
+  await wait("!!document.querySelector('.app-toasts [role=alert]')");
   const checks = await capture("dense-refresh-failure", "U5646d");
 
   expect(checks.D2.status).toBe("pass");
@@ -185,7 +185,7 @@ it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
   expect(checks.D6.status).toBe("pass");
   await browser("eval", "window.__fake.app.handlers['agent.compareFile'] = window.__comparisonHandler");
   await click("Retry");
-  await wait("!document.querySelector('.diff-reader [role=alert]')");
+  await wait("!document.querySelector('.app-toasts [role=alert]')");
   expect(await browser("eval", "document.querySelector('diffs-container') === window.__retainedDiff")).toBe(true);
   await capture("dense-recovered", "U5646d");
 

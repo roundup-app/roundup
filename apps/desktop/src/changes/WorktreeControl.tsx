@@ -7,7 +7,7 @@ import { createEffect, createMemo, createSignal, lazy, Loading, onCleanup, Show,
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { Worktree } from "@contracts/agent/Worktree";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { Icon } from "../ink/Icon";
 import { failureOf } from "../app/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
@@ -45,7 +45,6 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   let treeFocus = captureFocus();
   const [open, setOpen] = createSignal(false);
   const [read, setRead] = createSignal<Read>(null);
-  const [version, setVersion] = createSignal(0);
   const [dismissedState, setDismissedState] = createSignal<ReturnType<typeof state>>();
   const [dismissedRead, setDismissedRead] = createSignal<Read>();
 
@@ -95,9 +94,11 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
     return failure;
   };
 
+  createMessageToast({ get message() { return failure(); }, dismiss, recover: { run: refresh } });
+
   onCleanup(() => { generation++; });
-  // rc.21 runs an effect's apply on every recompute; the memo lets only a new state or version reload.
-  const reload = createMemo(() => [state(), version()] as const, { equals: (a, b) => a[0] === b[0] && a[1] === b[1] });
+  // rc.21 runs an effect's apply on every recompute; the memo lets only a new state reload.
+  const reload = createMemo(state);
   createEffect(reload, () => { void refresh(); });
 
 
@@ -171,7 +172,6 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
           <span>{count()}</span>
         </button>
       )} /></Show>
-      <ReservedLine message={failure()} status={failure() && count() > 0 ? copy.changesStale : null} dismiss={dismiss} action={<button type="button" data-button="quiet" onClick={() => setVersion(value => value + 1)}>{copy.retry}</button>} />
       <Show when={count() > 0}>
         <Popover.Content side="top" align="end" class="worktree-panel" data-diff={diff() ? "true" : undefined} aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
           <Show when={!diff()}><div class="diff-actions"><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></div></Show>

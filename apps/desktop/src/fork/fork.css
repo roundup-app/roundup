@@ -72,17 +72,6 @@
 .fork-swatches [data-choice="pink"],
 .fork-dot[data-colour="pink"] { --swatch: var(--fork-pink); }
 
-.fork-failure {
-  margin-inline-end: auto;
-  color: var(--text);
-}
-
-/* U6264b: the line stays out of the sheet's intrinsic width and truncates before the actions. */
-.fork-failure {
-  min-inline-size: 0;
-  contain: inline-size;
-}
-
 /* AI7152e: the Forks list: one row per Fork, its colour as the swatches' dot, its name, a collision mark and text actions. */
 .fork-list {
   display: flex;
@@ -126,7 +115,9 @@
   margin-inline-start: auto;
 }
 
-.fork-edit {
+/* U7314c: a refusal under a row takes the row's whole width, as the editor above it does. */
+.fork-edit,
+.fork-row .mounted-line {
   flex-basis: 100%;
 }
 

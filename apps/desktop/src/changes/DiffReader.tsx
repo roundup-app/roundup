@@ -1,12 +1,13 @@
 import { ExitButton } from "../ui/IconButton";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import { useConnectedProject } from "../state/connectedProject";
-import { ReservedLine } from "../ink/ReservedLine";
+import { StatusNote } from "../ink/MountedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
 import type { Note, Notes } from "./notes";
@@ -49,7 +50,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
   const [read, setRead] = createSignal<FileComparison>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(true);
-  const [version, setVersion] = createSignal(0);
   const [coarse, setCoarse] = createSignal(false);
   const [host, setHost] = createSignal<HTMLDivElement>();
 
@@ -66,8 +66,10 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
   });
 
   const worktree = createMemo(() => worktrees.read(props.id));
+  let stopLoading = () => {};
 
-  createEffect(() => [version(), worktree(), compareParams(props.id, props.path, props.from, props.to)] as const, ([, , params]) => {
+  const load = (params: CompareFileParams) => {
+    stopLoading();
     setLoading(true);
     const target = { id: params.id, path: params.path };
     let current = true;
@@ -94,8 +96,13 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
       else setFailure(result.text);
     });
 
-    return () => { current = false; };
-  });
+    stopLoading = () => { current = false; };
+  };
+
+  createEffect(() => [worktree(), compareParams(props.id, props.path, props.from, props.to)] as const, ([, params]) => { load(params); });
+  onCleanup(() => stopLoading());
+
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return loading() ? undefined : { run: () => load(compareParams(props.id, props.path, props.from, props.to)) }; } });
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
   const notes = createMemo(() => props.notes.list(props.id));
@@ -208,7 +215,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
         <button type="button" data-button="quiet" onClick={props.onClose}>{copy.closeChanges}</button>
       </div>
     </header>
-    <ReservedLine message={failure()} status={notice()} dismiss={() => setFailure(null)} action={<Show when={!loading() && failure()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show>} />
+    <StatusNote text={failure() ? null : notice()} />
     <Show when={read()}>{value => <>
       <Show when={value().status !== null}>
         <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>

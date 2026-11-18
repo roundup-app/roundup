@@ -116,7 +116,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         await browser("click", `.rail-row[data-id="${selected}"] .row-state`);
 
         if (lane === "base") await browser("click", ".worktree-control");
-        await until("!!document.querySelector('[role=alert]')");
+        await until("!!document.querySelector('.app-toasts [role=alert]')");
         await capture(lane, "tree-40-failed-read");
       }
 
@@ -148,7 +148,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
       await browser("click", '.rail-row[data-id="worktree-agent"] .row-state');
 
       if (lane === "base") await browser("click", ".worktree-control");
-      await until("!!document.querySelector('[role=alert]')");
+      await until("!!document.querySelector('.app-toasts [role=alert]')");
       await capture(lane, "failed-read");
   }
 }, 120_000);

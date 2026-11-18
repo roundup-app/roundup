@@ -8,6 +8,7 @@ import { agent } from "../testing/nodes";
 import { WorktreeControl } from "./WorktreeControl";
 import { mountControl, STATE, WORKTREE } from "./harness";
 import { notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -86,7 +87,7 @@ describe("U2539b", () => {
     render(() => {
       connected.worktrees.watch(() => true);
 
-      return <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>;
+      return <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>;
     });
     await waitFor(() => expect(app.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
     expect(screen.queryByRole("button", { name: /changed files?/ })).toBeNull();

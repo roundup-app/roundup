@@ -12,6 +12,7 @@ import { VirtualizedFileDiff, Virtualizer, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch, structuredPatch } from "diff";
 import { copy as readerCopy } from "./copy";
 import { notices } from "../testing/notices";
+import { ToastHost } from "../testing/toastHost";
 
 // ESM exports are non-configurable: spy mode records the scenario's library calls while executing the real implementation.
 // eslint-disable-next-line anti-slop/no-module-mocking
@@ -89,7 +90,7 @@ it.each([{ id: "plain", path: "src/a.ts" }, { id: "a", path: "src/deep/b.ts" }])
   const notes = notesFor(app, "/p");
 
   app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
-  render(() => <ConnectedProjectContext value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext></ToastHost>);
   await waitFor(() => expect(rendered()).toHaveLength(1));
   let finish!: (value: typeof COMPARISON) => void;
 

@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote } from "./noteHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -71,7 +71,7 @@ it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(2);
   app.handlers["message.list"] = () => [message(9, { from: { kind: "user", id: "you", parent: null }, to: "a", body, status: "pending" })];
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
-  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
+  await waitFor(() => expect(noteList()).toBeNull());
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(2);
 });
 
@@ -135,7 +135,7 @@ it("u2773b_changes_pending_reload_reconciles_without_resending", async () => {
   reopened.app.handlers["message.list"] = () => [message(42, { body, to: "a", from: { kind: "user", id: "you", parent: null } })];
   expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
-  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
+  await waitFor(() => expect(noteList()).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   acknowledge(message(42, { body, to: "a" }));
 });
