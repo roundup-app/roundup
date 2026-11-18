@@ -131,6 +131,7 @@
 				"pr-shape",
 				"reduce",
 				"show-me",
+				"ui-sdk",
 				"emil-design-eng",
 				"taste-skill",
 				"animate"
@@ -145,7 +146,8 @@
 				"change-rules",
 				"pr-shape",
 				"reduce",
-				"show-me"
+				"show-me",
+				"ui-sdk"
 			]
 		},
 		"repro": {

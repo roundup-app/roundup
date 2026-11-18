@@ -5,7 +5,7 @@ description: Use when writing or fixing roundup code or tests - the rules for UI
 
 ## Code
 
-- Interactive UI uses the `apps/desktop/src/ui/` primitives, which wrap Ark UI. A new primitive wraps a library component, never a hand-written state machine.
+- Interactive UI uses the `apps/desktop/src/ui/` primitives, which wrap `@ui-sdk/solid` (`ui-sdk`). A new primitive wraps a library component or a `@ui-sdk/core` behavior, never a hand-written state machine.
 - Reuse first (rule 9). Before adding a module, UI pattern (dialog, menu, tooltip, tabs, tree, drag, toast, focus handling, keyboard shortcuts), parser, protocol, store or clock helper, in a new file or an existing one:
   1. Read what the installed dependencies (`package.json`, `Cargo.toml`) and the platform (web, Tauri) already offer.
   2. Research at least two maintained libraries.
