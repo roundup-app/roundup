@@ -1,6 +1,8 @@
-import { merge, omit } from "solid-js";
+import { createSignal, merge, omit } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Chord } from "../keys/chords";
+import { saveAppSettings, storedSettings } from "../settings/preferences";
+import { storageProblems } from "../state/storage";
 import { Tooltip } from "./Tooltip";
 
 /** The props a control spreads: its own, and the Tooltip trigger's. */
@@ -37,8 +39,37 @@ const withOwn = (trigger: OwnTriggerProps, own: OwnTriggerProps): TriggerProps =
   return merge(trigger, own, chained, { ref: trigger.ref && own.ref ? [trigger.ref, own.ref] : trigger.ref ?? own.ref });
 };
 
+/** U7489a: a fixed tooltip opens this many times per icon name, then never again. */
+export const TIP_SHOWS = 3;
+
+/** Counts written but not yet read back from storage, so two quick openings both count. */
+const pending: Record<string, number> = {};
+
+const shown = (name: string): number => Math.max(storedSettings().tipShows[name] ?? 0, pending[name] ?? 0);
+
+/** A count never joins a settings save that is failing: the store keeps one retry per key, and a count's write would replace the user's. */
+const countShow = (name: string) => {
+  if (storageProblems().some(problem => problem.key === "roundup:app-settings")) return Promise.resolve(null);
+
+  const next = shown(name) + 1;
+
+  pending[name] = next;
+
+  return saveAppSettings({ tipShows: { ...storedSettings().tipShows, ...pending } }).finally(() => { if (pending[name] === next) delete pending[name]; });
+};
+
+/** U7489c: every icon's name shows 3 more times. */
+export const showIconNamesAgain = (): Promise<string | null> => {
+  for (const name of Object.keys(pending)) delete pending[name];
+
+  return saveAppSettings({ tipShows: {} });
+};
+
+/** U7489b: whether a tooltip's text is fixed for its icon (a `name`, which counts its shows) or changes with state. Every caller sets one. */
+export type TipKind = { kind: "changing" } | { kind: "fixed"; name: string };
+
 /** Put the trigger on the smallest element owning the text. Pointer openings assert containment in development and tests. The second children argument carries focus handlers for an enclosing keyboard control. Keyboard focus needs no pointer. */
-export const Tip = (props: {
+export const Tip = (props: TipKind & {
   text?: string | undefined;
   content?: JSX.Element;
   cut?: () => boolean;
@@ -46,8 +77,17 @@ export const Tip = (props: {
   chord?: Chord | undefined;
   disabled?: boolean;
   children: (trigger: Trigger, focus: Pick<TriggerProps, "onFocusIn" | "onFocusOut" | "aria-describedby">) => JSX.Element;
-}) => (
-  <Tooltip.Root disabled={props.disabled || (props.cut ? !props.cut() : false)} delay={200}>
+}) => {
+  const [open, setOpen] = createSignal(false);
+  const retired = () => props.kind === "fixed" && !!props.name && !open() && shown(props.name) >= TIP_SHOWS;
+
+  const changed = ({ open: now }: { open: boolean }) => {
+    if (now && !open() && props.kind === "fixed" && props.name) void countShow(props.name);
+    setOpen(now);
+  };
+
+  return (
+  <Tooltip.Root disabled={props.disabled || retired() || (props.cut ? !props.cut() : false)} delay={200} onOpenChange={changed}>
     <Tooltip.Trigger render={rendered => {
       const trigger: OwnTriggerProps = omit(rendered, "class", "style", "children");
 
@@ -55,4 +95,5 @@ export const Tip = (props: {
     }} />
     <Tooltip.Content side="right" align="start" class={props.class ?? (props.content !== undefined ? "ink-tip" : undefined)} chord={props.chord}>{props.content ?? props.text}</Tooltip.Content>
   </Tooltip.Root>
-);
+  );
+};

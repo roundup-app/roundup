@@ -87,8 +87,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
                   </Show>
                 }
               >
-                <Tip
-                  text={copy.needsText}
+                <Tip kind="changing" text={copy.needsText}
                   disabled={session.text().trim() !== ""}
                 >
                   {(trigger) => (

@@ -60,5 +60,5 @@ const Busy = (props: Props & { tip?: Trigger }): JSX.Element => {
 
 /** U170 Busy: ui-sdk's Button is pending while the promise its click returns runs (`aria-busy`, presses refused, focus kept); this shows the busy label and its mark in the idle label's place, so the button keeps its width. The button's name stays its idle label; ui-sdk announces the busy label. At rest the busy label is only an attribute, out of the button's text. A disabled button stays focusable with `aria-disabled` (U171). An icon button's shared Tooltip shows its name (U7310e). */
 export const BusyButton = (props: Props): JSX.Element => <Show when={props.kind === "icon"} fallback={<Busy {...props} />}>
-  <Tip text={tipName(props.icon, undefined, props["aria-label"] || undefined)} disabled={props.icon !== undefined}>{trigger => <Busy {...props} tip={trigger} />}</Tip>
+  <Tip kind="fixed" name={props["aria-label"] || ""} text={tipName(props.icon, undefined, props["aria-label"] || undefined)} disabled={props.icon !== undefined}>{trigger => <Busy {...props} tip={trigger} />}</Tip>
 </Show>;
