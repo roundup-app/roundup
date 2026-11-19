@@ -6,7 +6,6 @@ import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import { Editable } from "../ui/Editable";
 import { copy } from "./copy";
-import { BusyButton } from "../ui/BusyButton";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
@@ -156,6 +155,8 @@ export const EditableText = (props: {
   onFailure?: (message: string | null, dismiss: () => void) => void;
   /** Resolves only after acknowledgement; the RPC error preserves refusal versus unknown acceptance. */
   commit: (text: string, expectedChange: number) => Promise<void>;
+  /** The change a body's next autosave expects, read after each acknowledged save. */
+  latest?: () => Promise<number | null>;
 }) => {
   const connected = useConnectedProject();
   // The Drawer keys its body by Todo, so the field's destination and retained revision never change.
@@ -247,6 +248,12 @@ export const EditableText = (props: {
   const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void, yieldFocus?: () => void) => {
     const focus = captureFocus();
     queueMicrotask(() => { if (alive && !focus(focusField)) yieldFocus?.(); });
+    // A body saves as the user types, so what the Daemon holds and the change it expects move with each acknowledged save.
+    const { commit: send, latest } = props;
+    let saved = started.form.base;
+    let expectedNow = started.form.expected_change;
+    let inflight: Promise<void> | undefined;
+    let dirty = false;
 
     const retain = (selectionChanged = false) => {
       const selected = selection();
@@ -269,7 +276,9 @@ export const EditableText = (props: {
       if (left) return;
       left = true;
 
-      if (read() === started.form.base && !started.recovered) {
+      await inflight;
+
+      if (read() === saved && !started.recovered) {
         setEditing(null);
 
         return;
@@ -277,7 +286,7 @@ export const EditableText = (props: {
 
       const kept = retain();
 
-      if (started.form.expected_change === null) {
+      if (expectedNow === null) {
         setFailure(copy.originalUnverified);
         left = false;
 
@@ -285,7 +294,7 @@ export const EditableText = (props: {
       }
 
       const submittedValue = read();
-      const expected = started.form.expected_change;
+      const expected = expectedNow;
       const { status } = kept;
       const unsendable = copy.draftStatus[status];
 
@@ -326,14 +335,65 @@ export const EditableText = (props: {
       else refuse(sent, retryFocus);
     };
 
+    /** One save at a time; a change made while one runs goes in the next, so the Daemon ends with the last text. */
+    const autosave = async (): Promise<void> => {
+      if (left || expectedNow === null) return;
+
+      if (inflight) { dirty = true;
+
+ return; }
+
+      const value = read();
+
+      if (value === saved) return;
+      const expected = expectedNow;
+
+      inflight = (async () => {
+        retain();
+        draft.save();
+        const sent = await draft.send(() => applying(() => send(value, expected)));
+
+        if (!alive) return;
+
+        if (sent.kind === "applied") {
+          saved = value;
+          setFailure(null); props.onSaved?.();
+          expectedNow = (await latest?.().catch(() => null)) ?? expectedNow;
+        } else if (sent.kind === "refused" || sent.kind === "unknown") setFailure(sentFailure(sent));
+      })();
+
+      await inflight;
+      inflight = undefined;
+
+      if (dirty) { dirty = false; await autosave(); }
+    };
+
+    /** Esc puts back the body as this edit found it, and saves that. */
+    const revert = async () => {
+      left = true;
+      setEditing(null);
+      queueFocus(() => shown()?.focus());
+      await inflight;
+
+      if (saved === started.form.base || expectedNow === null || !alive) return;
+      const expected = expectedNow;
+      draft.save();
+      const sent = await draft.send(() => applying(() => send(started.form.base, expected)));
+
+      if (alive && sent.kind === "applied") { setFailure(null); props.onSaved?.(); } else if (alive && (sent.kind === "refused" || sent.kind === "unknown")) setFailure(sentFailure(sent));
+    };
+
     key = event => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && props.multiline) {
+        event.preventDefault(); event.stopPropagation();
+        void revert();
+      } else if (event.key === "Escape") {
         event.preventDefault(); event.stopPropagation();
 
         if (read() !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
         queueFocus(() => shown()?.focus());
-      } else if (event.key === "Enter" && (!props.multiline || event.metaKey || event.ctrlKey)) {
+      } else if (event.key === "Enter" && !props.multiline) {
         event.preventDefault(); void submit();
       }
     };
@@ -352,7 +412,7 @@ export const EditableText = (props: {
     // Explicit Save authorizes restored work; restoration alone never resumes blur submission.
     save = submit;
 
-    return { retain, blur, select, input, submit, release: () => { left = true; }, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
+    return { retain, change: () => { retain(); void autosave(); }, blur, select, input, submit, release: () => { left = true; }, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
   };
 
   const TitleField = () => {
@@ -363,13 +423,14 @@ export const EditableText = (props: {
     const leave = (target: EventTarget | null) => {
       if (editing()?.recovered || keepsDraft(target)) return void binding?.keep();
 
-      void save?.();
+      cancel(false);
     };
 
-    const cancel = () => {
+    const cancel = (restore = true) => {
       binding?.keep();
       setEditing(null);
-      queueFocus(() => shown()?.focus());
+
+      if (restore) queueFocus(() => shown()?.focus());
     };
 
     createEffect(editing, started => {
@@ -438,12 +499,14 @@ export const EditableText = (props: {
       // Crepe dismisses block menus in capture; a no-match slash query has already
       // hidden its menu. Preserve rich drafts, but let an untouched empty body
       // return to Add notes (U3732).
-      if (event.key === "Escape" && !(started && started.form.base === "" && !started.recovered && handle?.getText() === "")) { event.preventDefault(); event.stopPropagation(); }
+      if (event.key === "Escape" && !(started && started.form.base === "" && !started.recovered && handle?.getText() === "")) { event.preventDefault(); event.stopPropagation();
+
+ if (started) key?.(event); }
       else if (started) key?.(event);
       else if (event.key === "Enter") { event.preventDefault(); startWith(); }
     }}><Loading><PadRichEditor item="todo" text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
-      onChange={() => binding?.retain()}
-      onText={() => binding?.retain()}
+      onChange={() => binding?.change()}
+      onText={() => binding?.change()}
       onSelection={() => binding?.retain(true)}
       onBlur={target => { if (!(target instanceof Node && host?.contains(target))) binding?.blur(target); }}
       onReady={editor => {
@@ -490,7 +553,6 @@ export const EditableText = (props: {
         {(started) => <RichBody started={started} />}
       </Show>
     </Show>
-    <Show when={editing()}><BusyButton kind="quiet" class="word" busyLabel={copy.saving} onMouseDown={event => event.preventDefault()} onClick={() => save?.()}>{copy.save}</BusyButton></Show>
     </div>
   );
 };

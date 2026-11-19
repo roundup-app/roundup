@@ -28,6 +28,15 @@ const fold = (kind: "internal" | "idle") => {
 };
 
 /** The name button of the Pad's row. */
+// A double-click on a name renames it (U7641a); the rest of the row opens the Pad.
+const rowOf = (name: string) => {
+  const found = document.querySelector<HTMLElement>(`[data-pad="${name}"]`);
+
+  if (!found) throw new Error(`no row for ${name}`);
+
+  return found;
+};
+
 const nameOf = (name: string) => {
   const found = document.querySelector<HTMLElement>(`[data-pad="${name}"] .pad-name`);
 
@@ -85,7 +94,7 @@ describe("u7499 Pad folds", () => {
 
   it("u7499b_the_read_record_survives_a_reload_per_project", async () => {
     await openShelf([pad("a")], false, false, "/one", { now: NOW, read: {} });
-    fireEvent.dblClick(nameOf("a"));
+    fireEvent.dblClick(rowOf("a"));
     await waitFor(() => expect(padReadStorage("/one").read()).toEqual({ "fixture-a": "1" }));
     expect(padReadStorage("/two").read()).toBeNull();
   });
@@ -103,7 +112,7 @@ describe("u7499 Pad folds", () => {
     const { connected } = await open();
     fireEvent.click(fold("internal"));
     await waitFor(() => nameOf("hidden-by-agent"));
-    fireEvent.dblClick(nameOf("hidden-by-agent"));
+    fireEvent.dblClick(rowOf("hidden-by-agent"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
     expect(count(fold("internal"))).toBe(1);
     expect(nameOf("hidden-by-agent")).not.toBeNull();
@@ -115,7 +124,7 @@ describe("u7499 Pad folds", () => {
     const { connected } = await open();
     fireEvent.click(fold("idle"));
     await waitFor(() => nameOf("eight-days-old"));
-    fireEvent.dblClick(nameOf("eight-days-old"));
+    fireEvent.dblClick(rowOf("eight-days-old"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
     fireEvent.click(fold("idle"));
     await waitFor(() => expect(fold("idle").getAttribute("aria-expanded")).toBe("false"));
@@ -125,7 +134,7 @@ describe("u7499 Pad folds", () => {
 
   it("u7499b_each_way_of_opening_records_the_revision", async () => {
     await open();
-    fireEvent.dblClick(nameOf("fresh-unread"));
+    fireEvent.dblClick(rowOf("fresh-unread"));
     await waitFor(() => expect(padReadStorage("/p").read()).toMatchObject({ "fixture-fresh-unread": "1" }));
   });
   it("u7499a_the_first_load_lists_no_pad_above_the_folds", async () => {
@@ -147,7 +156,7 @@ describe("u7499 Pad folds", () => {
     const { connected } = await open();
     fireEvent.click(fold("idle"));
     await waitFor(() => nameOf("already-read"));
-    fireEvent.dblClick(nameOf("already-read"));
+    fireEvent.dblClick(rowOf("already-read"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
     connected.drawer.close();
     await waitFor(() => expect(count(fold("idle"))).toBe(2));
@@ -225,7 +234,7 @@ describe("u7499 Pad folds", () => {
   it("u7499b_a_write_seen_while_open_counts_as_read_on_leaving", async () => {
     const { app, state, connected } = await openShelf([pad("watched", { revision: 2 })], false, false, "/p", { now: NOW, read: { "fixture-watched": "1" } });
 
-    fireEvent.dblClick(nameOf("watched"));
+    fireEvent.dblClick(rowOf("watched"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
     state.pads = state.pads.map(each => ({ ...each, revision: 3, updated_at: NOW }));
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "watched" } });
@@ -280,7 +289,7 @@ describe("u7499 Pad folds", () => {
 
     fireEvent.click(fold("idle"));
     await waitFor(() => nameOf("already-read"));
-    fireEvent.dblClick(nameOf("already-read"));
+    fireEvent.dblClick(rowOf("already-read"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
     // Opened from an open fold, it keeps its row and fold while the Drawer shows it.
     state.pads = state.pads.map(each => each.name === "already-read" ? { ...each, revision: 2, updated_at: NOW - 9 * DAY } : each);
@@ -294,7 +303,7 @@ describe("u7499 Pad folds", () => {
 
     fireEvent.click(fold("idle"));
     await waitFor(() => nameOf("already-read"));
-    fireEvent.dblClick(nameOf("fresh-unread"));
+    fireEvent.dblClick(rowOf("fresh-unread"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
     expect(count(fold("idle"))).toBe(2);
     expect(document.querySelector(".shelf-list > [data-pad='fresh-unread'], .shelf-list [data-pad='fresh-unread']")).not.toBeNull();
