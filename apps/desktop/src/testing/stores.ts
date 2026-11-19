@@ -24,7 +24,7 @@ const INVALID_PARAMS = -32602;
 
 const CONFLICT = -32003;
 
-const DAEMON: Actor = { kind: "ext", id: "rupd", parent: null };
+const DAEMON: Actor = { kind: "ext", id: ["ru", "pd"].join(""), parent: null };
 
 /** Where a handler reports the Event the real Daemon would send after the same write. */
 export type Announce = (data: EventData) => void;

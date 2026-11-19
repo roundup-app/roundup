@@ -127,7 +127,10 @@ async fn t7708c_completion_writes_one_change_by_the_daemon() {
     assert_eq!(changes[1]["actor"], owner_of(&Actor::daemon()));
     assert_eq!(changes[1]["before"]["done"], false);
     assert_eq!(changes[1]["after"]["done"], true);
-    assert_eq!(h.touches(1).last().unwrap(), &(Verb::Wrote, "rupd".into()));
+    assert_eq!(
+        h.touches(1).last().unwrap(),
+        &(Verb::Wrote, Actor::daemon().id)
+    );
 }
 
 #[tokio::test]

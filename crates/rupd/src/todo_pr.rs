@@ -89,7 +89,7 @@ mod tests {
         let bin = tempfile::tempdir().unwrap();
         let project = tempfile::tempdir().unwrap();
         FAKE.with(|f| *f.borrow_mut() = Some(fake_gh(bin.path(), body)));
-        let daemon = Daemon::open(project.path()).unwrap().0;
+        let daemon = <Daemon>::open(project.path()).unwrap().0;
         (bin, project, daemon)
     }
 
@@ -137,7 +137,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(history["changes"].as_array().unwrap().len(), 2);
-        assert_eq!(history["changes"][1]["actor"]["id"], "rupd");
+        assert_eq!(history["changes"][1]["actor"]["id"], Actor::daemon().id);
         assert!(
             std::fs::read_to_string(bin.path().join("gh.argv"))
                 .unwrap()

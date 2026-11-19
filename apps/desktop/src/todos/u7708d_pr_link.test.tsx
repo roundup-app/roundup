@@ -41,7 +41,7 @@ it("u7708d_the_drawer_sets_and_clears_the_link", async () => {
   expect(only(todoCallsTo(m.app, "todo.update"), 0).params).toMatchObject({ id: 1, pr: 12 });
   // The Daemon's event, not the click, brings the link into the Drawer.
   m.app.emit({ actor: USER, name: "todo.updated", data: first(m) });
-  await within(section()).findByText("#12");
+  await within(section()).findByText("Pull request #12");
   fireEvent.click(within(section()).getByRole("button", { name: "Unlink" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.update")).toHaveLength(2));
   expect(only(todoCallsTo(m.app, "todo.update"), 1).params).toMatchObject({ id: 1, pr: null });
@@ -51,7 +51,7 @@ it("u7708d_the_drawer_sets_and_clears_the_link", async () => {
 
 it("u7708d_a_linked_open_todo_reads_once_and_shows_its_state", async () => {
   const m = await open([todo(1, { pr: 7 })], new Map([[7, { state: "draft" }]]));
-  await within(section()).findByText("Draft");
+  await within(section()).findByText("Work in progress");
   expect(todoCallsTo(m.app, "todo.checkPr")).toHaveLength(1);
   expect(only(todoCallsTo(m.app, "todo.checkPr"), 0).params).toEqual({ id: 1 });
 });
@@ -65,7 +65,7 @@ it("u7708d_a_merged_pr_marks_the_todo_done_and_shows_it", async () => {
 
 it("u7708d_a_failed_read_shows_its_cause", async () => {
   await open([todo(1, { pr: 7 })], new Map([[7, { state: "unknown", cause: "gh: not logged in" }]]));
-  await within(section()).findByText("Could not read it: gh: not logged in");
+  await within(section()).findByText("Read failed: gh: not logged in");
 });
 
 it("u7708d_an_unlinked_todo_reads_nothing", async () => {
