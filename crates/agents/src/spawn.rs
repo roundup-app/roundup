@@ -513,7 +513,7 @@ impl Agents {
         })
     }
 
-    /// X12: start the user's login shell in the Project folder, owned by its Workstream or Project.
+    /// X12: start the user's login shell in the Project folder, owned by any Agent or the Project.
     pub(super) async fn open_terminal(&self, params: OpenParams) -> Result<Opened, RpcError> {
         let OpenParams {
             workstream,
@@ -523,16 +523,9 @@ impl Agents {
         let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         let owner = match workstream {
             Some(workstream) => {
-                let node = self
-                    .shared
+                self.shared
                     .rail()
                     .node(crate::rail::agent_id(&workstream)?)?;
-                if node.kind() != NodeKind::Workstream {
-                    return Err(RpcError::new(
-                        code::INVALID_PARAMS,
-                        format!("{workstream} is not a Workstream"),
-                    ));
-                }
                 workstream
             }
             None => self.project_dir().to_string_lossy().into_owned(),
