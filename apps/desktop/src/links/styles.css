@@ -16,16 +16,18 @@
 .links-header:not([data-open]) .links-handle { opacity: 0.5; }
 .links-header .links-handle:is(:hover, :focus-visible) { opacity: 1; }
 
-/* LH13: the count's reveal is the shared popover beside the count, on the header's own row and inside the inset (opaque surface from the `.app-popover` recipe): one row, never a second row and never over a row of Terminal text. */
-.links-popover {
+/* LH13: the count's reveal is the shared popover beside the count, just under the header's row, right-aligned and inside the inset (opaque surface from the `.app-popover` recipe): one row, never over the header's own icons and never over a row of Terminal text. The two-class selector beats `.app-popover`'s padding and the ui-sdk content layout. */
+.app-popover.links-popover {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-1);
-  padding: 0 var(--space-1);
+  padding: var(--space-1);
+  flex-direction: row;
   inline-size: max-content;
   max-inline-size: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
   z-index: var(--layer-popover);
 }

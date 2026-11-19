@@ -61,15 +61,15 @@ afterEach(cleanup);
 it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async () => {
   // One row: neither the header nor the reveal wraps, so neither is taller than a icon plus its gaps, which the inset holds.
   expect(prop(rule(links, ".links-header"), "flex-wrap")).toBe("nowrap");
-  expect(prop(rule(links, ".links-popover"), "flex-wrap")).toBe("nowrap");
-  expect(prop(rule(links, ".links-popover"), "padding")).toBe("0 var(--space-1)");
+  expect(prop(rule(links, ".app-popover.links-popover"), "flex-wrap")).toBe("nowrap");
+  expect(prop(rule(links, ".app-popover.links-popover"), "padding")).toBe("var(--space-1)");
 
   const entries = Array.from({ length: 6 }, (_, n) => ({ kind: "asked" as const, url: `https://example.test/${n}`, tooltip: `asked ${n}` }));
 
   render(() => <LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {} }} shown={0} />);
   fireEvent.click(screen.getByRole("button", { name: copy.moreName(8) }));
 
-  // The reveal opens to the count's side on the header's row, so it lies within the inset and never below it.
+  // The reveal opens to the count's side just under the header's row, so it never covers the header's icons.
   const popover = await waitFor(() => {
     const found = document.querySelector<HTMLElement>(".links-popover");
 
@@ -78,6 +78,5 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
     return found;
   });
 
-  expect(popover.getAttribute("data-side")).toBe("left");
-  expect(popover.querySelectorAll("button").length).toBe(8);
-});
+  expect(popover.getAttribute("data-side")).toBe("bottom");
+  expect(popover.querySelectorAll("button").length).toBe(8);});
