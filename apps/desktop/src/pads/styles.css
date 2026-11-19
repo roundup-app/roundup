@@ -527,7 +527,7 @@ li[aria-selected="true"] svg {
   overflow-wrap: anywhere;
   text-align: center;
   font-size: var(--text-small);
-  line-height: 16px;
+  line-height: var(--line-menu);
   background: var(--gray-3);
 }
 

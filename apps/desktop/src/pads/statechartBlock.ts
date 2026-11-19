@@ -35,7 +35,7 @@ export type StatechartApi = {
   layout(boxes: [string, Size][], moves: [string, string, string, Size][]): Promise<Layout>;
 };
 
-const BOX = { width: 132, height: 44, maxWidth: 176, line: 16, pad: 12 };
+const BOX = { width: 132, height: 44, maxWidth: 176, line: 17, pad: 12 };
 
 /** A state's box: its label at the small size wrapped at the widest box, grown in height to hold every line. */
 const boxSize = (label: string): Size => {
