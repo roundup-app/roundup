@@ -158,6 +158,13 @@ export const clearances = (parent: Element | null | undefined) => {
   };
 };
 
+/** Whether `parent` holds a bar other than `bar`, or watched edges other than `edges`: only then must the layer measure again. Never measures. */
+export const arrived = (parent: Element | null | undefined, bar: Element | undefined, edges: readonly Element[]): boolean => {
+  const { watched } = clearances(parent);
+
+  return (parent?.querySelector(".resource-agent") ?? undefined) !== bar || watched.length !== edges.length || watched.some((edge, index) => edge !== edges[index]);
+};
+
 /**
  * `prior` with the shown Terminals reconciled: one with no place gets a fresh one, and only the latest stays open,
  * unless the selection folds every bubble to its chip. `selecting` minimises a fresh place even for the latest.

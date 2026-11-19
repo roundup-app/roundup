@@ -36,7 +36,7 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopol
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, clearances, defaultPlace, extentOf, placesStorage, reconciledPlaces, REVEAL_BUBBLE, shownFor, shownName,
+  arrived, clamped, clearances, defaultPlace, extentOf, placesStorage, reconciledPlaces, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
 import type { Place, Extent } from "./places";
 import { askOnce } from "../settings/warnings";
@@ -283,12 +283,7 @@ export const Bubbles = (props: {
 
     // Portal hosts and sibling controls may mount without changing the stack's size. A watched edge reports its own resize, so only a new bar or edge measures again: a measure here forces layout mid-task.
     const arrivals = new MutationObserver((records) => {
-      if (!records.some((record) => !host.contains(record.target))) return;
-      const parent = host.parentElement;
-      const { watched: next } = clearances(parent);
-      const moved = (parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined) !== untrack(bar);
-
-      if (moved || next.length !== edges.length || next.some((edge, index) => edge !== edges[index])) sync();
+      if (records.some((record) => !host.contains(record.target)) && arrived(host.parentElement, untrack(bar), edges)) sync();
     });
 
     if (host.parentElement) arrivals.observe(host.parentElement, { childList: true, subtree: true });
@@ -784,4 +779,3 @@ export const Bubbles = (props: {
         onDiscard={draft => { drafts.discard(draft.revision); setEditing(null); }} />
     </div>;
 };
-
