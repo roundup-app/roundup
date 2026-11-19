@@ -69,7 +69,7 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
   render(() => <LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {} }} shown={0} />);
   fireEvent.click(screen.getByRole("button", { name: copy.moreName(8) }));
 
-  // The reveal opens to the count's side just under the header's row, so it never covers the header's icons.
+  // The reveal opens left of the header on its row, so it covers neither the header's icons nor a row of text.
   const popover = await waitFor(() => {
     const found = document.querySelector<HTMLElement>(".links-popover");
 
@@ -78,6 +78,6 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
     return found;
   });
 
-  expect(popover.getAttribute("data-side")).toBe("bottom");
+  expect(popover.getAttribute("data-side")).toBe("left");
   expect(popover.querySelectorAll("button").length).toBe(8);
 });
