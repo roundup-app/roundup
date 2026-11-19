@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
+import { z } from "zod";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -7,7 +8,8 @@ import type { LinkEntry } from "@contracts/links/LinkEntry";
 import type { LinkSet } from "@contracts/links/LinkSet";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, door, event, NOW } from "../testing/nodes";
+import { mountNavigation } from "../testing/navigationFixture";
+import { agent, door, event, info, NOW } from "../testing/nodes";
 import { LinksView, specOf } from "./catalogue";
 import { copy } from "./copy";
 import { LinksHeader } from "./LinksHeader";
@@ -201,4 +203,24 @@ it("lh13_a_narrow_pane_keeps_the_header_to_one_row_inside_the_inset", async () =
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   }
+});
+
+it("lh15_the_terminal_icon_on_a_mode_agent_opens_its_terminal", async () => {
+  const { daemon, connected, shells } = await mountNavigation(false, 0, 2);
+
+  daemon.handlers["terminal.open"] = params => {
+    const owner = z.object({ workstream: z.string() }).parse(params).workstream;
+
+    if (owner !== "a1") throw new Error(`${owner} is not an Agent`);
+    shells.push(info("shell", { owner }));
+
+    return { terminal_id: "shell" };
+  };
+
+  connected().rail.select("a1");
+  flush();
+  fireEvent.click(await screen.findByRole("button", { name: copy.terminal }));
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
+  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => z.object({ workstream: z.string() }).parse(call.params).workstream)).toEqual(["a1"]);
+  expect(screen.queryByText(/is not/)).toBeNull();
 });
