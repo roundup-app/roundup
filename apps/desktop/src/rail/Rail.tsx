@@ -47,7 +47,7 @@ import { RailFooter } from "./RailFooter";
 import { StartMachine } from "./StartMachine";
 import { createLaunch, railCommand } from "./railCommands";
 import { statusOf } from "./attention";
-import { isDoor } from "../state/doorNode";
+import { hasConversation, isDoor } from "../state/doorNode";
 import { createDraftField } from "../state/draftField";
 import "./styles.css";
 
@@ -528,7 +528,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     };
 
     if (menu.isRunning(node, exit)) actions.stop = () => menu.requestStop(node, exit);
-    else if (!actions.restart && isDoor(node) && node.can_resume) actions.play = () => menu.requestRestart(node, exit);
+    else if (isMode(node) ? hasConversation(node) : isDoor(node) && node.can_resume) actions.play = () => (isMode(node) ? menu.playRow(node.id) : menu.requestRestart(node, exit));
 
     return actions;
   };

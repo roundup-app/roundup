@@ -14,6 +14,10 @@ pub const READY_BOUND: Duration = Duration::from_secs(10);
 /// How long one `rpc` call waits for its reply before the App reports an unknown outcome.
 pub const CALL_BOUND: Duration = Duration::from_secs(30);
 
+/// A7498a: how long `agent.restartMode` may take: the Daemon's 15 s `SessionStart` and 15 s ready waits, the 10 s
+/// receipt wait, the 60 s one after the Enter and a margin. `rup project start` waits through the App on it.
+pub const RESTART_MODE_BOUND: Duration = Duration::from_secs(160);
+
 /// Everything the App reads from its environment, resolved once at startup.
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -23,6 +27,8 @@ pub struct Config {
     pub socket: PathBuf,
     pub ready_bound: Duration,
     pub call_bound: Duration,
+    /// A7498a: the bound of `agent.restartMode` alone; tests shorten it.
+    pub restart_mode_bound: Duration,
     /// The waits before each automatic Daemon reopen (U6249b); tests shorten them.
     pub reopen_waits: [Duration; 3],
     /// Where names and the open list are kept (S10); `None` until the App resolves its own data folder.
@@ -58,6 +64,7 @@ impl Config {
             socket,
             ready_bound: READY_BOUND,
             call_bound: CALL_BOUND,
+            restart_mode_bound: RESTART_MODE_BOUND,
             reopen_waits: crate::reopen::WAITS,
             data_dir: None,
             dev_port: None,
@@ -204,6 +211,22 @@ pub(crate) mod tests {
 
     fn bare() -> Config {
         Config::locate(None, Path::new("/x/app"), Path::new("/tmp"), 1).unwrap()
+    }
+
+    #[test]
+    fn a7498a_restart_mode_bound_covers_the_wait_and_both_receipt_windows() {
+        // The Daemon's 15 s `SessionStart` wait, `MODE_READY_BOUND`, then `STEER_BOUND` and `RECEIPT_BOUND`.
+        let waits = Duration::from_secs(15)
+            + agents::MODE_READY_BOUND
+            + agents::STEER_BOUND
+            + agents::RECEIPT_BOUND;
+        assert!(RESTART_MODE_BOUND > waits);
+        let config = bare();
+        assert_eq!(config.restart_mode_bound, RESTART_MODE_BOUND);
+        assert!(
+            config.call_bound < waits,
+            "CALL_BOUND alone cut the wait short"
+        );
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! A4452c: saved Mode prompts through the existing Agent test harness.
 use super::{child_run::Run, door_terminals::recorded_bytes, idle::idle};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 
 async fn mode(prompt: &str) -> Run {
@@ -141,6 +142,24 @@ async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
 }
 
 /// U7191a: a Mode's Restart is `agent.resume`: it starts a new run on the conversation and types no saved prompt.
+#[tokio::test]
+async fn a7498a_an_extra_enter_cannot_repeat_a_landed_prompt() {
+    let run = mode("Only once").await;
+    assert_eq!(recorded_bytes(&run).await, typed("Only once"));
+    // The fake submits nothing when Enter reaches an empty input line.
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"\r")}),
+        )
+        .await
+        .unwrap();
+    let screen = run.recorded_input().await;
+    assert_eq!(screen.matches("SUBMITTED").count(), 1, "{screen}");
+    assert_eq!(screen.matches("EMPTY-ENTER").count(), 1, "{screen}");
+    run.finish().await;
+}
+
 #[tokio::test]
 async fn u7191a_a_mode_restart_types_no_saved_prompt() {
     let prompt = "Saved words";
