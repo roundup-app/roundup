@@ -2,6 +2,8 @@ import { webkit, type Browser, type Page } from "playwright";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer, type AppServer } from "./testing/appServer";
 
+/* U7543a explicitly commissions these geometry and scroll-offset guards for every scroll area. */
+/* oxlint-disable anti-slop/no-new-web-assertions */
 let server: AppServer;
 
 let engine: Browser;
@@ -30,11 +32,24 @@ const overflowing = (page: Page) => page.evaluate(() => {
     // A seeded view rarely overflows every area; give each one scrolling room so the same clauses read on all of them.
     if (element.scrollHeight - element.clientHeight < 40) element.insertAdjacentHTML("beforeend", `<div aria-hidden="true" style="height:${element.clientHeight * 3}px;flex:none"></div>`);
 
+    // The library lets an area scroll only after it measures the room; an overflow:hidden area is scrolled by code, never by the wheel or a drag.
+    if (!/auto|scroll/.test(getComputedStyle(element).overflowY)) return;
+
     // Only an area the user can reach: its centre hits itself or its own content.
     const box = element.getBoundingClientRect();
     const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
 
     if (!hit || !element.contains(hit) || box.bottom > innerHeight || box.top < 0) return;
+
+    // The wheel scrolls the innermost scroller under the pointer, so an area whose centre sits in a scrolling child is that child's to prove.
+    let inner: Element | null = hit;
+
+    while (inner && inner !== element && !(/auto|scroll/.test(getComputedStyle(inner).overflowY) && inner.scrollHeight > inner.clientHeight)) inner = inner.parentElement;
+
+    if (inner !== element) return;
+
+    // A host nested inside also took filler, and which of the two takes the wheel then depends on the engine: the inner one is proved by its own pass.
+    if (element.querySelector(".scrollbar-slot")) return;
 
     element.setAttribute("data-u7543", String(marks.length));
     marks.push(element.className || element.tagName);
@@ -53,13 +68,20 @@ const check = async (page: Page, mark: number, name: string) => {
   if (!frame) throw new Error(`${name}: no box`);
 
   await area.evaluate((element) => { element.scrollTop = 0; });
-  await page.mouse.move(frame.x + frame.width / 2, frame.y + frame.height / 2);
-  await page.mouse.wheel(0, 120);
-  await page.waitForFunction((index) => (document.querySelector<HTMLElement>(`[data-u7543="${index}"]`)?.scrollTop ?? 0) > 0, mark);
-  await page.waitForFunction((selector) => {
-    const bar = document.querySelector(selector)?.closest(".os-scrollbar");
+  // A reloaded page keeps the pointer where the last view left it: enter the area from its corner so the wheel has a target.
+  await page.mouse.move(frame.x + 2, frame.y + 2);
+  await page.mouse.move(frame.x + frame.width / 2, frame.y + frame.height / 2, { steps: 3 });
+  await expect.poll(async () => {
+    await page.mouse.wheel(0, 120);
 
-    return bar !== null && bar !== undefined && getComputedStyle(bar).visibility === "visible";
+    return area.evaluate((element) => element.scrollTop);
+  }, { message: `${name}: the wheel did not scroll the area`, timeout: 10_000, interval: 200 }).toBeGreaterThan(0);
+  await page.waitForFunction((selector) => {
+    const handle = document.querySelector(selector);
+    const bar = handle?.closest(".os-scrollbar");
+
+    // The track and thumb each run their own visibility transition after the bar's, so the thumb takes the pointer only once all three show.
+    return bar !== null && bar !== undefined && getComputedStyle(bar).opacity === "1" && getComputedStyle(handle ?? bar).visibility === "visible";
   }, thumbOf(mark));
 
   const read = () => area.evaluate((element, selector) => {
@@ -110,7 +132,11 @@ it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async
     for (const query of ["seed=tree-40", "view=workstreams&items=1&seed=tree-40", "view=changes&seed=tree-40", "view=notes&seed=agents-10", "view=resources&seed=agents-10"]) {
       await page.goto(new URL(`/harness.html?rest=1&${query}`, server.resolvedUrls.local[0]).href);
       await page.waitForSelector(".rail-row");
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(1000);
+
+      // The first pass gives every area its room; the library measures it, and the second reads which areas then scroll.
+      await overflowing(page);
+      await page.waitForTimeout(500);
 
       const marks = await overflowing(page);
 
