@@ -40,31 +40,28 @@ export const showScrollbars = (element: HTMLElement): void => {
   idle.set(element, { timer: setTimeout(hide, IDLE_MS), until });
 };
 
-/** Z3742a/U7543b: the library's own in-host structure moves a host's children into wrapper
- * elements, which breaks Solid-owned children; with the host as its own viewport the bar
- * lives in the scrolling content and leaves with it. So every host keeps an external slot
- * beside it in the same scrolling content (an ancestor's scroll carries both), placed from
- * `getBoundingClientRect` on resize and DOM change. The library owns visibility, drag,
- * geometry and its idle delay. See #3742/#4094. */
+/** Z3742a/U7543b: the library's own in-host mode wraps a host's children in a viewport element. Solid
+ * inserts later children straight into the host, outside that wrapper (probed: after wrapping, a
+ * second render put its nodes beside the viewport, so they never scrolled), so every Solid-owned
+ * host keeps the host itself as the viewport and its bars in an external slot. The slot is the
+ * host's next sibling, absolutely placed from the host's own `offsetLeft`/`offsetTop`: both share
+ * one parent and so one containing block, which scrolls with every ancestor, so the bar never
+ * leaves its edge and nothing re-places it on scroll. The library owns visibility, drag, geometry
+ * and its idle delay. See #3742/#4094. */
 export const trackScrollbars = (doc: Document): void => {
   const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; width: number; height: number }>();
   const roots = new Map<Document | ShadowRoot, MutationObserver>();
 
   const place = (element: HTMLElement, slot: HTMLElement) => {
-    const box = element.getBoundingClientRect();
-    const hidden = !element.checkVisibility() || !box.width || !box.height;
+    const hidden = !element.checkVisibility() || !element.clientWidth || !element.clientHeight;
 
     if (slot.hidden !== hidden) slot.hidden = hidden;
 
     if (hidden) return;
 
-    // The slot sits beside its host in the same scrolling content, so an ancestor's scroll moves both together with
-    // no script; a translated ancestor changes the containing block, so adjust from the slot's current box.
-    const origin = slot.getBoundingClientRect();
-
     const styles = {
-      left: `${(parseFloat(slot.style.left) || 0) + box.left + element.clientLeft - origin.left}px`,
-      top: `${(parseFloat(slot.style.top) || 0) + box.top + element.clientTop - origin.top}px`,
+      left: `${element.offsetLeft + element.clientLeft}px`,
+      top: `${element.offsetTop + element.clientTop}px`,
       width: `${element.clientWidth}px`,
       height: `${element.clientHeight}px`,
     };
