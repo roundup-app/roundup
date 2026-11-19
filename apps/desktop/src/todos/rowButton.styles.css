@@ -226,8 +226,9 @@ input.todo-tick {
 .todo-row[role="treeitem"]:hover {
   color: var(--text);
 }
-/* A Pad row is a treeitem like a Todo row: the pointer and an ink hover answer a click (D6); its wash is the row's own. */
+/* A Pad row is a treeitem like a Todo row: it rests at --grey and lifts to --text on hover (D6); its wash is the row's own. */
 .pad-inset[role="treeitem"] {
+  color: var(--grey);
   cursor: pointer;
 }
 .pad-inset[role="treeitem"]:hover {
