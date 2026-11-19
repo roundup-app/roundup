@@ -489,7 +489,7 @@ li[aria-selected="true"] svg {
   color: var(--amber);
 }
 
-/* U7499a: the fold row is a flex row, not `.rail-fold`'s two-column grid: its label starts where the Pad names do (rail inset, Glyph, gap) and the chevron trails on the same line. */
+/* U7499a: the fold row is a flex row, not `.rail-fold`'s two-column grid: its label starts where the Pad names do (the Pad row's leading padding, then an empty Glyph slot and the row gap) and the chevron trails on the same line. */
 .rail-fold.pad-fold {
   display: flex;
   align-items: center;
@@ -497,7 +497,7 @@ li[aria-selected="true"] svg {
   gap: var(--space-3);
   width: 100%;
   box-sizing: border-box;
-  padding-inline: calc(var(--rail-inset, var(--space-4)) + var(--space-4) + var(--space-3)) var(--rail-edge, var(--space-3));
+  padding-inline: var(--space-1) var(--rail-edge, var(--space-3));
   color: var(--grey);
   text-align: start;
 }
@@ -507,8 +507,16 @@ li[aria-selected="true"] svg {
 }
 
 .pad-fold .rail-fold-content {
+  display: flex;
   flex: 1;
+  gap: var(--space-2);
   min-width: 0;
+}
+
+.pad-fold .rail-fold-content::before {
+  content: "";
+  flex: none;
+  width: var(--space-4);
 }
 
 .pad-fold svg {
