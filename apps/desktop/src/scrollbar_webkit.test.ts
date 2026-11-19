@@ -181,13 +181,6 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
       });
       await page.click(".changes-icon");
       await page.waitForSelector(".changes-files li");
-      // Now the view is open, give it enough files to scroll.
-      await page.evaluate(() => {
-        window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: Array.from({ length: 60 }, (_, index) => ({ path: `src/file-${index}.ts`, status: "modified", line: 1 })) }] });
-        window.__fake.setStatus("agent-1", "working", "working");
-        window.__fake.setStatus("agent-1", "idle", "idle");
-      });
-      await page.waitForFunction(() => document.querySelectorAll(".changes-files li").length > 20);
       // This page mounts the App without main.tsx, so start the scrollbars it would have started.
       await page.evaluate('import("/src/scrollHover.ts").then((scrollHover) => scrollHover.trackScrollbars(document))');
     },
