@@ -137,7 +137,6 @@
   font-size: var(--text-small);
 }
 
-/* OverlayScrollbars gives every scrolling element position: relative, so the box over the centre never scrolls and its body does. */
 .changes-body {
   flex: 1;
   min-height: 0;
