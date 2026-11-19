@@ -187,7 +187,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
     expect(await evaluate(`(async () => {
       document.querySelector('.drawer .close').dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
       return await new Promise(resolve => requestAnimationFrame(() => resolve(!!document.querySelector('.todo-detail'))));
-    })()`)).toBe(!reduced);
+    })()`)).toBe(false); // U7638a: a Todo takes the main area and leaves it with no exit slide.
     // The returned trigger can reopen while the pointer exit is still in flight.
     expect(await activate('.shelf [data-todo] .todo-row-button', "Enter")).toMatchObject({ open: true, content: true, focus: true });
     await browser("wait", ".todo-detail");

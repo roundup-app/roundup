@@ -413,6 +413,10 @@ p {
   transition: opacity var(--slide-duration) var(--easing-out);
 }
 
+/* U7638a: a Todo or a Pad takes the main area at once: the Terminal is hidden, not unmounted, so its program runs on and its size never changes; closed, the panel is gone with no exit. */
+.drawer[data-fill="true"][data-open="false"] { display: none; }
+.window[data-main-area] .centre { visibility: hidden; }
+
 /* U430, U3721b: the columns end where the Drawer begins, taking that width once when its slide ends; a width never interpolates. */
 .window[data-shelf-mode]:has(.drawer[data-reserve="true"]:not([data-fill="true"])) .columns,
 .window[data-shelf-mode][data-shelf-maximised="true"]:has(.drawer[data-reserve="true"]) .columns {

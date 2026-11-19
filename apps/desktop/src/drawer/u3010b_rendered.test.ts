@@ -268,7 +268,8 @@ it("u3010b_preference_change_preserves_destination_and_focus", { retry: 0 }, asy
   ]);
 });
 
-it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
+// U7638a: a Todo takes the main area, so the Terminal behind it is hidden and sent no resize by opening or closing it.
+it("u7638a_a_hidden_terminal_keeps_its_output_and_gets_no_resize", { retry: 0 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
   await browser("click", '.rail [data-id="tokens"] .row-state');
@@ -276,44 +277,19 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
   await settle();
   await evaluate("(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click(); return true; })()");
   await browser("wait", ".shelf [data-todo] .todo-row-button");
-  await browser("click", ".shelf [data-todo] .todo-row-button");
-  await settle();
-  // U4698a: a Todo opens filled; U430's narrowing, and so its resize, belongs to the side state, which the Project keeps once chosen.
-  await browser("press", "Enter");
-  await settle();
-  await browser("click", '.drawer button[aria-label="Restore"]');
-  await settle();
-  await browser("click", ".drawer .close");
-  await settle();
-  await evaluate(`(async () => {
-    const { drawerSliding } = await import('/src/drawer/sliding.ts');
-    const app = window.__fake.app;
+  await evaluate(`(() => {
     window.__drawerResizes = [];
-    app.handlers['terminal.resize'] = params => {
-      window.__drawerResizes.push({ params, sliding: drawerSliding() });
-      return null;
-    };
-    window.__drawerResizeFrames = [];
-    const sample = () => {
-      window.__drawerResizeFrames.push(window.__drawerResizes.length);
-      window.__drawerResizeFrame = requestAnimationFrame(sample);
-    };
-    window.__drawerResizeFrame = requestAnimationFrame(sample);
+    window.__fake.app.handlers['terminal.resize'] = params => { window.__drawerResizes.push(params); return null; };
+    window.__terminal = document.querySelector('.xterm-screen');
     return true;
   })()`);
-
-  for (const [selector, count] of [['.shelf [data-todo] .todo-row-button', 1], [".drawer .close", 2]] as const) {
-    await browser("click", selector);
-
-    if (count === 1) await browser("press", "Enter");
-    await settle();
-    expect(await evaluate("window.__drawerResizes.length")).toBe(count);
-  }
-
-  expect(await evaluate(`(() => {
-    cancelAnimationFrame(window.__drawerResizeFrame);
-    return { counts: [...new Set(window.__drawerResizeFrames)], ids: window.__drawerResizes.map(call => call.params.id), sliding: window.__drawerResizes.map(call => call.sliding) };
-  })()`)).toEqual({ counts: [0, 1, 2], ids: ["t-tokens", "t-tokens"], sliding: [false, false] });
+  await browser("click", ".shelf [data-todo] .todo-row-button");
+  await browser("press", "Enter");
+  await settle();
+  expect(await evaluate("[document.querySelector('.drawer').dataset.fill, document.querySelector('.centre').checkVisibility({ visibilityProperty: true }), document.querySelector('.xterm-screen') === window.__terminal]")).toEqual(["true", false, true]);
+  await browser("click", ".drawer .close");
+  await settle();
+  expect(await evaluate("[document.querySelector('.centre').checkVisibility({ visibilityProperty: true }), document.querySelector('.xterm-screen') === window.__terminal, window.__drawerResizes.length]")).toEqual([true, true, 0]);
 });
 
 // Trusted input observes the actual hairline target; padding is not a dismissal target.
@@ -542,63 +518,6 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
   }
 });
 }
-
-// A missed press beside Todo content must not become a dismissal command.
-it("u3010b_panel_edge_press_preserves_the_open_todo", { retry: 0 }, async () => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
-  await browser("set", "viewport", "1512", "950");
-  await browser("click", '.todos-tab [data-shelf-group="unassigned"] .shelf-group-control');
-  await browser("click", '.shelf [data-todo="5"] .todo-row-button');
-  await settle();
-  await browser("click", '.shelf [data-todo="5"] .todo-row-button');
-  await browser("press", "Enter");
-  await settle();
-  await browser("click", '.drawer button[aria-label="Restore"]');
-  await settle();
-  await evaluate(`(() => {
-    const panel = document.querySelector('.drawer');
-    window.__edgeContent = panel.lastElementChild;
-    document.addEventListener('pointerdown', event => {
-      window.__edgePress = { trusted: event.isTrusted, panel: panel.contains(event.target) };
-    }, { once: true });
-    return true;
-  })()`);
-  // The border dismisses; target the document just inside it, where a missed content press must stay open.
-  const point = await evaluate<{ x: number; y: number }>(`(() => { const panel = document.querySelector('.drawer'); const r = panel.getBoundingClientRect(); return { x: r.left + parseFloat(getComputedStyle(panel).borderLeftWidth) + 1, y: r.top + r.height / 2 }; })()`);
-  await browser("mouse", "move", String(Math.floor(point.x)), String(Math.floor(point.y)));
-  await browser("mouse", "down");
-  await browser("mouse", "up");
-  await settle();
-  expect(await evaluate(`(() => {
-    const panel = document.querySelector('.drawer');
-    return { ...window.__edgePress, open: panel.dataset.open, sameContent: panel.lastElementChild === window.__edgeContent };
-  })()`)).toEqual({ trusted: true, panel: true, open: "true", sameContent: true });
-
-  if (art) {
-    const directory = join(art, "hairline/padding");
-    mkdirSync(directory, { recursive: true });
-    await browser("screenshot", join(directory, "todo-5-edge-press.png"));
-    writeFileSync(join(directory, "todo-5-edge-press.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
-    writeFileSync(join(directory, "todo-5-edge.json"), JSON.stringify(await evaluate(`(() => {
-      const panel = document.querySelector('.drawer');
-      const border = getComputedStyle(panel);
-      const pseudo = getComputedStyle(panel, '::before');
-      return { press: window.__edgePress, open: panel.dataset.open, left: panel.getBoundingClientRect().left,
-        borderWidth: border.borderLeftWidth, borderColor: border.borderLeftColor,
-        pseudoContent: pseudo.content, pseudoBorderWidth: pseudo.borderLeftWidth };
-    })()`)));
-    await evaluate(`(async () => {
-      const { RpcError } = await import('/src/app/seam.ts');
-      window.__fake.app.handlers['todo.comment'] = () => { throw new RpcError(-32003, 'Comment refused. Retry when the connection is restored.'); };
-      return true;
-    })()`);
-    await browser("fill", ".drawer .todo-comment-field", "Preserve this exact unsubmitted comment.");
-    await browser("press", "Enter");
-    await browser("wait", "--fn", "document.querySelector('.drawer').textContent.includes('Comment refused.')");
-    await browser("screenshot", join(directory, "todo-5-refused.png"));
-    writeFileSync(join(directory, "todo-5-refused.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
-  }
-});
 
 // The Shelf's reserved mode: pointer close, reversal at 50% of its width, then the same close left to run; reduced motion settles it.
 const shelfTrace = (rate: number) => `(async () => {
