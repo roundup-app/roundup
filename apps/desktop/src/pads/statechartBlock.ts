@@ -247,6 +247,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
     for (const [key, arrow] of arrows) arrow.disabled = !offered.has(key);
     bar.textContent = broken ? copy.statechartBreaks(broken.join(", ")) : "";
     list.replaceChildren(...out().map((move) => button(move.label, () => play([move]))));
+    list.hidden = list.childElementCount === 0;
   };
 
   const paintControls = (onBreak: boolean) => {
