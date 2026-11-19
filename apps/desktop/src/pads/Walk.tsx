@@ -1,7 +1,9 @@
 import "./styles.css";
 
 import { createEffect, createSignal, For, lazy, Loading, onCleanup, Show, untrack, type Accessor } from "solid-js";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { animate } from "motion";
+import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { Icon } from "../ink/Icon";
 import { appSettings } from "../settings/preferences";
 import { Collapsible } from "../ui/Collapsible";
@@ -25,7 +27,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
   const [index, setIndex] = createSignal(Math.min(Math.max((saved ?? 1) - 1, 0), last));
   let root: HTMLElement | undefined;
   let slide: HTMLDivElement | undefined;
-  let scroller: HTMLDivElement | undefined;
+  let body: HTMLDivElement | undefined;
   let editor: PadEditorHandle | undefined;
   let motion: { stop: () => void } | undefined;
   let finished = false;
@@ -34,7 +36,14 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
   const [more, setMore] = createSignal(false);
 
   // PW10: the fade shows while more of the step lies below the scroll position.
-  const measure = () => setMore(!!scroller && scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 1);
+  // The editor's own surface scrolls inside the body; before it mounts the body is the scroller.
+  const scroller = () => body?.querySelector<HTMLElement>(".pad-editor") ?? body;
+
+  const measure = () => {
+    const el = scroller();
+
+    setMore(!!el && el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+  };
 
   const watch = (el: HTMLElement) => {
     if (typeof ResizeObserver === "undefined") return;
@@ -44,7 +53,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
     queueMicrotask(() => {
       observer.observe(el);
 
-      if (scroller) observer.observe(scroller);
+      if (body) observer.observe(body);
     });
     onCleanup(() => observer.disconnect());
   };
@@ -62,7 +71,9 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
   createEffect(() => stepAt(index()).text, text => {
     editor?.setText(text);
 
-    if (scroller) scroller.scrollTop = 0;
+    const el = scroller();
+
+    if (el) el.scrollTop = 0;
     queueMicrotask(measure);
   });
   createEffect(index, () => { if (root && !root.contains(document.activeElement)) root.focus({ preventScroll: true }); });
@@ -139,10 +150,10 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
             <h2 class="walk-title">{stepAt(index()).title}</h2>
             <span class="walk-count" aria-live="polite">{copy.walkCount(index() + 1, steps.length)}</span>
           </header>
-          <div class="walk-body pad-body" ref={scroller} data-more={more() ? "" : undefined} onScroll={measure}>
-            <Loading>
+          <div class="walk-body pad-body" ref={el => { body = el; makeEventListener(el, "scroll", measure, { capture: true }); }} data-more={more() ? "" : undefined}>
+            <DrawerExpandContext value={null}><Loading>
               <PadRichEditor label={props.name} text={stepAt(index()).text} readonly onChange={() => {}} onText={() => {}} onBlur={() => {}} onReady={ready => { editor = ready; ready.setText(stepAt(index()).text); queueMicrotask(measure); }} />
-            </Loading>
+            </Loading></DrawerExpandContext>
           </div>
         </div>
         <footer class="walk-foot">

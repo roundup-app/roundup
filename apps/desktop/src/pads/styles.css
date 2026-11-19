@@ -540,8 +540,8 @@ li[aria-selected="true"] svg {
 .walk-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
 }
 
 /* PW10: the bottom edge fades while more of the step lies below. */
