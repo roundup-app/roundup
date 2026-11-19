@@ -64,6 +64,18 @@ async fn shim(
     rmcp::service::RunningService<rmcp::service::RoleClient, ()>,
     tokio::process::Child,
 ) {
+    shim_with(project, id, true).await
+}
+
+/// `with_guide` false starts the shim as if its launch had passed no guide.
+async fn shim_with(
+    project: &daemon::Project,
+    id: &str,
+    with_guide: bool,
+) -> (
+    rmcp::service::RunningService<rmcp::service::RoleClient, ()>,
+    tokio::process::Child,
+) {
     let config: Value = serde_json::from_slice(
         &std::fs::read(project.data_dir().join(format!("agents/{id}.mcp.json"))).unwrap(),
     )
@@ -82,6 +94,9 @@ async fn shim(
             env.iter()
                 .map(|(key, value)| (key, value.as_str().unwrap())),
         );
+    }
+    if !with_guide {
+        command.env_remove("ROUNDUP_NAMING_GUIDE");
     }
     let mut child = command
         .env("RUPD_SOCKET", project.socket())
@@ -442,7 +457,7 @@ async fn u7499c_pad_create_is_unchanged_without_a_guide() {
     let project = daemon::start(&[]);
     let user = project.client().await;
     let parent = spawn(&project, &user).await;
-    let (mcp, _child) = shim(&project, &parent.id).await;
+    let (mcp, _child) = shim_with(&project, &parent.id, false).await;
     let tools = mcp.list_tools(None).await.unwrap();
     assert!(!description(&tools, "pad_create").contains("Naming guide"));
 }
