@@ -16,7 +16,7 @@ describe("u174 a File drop adds no wait of roundup's", () => {
     connected.rail.select("a");
     flush();
     const body = container.querySelector<HTMLElement>(".pane-body")!;
-    const paths = Array.from({ length: count }, (_, index) => `/p/image-${index}.png`);
+    const paths = Array.from({ length: count }, (_, index) => `/p/file-${index}.txt`);
 
     body.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
     await Promise.resolve();

@@ -35,6 +35,7 @@ pub const NO_TOOL: &[&str] = &[
     "open_in_editor",
     "list_editors",
     "save_pasted_image",
+    "save_dropped_image",
     // U3787f: only the user opens and controls the native Capture presentation.
     "plugin:capture-panel|control",
     // U3560a: only the user writes the native pasteboard.

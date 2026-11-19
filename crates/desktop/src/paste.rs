@@ -116,6 +116,58 @@ pub fn save_in_cache(media_type: &str, bytes: &[u8]) -> Result<PathBuf, RpcError
     )
 }
 
+/// The media type a dropped file's extension names, case-insensitively.
+fn dropped_type(path: &Path) -> Option<&'static str> {
+    match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    }
+}
+
+/// Copies the image file a drop named into `<cache>/roundup-pasted` and returns the copy's absolute path (`scenarios/ui-terminal-paste.md` U7659a).
+pub fn save_dropped(cache: &Path, path: &Path, now: SystemTime) -> Result<PathBuf, RpcError> {
+    let media_type = dropped_type(path).ok_or_else(|| {
+        RpcError::forbidden(format!(
+            "{} is not an image a drop can copy",
+            path.display()
+        ))
+    })?;
+    let io = |err: std::io::Error| {
+        RpcError::new(
+            rpc::code::INTERNAL,
+            format!("could not read {}: {err}", path.display()),
+        )
+    };
+    let meta = fs::metadata(path).map_err(io)?;
+    if !meta.is_file() {
+        return Err(RpcError::forbidden(format!(
+            "{} is not a file",
+            path.display()
+        )));
+    }
+    // Refuse before reading, so a huge file never sits in memory.
+    if meta.len() > LIMIT as u64 {
+        return Err(RpcError::forbidden(format!(
+            "the image is {} MiB, over the {} MiB a drop can copy",
+            meta.len() / (1024 * 1024),
+            LIMIT / (1024 * 1024)
+        )));
+    }
+
+    save(cache, media_type, &fs::read(path).map_err(io)?, now)
+}
+
+/// `save_dropped` in the OS cache directory, as the clock stands.
+pub fn save_dropped_in_cache(path: &Path) -> Result<PathBuf, RpcError> {
+    let cache = dirs::cache_dir()
+        .ok_or_else(|| RpcError::new(rpc::code::INTERNAL, "this Mac has no cache folder"))?;
+
+    save_dropped(&cache, path, time::OffsetDateTime::now_utc().into())
+}
+
 #[cfg(test)]
 mod tests {
     use std::os::unix::fs::PermissionsExt;
@@ -250,5 +302,64 @@ mod tests {
             "an old file in the folder is pruned whatever its name"
         );
         assert!(outside.exists());
+    }
+
+    #[test]
+    fn u7659a_a_dropped_images_bytes_are_kept() {
+        let cache = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        let now = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+
+        for (name, extension) in [
+            ("a.PNG", "png"),
+            ("b.jpeg", "jpg"),
+            ("c.gif", "gif"),
+            ("d.WebP", "webp"),
+        ] {
+            let dropped = source.path().join(name);
+            fs::write(&dropped, b"\x89abc").unwrap();
+
+            let copy = save_dropped(cache.path(), &dropped, now).unwrap();
+
+            assert_eq!(copy.parent().unwrap(), cache.path().join("roundup-pasted"));
+            assert_eq!(copy.extension().unwrap(), extension);
+            assert_eq!(fs::read(&copy).unwrap(), b"\x89abc");
+            assert_eq!(
+                fs::metadata(&copy).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
+
+    #[test]
+    fn u7659a_a_file_over_the_limit_is_refused() {
+        let cache = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        let big = source.path().join("big.png");
+        fs::write(&big, vec![0u8; LIMIT + 1]).unwrap();
+
+        let err =
+            save_dropped(cache.path(), &big, UNIX_EPOCH + Duration::from_secs(1)).unwrap_err();
+
+        assert_eq!(err.code, rpc::code::FORBIDDEN);
+        assert!(!cache.path().join("roundup-pasted").exists());
+    }
+
+    #[test]
+    fn u7659a_a_non_image_file_is_refused() {
+        let cache = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        let text = source.path().join("notes.txt");
+        fs::write(&text, "x").unwrap();
+        let folder = source.path().join("folder.png");
+        fs::create_dir(&folder).unwrap();
+
+        for refused in [text, folder] {
+            let err = save_dropped(cache.path(), &refused, UNIX_EPOCH + Duration::from_secs(1))
+                .unwrap_err();
+
+            assert_eq!(err.code, rpc::code::FORBIDDEN, "{}", refused.display());
+        }
+        assert!(!cache.path().join("roundup-pasted").exists());
     }
 }

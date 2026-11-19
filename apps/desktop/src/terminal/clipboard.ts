@@ -12,6 +12,8 @@ export type Clipboard = {
   paste(id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void>;
   /** Pastes dropped paths as one shell line fragment (U162); an exited Terminal or Daemon, or no path, takes nothing. */
   pastePaths(id: string, paths: string[]): void;
+  /** U7659a: copies each dropped image file before pasting, then pastes all paths through `pastePaths`; a failed copy shows its message and pastes nothing for that file. */
+  pasteDropped(id: string, paths: string[]): void;
   /** Routes the host's copy and paste events and keys to this Clipboard; returns the way to stop. */
   listen(id: string, host: HTMLElement): () => void;
 };
@@ -49,6 +51,31 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     if (!isFocused(id) || paths.length === 0 || exited(id) || daemonExit() !== null) return;
 
     emulatorFor(id).paste(`${paths.map((path) => `'${path.replaceAll("'", "'\\''")}'`).join(" ")} `);
+  };
+
+  const imagePath = /\.(png|jpe?g|gif|webp)$/i;
+
+  const pasteDropped: Clipboard["pasteDropped"] = (id, paths) => {
+    if (!paths.some((path) => imagePath.test(path))) {
+      pastePaths(id, paths);
+
+      return;
+    }
+
+    if (exited(id) || daemonExit() !== null) return;
+
+    // The temporary file can vanish once the drag ends, so every copy starts inside the drop handler.
+    const copies = paths.map((path) => (imagePath.test(path) ? app.saveDroppedImage(path) : Promise.resolve(path)));
+
+    void Promise.allSettled(copies).then((settled) => {
+      const rejected = settled.find((result) => result.status === "rejected");
+      const reason: unknown = rejected?.reason;
+
+      if (reason !== undefined && !(reason instanceof Error)) throw reason;
+
+      failures.set(id, "clipboard", reason instanceof Error ? clipboardFailure("drop", reason) : null);
+      pastePaths(id, settled.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])));
+    });
   };
 
   const paste: Clipboard["paste"] = async (id, event) => {
@@ -128,5 +155,5 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     }));
   };
 
-  return { copy, paste, pastePaths, listen };
+  return { copy, paste, pastePaths, pasteDropped, listen };
 };

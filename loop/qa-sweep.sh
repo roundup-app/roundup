@@ -201,6 +201,9 @@ for size in 1280x400 1280x800; do
   # U373: the Shelf mounts only its selected tab, so switch to Pads, then back for the next viewport.
   browser click '.shelf-tab[data-value=pads]' >/dev/null || fail "Pads tab could not open at ${width}×${height}"
   browser wait '[aria-label="Pads"]' >/dev/null || fail "Pads did not render at ${width}×${height}"
+  # U7499b: opening pad-3 at the first viewport reads it, and U7499a lists a read Pad in its group's closed `idle` fold, so the next viewport unfolds before the row is reachable.
+  browser eval '(() => { for (const fold of document.querySelectorAll("[aria-label=Pads] .pad-fold[aria-expanded=false]")) fold.click(); return true; })()' >/dev/null || fail "Pad folds could not unfold at ${width}×${height}"
+  browser wait --fn 'document.querySelector("[aria-label=Pads] [data-pad=\"pad-3\"] .pad-name")?.checkVisibility()' >/dev/null || fail "Pad row did not appear at ${width}×${height}"
   browser scrollintoview '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
   browser focus '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null && browser press Enter >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
   browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer did not open at ${width}×${height}"

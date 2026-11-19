@@ -128,6 +128,9 @@ export type FakeApp = AppSeam & {
   menuLabels(): string[];
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
+  /** Every path `saveDroppedImage` was called with, in order; it rejects with `saveImageFailure` and resolves `savedDroppedPaths` or `/cache/roundup-pasted/<name>`. */
+  droppedImages: string[];
+  savedDroppedPaths: Map<string, string>;
   clipboardWrites: string[];
   /** Native write edge, kept live through App decorators; tests can replace it after mounting. */
   clipboardWrite(text: string): Promise<void>;
@@ -250,6 +253,8 @@ export const createFakeApp = (): FakeApp => {
       app.clipboardWrites.push(text);
     },
     savedImages: [],
+    droppedImages: [],
+    savedDroppedPaths: new Map<string, string>(),
     shownMenus: [],
     menuChoice: undefined,
     menuResolve: null,
@@ -396,6 +401,7 @@ export const createFakeApp = (): FakeApp => {
         openInEditor: app.openInEditor,
         listEditors: app.listEditors,
         savePastedImage: app.savePastedImage,
+        saveDroppedImage: app.saveDroppedImage,
         writeClipboardText: (text: string) => app.writeClipboardText(text),
         clipboardWrites: app.clipboardWrites,
         showContextMenu: app.showContextMenu,
@@ -562,6 +568,13 @@ export const createFakeApp = (): FakeApp => {
       app.savedImages.push(image);
 
       return app.savedImagePath;
+    },
+    saveDroppedImage: async (path) => {
+      if (app.saveImageFailure) throw app.saveImageFailure;
+
+      app.droppedImages.push(path);
+
+      return app.savedDroppedPaths.get(path) ?? `/cache/roundup-pasted/${path.split("/").pop()}`;
     },
     onFileDrop: (listener) => {
       dropListeners.add(listener);

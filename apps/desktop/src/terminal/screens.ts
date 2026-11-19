@@ -47,8 +47,8 @@ export type Screens = {
   viewing(id: string, on: boolean): void;
   /** Whether `viewing(id, true)` holds: the Terminal's Bubble is open, so that Bubble shows its failure and the pane does not. */
   viewedInBubble(id: string): boolean;
-  /** Pastes dropped paths as one shell line fragment (U162); an exited Terminal or Daemon, or no path, takes nothing. */
-  pastePaths(id: string, paths: string[]): void;
+  /** U162, U7659a: pastes dropped paths as one shell line fragment, each image file's copy in its place; an exited Terminal or Daemon, or no path, takes nothing. */
+  pasteDropped(id: string, paths: string[]): void;
   /** The selected Terminal's last failed call or `terminal.output`, until a later call for that Terminal succeeds. */
   failure(id: string | null): string | null;
   /** U6249b: the verb that tries the shown failure of `failure(id)` again, or null when it has none. */
@@ -282,7 +282,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     returnToBottom: (id) => holderFor(id).returnToBottom(),
     copy: clipboard.copy,
     paste: clipboard.paste,
-    pastePaths: clipboard.pastePaths,
+    pasteDropped: clipboard.pasteDropped,
     exited,
     unseen: watches.unseen,
     viewedInBubble: watches.bubbled,

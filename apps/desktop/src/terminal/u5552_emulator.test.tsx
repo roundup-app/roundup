@@ -152,14 +152,14 @@ it.each(["field", "terminal", "covered", "hidden", "outside"])("u5552e_drop_focu
 
  return null; };
 
-  app.dropFiles({ phase: "drop", x: origin === "outside" ? 200 : 50, y: 50, paths: ["/tmp/it's.png"] });
+  app.dropFiles({ phase: "drop", x: origin === "outside" ? 200 : 50, y: 50, paths: ["/tmp/it's.txt"] });
 
   if (origin === "covered" || origin === "hidden" || origin === "outside") {
     expect(callsTo(app, "terminal.write")).toEqual([]);
     expect(document.activeElement).toBe(active);
   } else {
     expect(focused).toEqual([true]);
-    expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: btoa("\x1b[200~'/tmp/it'\\''s.png' \x1b[201~") }]);
+    expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: btoa("\x1b[200~'/tmp/it'\\''s.txt' \x1b[201~") }]);
   }
 
   Reflect.deleteProperty(document, "elementFromPoint");

@@ -5,7 +5,7 @@ import { storageOpened, storageSchema, storedValue } from "../state/storage";
 const finite = v.pipe(v.number(), v.finite());
 
 const schema = storageSchema("roundup:viewer", v.object({
-  rail: v.optional(v.fallback(finite, 288), 288),
+  rail: v.optional(v.fallback(finite, 348), 348),
   shelf: v.optional(v.fallback(finite, 320), 320),
   collapsed: v.optional(v.fallback(v.boolean(), false), false),
   /** The Shelf's own choices; `open` missing means the caller's default, a tab that is neither tab means `todos`. */

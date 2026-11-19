@@ -31,8 +31,10 @@ export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): P
 };
 
 /** Keep real platform causes and an available recovery action; permission-refusal advice has no producer. */
-export const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
+export const clipboardFailure = (verb: "copy" | "paste" | "drop", thrown: Error): string => {
   if (thrown.cause === unsupportedImage) return thrown.message;
 
-  return copy.failed(verb === "paste" ? copy.paste : copy.copy, `${thrown.message} — ${verb === "paste" ? copy.clipboardRetry : copy.clipboardCopyRetry}`);
+  const retry = { copy: copy.clipboardCopyRetry, paste: copy.clipboardRetry, drop: copy.dropRetry }[verb];
+
+  return copy.failed(verb === "copy" ? copy.copy : copy.paste, `${thrown.message} — ${retry}`);
 };
