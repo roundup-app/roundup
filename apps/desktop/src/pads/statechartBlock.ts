@@ -57,6 +57,15 @@ type LayoutFailure = Error | string | undefined;
 const firstCauseLine = (failure: LayoutFailure) =>
   (failure instanceof Error ? failure.message : (failure ?? "")).split("\n")[0]?.trim() ?? "";
 
+/** Replace the chart frame's content with the layout failure's cause in words. */
+const showLayoutFailure = (frame: HTMLElement, failure: LayoutFailure) => {
+  const cause = firstCauseLine(failure);
+  const line = element("p", "visual-error", cause ? copy.statechartLayout(cause) : copy.statechartLayoutUnknown);
+
+  line.setAttribute("role", "alert");
+  frame.replaceChildren(line);
+};
+
 /** The block's object, or the first failure in words. */
 export const readStatechart = (text: string): { chart: Statechart } | { cause: string } => {
   let json: unknown;
@@ -365,12 +374,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
       update();
     })
     .catch((failure: LayoutFailure) => {
-      if (!live) return;
-      const cause = firstCauseLine(failure);
-      const line = element("p", "visual-error", cause ? copy.statechartLayout(cause) : copy.statechartLayoutUnknown);
-
-      line.setAttribute("role", "alert");
-      frame.replaceChildren(line);
+      if (live) showLayoutFailure(frame, failure);
     });
 
   return () => {
