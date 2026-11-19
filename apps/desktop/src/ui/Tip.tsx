@@ -39,8 +39,8 @@ const withOwn = (trigger: OwnTriggerProps, own: OwnTriggerProps): TriggerProps =
   return merge(trigger, own, chained, { ref: trigger.ref && own.ref ? [trigger.ref, own.ref] : trigger.ref ?? own.ref });
 };
 
-/** U7489a: a fixed tooltip opens this many times per icon name, then never again. */
-export const TIP_SHOWS = 3;
+/** U7650a: under Show once, a fixed tooltip opens this many times per icon name, then never again. */
+export const TIP_SHOWS = 1;
 
 /** Counts written but not yet read back from storage, so two quick openings both count. */
 const pending: Record<string, number> = {};
@@ -58,11 +58,11 @@ const countShow = (name: string) => {
   return saveAppSettings({ tipShows: { ...storedSettings().tipShows, ...pending } }).finally(() => { if (pending[name] === next) delete pending[name]; });
 };
 
-/** U7489c: every icon's name shows 3 more times. */
-export const showIconNamesAgain = (): Promise<string | null> => {
+/** U7650a: choose Hide, Show once or Always show; Show once starts every icon's count fresh. */
+export const chooseIconNames = (iconNames: "hide" | "once" | "always"): Promise<string | null> => {
   for (const name of Object.keys(pending)) delete pending[name];
 
-  return saveAppSettings({ tipShows: {} });
+  return saveAppSettings(iconNames === "once" ? { iconNames, tipShows: {} } : { iconNames });
 };
 
 /** U7489b: whether a tooltip's text is fixed for its icon (a `name`, which counts its shows) or changes with state. Every caller sets one. */
@@ -79,10 +79,17 @@ export const Tip = (props: TipKind & {
   children: (trigger: Trigger, focus: Pick<TriggerProps, "onFocusIn" | "onFocusOut" | "aria-describedby">) => JSX.Element;
 }) => {
   const [open, setOpen] = createSignal(false);
-  const retired = () => props.kind === "fixed" && !!props.name && !open() && shown(props.name) >= TIP_SHOWS;
+
+  const retired = () => {
+    if (props.kind !== "fixed") return false;
+
+    const choice = storedSettings().iconNames;
+
+    return choice === "hide" || (choice === "once" && !!props.name && !open() && shown(props.name) >= TIP_SHOWS);
+  };
 
   const changed = ({ open: now }: { open: boolean }) => {
-    if (now && !open() && props.kind === "fixed" && props.name) void countShow(props.name);
+    if (now && !open() && props.kind === "fixed" && props.name && storedSettings().iconNames === "once") void countShow(props.name);
     setOpen(now);
   };
 

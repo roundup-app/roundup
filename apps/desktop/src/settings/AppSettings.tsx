@@ -21,7 +21,8 @@ import { createSettingsView, type SettingsViewState } from "../state/settingsVie
 import { setByFile } from "./configFile";
 import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { AlertSettings } from "./AlertSettings";
-import { ResetWarnings, ShowIconNames } from "./ResetWarnings";
+import { chooseIconNames } from "../ui/Tip";
+import { ResetWarnings } from "./ResetWarnings";
 import { MachinesSettings } from "./MachinesSettings";
 import { settingsEntries } from "./entries";
 import { markControls, registerSettingsPlace } from "./place";
@@ -247,6 +248,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const lineHeightControl = () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint);
   const letterSpacingControl = () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint);
 
+const iconNamesControl = () => <SegmentGroup label={copy.iconNamesLabel} segments={[{ value: "hide", label: copy.iconNamesHide }, { value: "once", label: copy.iconNamesOnce }, { value: "always", label: copy.iconNamesAlways }]} value={appSettings().iconNames} onValueChange={choice => { if (choice === "hide" || choice === "once" || choice === "always") void chooseIconNames(choice).then(setFailure); }} />;
+
   const controls = markControls({
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
@@ -398,7 +401,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <section class={`settings-appearance-preview ${previewMode()}-theme`} aria-label={copy.appearancePreview} data-mode={previewMode()} data-scale={previewScale()}>
           <div class="settings-mode-preview">{copy.appearancePreviewSample}</div>
         </section>
-        {controls.focusMarkers()}<ShowIconNames onFailure={setFailure} />
+        {controls.focusMarkers()}{iconNamesControl()}
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Machines"><SettingsGroup hideHeading name={copy.settingsMachines}><MachinesSettings app={props.app} project={props.project} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
