@@ -1,3 +1,4 @@
+import { padReadStorage } from "../pads/padRead";
 import { readdirSync, readFileSync } from "node:fs";
 import { parse } from "@babel/parser";
 import { traverseFast, isJSXElement } from "@babel/types";
@@ -209,6 +210,7 @@ it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async 
     // Each comparison owns a fresh adapter; pending saves from the prior mount cannot repopulate it.
     useBrowserStorage(localStorage);
     localStorage.clear();
+    padReadStorage("/p").write({});
     const app = await mountOwners();
     const button = await find();
     button.focus();

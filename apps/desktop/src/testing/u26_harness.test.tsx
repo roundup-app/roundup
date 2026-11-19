@@ -2,6 +2,7 @@ import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { padReadStorage } from "../pads/padRead";
 import { App } from "../App";
 import { RequestedApp } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -17,6 +18,8 @@ const NOW = 1_700_000_000_000;
 
 const mount = (seed: SeedName, railIds?: readonly string[]) => {
   const controls = seedApp(seed, Date.now());
+
+  padReadStorage("/Users/you/harness").write({});
 
   if (railIds) {
     const tree = controls.app.handlers["rail.tree"]!;

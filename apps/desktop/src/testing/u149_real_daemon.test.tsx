@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { padReadStorage } from "../pads/padRead";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { showEverythingInApp } from "./showEverything";
 import { afterEach, describe, expect, it } from "vitest";
@@ -42,6 +43,7 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
     });
     const app = createFakeApp();
     app.opened.project = { name: "drawings", path: "/project" };
+    padReadStorage("/project").write({});
     const state = { pads: [{ incarnation: "stored-sketch", name: "sketch",  home: null, text: `${mermaid}\n${drawing}`, revision: 1, updated_at: 0, visibility: "shown" as const }], history: [] };
     app.handlers["rail.tree"] = () => [workstream("scope", { name: "scope" })];
     Object.assign(app.handlers, padHandlers(state, () => {}));

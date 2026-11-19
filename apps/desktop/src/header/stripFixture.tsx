@@ -1,3 +1,4 @@
+import { padReadStorage } from "../pads/padRead";
 import { useBrowserStorage } from "../state/storage";
 import { render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -18,6 +19,9 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
   const names = Object.keys(trees);
 
   for (const name of names) app.add(path(name));
+
+  // U7499b: an empty read record keeps each Project's Pads above the folds.
+  if (!keepStorage) for (const name of names) padReadStorage(path(name)).write({});
 
   for (const name of names) {
     const daemon = app.of(path(name));

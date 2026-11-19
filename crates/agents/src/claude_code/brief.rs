@@ -89,7 +89,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "pad_create",
-        "start a Pad; yours start `internal`, so pass `visibility: \"shown\"` when the user should read it, and name it for what the reader learns",
+        "start a Pad; yours start `internal`, so pass `visibility: \"shown\"` for the user, and name what the reader learns",
     ),
     (
         "pad_setVisibility",

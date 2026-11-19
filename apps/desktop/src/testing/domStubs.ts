@@ -2,12 +2,17 @@ import { useBrowserStorage } from "../state/storage";
 import { configure } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, beforeEach } from "vitest";
+import { padReadStorage } from "../pads/padRead";
 import { settled } from "../changes/chunks";
 import { isFocusFromKeyboard } from "@ui-sdk/core";
 
 useBrowserStorage(window.localStorage);
 
-beforeEach(() => useBrowserStorage(window.localStorage));
+// U7499b: a Pad is read when a Project has no record yet, and a read Pad folds away; an empty record keeps a test's Pads above the folds. A test of the first list writes or clears its own.
+beforeEach(() => {
+  useBrowserStorage(window.localStorage);
+  padReadStorage("/p").write({});
+});
 
 // Opening the Worktree panel starts two lazy chunks; one landing after jsdom is gone fails the lane with an Unhandled Error.
 afterEach(settled);

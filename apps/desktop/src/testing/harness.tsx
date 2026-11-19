@@ -1,4 +1,5 @@
 // U7283a: first, so the list loads before any component imports its own sheet.
+import { padReadStorage } from "../pads/padRead";
 import "../sheets";
 import { Menu } from "../ui/Menu";
 import type { MenuItem } from "../app/seam";
@@ -209,6 +210,9 @@ if (query.get("daemon") === "1") {
 
     if (failure !== null) throw new Error(failure);
   }
+
+  // U7499b: an empty read record lists the seed's Pads above the folds; only a Project with no record counts them read.
+  await padReadStorage(controls.app.opened.project!.path).write({});
 
   window.__fake = controls;
   mount(controls.app);

@@ -24,7 +24,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `todo_complete`: mark a Todo done once its outcome is real.
 - `todo_reopen`: reopen a done Todo when work remains.
 - `todo_setBlockers`: replace the Todos that must finish before this one.
-- `pad_create`: start a Pad; yours start `internal`, so pass `visibility: "shown"` when the user should read it, and name it for what the reader learns.
+- `pad_create`: start a Pad; yours start `internal`, so pass `visibility: "shown"` for the user, and name what the reader learns.
 - `pad_setVisibility`: make a Pad `shown` when the user should read it, or `internal` when only Agents need it.
 - `pad_read`: read one Pad.
 - `link_read`: read what a roundup:// link names, as it is now.
