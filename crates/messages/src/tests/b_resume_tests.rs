@@ -40,11 +40,11 @@ async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
     let mut completed = messages.inner.completed.subscribe();
     while completed.recv().await.unwrap() != "initial" {}
     let send = json!({"to": "m", "kind": "note", "body": "ship b"});
-    let held = messages
+    let accepted = messages
         .call(&ctx, "message.send", send.clone())
         .await
         .unwrap();
-    assert_eq!(held["status"], "pending");
+    assert_eq!(accepted["status"], "pending");
 
     // Resuming: Attempt 2 shows `starting` at Status revision 1, then the ack makes it idle.
     let resuming = edit(
