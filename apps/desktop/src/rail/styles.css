@@ -129,7 +129,7 @@
 .rail-row .row-age {
   flex: none;
   box-sizing: border-box;
-  inline-size: 6ch;
+  inline-size: var(--rail-age-room);
   text-align: end;
   white-space: nowrap;
   color: var(--grey);
@@ -342,11 +342,12 @@
 /* U7488c: the ring is two stroked circles; `--ring-ratio` is the done share, drawn as the fill's dash. */
 .todo-ring {
   flex: none;
+  display: block;
   inline-size: var(--space-4);
   block-size: var(--space-4);
+  transform: rotate(-90deg);
 }
-.todo-ring-svg { display: block; inline-size: 100%; block-size: 100%; transform: rotate(-90deg); }
-.todo-ring-track, .todo-ring-fill { fill: none; stroke-width: 2; }
+.todo-ring-track, .todo-ring-fill { fill: none; stroke-width: var(--stroke-width); }
 .todo-ring-track { stroke: var(--progress-track); }
 .todo-ring-fill { stroke: var(--accent); stroke-dasharray: var(--ring-ratio) 1; }
 .todo-ring-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -730,18 +731,18 @@
   width: var(--rail-slot);
   flex: none;
 }
-/* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. On hover, focus or selection the action icons overlay at one fixed spot left of the marks' room, measured from the row's right edge, and the name gives up its end to them (`…`); marks never move. A group's chevron keeps its one slot. */
-:root { --rail-todos-room: calc(var(--space-4) + 5ch); --rail-changes-room: calc(var(--space-4) + 3ch); }
-.rail-row .row-tail { position: relative; justify-content: flex-end; }
+/* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. On hover, focus or selection the action icons overlay the end of the name at one fixed offset from the row's right edge (the age's, ring's and changes' rooms), the same on every row; the tail keeps its width, so no mark moves. A group's chevron keeps its one slot. */
+:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-todos-room: calc(var(--space-4) + var(--space-1) + var(--text-caption) * 3); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
+.rail-row .line { position: relative; }
+.rail-row .row-tail { justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot:empty { display: none; }
-/* The ring and the count, and the changes mark and its count, are wider than an icon. */
-.rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); justify-content: flex-start; font-size: var(--text-caption); }
-.rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); justify-content: flex-start; }
-.rail-row .row-icons { position: absolute; inset-block: 0; inset-inline-end: 100%; }
-.rail-row[data-reveal="shown"] .row-tail:has(.row-icons) { min-inline-size: calc(var(--rail-todos-room) + var(--rail-changes-room)); }
-.rail-row[data-reveal="shown"]:has(.row-icons) .name { padding-inline-end: calc(var(--rail-slot) * 3); }
+/* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
+.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
+.rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); }
+.rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
+.rail-row .row-icons { position: absolute; inset-block: 0; inset-inline-end: calc(var(--rail-age-room) + var(--rail-gap) + var(--rail-todos-room) + var(--rail-changes-room)); background-color: var(--sunken); background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */ }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
