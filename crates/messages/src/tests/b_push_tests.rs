@@ -495,6 +495,26 @@ async fn b34_two_pushes_of_one_child_are_one_entry_with_the_newest() {
 }
 
 #[tokio::test]
+async fn b34_an_attention_note_takes_the_older_waiting_entry_of_its_child() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    // A quiet change of `c` waits for the Door's next Message; the attention note that follows is newer.
+    h.messages
+        .push_digest("top", "c", &entry("c", 1), false)
+        .await;
+    h.messages
+        .note_attention("top", &entry("c", 2))
+        .await
+        .unwrap();
+    h.at(60_000).await;
+    let all = h.all().await;
+    assert_eq!(all.len(), 1, "no later Message carries the older entry");
+    assert!(all[0].body.ends_with("(2 changes)"), "{}", all[0].body);
+    assert!(all[0].body.contains("open todos: 2"));
+    assert_eq!(h.pl(&all[0]).weight(), 2);
+}
+
+#[tokio::test]
 async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
