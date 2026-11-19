@@ -166,6 +166,25 @@ const trackEditors = () => {
   };
 };
 
+/** The `.pad-name` button of the listed Pad `name`. A Pad the user has read sits in a closed fold (U7499a); opening the folds lists it, and the list redraws its rows once more before it settles. */
+export const findPadRow = async (name: string) => {
+  const find = () => [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
+  const opened = new Set<Element>();
+
+  const listed = () => waitFor(() => {
+    for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) if (!opened.has(fold)) { opened.add(fold); fireEvent.click(fold); }
+
+    expect(find()).toBeDefined();
+  });
+
+  // A Pad the Drawer just left moves to its fold a tick after the row is first found, so the list is read again once it has settled.
+  await listed();
+  await new Promise(resolve => setTimeout(resolve));
+  await listed();
+
+  return find()!;
+};
+
 /** Opens a Pad's Drawer and returns its scroll root with textarea-shaped `value` accessors over the document, so a test can type `fireEvent.input(field, { target: { value } })` and read what the Pad holds. */
 export const openPad = async (name: string, recovery?: { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[]; revision: string }) => {
   trackEditors();
@@ -174,23 +193,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     const { connected, pads, revision } = recovery;
     connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
   } else {
-    const find = () => [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
-
-    // A Pad the user has read sits in a closed fold (U7499a); opening the folds lists it, and the list redraws its rows once more before it settles.
-    const opened = new Set<Element>();
-
-    const listed = () => waitFor(() => {
-      for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) if (!opened.has(fold)) { opened.add(fold); fireEvent.click(fold); }
-
-      expect(find()).toBeDefined();
-    });
-
-    // A Pad the Drawer just left moves to its fold a tick after the row is first found, so the list is read again once it has settled.
-    await listed();
-    await new Promise(resolve => setTimeout(resolve));
-    await listed();
-
-    const row = find()!;
+    const row = await findPadRow(name);
 
     for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
       const control = group.querySelector<HTMLElement>(".shelf-group-control");

@@ -8,6 +8,8 @@ import { createFakeApp } from "../testing/fakeApp";
 import { storageIdle } from "../state/storage";
 import { agent, door, info, workstream } from "../testing/nodes";
 import { padHandlers, todoHandlers } from "../testing/stores";
+import { padReadStorage } from "../pads/padRead";
+import { findPadRow } from "../pads/padsFixture";
 import { todo } from "../todos/testHarness";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { showShelfTab } from "../testing/shelfTabs";
@@ -44,6 +46,9 @@ const open = async (first = false, nodes = [
   const app = createFakeApp();
 
   if (!first) { if (other) app.add("/other"); app.add("/p"); }
+
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+  padReadStorage("/p").write({});
 
   const daemon = first ? app : app.of("/p");
   daemon.handlers["rail.tree"] = () => nodes;
@@ -249,6 +254,8 @@ it("u4692_jump_preserves_unsubmitted_input", async () => {
   await destination();
 
   showShelfTab("Pads");
+  // The Pad read in its Drawer lists in its closed fold once the Drawer leaves it (U7499a).
+  await findPadRow("notes");
   const reopened = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
   reopened.focus();
   fireEvent.keyDown(reopened, { key: "Enter", code: "Enter" });

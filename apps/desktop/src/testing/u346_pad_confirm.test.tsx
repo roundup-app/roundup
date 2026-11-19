@@ -136,7 +136,8 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await browser("wait", `.rail-row[data-id='${home.id}']`);
 
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
-      await browser("wait", "[data-shelf-row] .pad-name");
+      // The agent's Pad lists in a closed fold (U7499a).
+      await browser("wait", "--fn", "(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); return !!document.querySelector('[data-shelf-row] .pad-name'); })()");
       await browser("click", "[data-shelf-row] .pad-name");
       await browser("press", "Enter");
       await browser("wait", ".ProseMirror[role=textbox]");
@@ -172,7 +173,8 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("wait", "--fn", "document.querySelector('.pad-name')?.textContent === 'reviewed-work'");
     const destination = await app.rpc("rail.createWorkstream", { name: "Reviewed", parent: null });
     await app.rpc("pad.move", { name: currentName, home: destination.id });
-    await browser("wait", "--fn", `document.querySelector('[data-pad="reviewed-work"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(destination.id)}`);
+    // The moved Pad lists in its new group's closed fold (U7499a).
+    await browser("wait", "--fn", `(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); return document.querySelector('[data-pad="reviewed-work"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(destination.id)}; })()`);
     await browser("wait", `[data-path='${real.dir}']`);
     await browser("click", `[data-path='${real.dir}'] button[aria-label^='Close ']`);
     await browser("wait", "--fn", "!document.querySelector('.project-tab')");

@@ -7,6 +7,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { projectMenu } from "../testing/menuProbe";
 import type { ConnectedProject } from "../state/connectedProject";
 import { todoHandlers } from "../testing/stores";
+import { padReadStorage } from "../pads/padRead";
 import { todo } from "../todos/testHarness";
 import { WORKTREE } from "../changes/harness";
 
@@ -15,6 +16,8 @@ export const mountNavigation = async (empty = false, projectCount = 1, agentCoun
 
   for (let n = 0; n < projectCount; n++) app.add(`/project${n}`);
   app.add("/p");
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+  padReadStorage("/p").write({});
   const daemon = app.of("/p");
   const nodes = empty ? [] : [workstream("home"), ...Array.from({ length: agentCount }, (_, index) => agent(`a${index}`, index === 0 ? "needs-you" : "idle", "ready", { name: `Agent ${index}`, parent: "home", worktree: WORKTREE }))];
   daemon.handlers["rail.tree"] = () => nodes;

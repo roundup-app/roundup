@@ -432,7 +432,8 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; mark: PadMark
   return (
           <ShelfRow
             {...reveal}
-            ref={props.parts?.ref}
+            // A row in a fold has no sortable parts. Solid's compiler drops an optional-chain ref, so the ref is a function.
+            ref={element => props.parts?.ref(element)}
             data-pad={pad.name}
             onClick={event => {
               if (!editing() && !props.bulk.pending() && event.target instanceof Element && !event.target.closest("button, input")) { props.selection.click(pad.incarnation, event); row?.focus(); }
