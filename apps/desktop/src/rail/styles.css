@@ -732,15 +732,16 @@
   flex: none;
 }
 /* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. The actions take no room at rest (zero width, still in the Tab order); on hover, focus or selection they take their three slots in the row's flow just left of the age, whose width is fixed, so they sit at one x on every row and the name, marks, ring and count give way. A group's chevron keeps its one slot. */
-:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-todos-room: calc(var(--space-4) + var(--space-1) + var(--text-caption) * 3); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
+:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
 .rail-row .line { position: relative; }
 .rail-row .row-tail { justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
-.rail-row .action-slot:empty { display: none; }
+.rail-row :not(.row-icons) > .action-slot:empty { display: none; } /* Only a mark slot collapses; each action slot in .row-icons keeps its width on every row. */
 /* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
 .rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
-.rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); }
+.rail-row .action-slot[data-slot="todos"] { inline-size: auto; min-inline-size: 0; }
+.rail-row .action-slot[data-slot="todos"] .rail-pads-control { min-inline-size: 0; inline-size: auto; }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
 .rail-row .row-icons { display: inline-flex; flex: none; align-items: center; overflow: hidden; inline-size: 0; }
 [data-reveal="shown"].rail-row .row-icons { inline-size: auto; }
