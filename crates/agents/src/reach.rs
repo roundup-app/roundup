@@ -76,7 +76,21 @@ impl Shared {
         owner: Option<&str>,
         pane_readable: bool,
     ) -> Result<(), RpcError> {
-        let _ = (actor, terminal, owner, pane_readable);
+        let _ = pane_readable;
+        if actor.kind != contracts::ActorKind::Agent || owner.is_some() {
+            return Ok(());
+        }
+        // AP4: an Agent's own pane stays refused.
+        let own = crate::rail::agent_id(&actor.id)
+            .ok()
+            .and_then(|id| self.rail().node(id).ok())
+            .and_then(|node| node.terminal_id());
+        if own.as_deref() == Some(terminal) {
+            return Err(RpcError::forbidden(format!(
+                "{} may not use its own Terminal",
+                self.rail().name_or_gone(&actor.id)?
+            )));
+        }
         Ok(())
     }
 
