@@ -5,7 +5,7 @@ import { saveViewer, viewer, type Viewer } from "./viewer";
 type Limits = { min: number; max: number; fallback: number };
 
 /** U389, U390: each width's minimum, maximum and default in px; tokens.css holds the same two defaults. */
-const RAIL: Limits = { min: 312, max: 480, fallback: 348 };
+const RAIL: Limits = { min: 252, max: 480, fallback: 288 };
 
 /** U6228: the collapsed Rail's width in px; tokens.css holds the same value as `--rail-strip-width`. */
 export const STRIP_WIDTH = 56;

@@ -84,9 +84,9 @@ it("u507_resizing_preserves_state", async () => {
   await settle();
   const read = () => evaluate(`document.querySelector('.rail .rail-row[data-selected]').dataset.id`);
   expect(await read()).toBe("payments");
-  await browser("mouse", "move", "348", "400");
+  await browser("mouse", "move", "288", "400");
   await browser("mouse", "down", "left");
-  await browser("mouse", "move", "420", "400");
+  await browser("mouse", "move", "360", "400");
   await settle();
   await browser("mouse", "up", "left");
   await settle();
@@ -95,7 +95,7 @@ it("u507_resizing_preserves_state", async () => {
   await browser("wait", ".xterm-screen");
   await settle();
   await evaluate("window.__fake.app.calls.length=0");
-  await browser("mouse", "move", "420", "400");
+  await browser("mouse", "move", "360", "400");
   await browser("mouse", "down", "left");
   await browser("mouse", "move", "416", "400");
   await settle();

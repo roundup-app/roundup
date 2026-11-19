@@ -58,7 +58,7 @@ run("u389 the Rail Edge drag", () => {
     const target = 360;
     const beyond = 900;
 
-    await railDrag(348, target);
+    await railDrag(288, target);
     expect((await stored()).rail).toBe(target);
 
     await railDrag(target, beyond);

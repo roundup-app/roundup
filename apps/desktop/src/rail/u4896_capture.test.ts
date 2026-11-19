@@ -79,7 +79,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
         await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", origin);
         await browser("set", "viewport", "1512", "950");
 
-        for (const width of (id === "U4898" ? [288] : [312, 480])) {
+        for (const width of (id === "U4898" ? [288] : [252, 480])) {
           if (id === "U4898") {
             for (const seed of ["agents-10", "tree-40"]) {
               const prefix = `${theme}-${width}-${seed}`;
@@ -221,7 +221,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
               await browser("focus", row);
               await snap(`${prefix}-${kind}-${selected}-focus`);
 
-              if (selected && theme === "dark" && width === 312) {
+              if (selected && theme === "dark" && width === 252) {
                 if (kind === "workstream") {
                   await browser("press", "Meta+Shift+n");
                   await wait("!!document.querySelector('.spawn-prompt-field')");

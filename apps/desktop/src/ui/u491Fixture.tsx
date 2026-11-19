@@ -32,7 +32,7 @@ function u491Fixture() {
   return <Layout header={<>
     <button data-button="quiet" onClick={() => setOpen(!open())}>Shelf</button>
     <button data-button="quiet" onClick={() => { widths.rail.commit(480); widths.shelf.commit(560); }}>Wide</button>
-    <button data-button="quiet" onClick={() => { widths.rail.commit(348); widths.shelf.commit(320); }}>Default</button>
+    <button data-button="quiet" onClick={() => { widths.rail.commit(288); widths.shelf.commit(320); }}>Default</button>
     <button data-button="quiet" onClick={() => toast.show({ id: "agent", glyph: <KindGlyph kind="error" decorative />, name: "Agent with a very long name that remains readable", content: "Could not save the result.\nThe directory is unavailable; choose another directory and try again.", duration: Infinity })}>Notify</button>
     <output aria-label="Activations">{activations()}</output><output aria-label="Ends">{ends()}</output>
   </>}
