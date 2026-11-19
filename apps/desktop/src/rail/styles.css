@@ -645,7 +645,7 @@
 .rail-row .rail-chevron { left: calc(var(--rail-inset) + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
 .rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .row-state { opacity: 0; }
 .rail-row .row-icons { display: inline-flex; align-items: center; flex: none; }
-.rail-row[data-lifted="true"] :is(.row-icons, .row-controls) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
+.rail-row[data-lifted="true"] :is(.row-icons, .row-controls, [data-slot="changes"]) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
 .rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 

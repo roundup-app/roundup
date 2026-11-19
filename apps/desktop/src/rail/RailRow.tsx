@@ -356,7 +356,7 @@ export const RailRowView = (props: {
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isGroup()}>
           <span class="action-slot" data-slot="todos"><Show when={!isContainer()}><PadsControl todos={props.todos} agent={props.row.node.id} /></Show></span>
-          <span class="row-controls action-slot" data-slot="changes"><Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /></Show></span>
+          <span class="action-slot" data-slot="changes"><Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /></Show></span>
         </Show>
         <Show when={isGroup()}><FoldControl class="rail-group-chevron" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
       </span>

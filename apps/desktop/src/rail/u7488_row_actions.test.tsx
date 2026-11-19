@@ -55,3 +55,10 @@ it("u7488b_hover_focus_and_selection_share_one_reveal", async () => {
     cleanup();
   }
 });
+
+it("u7488a_changes_slot_is_outside_the_hover_reveal", async () => {
+  await mountRail([agent("a", "working", "go", { name: "alpha" })]);
+
+  // `.row-controls` is hidden at rest; the changes count stays visible.
+  expect(itemOf("alpha").querySelector('[data-slot="changes"]')?.closest(".row-controls")).toBeNull();
+});
