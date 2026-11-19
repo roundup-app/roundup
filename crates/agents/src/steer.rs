@@ -486,14 +486,9 @@ impl Shared {
                     written(id).map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
                 }
                 let mut submitted = submitted;
-                // A7498a: a first prompt waits `receipt_bound` for its receipt, presses Enter once,
-                // then waits `receipt_bound` again; any other Steer waits `steer_bound` only.
-                let first_wait = if retry_enter {
-                    self.receipt_bound
-                } else {
-                    self.steer_bound
-                };
-                let mut landed = tokio::time::timeout(first_wait, &mut submitted).await;
+                // A7498a: a first prompt waits `steer_bound` for its receipt, presses Enter once,
+                // then waits `receipt_bound`; any other Steer waits `steer_bound` only.
+                let mut landed = tokio::time::timeout(self.steer_bound, &mut submitted).await;
                 if retry_enter && landed.is_err() {
                     self.press_enter_once(id, &terminal_id).await;
                     landed = tokio::time::timeout(self.receipt_bound, &mut submitted).await;

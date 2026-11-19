@@ -14,8 +14,8 @@ pub const READY_BOUND: Duration = Duration::from_secs(10);
 /// How long one `rpc` call waits for its reply before the App reports an unknown outcome.
 pub const CALL_BOUND: Duration = Duration::from_secs(30);
 
-/// A7498a: how long `agent.restartMode` may take: the Daemon's 15 s `SessionStart` and 15 s ready waits, the two 60 s
-/// receipt waits and a margin. `rup project start` waits through the App on it.
+/// A7498a: how long `agent.restartMode` may take: the Daemon's 15 s `SessionStart` and 15 s ready waits, the 10 s
+/// receipt wait, the 60 s one after the Enter and a margin. `rup project start` waits through the App on it.
 pub const RESTART_MODE_BOUND: Duration = Duration::from_secs(160);
 
 /// Everything the App reads from its environment, resolved once at startup.
@@ -215,10 +215,10 @@ pub(crate) mod tests {
 
     #[test]
     fn a7498a_restart_mode_bound_covers_the_wait_and_both_receipt_windows() {
-        // The Daemon's 15 s `SessionStart` wait, `MODE_READY_BOUND`, then two receipt windows.
+        // The Daemon's 15 s `SessionStart` wait, `MODE_READY_BOUND`, then `STEER_BOUND` and `RECEIPT_BOUND`.
         let waits = Duration::from_secs(15)
             + agents::MODE_READY_BOUND
-            + agents::RECEIPT_BOUND
+            + agents::STEER_BOUND
             + agents::RECEIPT_BOUND;
         assert!(RESTART_MODE_BOUND > waits);
         let config = bare();

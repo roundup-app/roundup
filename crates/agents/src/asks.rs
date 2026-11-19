@@ -280,6 +280,8 @@ impl Intake {
 
     /// A42, A4452d: type the part's words byte for byte into the new Door once it takes input.
     async fn type_part(&self, workstream: &str, attempt: &str, text: &str) -> Result<(), RpcError> {
+        // A7498a: bytes written with no receipt leave the part `typed`; only nothing written fails.
+        let wrote = Arc::new(std::sync::atomic::AtomicBool::new(false));
         loop {
             let observed = self.agents.shared.events.observed.notified();
             let deadline = match self.agents.shared.runs().slot(workstream) {
@@ -306,7 +308,13 @@ impl Intake {
                     Some(PromptRecord {
                         attempt: Some(attempt.to_owned()),
                         revision: None,
-                        written: None,
+                        written: Some({
+                            let wrote = Arc::clone(&wrote);
+                            Arc::new(move |_| {
+                                wrote.store(true, std::sync::atomic::Ordering::SeqCst);
+                                Ok(())
+                            })
+                        }),
                         retry_enter: true,
                     }),
                 )
@@ -318,6 +326,11 @@ impl Intake {
                     tokio::time::timeout_at(deadline, observed)
                         .await
                         .map_err(|_| RpcError::not_accepted("prompt not accepted"))?;
+                }
+                Err(PromptError::NotAccepted { .. })
+                    if wrote.load(std::sync::atomic::Ordering::SeqCst) =>
+                {
+                    return Ok(());
                 }
                 Err(_) => return Err(RpcError::not_accepted("prompt not accepted")),
             }

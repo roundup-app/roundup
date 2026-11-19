@@ -255,7 +255,7 @@ impl Agents {
         self.configure(|shared| shared.steer_bound = bound)
     }
 
-    /// A7498a: wait `bound` instead of `RECEIPT_BOUND` for a first prompt's receipt, before and after its Enter.
+    /// A7498a: wait `bound` instead of `RECEIPT_BOUND` for a first prompt's receipt after its Enter.
     /// Call it before the first call is made.
     #[must_use]
     pub fn with_receipt_bound(self, bound: Duration) -> Self {

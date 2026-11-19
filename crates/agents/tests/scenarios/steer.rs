@@ -634,7 +634,7 @@ async fn a7498a_a_wait_before_typing_ends_as_a_known_failure() {
 }
 
 #[tokio::test]
-async fn a7498a_a_late_receipt_is_success_with_no_extra_byte() {
+async fn a7498a_a_receipt_inside_the_first_window_writes_nothing_more() {
     let (f, id, call) = mode_prompt("audit the parser").await;
     tokio::time::sleep(BOUND / 2).await;
     signal(&f, &id, "UserPromptSubmit").await;

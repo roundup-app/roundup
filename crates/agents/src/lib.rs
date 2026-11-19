@@ -213,7 +213,7 @@ struct Shared {
     scan: Scan,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
-    /// A7498a: how long a first prompt waits for its receipt, before and after its one Enter.
+    /// A7498a: how long a first prompt waits for its receipt after its one Enter.
     receipt_bound: Duration,
     /// A7498a: how long a Mode waits to take its first prompt before anything is typed.
     ready_bound: Duration,
@@ -272,8 +272,8 @@ type Applied = (Option<String>, Option<i64>);
 /// H11: how long a Steer waits for its `UserPromptSubmit` Signal before `NOT_ACCEPTED`.
 pub const STEER_BOUND: Duration = Duration::from_secs(10);
 
-/// A7498a: how long a first prompt waits for its receipt, before and again after its one extra
-/// Enter; apart from `STEER_BOUND` and `START_DOOR_ACK_BOUND`.
+/// A7498a: how long a first prompt waits for its receipt after its one extra Enter, following
+/// `STEER_BOUND` without one; apart from `STEER_BOUND` and `START_DOOR_ACK_BOUND`.
 pub const RECEIPT_BOUND: Duration = Duration::from_secs(60);
 
 /// A7498a: how long a Mode waits to be idle after `SessionStart`, before anything is typed.

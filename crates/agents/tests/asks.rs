@@ -833,7 +833,7 @@ async fn a41_a_failed_write_or_ended_door_fails_without_sent() {
 }
 
 #[tokio::test]
-async fn a7498a_an_ask_part_without_a_receipt_still_fails() {
+async fn a7498a_an_ask_part_written_without_a_receipt_stays_typed() {
     let dir = tempfile::tempdir().unwrap();
     let mut f = DoorHarness::open_with_program(dir.path(), ASK_BOUND, Some(readiness::PROGRAM));
     let mut events = f.h.ctx.bus.subscribe();
@@ -870,9 +870,9 @@ async fn a7498a_an_ask_part_without_a_receipt_still_fails() {
     readiness::star(&f, dir.path(), &id).await;
     f.signal(&id, "SessionStart").await;
     assert_eq!(f.read().await, paste("write the notes"));
-    // No receipt: one Enter alone follows, then nothing, and the part ends failed as before.
+    // No receipt: one Enter alone follows, then nothing, and the part stays typed.
     assert_eq!(f.read_write().await, b"\r");
-    f.changed(&mut events, &ask["id"], "failed").await;
+    f.changed(&mut events, &ask["id"], "typed").await;
     assert!(f.bytes.try_recv().is_err());
     f.stop().await;
 }
