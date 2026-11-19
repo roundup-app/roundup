@@ -163,8 +163,9 @@ p.todo-comment-body { white-space: pre-wrap; }
 .todo-comment-field { min-width: 0; min-height: calc(var(--line) * 3); line-height: var(--line); }
 .todo-comments .ink[data-tone] { white-space: normal; overflow: visible; }
 .todo-comment-head button { margin-inline-start: var(--space-3); }
-/* U7639a: each priority level takes one D3-legal Token tone (grey, text or the accent, never red or amber without an error row); the icon shape tells the levels apart without it. */
+/* U7639a: each priority level takes one Token tone; the icon shape tells the levels apart without it. */
 .priority-icon { display: inline-flex; flex: none; }
 .priority-unset, .priority-low { color: var(--grey); }
-.priority-medium { color: var(--text); }
-.priority-high, .priority-urgent { color: var(--accent); }
+.priority-medium { color: var(--pad-blue); }
+.priority-high { color: var(--amber); }
+.priority-urgent { color: var(--red); }
