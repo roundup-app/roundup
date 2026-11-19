@@ -1,92 +1,262 @@
 {
-  "baseline": "747f838419eae1ce30940beff12814d77d739139",
-  "source": "f937254c3",
+  "baseline": "d53b1280762b17f627c0ebbe4b8dcc463dd198ef",
+  "source": "a7ef7ef0bff5c81ecedce6940fe6cf69d8b4cccb",
   "environment": {
-    "node": "v22.23.3",
+    "node": "v22.18.0",
     "pnpm": "10.14.0",
     "vite": "8.3.5",
-    "host": "same Linux runner",
+    "host": "same macOS arm64 host, one build at a time",
+    "commands": "pnpm install --frozen-lockfile; pnpm --filter desktop build; pnpm --filter desktop check:startup",
     "compression": "Node gzip level 9; recursive static imports; each emitted JS file counted once"
   },
   "before": {
-    "entry": {
+    "entryChunk": {
+      "file": "assets/index-jEpnI8SV.js",
+      "raw": 612649,
+      "gzip": 199177
+    },
+    "eagerClosure": {
       "files": [
-        "assets/CopyButton-yfc2neVk.js",
-        "assets/ReservedLine-mF1YbxyX.js",
-        "assets/copy-DN6f-LUR.js",
-        "assets/dist-BNvtSeKL.js",
-        "assets/floating-ui.dom-vtOd0C_f.js",
-        "assets/index-B2m2dpBZ.js",
-        "assets/layout-CSoaMawy.js",
-        "assets/theme-Bj7nihmt.js"
+        "assets/index-jEpnI8SV.js",
+        "assets/solid-1r8UxFu2.js",
+        "assets/preferences-BC9FjpX5.js",
+        "assets/seam-Po9sKJhd.js",
+        "assets/storage-Bs4zkITJ.js",
+        "assets/rolldown-runtime-COiEfhsA.js",
+        "assets/collection-R7xXl3Pa.js",
+        "assets/railTopology-CZDE-9_S.js",
+        "assets/copy-BHo09gDa.js",
+        "assets/Disclosure-CuCyjDZ6.js",
+        "assets/recovery-CnGxPfDT.js",
+        "assets/eventListener-C3LD439k.js",
+        "assets/use-primitive-B5yJqNrJ.js",
+        "assets/env-Bu7PuTRQ.js",
+        "assets/sides-BSyviBZc.js",
+        "assets/registry-DDfwl1pA.js",
+        "assets/focus-BHoNHx48.js",
+        "assets/announce-BoFFtolY.js",
+        "assets/preload-helper-BLdHbfdN.js",
+        "assets/live-dyUW7hkF.js",
+        "assets/MountedLine-CHb3d6oX.js",
+        "assets/copy-Dil4wx2y.js",
+        "assets/field-context-BaPBJxUA.js",
+        "assets/Collapsible-DE2v_88O.js",
+        "assets/reorderMotion-93y-abGc.js",
+        "assets/animate-CKGExZKu.js",
+        "assets/toggle-control-K9x_sITR.js",
+        "assets/EditableText-DFhSuKRR.js",
+        "assets/collection-CkhtMZEG.js",
+        "assets/scope-Couvhlqv.js",
+        "assets/primitiveOptions-BAvcabUq.js",
+        "assets/doorNode-DUxlKTUI.js",
+        "assets/connectedProject-Dma8QlAx.js",
+        "assets/rail-CH6GMOlW.js",
+        "assets/viewer-CP-0GLvT.js",
+        "assets/theme-Ckxi5O7S.js",
+        "assets/copy-B-g7hhHP.js",
+        "assets/CopyButton-BU3E-B9i.js",
+        "assets/projectLink-B4mUiYl-.js",
+        "assets/copy-nolazore.js",
+        "assets/Field-C3QbmzbL.js",
+        "assets/messageToast-f4lXRduS.js",
+        "assets/draftField-Bv1BVUMm.js",
+        "assets/openSurfaces-Dq2gVSkP.js",
+        "assets/shownTodos-BOFZPHYL.js",
+        "assets/copy-CSG7zvzV.js",
+        "assets/TreeView-DljxWX-I.js",
+        "assets/roving-focus-CSMlsbfk.js",
+        "assets/pointer-CrNHJAmE.js",
+        "assets/Menu-DeTR8ebv.js",
+        "assets/IconButton-ZTfyd_up.js",
+        "assets/libesm-Mt4LV5ad.js",
+        "assets/paths-DUzQZlw9.js",
+        "assets/cutTitle-TBNyYl48.js",
+        "assets/Tabs-BrE7_5f9.js",
+        "assets/indicator-BhoRbmt_.js",
+        "assets/scrollHover-aBxBrcKS.js",
+        "assets/sliding-DnzCc_l9.js",
+        "assets/NoteBatch-CT6CGTbB.js",
+        "assets/DrawerHost-CeWY4-K2.js",
+        "assets/frame-X_PBqLD8.js",
+        "assets/places-UaAuRGwh.js",
+        "assets/BulkDelete-BD0Ev7NZ.js",
+        "assets/Switch-DPGrWoRS.js",
+        "assets/place-D9u4okcK.js",
+        "assets/padList-DhXN1JQh.js",
+        "assets/shortcutRules-Cf7OZOHG.js",
+        "assets/shownPads-DdEDuDpz.js"
       ],
-      "raw": 1317057,
-      "gzip": 419885
+      "raw": 1650837,
+      "gzip": 566737
     },
     "lazyTerminalStaticClosure": {
-      "files": [
-        "assets/CopyButton-yfc2neVk.js",
-        "assets/ReservedLine-mF1YbxyX.js",
-        "assets/copy-DN6f-LUR.js",
-        "assets/dist-BNvtSeKL.js",
-        "assets/emulator-wpGm6Sak.js",
-        "assets/floating-ui.dom-vtOd0C_f.js",
-        "assets/index-B2m2dpBZ.js",
-        "assets/layout-CSoaMawy.js",
-        "assets/theme-Bj7nihmt.js"
-      ],
-      "raw": 1840338,
-      "gzip": 552161
+      "raw": 1143863,
+      "gzip": 333348
     },
     "incrementalLazyTerminal": {
       "files": [
-        "assets/emulator-wpGm6Sak.js"
+        "assets/emulator-BDuCsN_4.js",
+        "assets/emulator-C0IDnEMI.js"
       ],
-      "raw": 523281,
-      "gzip": 132276
+      "raw": 830573,
+      "gzip": 231107
+    },
+    "lazyTerminalCss": [
+      {
+        "file": "assets/emulator-VqnxDkcp.css",
+        "raw": 4479,
+        "gzip": 1161
+      }
+    ],
+    "xtermRenderedBytes": {
+      "@xterm/xterm": 414263,
+      "@xterm/addon-webgl": 153092,
+      "@xterm/addon-fit": 1482,
+      "@xterm/addon-search": 47071,
+      "@xterm/addon-serialize": 19920,
+      "@xterm/addon-unicode11": 38494,
+      "@xterm/addon-image": 107744,
+      "@xterm/addon-clipboard": 6245,
+      "@xterm/addon-ligatures": 266349
     },
     "wasm": []
   },
   "after": {
-    "entry": {
+    "entryChunk": {
+      "file": "assets/index-xJNYM7nK.js",
+      "raw": 612649,
+      "gzip": 199180
+    },
+    "eagerClosure": {
       "files": [
-        "assets/CopyButton-yfc2neVk.js",
-        "assets/ReservedLine-mF1YbxyX.js",
-        "assets/copy-DN6f-LUR.js",
-        "assets/dist-BNvtSeKL.js",
-        "assets/floating-ui.dom-vtOd0C_f.js",
-        "assets/index-BUm8JCW5.js",
-        "assets/layout-CSoaMawy.js",
-        "assets/theme-Bj7nihmt.js"
+        "assets/index-xJNYM7nK.js",
+        "assets/solid-1r8UxFu2.js",
+        "assets/preferences-BC9FjpX5.js",
+        "assets/seam-Po9sKJhd.js",
+        "assets/storage-Bs4zkITJ.js",
+        "assets/rolldown-runtime-COiEfhsA.js",
+        "assets/collection-R7xXl3Pa.js",
+        "assets/railTopology-CZDE-9_S.js",
+        "assets/copy-BHo09gDa.js",
+        "assets/Disclosure-CuCyjDZ6.js",
+        "assets/recovery-CnGxPfDT.js",
+        "assets/eventListener-C3LD439k.js",
+        "assets/use-primitive-B5yJqNrJ.js",
+        "assets/env-Bu7PuTRQ.js",
+        "assets/sides-BSyviBZc.js",
+        "assets/registry-DDfwl1pA.js",
+        "assets/focus-BHoNHx48.js",
+        "assets/announce-BoFFtolY.js",
+        "assets/preload-helper-BLdHbfdN.js",
+        "assets/live-dyUW7hkF.js",
+        "assets/MountedLine-CHb3d6oX.js",
+        "assets/copy-Dil4wx2y.js",
+        "assets/field-context-BaPBJxUA.js",
+        "assets/Collapsible-DE2v_88O.js",
+        "assets/reorderMotion-93y-abGc.js",
+        "assets/animate-CKGExZKu.js",
+        "assets/toggle-control-K9x_sITR.js",
+        "assets/EditableText-DFhSuKRR.js",
+        "assets/collection-CkhtMZEG.js",
+        "assets/scope-Couvhlqv.js",
+        "assets/primitiveOptions-BAvcabUq.js",
+        "assets/doorNode-DUxlKTUI.js",
+        "assets/connectedProject-Dma8QlAx.js",
+        "assets/rail-CH6GMOlW.js",
+        "assets/viewer-CP-0GLvT.js",
+        "assets/theme-Ckxi5O7S.js",
+        "assets/copy-B-g7hhHP.js",
+        "assets/CopyButton-BU3E-B9i.js",
+        "assets/projectLink-B4mUiYl-.js",
+        "assets/copy-nolazore.js",
+        "assets/Field-C3QbmzbL.js",
+        "assets/messageToast-f4lXRduS.js",
+        "assets/draftField-Bv1BVUMm.js",
+        "assets/openSurfaces-Dq2gVSkP.js",
+        "assets/shownTodos-BOFZPHYL.js",
+        "assets/copy-CSG7zvzV.js",
+        "assets/TreeView-DljxWX-I.js",
+        "assets/roving-focus-CSMlsbfk.js",
+        "assets/pointer-CrNHJAmE.js",
+        "assets/Menu-DeTR8ebv.js",
+        "assets/IconButton-ZTfyd_up.js",
+        "assets/libesm-Mt4LV5ad.js",
+        "assets/paths-DUzQZlw9.js",
+        "assets/cutTitle-TBNyYl48.js",
+        "assets/Tabs-BrE7_5f9.js",
+        "assets/indicator-BhoRbmt_.js",
+        "assets/scrollHover-aBxBrcKS.js",
+        "assets/sliding-DnzCc_l9.js",
+        "assets/NoteBatch-CT6CGTbB.js",
+        "assets/DrawerHost-CeWY4-K2.js",
+        "assets/frame-X_PBqLD8.js",
+        "assets/places-UaAuRGwh.js",
+        "assets/BulkDelete-BD0Ev7NZ.js",
+        "assets/Switch-DPGrWoRS.js",
+        "assets/place-D9u4okcK.js",
+        "assets/padList-DhXN1JQh.js",
+        "assets/shortcutRules-Cf7OZOHG.js",
+        "assets/shownPads-DdEDuDpz.js"
       ],
-      "raw": 1316975,
-      "gzip": 419867
+      "raw": 1650837,
+      "gzip": 566740
     },
     "lazyTerminalStaticClosure": {
-      "files": [
-        "assets/CopyButton-yfc2neVk.js",
-        "assets/ReservedLine-mF1YbxyX.js",
-        "assets/copy-DN6f-LUR.js",
-        "assets/dist-BNvtSeKL.js",
-        "assets/emulator-tQHuGlHM.js",
-        "assets/floating-ui.dom-vtOd0C_f.js",
-        "assets/index-BUm8JCW5.js",
-        "assets/layout-CSoaMawy.js",
-        "assets/theme-Bj7nihmt.js"
-      ],
-      "raw": 1845206,
-      "gzip": 554116
+      "raw": 1329621,
+      "gzip": 375597
     },
     "incrementalLazyTerminal": {
       "files": [
-        "assets/emulator-tQHuGlHM.js"
+        "assets/emulator-IyM3Ny4x.js",
+        "assets/emulator-DVEZ7jH2.js"
       ],
-      "raw": 528231,
-      "gzip": 134249
+      "raw": 1016331,
+      "gzip": 273356
+    },
+    "lazyTerminalCss": [
+      {
+        "file": "assets/emulator-VqnxDkcp.css",
+        "raw": 4479,
+        "gzip": 1161
+      }
+    ],
+    "xtermRenderedBytes": {
+      "@xterm/xterm": 413581,
+      "@xterm/addon-webgl": 284469,
+      "@xterm/addon-fit": 1505,
+      "@xterm/addon-search": 18614,
+      "@xterm/addon-serialize": 21726,
+      "@xterm/addon-unicode11": 12200,
+      "@xterm/addon-image": 107592,
+      "@xterm/addon-clipboard": 1781,
+      "@xterm/addon-ligatures": 426536
     },
     "wasm": []
   },
-  "noGrowth": true,
+  "delta": {
+    "entryChunk": {
+      "raw": 0,
+      "gzip": 3
+    },
+    "eagerClosure": {
+      "raw": 0,
+      "gzip": 3
+    },
+    "incrementalLazyTerminal": {
+      "raw": 185758,
+      "gzip": 42249
+    }
+  },
+  "entryDifference": "The two entry chunks differ only in the hashed file names of the emulator and TerminalPreview lazy chunks they import; raw size is identical and gzip differs by 3 bytes.",
+  "checkStartup": {
+    "ceiling": 1000000,
+    "beforeExit": 0,
+    "afterExit": 0
+  },
   "strictCeiling": 409600,
-  "strictCeilingPass": false
+  "strictCeilingPass": {
+    "before": false,
+    "after": false
+  },
+  "sourceTree": "Identical to the tree of pre-merge branch commit 4669d4fefd4d2e757e366b882d9abece18415d83, the revision the build ran on (git tree equality checked)."
 }

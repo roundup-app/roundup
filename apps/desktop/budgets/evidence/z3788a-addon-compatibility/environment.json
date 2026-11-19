@@ -1,36 +1,49 @@
 {
-  "base": "169263fb584ca23c7f6089a3d606acd31da72d61",
-  "node": "v22.23.3",
-  "platform": "linux",
-  "arch": "x64",
-  "browser": "Dedicated headless agent-browser 0.27.0, fresh profile; Chromium with ANGLE SwiftShader",
+  "base": "d53b1280762b17f627c0ebbe4b8dcc463dd198ef",
+  "source": "a7ef7ef0bff5c81ecedce6940fe6cf69d8b4cccb",
+  "node": "v22.18.0",
+  "npm": "10.9.3",
+  "pnpm": "10.14.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "browser": "Dedicated headless agent-browser 0.27.0, fresh profile; Chrome for Testing 147.0.7727.50 with ANGLE SwiftShader",
+  "webgl": {
+    "vendor": "Google Inc. (Google)",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
   "args": [
     "--enable-webgl",
     "--use-gl=angle",
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader"
   ],
-  "observedAt": "2026-10-26T22:18:38.942Z",
+  "observedAt": "2026-11-19T01:11:31Z",
   "sourceHashes": {
-    "patches/@xterm__xterm@6.0.0.patch": "45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf",
-    "patches/@xterm__addon-fit@0.11.0.patch": "8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272",
-    "apps/desktop/src/terminal/emulator.ts": "81539ccd003009a9a13f7b991d77e8013de712ef73641e47c56dff5de999e307",
-    "apps/desktop/src/terminal/screens.ts": "b0f06a377204e5fd356c97ecf6df351cc56244d62386570011c3d5d544cdc2bb"
+    "patches/@xterm__xterm@6.1.0-beta.338.patch": "53ba437868e94dd378771eeaed2e5eccf60f385bc6f65f6de6b48561ee88cbb6",
+    "patches/@xterm__addon-fit@0.12.0-beta.334.patch": "ffd8c26a034117c5cca5e36a5d8359e12b0504f8a41f460702371b21e5d68b9b",
+    "patches/@xterm__addon-image@0.10.0-beta.333.patch": "03c917dd2aabb353168682d48a112b6c1b36d8fce286a58b52b9658e298d3bd3",
+    "apps/desktop/src/terminal/emulator.ts": "ba978b3b714f9a9b5f93cd2b46caa7e2e2a78e142182c809be98aa8c36586752",
+    "apps/desktop/src/terminal/screens.ts": "1c804ef4d75f4ecc4939cc20fa97d1c5f1bded701329a125e08fdfa373044e77"
   },
   "installedHashes": {
-    "@xterm/xterm/lib/xterm.mjs": "b336ec65a086c056d4804b3d4c2347da5663d3f23c3f25be866467bd8857ad59",
-    "@xterm/xterm/css/xterm.css": "9f9bb736e2652d19261a0884f93eb72e8fa5891af4f54cb214bce205e2d630b2",
-    "@xterm/addon-fit/lib/addon-fit.mjs": "b67065faffec32670b00507c1359ed24dbe9609fb7060f4d3b53ad80e71b0e73",
-    "@xterm/addon-search/lib/addon-search.mjs": "3ea90162233f867b938cd29b8ad98f589643436bbb5445bd11b825dc99ff0c04",
-    "@xterm/addon-serialize/lib/addon-serialize.mjs": "6c93dff90bef3b7aac8664fa4c1cb4026bf4b701f3014a1fb88edde943dab906",
-    "@xterm/addon-clipboard/lib/addon-clipboard.mjs": "94afa044240a9af03846383996ec439611239b7ebf38b2b6c9a5ebea7b3d6ccc",
-    "@xterm/addon-image/lib/addon-image.mjs": "16e9e5ffc20abf914d94b592890105776fbd1d3a46505343349498d80e08ee9c",
-    "@xterm/addon-webgl/lib/addon-webgl.mjs": "5ac2cbbb8a861ba99176eda0ee91f10c08de32d091e3488edf699ad111131ebb"
+    "@xterm/xterm/lib/xterm.mjs": "e0c9d2a6ba14b0c94bc46f8862de76b17f104fd88f6a8b1e4814bbcd9f4c66e8",
+    "@xterm/xterm/css/xterm.css": "11a42cb60c51891d0718d55918a5d6ef07826e6448ba292006376ffc43ab9013",
+    "@xterm/addon-fit/lib/addon-fit.mjs": "a2e21501995d78c7818285d5ad7b5b6ebc5ba39780e47066c048f1421d7d08af",
+    "@xterm/addon-fit/lib/addon-fit.js": "e5a61bd23fd25c1cfd7710f4814acc3dca11f3f0fd2827265c0a42616123aebb",
+    "@xterm/addon-search/lib/addon-search.mjs": "a6615ce9ab05eab0c77aece6a1eb848258a34cb38a62cd593bf0c75490a482c7",
+    "@xterm/addon-serialize/lib/addon-serialize.mjs": "a8a7c0c19dabe32067eb84435c4312f53dd0eb92e0192bac2002afecd97ddea2",
+    "@xterm/addon-clipboard/lib/addon-clipboard.mjs": "6224b9c4aafc8ce869d7c757bece85bb9d85dc800617609a6397e3dba3588087",
+    "@xterm/addon-image/lib/addon-image.mjs": "777c6c97d30bd92aebfadc5ebc402b60605a5b40500158f0223914ce9bb57266",
+    "@xterm/addon-image/lib/addon-image.js": "510e845d1e813f06e7f65b871023022e6ef75f6f1de5c9c92d7e0a7dadeb6ab0",
+    "@xterm/addon-webgl/lib/addon-webgl.mjs": "38f7fa632757deb5b0e6f00ba6dcbb8d93afeec9e762beb69d8b21e927dcd67b"
   },
+  "installedHashesMatchApp": true,
   "probeHash": "de009130c9a3fa7fbe25ffc737aaaaba623755a5e7b99d0774d0428e443a34f7",
+  "probeHashUnchangedFromOctober": true,
   "viewport": [
     1512,
     950
   ],
-  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+  "sourceTree": "Identical to the tree of pre-merge branch commit 4669d4fefd4d2e757e366b882d9abece18415d83, the revision the build ran on (git tree equality checked)."
 }
