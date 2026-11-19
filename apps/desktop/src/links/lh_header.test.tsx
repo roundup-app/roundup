@@ -174,6 +174,8 @@ it("lh13_a_narrow_pane_keeps_the_header_to_one_row_inside_the_inset", async () =
     await waitFor(() => expect(names()).toContain(copy.moreName(6)));
     fireEvent.click(screen.getByRole("button", { name: copy.moreName(6) }));
     expect(document.querySelector(".links-popover")?.querySelectorAll("button").length).toBe(6);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(document.querySelector(".links-popover")).toBeNull());
   } finally {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

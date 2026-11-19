@@ -14,6 +14,7 @@ import { z } from "zod";
 import type { LinkSet } from "@contracts/links/LinkSet";
 import type { ChordName } from "../keys/chords";
 import { IconButton } from "../ui/IconButton";
+import { Popover } from "../ui/Popover";
 import { copy } from "./copy";
 
 export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
@@ -101,10 +102,12 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
       more: ctx => (
-        <span class="links-more">
-          <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</IconButton>
-          {ctx.props.open ? <span class="links-popover">{ctx.children}</span> : null}
-        </span>
+        <Popover.Root open={ctx.props.open} onOpenChange={({ open: next }) => setOpen(next)}>
+          <Popover.Trigger render={trigger => (
+            <button {...trigger} type="button" data-button="icon" class="links-count word" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</button>
+          )} />
+          <Popover.Content side="bottom" align="end" class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
+        </Popover.Root>
       ),
     },
   });
