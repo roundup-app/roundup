@@ -15,7 +15,6 @@ import type { LinkSet } from "@contracts/links/LinkSet";
 import type { ChordName } from "../keys/chords";
 import { IconButton } from "../ui/IconButton";
 import { Popover } from "../ui/Popover";
-import { queueFocus } from "../keys/focus";
 import { copy } from "./copy";
 
 export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
@@ -32,7 +31,7 @@ const catalog = defineCatalog(schema, {
     tracker: icon,
     "dev-server": icon,
     asked: icon,
-    more: { props: z.object({ count: z.number(), open: z.boolean() }) },
+    more: { props: z.object({ count: z.number() }) },
   },
   actions: {},
 });
@@ -55,8 +54,8 @@ export const specOf = (set: LinkSet | undefined): Spec => {
   return { root: "header", elements };
 };
 
-/** LH9: the root's first six children, then a `more` count of the rest; all of them once the count is open. */
-const cut = (spec: Spec, open: boolean, shown: number): Spec => {
+/** LH9: the root's first six children, then a `more` count whose popover holds the rest once open. */
+const cut = (spec: Spec, shown: number): Spec => {
   const head = spec.elements[spec.root];
   const ids = head?.children ?? [];
   const inline = Math.min(SHOWN, shown);
@@ -64,7 +63,7 @@ const cut = (spec: Spec, open: boolean, shown: number): Spec => {
   if (!head || ids.length <= inline) return spec;
 
   // LH13: the revealed rest are the count's children, drawn in a popover and never a second row of the header.
-  const more = { type: "more", props: { count: ids.length - inline, open }, children: open ? ids.slice(inline) : [] };
+  const more = { type: "more", props: { count: ids.length - inline }, children: ids.slice(inline) };
 
   return { ...spec, elements: { ...spec.elements, [spec.root]: { ...head, children: [...ids.slice(0, inline), "more"] }, more } };
 };
@@ -90,13 +89,6 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
   // The ref runs before the trigger is in the DOM, so the header is found when the anchor is read.
   const headerBox = { getBoundingClientRect: () => (trigger()?.closest(".links-header") ?? trigger())?.getBoundingClientRect() ?? new DOMRect() };
 
-  // The controlled popover opens with focus nowhere, so the keyboard is handed to the first revealed icon once it is drawn.
-  // The count is drawn anew as it opens and closes, so a close that left focus nowhere hands it back to the new count.
-  const hand = (next: boolean) => queueFocus(() => setTimeout(() => {
-    if (next) content()?.querySelector("button")?.focus();
-    else if (document.activeElement === document.body) trigger()?.focus();
-  }, 0));
-
   type Icon = Component<{ size?: number; "aria-hidden"?: "true" }>;
 
   type Ctx = { props: { tooltip: string; url?: string | undefined } };
@@ -114,9 +106,9 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
       more: ctx => (
-        <Popover.Root open={ctx.props.open} onOpenChange={({ open: next }) => { setOpen(next); hand(next); }}>
+        <Popover.Root open={open()} onOpenChange={({ open: next }) => setOpen(next)} initialFocusEl={() => content()?.querySelector("button")} finalFocusEl={() => trigger()}>
           <Popover.Trigger render={trigger => (
-            <IconButton {...trigger} ref={setTrigger} class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</IconButton>
+            <IconButton {...trigger} ref={setTrigger} class="links-count" aria-label={open() ? copy.lessName : copy.moreName(ctx.props.count)}>{open() ? copy.less : `+${ctx.props.count}`}</IconButton>
           )} />
           <Popover.Content ref={setContent} anchor={headerBox} side="left" align="center" sideOffset={0} class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
         </Popover.Root>
@@ -124,5 +116,5 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
     },
   });
 
-  return <JSONUIProvider registry={registry}><Renderer spec={cut(props.spec, open(), props.shown ?? SHOWN)} registry={registry} /></JSONUIProvider>;
+  return <JSONUIProvider registry={registry}><Renderer spec={cut(props.spec, props.shown ?? SHOWN)} registry={registry} /></JSONUIProvider>;
 };
