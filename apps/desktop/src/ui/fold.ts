@@ -6,7 +6,7 @@ import { createRoot, createEffect, type Accessor } from "solid-js";
 const folds = '[data-slot="tree-item"][data-branch], [data-slot="tree-indicator"], [data-slot="collapsible-trigger"], [data-group-toggle], .rail-chevron, .rail-group-chevron, .section-head, [data-fold]';
 
 /** What slides when a fold changes the layout above it; nesting is handled by the projection tree. */
-const movers = '[role="treeitem"], .rail-row, .todo-row';
+const movers = '[role="treeitem"], .rail-row, .todo-row, .pad-fold';
 
 /** What arrives through opacity. */
 const bodies = '[data-slot="tree-group"], [data-slot="collapsible-panel"], .shelf-group-body, .todo-group-body, .todo-group-content, .pad-fold-list';
