@@ -526,7 +526,10 @@ impl Shared {
         actor: &Actor,
         status: Status,
     ) -> Result<(), RpcError> {
-        self.save_status(id, run.attempt(), &status)?;
+        // A failed save only costs the reopen its Status; the announcement still leaves.
+        if let Err(err) = self.save_status(id, run.attempt(), &status) {
+            eprintln!("agents: could not keep {id}'s Status: {err}");
+        }
         // U6248b: the raw Status moves the resume table before it is announced.
         let resume_moved = resume_wait::fold(&mut agent_facts.resume, &status, (self.clock)());
         let status = waiting_on(&status, agent_facts.wait);
