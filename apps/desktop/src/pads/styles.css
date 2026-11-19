@@ -418,18 +418,82 @@ li[aria-selected="true"] svg {
   order: 3;
 }
 
-/* PW1 to PW6: the walk of a Pad. */
+/* PW1 to PW10: the walk of a Pad, an outline beside one step drawn as the Pad draws it. */
 .walk {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--pad-reading-width, var(--reading-width));
-  align-self: center;
-  padding: var(--space-5) var(--reading-gutter);
+  padding: var(--space-5) 0;
   outline: none;
+}
+
+.walk[data-folded] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.walk-outline {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline: var(--space-4);
+}
+
+.walk[data-folded] .walk-outline {
+  border-bottom: var(--hairline-width) solid var(--hairline);
+  padding-bottom: var(--space-2);
+}
+
+.walk-name {
+  margin: 0 0 var(--space-3);
+  color: var(--grey);
+  font-size: var(--text-small, inherit);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.walk-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.walk-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: start;
+  color: var(--grey);
+}
+
+.walk-item[aria-current="step"] {
+  color: inherit;
+  font-weight: 600;
+}
+
+.walk-mark {
+  flex: none;
+  inline-size: 1.5ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.walk-item-title {
+  overflow-wrap: anywhere;
+}
+
+.walk-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .walk-step {
@@ -437,6 +501,15 @@ li[aria-selected="true"] svg {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.walk-head,
+.walk-foot {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--pad-reading-width, var(--reading-width));
+  margin-inline: auto;
+  padding-inline: var(--reading-gutter);
 }
 
 .walk-head {
@@ -468,9 +541,20 @@ li[aria-selected="true"] svg {
   overscroll-behavior: contain;
 }
 
+/* PW10: the bottom edge fades while more of the step lies below. */
+.walk-body[data-more] {
+  mask-image: linear-gradient(to bottom, var(--ground) calc(100% - var(--space-6)), var(--transparent));
+}
+
 .walk-foot {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
+
+.walk-keys {
+  margin-inline-start: auto;
+  color: var(--grey);
+}
+

@@ -6,6 +6,7 @@ import { agent, door } from "../testing/nodes";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { OpenRequest } from "../window/nativeOpen";
+import { saveAppSettings } from "../settings/preferences";
 import { walkSteps } from "./walkSteps";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
@@ -89,10 +90,14 @@ const step = async () => {
   return [Number(walk.dataset.step), Number(walk.dataset.steps)];
 };
 
-it("pw1_a_pad_splits_into_steps_by_top_level_heading", () => {
-  expect(walkSteps("intro\n# A\none\n## sub\n# B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["A", "intro\n\none\n## sub"], ["B", "two"]]);
-  expect(walkSteps("# A\n```\n# not a heading\n```\n~~~\n# nor this\n~~~\n# B", "p").map(s => s.title)).toEqual(["A", "B"]);
-  expect(walkSteps("just text\n## deeper", "p")).toEqual([{ title: "p", text: "just text\n## deeper" }]);
+it("pw1_a_pad_splits_into_steps_at_its_section_level", () => {
+  const titles = (text: string) => walkSteps(text, "p").map(s => s.title);
+  expect(walkSteps("# Title\n## A\none\n### sub\n## B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["A", "one\n### sub"], ["B", "two"]]);
+  expect(titles("# A\none\n# B\ntwo")).toEqual(["A", "B"]);
+  expect(walkSteps("intro\n# A\none\n# B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["Overview", "intro"], ["A", "one"], ["B", "two"]]);
+  expect(walkSteps("just text\n## deeper\n### deepest", "p")).toEqual([{ title: "p", text: "just text\n## deeper\n### deepest" }]);
+  expect(titles("# A\n```\n# not a heading\n```\n~~~\n# nor this\n~~~\n# B")).toEqual(["A", "B"]);
+  expect(titles("# T\n```\n## x\n## y\n```\n## A\n## B")).toEqual(["Overview", "A", "B"]);
 });
 
 it("pw2_one_click_on_a_walk_link_opens_step_1", async () => {
@@ -238,4 +243,82 @@ it("pw6_the_walk_has_no_answer_box", async () => {
   const walk = await shown();
   expect(walk.querySelectorAll("textarea, input, [contenteditable=true], [role=textbox]")).toHaveLength(0);
   expect(m.messages()).toEqual([]);
+});
+
+it("pw8_the_outline_lists_every_step_and_opens_one", async () => {
+  const m = await mount();
+  m.click("notes");
+  await shown();
+  const items = () => screen.getAllByRole("button", { name: /Part \d/ });
+  const at = (index: number) => items().at(index) ?? screen.getByRole("button", { name: "missing" });
+  expect(items().map(item => item.textContent)).toEqual(["Part 1", "Part 2", "Part 3"].map((title, at) => at === 0 ? `1${title}` : title));
+  expect(items().map(item => item.getAttribute("aria-current"))).toEqual(["step", null, null]);
+  fireEvent.click(at(2));
+  expect(await step()).toEqual([3, 3]);
+  expect(items().map(item => item.getAttribute("aria-current"))).toEqual([null, null, "step"]);
+  expect(at(0).hasAttribute("data-done")).toBe(true);
+});
+
+it("pw8_a_narrow_pane_folds_the_outline_into_one_row", async () => {
+  const watchers: { target: Element; run: () => void }[] = [];
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(private run: () => void) {}
+    observe(target: Element) { watchers.push({ target, run: this.run }); }
+    unobserve() {}
+    disconnect() {}
+  });
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => 400);
+  const m = await mount();
+  m.click("notes");
+  const walk = await shown();
+  await waitFor(() => expect(watchers.some(watcher => watcher.target === walk)).toBe(true));
+  watchers.filter(watcher => watcher.target === walk).forEach(watcher => watcher.run());
+  const row = await screen.findByRole("button", { name: "Step 1 of 3 · Part 1" });
+  fireEvent.click(row);
+  fireEvent.click(await screen.findByRole("button", { name: "Part 2" }));
+  expect(await step()).toEqual([2, 3]);
+  await screen.findByRole("button", { name: "Step 2 of 3 · Part 2" });
+});
+
+it("pw9_a_step_is_drawn_by_the_pads_readonly_editor_at_the_pad_width", async () => {
+  const body = "# One\n> [!NOTE]\n> careful\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n1. first\n2. second\n\n# Two\nx";
+  const m = await mount({ pads: { rich: body } });
+  m.click("rich");
+  const walk = await shown();
+  await waitFor(() => expect(walk.querySelector(".pad-readonly .ProseMirror")).not.toBeNull());
+  expect(walk.querySelector(".ProseMirror")?.getAttribute("contenteditable")).toBe("false");
+  await waitFor(() => expect(walk.querySelector(".ProseMirror table, .ProseMirror .milkdown-table-block")).not.toBeNull());
+  expect(walk.querySelector(".ProseMirror ol")).not.toBeNull();
+  expect(walk.querySelector(".ProseMirror [data-callout], .ProseMirror .callout, .ProseMirror blockquote")).not.toBeNull();
+  expect(walk.querySelectorAll("textarea, [contenteditable=true]")).toHaveLength(0);
+  const column = () => walk.querySelector("[data-pad-width]")?.getAttribute("data-pad-width");
+  expect(column()).toBe("wide");
+
+  for (const width of ["narrow", "full", "wide"] as const) {
+    await saveAppSettings({ padWidth: width });
+    await waitFor(() => expect(column()).toBe(width));
+  }
+});
+
+it("pw10_a_long_step_scrolls_and_fades_while_more_is_below", async () => {
+  const m = await mount();
+  m.click("notes");
+  const walk = await shown();
+  const body = walk.querySelector<HTMLElement>(".walk-body");
+
+  if (!body) throw new Error("no step body");
+
+  const metrics = (scrollHeight: number, scrollTop: number) => {
+    Object.defineProperty(body, "scrollHeight", { configurable: true, value: scrollHeight });
+    Object.defineProperty(body, "clientHeight", { configurable: true, value: 300 });
+    Object.defineProperty(body, "scrollTop", { configurable: true, writable: true, value: scrollTop });
+    fireEvent.scroll(body);
+  };
+
+  metrics(900, 0);
+  await waitFor(() => expect(body.hasAttribute("data-more")).toBe(true));
+  metrics(900, 600);
+  await waitFor(() => expect(body.hasAttribute("data-more")).toBe(false));
+  metrics(300, 0);
+  expect(body.hasAttribute("data-more")).toBe(false);
 });

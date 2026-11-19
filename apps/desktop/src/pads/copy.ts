@@ -77,5 +77,9 @@ export const copy = {
   walkBack: "Back",
   walkNext: "Next",
   walkFinish: "Finish",
+  walkOverview: sharedCopy.overview,
+  walkOutline: "Steps",
+  walkStep: "Step",
+  walkHint: "← → to move",
   walkCount: (step: number, steps: number) => `${step} of ${steps}`,
 } as const;
