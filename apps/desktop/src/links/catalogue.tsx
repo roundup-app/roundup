@@ -15,6 +15,7 @@ import type { LinkSet } from "@contracts/links/LinkSet";
 import type { ChordName } from "../keys/chords";
 import { IconButton } from "../ui/IconButton";
 import { Popover } from "../ui/Popover";
+import { queueFocus } from "../keys/focus";
 import { copy } from "./copy";
 
 export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
@@ -85,8 +86,16 @@ export const inlineFor = (width: number, total: number): number => {
 export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
   const [open, setOpen] = createSignal(false);
   const [trigger, setTrigger] = createSignal<HTMLElement>();
+  const [content, setContent] = createSignal<HTMLElement>();
   // The ref runs before the trigger is in the DOM, so the header is found when the anchor is read.
   const headerBox = { getBoundingClientRect: () => (trigger()?.closest(".links-header") ?? trigger())?.getBoundingClientRect() ?? new DOMRect() };
+
+  // The controlled popover opens with focus nowhere, so the keyboard is handed to the first revealed icon once it is drawn.
+  // The count is drawn anew as it opens and closes, so a close that left focus nowhere hands it back to the new count.
+  const hand = (next: boolean) => queueFocus(() => setTimeout(() => {
+    if (next) content()?.querySelector("button")?.focus();
+    else if (document.activeElement === document.body) trigger()?.focus();
+  }, 0));
 
   type Icon = Component<{ size?: number; "aria-hidden"?: "true" }>;
 
@@ -105,11 +114,11 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
       more: ctx => (
-        <Popover.Root open={ctx.props.open} onOpenChange={({ open: next }) => setOpen(next)}>
+        <Popover.Root open={ctx.props.open} onOpenChange={({ open: next }) => { setOpen(next); hand(next); }}>
           <Popover.Trigger render={trigger => (
-            <button {...trigger} ref={setTrigger} type="button" class="links-count word" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</button>
+            <IconButton {...trigger} ref={setTrigger} class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</IconButton>
           )} />
-          <Popover.Content anchor={headerBox} side="left" align="center" sideOffset={0} class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
+          <Popover.Content ref={setContent} anchor={headerBox} side="left" align="center" sideOffset={0} class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
         </Popover.Root>
       ),
     },
