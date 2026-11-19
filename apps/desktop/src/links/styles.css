@@ -32,9 +32,14 @@
   z-index: var(--layer-popover);
 }
 
-/* LH13: the revealed icons are bare like the header's: the shared popover pill surface stays off at rest and on hover, and only the ink changes. The attribute selector outranks the shared recipe's `:is()` specificity. */
-.app-popover.links-popover button[data-button="icon"] {
+/* LH13: the revealed icons are bare like the header's: no pill surface at rest or on hover, ink grey at rest and `--text` on hover. The tripled class outranks the shared floating-button recipe's `:is()` specificity whatever the bundle order. */
+.app-popover.links-popover.links-popover button[data-button="icon"] {
   --button-surface: var(--transparent);
+  color: var(--grey);
+}
+
+.app-popover.links-popover.links-popover button[data-button="icon"]:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--text);
 }
 
 /* LH13: the count holds the width of `+N` open or closed, so the inline icons stay still as the reveal opens. */
