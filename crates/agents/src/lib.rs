@@ -213,6 +213,10 @@ struct Shared {
     scan: Scan,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
+    /// A7498a: how long a first prompt waits for its receipt after its one Enter.
+    receipt_bound: Duration,
+    /// A7498a: how long a Mode waits to take its first prompt before anything is typed.
+    ready_bound: Duration,
     steer: SteerSettings,
     events: events::State,
     rail_view: rail_view::State,
@@ -267,6 +271,13 @@ type Applied = (Option<String>, Option<i64>);
 
 /// H11: how long a Steer waits for its `UserPromptSubmit` Signal before `NOT_ACCEPTED`.
 pub const STEER_BOUND: Duration = Duration::from_secs(10);
+
+/// A7498a: how long a first prompt waits for its receipt after its one extra Enter, following
+/// `STEER_BOUND` without one; apart from `STEER_BOUND` and `START_DOOR_ACK_BOUND`.
+pub const RECEIPT_BOUND: Duration = Duration::from_secs(60);
+
+/// A7498a: how long a Mode waits to be idle after `SessionStart`, before anything is typed.
+pub const MODE_READY_BOUND: Duration = Duration::from_secs(15);
 
 /// H13: how long an Interrupt waits for the title to change before `NOT_ACKED`.
 /// `ROUNDUP_INTERRUPT_BOUND_MS` lengthens it for a test on a loaded machine.
@@ -399,6 +410,8 @@ use worktree_wiring::report_undo;
 const UNPROVEN: &str = "unfinished legacy provisioning has no ownership proof";
 
 struct SteerWait {
+    /// A7498a: Signals the Run had folded when the write began.
+    signals: u64,
     submitted: tokio::sync::oneshot::Sender<()>,
     /// A2698a: the final submit write must finish before local-command Signals count.
     slash_written: Option<Arc<Mutex<bool>>>,
@@ -409,6 +422,8 @@ struct PromptRecord {
     attempt: Option<String>,
     revision: Option<String>,
     written: Option<SteerEffect>,
+    /// A7498a: a first prompt gets one guarded Enter and a second wait when no receipt came.
+    retry_enter: bool,
 }
 
 struct SteerSettings {

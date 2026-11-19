@@ -12,6 +12,8 @@ import { LinksView, specOf } from "./catalogue";
 import { copy } from "./copy";
 import { LinksHeader } from "./LinksHeader";
 
+import terminalSheet from "../terminal/styles.css?raw";
+
 afterEach(cleanup);
 
 const entry = (kind: LinkEntry["kind"], n: number): LinkEntry => ({ kind, url: `https://example.test/${kind}/${n}`, tooltip: `${kind} ${n}` });
@@ -65,6 +67,23 @@ it("lh6_the_header_overlays_and_the_terminal_size_is_unchanged", async () => {
     stays();
     cleanup();
   }
+});
+
+it("lh6_the_terminal_keeps_a_fixed_top_inset_the_header_lies_over", async () => {
+  const { app } = await mount({ set: setOf(2) });
+  const pane = document.querySelector<HTMLElement>(".pane-body");
+  const inset = () => pane?.style.getPropertyValue("--terminal-inset") ?? "";
+  const before = inset();
+
+  await waitFor(() => expect(names()).toContain("pr 0"));
+  fireEvent.click(handle());
+  fireEvent.click(handle());
+  app.emit(event({ name: "agent.links", data: { id: "a", set: setOf(3) } }));
+  await waitFor(() => expect(names()).toContain("asked 2"));
+  expect(inset()).toBe(before);
+  // The inset itself is a Token in the Pane's sheet, as tall as the header's gap, 24 px icon and gap (lh12_ reads its size).
+  expect(terminalSheet).toMatch(/--terminal-inset: var\(--space-6\)/);
+  expect(document.querySelector(".pane-screen")?.contains(document.querySelector(".links-header"))).toBe(false);
 });
 
 it("lh7_editor_and_terminal_icons_open_once_on_the_worktree_or_folder", async () => {
