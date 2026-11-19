@@ -14,9 +14,9 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
   await browser("wait", "--fn", "window.getSelection()?.isCollapsed === false");
   await browser("press", "Backspace");
   await settle();
-  await browser("type", '.drawer .ProseMirror', "Exact body retained after refusal");
+  // The body saves as it is typed (U7641a): the first save is refused, and the later ones carry the whole text.
   await evaluate(`(() => { window.__fake.failNext(-32003, 'Body could not be saved. Retry with the original work intact.', 'todo.update'); return true; })()`);
-  await browser("press", "Control+Enter");
+  await browser("type", '.drawer .ProseMirror', "Exact body retained after refusal");
   await browser("wait", '.app-toast [role="alert"]');
 
   if (output) {
@@ -26,11 +26,8 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
     writeFileSync(join(output, `body-refusal-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   }
 
-  await browser("focus", '.drawer .ProseMirror');
-  await browser("wait", "--fn", "document.activeElement === document.querySelector('.drawer .ProseMirror') && [...document.querySelectorAll('.todo-detail-body button')].some(button => button.textContent === 'Save')");
-  await browser("press", "Control+Enter");
-  await browser("wait", '.drawer .todo-detail-body .ProseMirror');
-  expect(await evaluate(`window.__fake.app.calls.filter(call => call.method === 'todo.update' && call.params.body?.startsWith('Exact body')).map(call => ({ id: call.params.id, body: call.params.body }))`)).toEqual([
+  await browser("wait", "--fn", "window.__fake.app.calls.some(call => call.method === 'todo.update' && call.params.body === 'Exact body retained after refusal')");
+  expect(await evaluate(`window.__fake.app.calls.filter(call => call.method === 'todo.update' && call.params.body === 'Exact body retained after refusal').map(call => ({ id: call.params.id, body: call.params.body }))`)).toEqual([
     { id: 1, body: "Exact body retained after refusal" },
   ]);
 });

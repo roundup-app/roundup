@@ -91,7 +91,7 @@ describe("u7158 keys land where you think you're typing", () => {
     ["closing a Pad drawer", async () => {
       await choose("a", "t-a");
       showShelfTab("Pads");
-      fireEvent.dblClick(await listRow(".pad-name"));
+      fireEvent.dblClick(await listRow("[data-pad]"));
       await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
       await userEvent.keyboard("{Escape}");
     }],

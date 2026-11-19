@@ -231,12 +231,12 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await lane.until(titleEditing);
     await lane.browser("fill", "textarea[aria-label=Title]", "Release notes revised");
     await lane.evaluate("window.__failure = {method:'todo.update',message:'Save unavailable; retry your retained edit'}");
-    await lane.browser("press", "Tab");
+    await lane.browser("press", "Enter");
     await lane.until("document.querySelector('.app-toast [role=alert]')?.textContent.includes('Save unavailable')");
     expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: actor(agents[0]!.id), ...saved.get(moved.id) });
     await capture("save-failure");
     await lane.until(titleEditing);
-    await lane.browser("click", ".todo-detail-title .todo-editable button:last-child");
+    await lane.browser("press", "Enter");
     await lane.until(`!${titleEditing}`);
     await lane.until("document.querySelector('.todo-detail-title .todo-editable p')?.textContent === 'Release notes revised' && document.activeElement !== document.body");
     saved.set(moved.id, { title: "Release notes revised", body: "" });
@@ -244,7 +244,6 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await lane.browser("click", ".todo-add-notes");
     await lane.until("!!document.querySelector('.todo-detail-body .ProseMirror[aria-label=Body]')");
     await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行"); // taste-skill-ignore: Unicode draft probe, not interface decoration.
-    await lane.browser("press", "Control+Enter");
     await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行"); // taste-skill-ignore: Exact Unicode round-trip assertion.
     await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" }); // taste-skill-ignore: Expected Unicode draft value.
