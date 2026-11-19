@@ -54,45 +54,17 @@ export const trackScrollbars = (doc: Document): void => {
 
     if (slot.hidden !== hidden) slot.hidden = hidden;
 
-    // Slots stay inside dialog/popup pointer boundaries. A translated ancestor
-    // becomes the fixed containing block, so adjust from the slot's current box.
+    if (hidden) return;
+
+    // The slot sits beside its host in the same scrolling content, so an ancestor's scroll moves both together with
+    // no script; a translated ancestor changes the containing block, so adjust from the slot's current box.
     const origin = slot.getBoundingClientRect();
-
-    let left = box.left;
-    let top = box.top;
-    let right = box.right;
-    let bottom = box.bottom;
-    const owningRoot = element.getRootNode();
-    let parent: Element | null = element.parentElement ?? (owningRoot instanceof ShadowRoot ? owningRoot.host : null);
-
-    while (parent) {
-      const style = getComputedStyle(parent);
-      const clip = parent.getBoundingClientRect();
-
-      if (/auto|scroll|hidden|clip/.test(style.overflowX)) {
-        left = Math.max(left, clip.left);
-        right = Math.min(right, clip.right);
-      }
-
-      if (/auto|scroll|hidden|clip/.test(style.overflowY)) {
-        top = Math.max(top, clip.top);
-        bottom = Math.min(bottom, clip.bottom);
-      }
-
-      const root = parent.getRootNode();
-
-      parent = parent.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
-    }
-
-    const clip = [top - box.top, box.right - right, box.bottom - bottom, left - box.left]
-      .map((inset) => `${Math.max(0, inset)}px`).join(" ");
 
     const styles = {
       left: `${(parseFloat(slot.style.left) || 0) + box.left + element.clientLeft - origin.left}px`,
       top: `${(parseFloat(slot.style.top) || 0) + box.top + element.clientTop - origin.top}px`,
       width: `${element.clientWidth}px`,
       height: `${element.clientHeight}px`,
-      "clip-path": `inset(${clip})`,
     };
 
     for (const [name, value] of Object.entries(styles)) {
@@ -235,24 +207,6 @@ export const trackScrollbars = (doc: Document): void => {
     };
 
     root.addEventListener("input", updateField, true);
-    // U6283b: scroll events fire per frame at most per target; place once per frame, only the bars the scrolled element moves.
-    const scrolled = new Set<Element>();
-    let placing = 0;
-
-    root.addEventListener("scroll", (event) => {
-      if (!(event.target instanceof Element)) return;
-
-      scrolled.add(event.target);
-      placing ||= requestAnimationFrame(() => {
-        placing = 0;
-
-        for (const [element, { slot }] of entries) {
-          if ([...scrolled].some((target) => target.contains(element))) place(element, slot);
-        }
-
-        scrolled.clear();
-      });
-    }, true);
     discover(root);
   };
 

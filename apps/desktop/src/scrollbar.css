@@ -1,7 +1,8 @@
 /* U3530: native viewports keep their content and input handlers. Library thumbs
-   live in fixed overlay slots, so even classic scrollbars reserve no gutter. */
+   live in overlay slots beside their host, in its scrolling content, so even classic scrollbars reserve no gutter
+   and a scrolling ancestor carries host and bar together. */
 .scrollbar-slot {
-  position: fixed;
+  position: absolute;
   pointer-events: none;
   z-index: var(--layer-tooltip);
 }

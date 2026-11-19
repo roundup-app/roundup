@@ -109,38 +109,6 @@ it("u6283a_shown_scrollbar_gets_no_new_timer", async () => {
   expect(element.hasAttribute("data-scroll-active")).toBe(false);
 });
 
-it("u6283b_scrollbar_listener_places_once_per_frame", async () => {
-  const { trackScrollbars } = await import("../scrollHover");
-
-  const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-
-  const make = () => {
-    const element = document.body.appendChild(document.createElement("div"));
-
-    Object.assign(element.style, { overflowX: "auto", overflowY: "auto", height: "40px", width: "40px" });
-    const content = element.appendChild(document.createElement("div"));
-
-    content.style.height = "400px";
-
-    return element;
-  };
-
-  const [scrolled, other] = [make(), make()];
-
-  trackScrollbars(document);
-  await frame();
-  const moved = vi.spyOn(scrolled, "getBoundingClientRect");
-  const still = vi.spyOn(other, "getBoundingClientRect");
-
-  for (let event = 0; event < 20; event += 1) scrolled.dispatchEvent(new Event("scroll"));
-
-  await frame();
-  expect(moved).toHaveBeenCalledTimes(1);
-  expect(still).not.toHaveBeenCalled();
-  scrolled.remove();
-  other.remove();
-});
-
 it("u6283a_terminal_mutations_place_no_bar", async () => {
   const { trackScrollbars } = await import("../scrollHover");
 
