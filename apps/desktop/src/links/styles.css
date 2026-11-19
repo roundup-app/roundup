@@ -38,7 +38,7 @@
   color: var(--grey);
 }
 
-.app-popover.links-popover.links-popover button[data-button="icon"]:hover:not(:disabled, [aria-disabled="true"]) {
+.app-popover.links-popover.links-popover button[data-button="icon"]:is(:hover, :focus-visible):not(:disabled, [aria-disabled="true"]) {
   color: var(--text);
 }
 
