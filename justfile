@@ -29,6 +29,7 @@ lint-repo:
 [script('loop/keep-going.sh')]
 lint-rust base="": lint-repo
     & just proofs
+    just pad-save-model
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
@@ -380,6 +381,10 @@ perf-frames workload *args:
         cargo build --release -p rupd -p rup -p desktop --features desktop/custom-protocol --target-dir target/perf-app
     cargo build --release -p perf
     ./target/release/perf-keystroke --frames --out target/perf-frames-{{workload}}.json {{args}}
+
+# P7547c: TLC on the Pad save model; fails on a rule violation or a stale padSave.dump.
+pad-save-model:
+    python3 apps/desktop/src/pads/padSave.model.py --check
 
 # V1: checksum-checked Bend and Lean v4.34.0 via elan; verify both versions on every setup.
 proofs-setup:

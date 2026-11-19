@@ -27,7 +27,7 @@ DueOr(s, d) == IF s.due = "none" THEN d ELSE s.due
 \* padSave.ts `handlers` and `step`.
 Step(s, e) ==
   IF s.kind = "deleted" THEN
-    IF e.kind = "back" THEN Clean
+    IF e.kind = "back" THEN (IF e.actor = "none" THEN Clean ELSE Conflict(e.actor, e.version))
     ELSE IF e.kind = "gone" THEN Deleted(s.byMe \/ e.byMe)
     ELSE s
   ELSE CASE
@@ -76,7 +76,10 @@ Edited == Plain(Ev("edited"))
 Due == \E d \in {"autosave", "keep-mine"} : Plain(E("due", d, 0, FALSE, FALSE, "none", FALSE))
 Skipped == Plain(Ev("skipped"))
 Resume == Plain(Ev("resume"))
-Back == Plain(Ev("back"))
+\* An undo of the delete. The outside edit the field has not seen comes with it (`actor`, `version`), so a deleted save is then a conflict and not clean.
+Back == \E a \in {"none", "unknown"} :
+  /\ (a # "none") = stale
+  /\ Plain(E("back", "none", IF a = "none" THEN 0 ELSE ver, FALSE, FALSE, a, FALSE))
 Gone == \E b \in BOOLEAN : Plain(E("gone", "none", 0, FALSE, FALSE, "none", b))
 Settled == Take(Ev("settled")) /\ stale' = FALSE /\ UNCHANGED <<flight, ver, writes>>
 
