@@ -738,8 +738,8 @@
 .rail-row .action-slot[data-slot="todos"] { inline-size: auto; min-inline-size: 0; }
 .rail-row .rail-pads-control { min-inline-size: 0; inline-size: auto; }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
-.rail-row .row-icons { display: inline-flex; flex: none; align-items: center; overflow: hidden; inline-size: 0; margin-inline-end: calc(var(--rail-gap) * -1); } /* At rest, and on a row with no action, the group takes neither width nor the line's gap. */
-[data-reveal="shown"].rail-row .row-icons:has(.action-slot:not(:empty)) { inline-size: auto; margin-inline-end: 0; }
+.rail-row .row-icons { display: inline-flex; flex: none; align-items: center; overflow: hidden; inline-size: 0; position: absolute; } /* At rest, and on a row with no action, the group leaves the flow, so it takes neither width nor the line's gap. */
+[data-reveal="shown"].rail-row .row-icons:has(.action-slot:not(:empty)) { inline-size: auto; position: static; }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
