@@ -198,7 +198,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     <div class="todo-activity-entries"><For each={recent()}>{renderEntry}</For></div>
     {/* A live region announces only a change to a region already in the page (U3776), so it stays mounted and empty until a comment arrives; it is hidden and holds no place. */}
     <p class="todo-comments-live" role="status" aria-live="polite" aria-atomic="true">{announcement()}</p>
-    <div class="todo-composer"><span class="todo-composer-actor" aria-hidden="true"><Icon name="circle" /></span><textarea spellcheck="false" autocorrect="off" autocapitalize="off" class="todo-comment-field field-frame" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
+    <div class="todo-composer"><textarea spellcheck="false" autocorrect="off" autocapitalize="off" class="todo-comment-field field-frame" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => { const typed = event.currentTarget; draft.keep({ text: typed.value }, { start: typed.selectionStart, end: typed.selectionEnd, direction: typed.selectionDirection }); }}
       onKeyDown={(event) => {
