@@ -298,6 +298,9 @@ export const Pads = (props: {
   );
 };
 
+/** U7637a: a Home group is level 1 of the Pads tab's tree, so its fold rows and the Pads above them are level 2. */
+const PAD_LEVEL = 2;
+
 const PadRows = (props: {
   folded: Accessor<FoldedPads>;
   isFoldOpen: (fold: "internal" | "idle") => boolean;
@@ -326,7 +329,7 @@ const PadRows = (props: {
 
   const foldRows = (fold: "internal" | "idle") => (
     <Show when={props.folded()[fold].length > 0}>
-      <button type="button" class="pad-fold row-wash row-wash-inert" data-fold={fold} aria-expanded={props.isFoldOpen(fold) ? "true" : "false"}
+      <button type="button" role="treeitem" aria-level={PAD_LEVEL} class="pad-fold row-wash row-wash-inert" data-fold={fold} aria-expanded={props.isFoldOpen(fold) ? "true" : "false"}
         onClick={() => props.toggleFold(fold)}
         onKeyDown={event => {
           if (event.key === "ArrowRight" && !props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
@@ -337,7 +340,7 @@ const PadRows = (props: {
         <Trunks depth={0} trail={[]} stem={props.isFoldOpen(fold)} />
       </button>
       <Show when={props.isFoldOpen(fold)}>
-        <div class="shelf-list" role="list">
+        <div class="shelf-list" role="group">
           <For each={props.folded()[fold]}>{(pad, at) => <PadRow {...props} pad={pad} mark={null} parts={undefined} nested={{ last: at() === props.folded()[fold].length - 1 }} isSelected={isSelected} onOrderChange={onOrderChange} />}</For>
         </div>
       </Show>
@@ -348,7 +351,7 @@ const PadRows = (props: {
 
   return (
     <>
-      <Sortable.Root class="shelf-list" role="list" ids={props.folded().above.map(each => each.pad.name)} onOrderChange={onOrderChange} onDrag={props.onDrag}>
+      <Sortable.Root class="shelf-list" role="group" ids={props.folded().above.map(each => each.pad.name)} onOrderChange={onOrderChange} onDrag={props.onDrag}>
         <For each={props.folded().above} keyed={each => each.pad.incarnation}>
           {(each, at) => (
             <Sortable.Item id={each().pad.name} index={at()}>{parts => <PadRow {...props} pad={each().pad} mark={each().mark} parts={parts} isSelected={isSelected} onOrderChange={onOrderChange} />}</Sortable.Item>
@@ -454,7 +457,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; mark: PadMark
               { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(false, pad.incarnation); } },
             ], x, y))}
             // A row the list owns, with no tab stop of its own, so the drag library stamps it neither a button nor a second tab stop (U7276c).
-            class="pad-inset" role="listitem" style={props.nested ? { "--todo-depth": 1 } : undefined} tabindex="-1"
+            class="pad-inset" role="treeitem" aria-level={props.nested ? PAD_LEVEL + 1 : PAD_LEVEL} style={props.nested ? { "--todo-depth": 1 } : undefined} tabindex="-1"
             glyph={<Icon name={PAD_ICON} />}
             connections={props.nested ? <Trunks depth={1} trail={[!props.nested.last]} stem={false} /> : undefined}
           >
