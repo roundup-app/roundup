@@ -183,6 +183,7 @@ fn clone_observation(observation: &Observation) -> Observation {
         | Observation::Finished(_)
         | Observation::Failed(_)
         | Observation::Resumed(_)
+        | Observation::Restored(_)
         | Observation::Delivered
         | Observation::Interrupted
         | Observation::Judged { .. } => {

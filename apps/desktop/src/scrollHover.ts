@@ -40,59 +40,44 @@ export const showScrollbars = (element: HTMLElement): void => {
   idle.set(element, { timer: setTimeout(hide, IDLE_MS), until });
 };
 
-/** Z3742a: OverlayScrollbars 2.17 requires per-element initialization and cannot
- * host a native textarea thumb (zero height). External slots have no positioning
- * or ancestor clipping API. Retain discovery/placement for those native hosts;
- * the library owns visibility, drag, geometry and its idle delay. See #3742/#4094. */
+/** Z3742a/U7543b: the library's own in-host mode wraps a host's children in a viewport element. Solid
+ * inserts later children straight into the host, outside that wrapper (probed: after wrapping, a
+ * second render put its nodes beside the viewport, so they never scrolled), so every Solid-owned
+ * host keeps the host itself as the viewport and its bars in an external slot. The slot joins the
+ * host's parent, absolutely placed from the host's rect measured against the slot's own containing block (a
+ * fixed dialog host has no offsetParent), which scrolls with every ancestor, so the bar never
+ * leaves its edge and nothing re-places it on scroll. The library owns visibility, drag, geometry
+ * and its idle delay. See #3742/#4094. */
 export const trackScrollbars = (doc: Document): void => {
   const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; width: number; height: number }>();
   const roots = new Map<Document | ShadowRoot, MutationObserver>();
 
   const place = (element: HTMLElement, slot: HTMLElement) => {
-    const box = element.getBoundingClientRect();
-    const hidden = !element.checkVisibility() || !box.width || !box.height;
+    const hidden = !element.checkVisibility() || !element.clientWidth || !element.clientHeight;
 
     if (slot.hidden !== hidden) slot.hidden = hidden;
 
-    // Slots stay inside dialog/popup pointer boundaries. A translated ancestor
-    // becomes the fixed containing block, so adjust from the slot's current box.
-    const origin = slot.getBoundingClientRect();
+    if (hidden) return;
 
-    let left = box.left;
-    let top = box.top;
-    let right = box.right;
-    let bottom = box.bottom;
-    const owningRoot = element.getRootNode();
-    let parent: Element | null = element.parentElement ?? (owningRoot instanceof ShadowRoot ? owningRoot.host : null);
+    // Placed from the slot's own containing block, so a fixed host (a dialog, whose offsetParent is null) still gets its bar on its edge.
+    const rect = element.getBoundingClientRect();
+    const parent = slot.offsetParent;
+    const view = element.ownerDocument.defaultView;
 
-    while (parent) {
-      const style = getComputedStyle(parent);
-      const clip = parent.getBoundingClientRect();
+    const origin =
+      parent instanceof HTMLElement && !(parent === element.ownerDocument.body && getComputedStyle(parent).position === "static")
+        ? (() => {
+            const box = parent.getBoundingClientRect();
 
-      if (/auto|scroll|hidden|clip/.test(style.overflowX)) {
-        left = Math.max(left, clip.left);
-        right = Math.min(right, clip.right);
-      }
-
-      if (/auto|scroll|hidden|clip/.test(style.overflowY)) {
-        top = Math.max(top, clip.top);
-        bottom = Math.min(bottom, clip.bottom);
-      }
-
-      const root = parent.getRootNode();
-
-      parent = parent.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
-    }
-
-    const clip = [top - box.top, box.right - right, box.bottom - bottom, left - box.left]
-      .map((inset) => `${Math.max(0, inset)}px`).join(" ");
+            return { x: box.left + parent.clientLeft - parent.scrollLeft, y: box.top + parent.clientTop - parent.scrollTop };
+          })()
+        : { x: -(view?.scrollX ?? 0), y: -(view?.scrollY ?? 0) };
 
     const styles = {
-      left: `${(parseFloat(slot.style.left) || 0) + box.left + element.clientLeft - origin.left}px`,
-      top: `${(parseFloat(slot.style.top) || 0) + box.top + element.clientTop - origin.top}px`,
+      left: `${rect.left + element.clientLeft - origin.x}px`,
+      top: `${rect.top + element.clientTop - origin.y}px`,
       width: `${element.clientWidth}px`,
       height: `${element.clientHeight}px`,
-      "clip-path": `inset(${clip})`,
     };
 
     for (const [name, value] of Object.entries(styles)) {
@@ -235,24 +220,6 @@ export const trackScrollbars = (doc: Document): void => {
     };
 
     root.addEventListener("input", updateField, true);
-    // U6283b: scroll events fire per frame at most per target; place once per frame, only the bars the scrolled element moves.
-    const scrolled = new Set<Element>();
-    let placing = 0;
-
-    root.addEventListener("scroll", (event) => {
-      if (!(event.target instanceof Element)) return;
-
-      scrolled.add(event.target);
-      placing ||= requestAnimationFrame(() => {
-        placing = 0;
-
-        for (const [element, { slot }] of entries) {
-          if ([...scrolled].some((target) => target.contains(element))) place(element, slot);
-        }
-
-        scrolled.clear();
-      });
-    }, true);
     discover(root);
   };
 

@@ -316,6 +316,9 @@ jobs:
       - name: CI4018 experiment cache regression
         if: ${{ !cancelled() }}
         run: node --test .github/actions/setup/cache.test.mjs
+      - name: CI7297e lane budget null start
+        if: ${{ !cancelled() }}
+        run: node --test .github/actions/setup/lane-budget.test.mjs
       - name: E14 observer regression
         if: ${{ !cancelled() }}
         run: |

@@ -242,12 +242,18 @@ async fn u4547e_reparenting_survives_reopen() {
                 .unwrap()
                 .success()
         );
-        let status = daemon::next(&mut events, |data| match data {
-            EventData::AgentStatus(status) if status.id == id => Some(status.status),
-            _ => None,
-        })
-        .await;
-        assert_eq!(status.kind, Kind::NeedsYou);
+        // A reattached Agent starts `working` and reads its program's title in its own time
+        // (A12a), so an `idle` may still come first; the hook's `needs-you` must follow.
+        project
+            .next_named("the hook's needs-you", &mut events, |data| match data {
+                EventData::AgentStatus(status)
+                    if status.id == id && status.status.kind == Kind::NeedsYou =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
     assert_eq!(
         std::fs::read_to_string(launches).unwrap().lines().count(),
@@ -259,6 +265,63 @@ async fn u4547e_reparenting_survives_reopen() {
             .await
             .unwrap()
             .unwrap();
+    }
+}
+
+/// A12a: a reopen publishes no `working` or `idle` the program did not cause, and the reattached
+/// Agent's finish count stays put.
+#[tokio::test]
+async fn a12a_a_reopen_keeps_the_status_and_the_finish_count() {
+    // The launch log makes the fake program play SessionStart and idle, as the vendor does.
+    let logs = tempfile::tempdir().unwrap();
+    let launches = logs.path().join("launches");
+    let fake = [
+        (daemon::CORE_PERSIST, ""),
+        ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
+    ];
+    let mut project = daemon::start(&fake);
+    let c = project.client().await;
+    let mut events = project.subscribed().await;
+    let agent = project.spawn_agent(&c).await;
+    wait_until_idle(
+        &mut events,
+        std::slice::from_ref(&agent.id),
+        std::time::Instant::now() + Duration::from_secs(30),
+    )
+    .await
+    .unwrap();
+    let before = rail_tree(&c).await;
+    let was = before
+        .iter()
+        .find(|n| n.id == agent.id)
+        .unwrap()
+        .status()
+        .unwrap();
+    assert_eq!(was.kind, Kind::Idle);
+    drop(c);
+    project.restart(&fake);
+    let c = project.client().await;
+    let mut events = project.subscribed().await;
+    let after = rail_tree(&c).await;
+    let now = after
+        .iter()
+        .find(|n| n.id == agent.id)
+        .unwrap()
+        .status()
+        .unwrap();
+    assert_eq!(now.kind, Kind::Idle, "first Status is the Run's own");
+    assert_eq!(now.finished, was.finished);
+    // The program's retained title is read in its own time; give it room to speak.
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    while let Ok(Some(event)) =
+        tokio::time::timeout(Duration::from_millis(200), events.next_event()).await
+    {
+        if let EventData::AgentStatus(status) = event.data
+            && status.id == agent.id
+        {
+            assert_eq!(status.status.kind, Kind::Idle, "no working after reopen");
+            assert_eq!(status.status.finished, was.finished);
+        }
     }
 }
 
