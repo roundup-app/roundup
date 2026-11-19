@@ -238,22 +238,37 @@ async fn b1_dropped_messages_do_not_count_toward_the_bound_of_32() {
 }
 
 #[tokio::test]
-async fn b1_a_receiver_that_is_done_or_error_is_conflict() {
-    for kind in [Kind::Done, Kind::Error] {
-        let dir = tempfile::tempdir().unwrap();
-        let h = Harness::new(dir.path(), vec![agent_node("b", kind)]);
+async fn b1_a_receiver_that_is_error_is_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path(), vec![agent_node("b", Kind::Error)]);
 
-        let err = h
-            .call_as(
-                agent("a"),
-                "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
-            )
-            .await
-            .unwrap_err();
+    let err = h
+        .call_as(
+            agent("a"),
+            "message.send",
+            json!({"to": "b", "kind": "note", "body": "hi"}),
+        )
+        .await
+        .unwrap_err();
 
-        assert_eq!(err.code, code::CONFLICT, "{kind:?}");
-    }
+    assert_eq!(err.code, code::CONFLICT);
+}
+
+#[tokio::test]
+async fn ap2_a_message_to_a_done_agent_is_accepted() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path(), vec![agent_node("b", Kind::Done)]);
+
+    let sent = h
+        .call_as(
+            agent("a"),
+            "message.send",
+            json!({"to": "b", "kind": "note", "body": "hi"}),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(sent["status"], "pending");
 }
 
 #[tokio::test]

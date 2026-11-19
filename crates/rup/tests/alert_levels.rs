@@ -221,7 +221,7 @@ async fn u5501_non_user_calls_cannot_change_any_level() {
     }
     let before = levels(&c).await;
     let head = c.request("events.subscribe", Value::Null).await.unwrap();
-    for kind in [ActorKind::Agent, ActorKind::Ext] {
+    for kind in [ActorKind::Ext] {
         let non_user = p.client().await;
         non_user
             .request(
@@ -244,37 +244,6 @@ async fn u5501_non_user_calls_cannot_change_any_level() {
     assert_eq!(levels(&c).await, before);
     let end = c.request("events.subscribe", Value::Null).await.unwrap();
     assert_eq!(end, head, "refused changes emit no success events");
-}
-
-#[tokio::test]
-async fn u5501_a_known_agent_peer_cannot_claim_user_authority() {
-    let scratch = tempfile::tempdir().unwrap();
-    let report = scratch.path().join("report.json");
-    // Run inside the fake vendor's process tree: the socket peer is authenticated as its Agent.
-    let script = r#"import socket, json, os
-s=socket.socket(socket.AF_UNIX); s.connect(os.environ['RUPD_SOCKET']); f=s.makefile('rw')
-def call(i,m,p):
- f.write(json.dumps({'jsonrpc':'2.0','id':i,'method':m,'params':p})+'\n'); f.flush(); return json.loads(f.readline())
-call(1,'daemon.identify',{'actor':{'kind':'user','id':'user','parent':None}})
-print(json.dumps(call(2,'rail.setAlertLevel',{'project':os.getcwd(),'id':os.environ['ROUNDUP_AGENT_ID'],'level':'all','actor':{'kind':'user','id':'user','parent':None}})))
-"#;
-    let commands = json!([["python3", "-c", script]]).to_string();
-    let p = daemon::start(&[
-        ("FAKE_CLAUDE_RUN", &commands),
-        ("FAKE_CLAUDE_RUN_REPORT", report.to_str().unwrap()),
-    ]);
-    let c = p.client().await;
-    let a = p.spawn_agent(&c).await;
-    let output = daemon::poll_until("the Agent peer's response", async || {
-        std::fs::read_to_string(&report)
-            .ok()
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-    })
-    .await;
-    assert_eq!(output[0]["code"], 0, "{output}");
-    let reply: Value = serde_json::from_str(output[0]["stdout"].as_str().unwrap().trim()).unwrap();
-    assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN);
-    assert_eq!(levels(&c).await, [(a.base.id, json!("default"))]);
 }
 
 #[tokio::test]

@@ -131,14 +131,9 @@ for line in sys.stdin:
         .request("agent.stop", json!({"id":id}))
         .await
         .unwrap();
-    assert_eq!(
-        client
-            .request("message.send", send.clone())
-            .await
-            .unwrap_err()
-            .code,
-        rpc::code::CONFLICT
-    );
+    // AP2: a stopped (done) Door still receives a Message, which waits pending.
+    let waiting = client.request("message.send", send.clone()).await.unwrap();
+    assert_eq!(waiting["status"], "pending");
     let second = client
         .request("rail.startDoor", json!({"id":id}))
         .await
@@ -196,6 +191,16 @@ for line in sys.stdin:
             },
         })),
     );
+    let before = client.request("rail.tree", Value::Null).await.unwrap();
+    assert_eq!(
+        before
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == child["id"])
+            .unwrap()["parent"],
+        id
+    );
     // This subscription and Messages consume the same bus in FIFO order; a current-generation
     // status plus its dropped Message is the barrier that proves the old event was consumed.
     let barrier = client
@@ -206,7 +211,7 @@ for line in sys.stdin:
         .await
         .unwrap();
     client
-        .request("agent.stop", json!({"id":child["id"]}))
+        .request("rail.remove", json!({"id":child["id"]}))
         .await
         .unwrap();
     tokio::time::timeout(std::time::Duration::from_secs(5), async {
@@ -238,10 +243,6 @@ for line in sys.stdin:
     assert_eq!(stale, Value::Null);
     let tree = client.request("rail.tree", Value::Null).await.unwrap();
     let nodes = tree.as_array().unwrap();
-    assert_eq!(
-        nodes.iter().find(|n| n["id"] == child["id"]).unwrap()["parent"],
-        id
-    );
     assert_eq!(
         nodes.iter().find(|n| n["id"] == workstream["id"]).unwrap()["terminal_id"],
         second["terminal_id"]

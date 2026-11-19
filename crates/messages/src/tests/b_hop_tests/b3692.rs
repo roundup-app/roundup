@@ -43,16 +43,14 @@ async fn b3692a_an_unanswered_question_makes_no_second_message() {
 }
 
 #[tokio::test]
-async fn b3692a_a_question_to_an_agent_that_ends_stays_dropped_and_nothing_replaces_it() {
+async fn b3692a_a_question_to_an_agent_that_finishes_stays_pending_and_nothing_replaces_it() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
     h.ask("c", "sub").await;
     h.becomes("sub", Kind::Done).await;
     h.at(600_000).await;
     let all = h.all().await;
-    // DCL4: nothing replaces the question; its sender gets one return note.
-    assert_eq!(all.len(), 2);
-    assert_eq!(all[0].1, "dropped");
-    assert_eq!(all[0].2, "receiver gone");
-    assert_eq!((all[1].0.as_str(), all[1].1.as_str()), ("c", "pending"));
+    // AP2: `done` is no B9 ending; the question waits for the Agent's next turn and no return note is made.
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].1, "pending");
 }

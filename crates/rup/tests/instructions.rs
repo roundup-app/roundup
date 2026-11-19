@@ -359,7 +359,7 @@ async fn u3078a_g_delivered_instruction_identity_survives_moves_removal_and_reop
 }
 
 #[tokio::test]
-async fn u3078g_instruction_reads_use_the_authenticated_agents_reach() {
+async fn u3078g_instruction_reads_name_any_agent() {
     let root = tempfile::tempdir().unwrap();
     let gate = root.path().join("registered");
     let report = root.path().join("report");
@@ -403,11 +403,8 @@ async fn u3078g_instruction_reads_use_the_authenticated_agents_reach() {
     std::fs::write(gate, []).unwrap();
     status(&mut client, &agent.id, contracts::Kind::Idle).await;
     let report: Value = serde_json::from_slice(&std::fs::read(report).unwrap()).unwrap();
-    assert_eq!(report[0]["code"], 1, "{report}");
-    assert!(
-        report[0]["stderr"].as_str().unwrap().contains("Reach"),
-        "{report}"
-    );
+    // AP4: an Agent reads another Agent's instruction as the user does.
+    assert_eq!(report[0]["code"], 0, "{report}");
     assert_eq!(report[1]["code"], 0, "{report}");
     let own: Value = serde_json::from_str(report[1]["stdout"].as_str().unwrap()).unwrap();
     assert!(own["revisions"].as_array().unwrap().is_empty());
