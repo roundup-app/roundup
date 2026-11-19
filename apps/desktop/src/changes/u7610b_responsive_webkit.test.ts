@@ -22,7 +22,12 @@ const longestBlock = async (type: BrowserType) => {
     const page = await engine.newPage();
 
     await page.goto(new URL("/src/changes/u2540.html?dense", server.resolvedUrls.local[0]).href);
-    await page.evaluate(() => {
+    // The two lazy library chunks load and evaluate once at startup (R3800), not per open; the beat measures the list.
+    await page.evaluate(async () => {
+      const url = "/src/changes/chunks.ts";
+      const chunks: typeof import("./chunks") = await import(/* @vite-ignore */ url);
+
+      await Promise.all([chunks.loadReader(), chunks.loadTree()]);
       window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: { added: 10000, removed: 10000 } }] }] });
       window.__fake.setStatus("agent-1", "idle", "idle");
     });
