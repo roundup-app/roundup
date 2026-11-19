@@ -54,19 +54,34 @@ export const specOf = (set: LinkSet | undefined): Spec => {
 };
 
 /** LH9: the root's first six children, then a `more` count of the rest; all of them once the count is open. */
-const cut = (spec: Spec, open: boolean): Spec => {
+const cut = (spec: Spec, open: boolean, shown: number): Spec => {
   const head = spec.elements[spec.root];
   const ids = head?.children ?? [];
+  const inline = Math.min(SHOWN, shown);
 
-  if (!head || ids.length <= SHOWN) return spec;
+  if (!head || ids.length <= inline) return spec;
 
-  const more = { type: "more", props: { count: ids.length - SHOWN, open }, children: [] };
+  // LH13: the revealed rest are the count's children, drawn in a popover and never a second row of the header.
+  const more = { type: "more", props: { count: ids.length - inline, open }, children: open ? ids.slice(inline) : [] };
 
-  return { ...spec, elements: { ...spec.elements, [spec.root]: { ...head, children: [...(open ? ids : ids.slice(0, SHOWN)), "more"] }, more } };
+  return { ...spec, elements: { ...spec.elements, [spec.root]: { ...head, children: [...ids.slice(0, inline), "more"] }, more } };
+};
+
+/** LH13: how many icons fit inline in a pane of this width, the handle's and the count's slots kept; at most six (LH9). */
+const SLOT = 28;
+
+const GAP = 4;
+
+const PAD = 16;
+
+export const inlineFor = (width: number, total: number): number => {
+  const slots = Math.floor((width - PAD + GAP) / (SLOT + GAP)) - 1;
+
+  return total <= Math.min(SHOWN, slots) ? total : Math.max(0, Math.min(SHOWN, slots - 1));
 };
 
 /** LH8, LH9: the icons of a spec through `@json-render/solid`, six inline and a `+N` count that reveals the rest. */
-export const LinksView = (props: { spec: Spec; env: Env }) => {
+export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
   const [open, setOpen] = createSignal(false);
 
   type Icon = Component<{ size?: number; "aria-hidden"?: "true" }>;
@@ -85,9 +100,14 @@ export const LinksView = (props: { spec: Spec; env: Env }) => {
       tracker: iconOf(Ticket, (env, url) => env.open(url)),
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
-      more: ctx => <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</IconButton>,
+      more: ctx => (
+        <span class="links-more">
+          <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</IconButton>
+          {ctx.props.open ? <span class="links-popover">{ctx.children}</span> : null}
+        </span>
+      ),
     },
   });
 
-  return <JSONUIProvider registry={registry}><Renderer spec={cut(props.spec, open())} registry={registry} /></JSONUIProvider>;
+  return <JSONUIProvider registry={registry}><Renderer spec={cut(props.spec, open(), props.shown ?? SHOWN)} registry={registry} /></JSONUIProvider>;
 };
