@@ -175,7 +175,6 @@ export const copy = {
   openInEditor: "Open in editor",
   startingDoor: (name: string) => `Starting ${name}…`,
   doorDidNotStart: "Did not start",
-  doorUnconfirmed: "Start is unconfirmed",
   doorNotStarted: "Not started",
   doorStopped: (name: string) => `${name} stopped`,
   doorStoppedWithExit: (name: string, value1: CopyValue) => `${name} stopped, ${value1}`,
