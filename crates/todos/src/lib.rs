@@ -105,7 +105,10 @@ impl Todos {
     pub fn prs_to_read(&self) -> Result<Vec<(u32, u32)>, RpcError> {
         let now = std::time::Instant::now();
         let due: Vec<(u32, u32)> = {
-            let reads = self.pr_reads.lock().map_err(|_| Error::internal("poisoned"))?;
+            let reads = self
+                .pr_reads
+                .lock()
+                .map_err(|_| Error::internal("poisoned"))?;
             self.store()?
                 .list()?
                 .into_iter()

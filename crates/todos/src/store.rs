@@ -675,8 +675,20 @@ fn todo_row(r: &rusqlite::Row<'_>) -> Result<Todo, Error> {
             r.get(11)?,
         ))
     })()?;
-    let (id, title, body, done, created_at, updated_at, creator, home, owner, priority, pr, blocked) =
-        row;
+    let (
+        id,
+        title,
+        body,
+        done,
+        created_at,
+        updated_at,
+        creator,
+        home,
+        owner,
+        priority,
+        pr,
+        blocked,
+    ) = row;
     Ok(Todo {
         id,
         title,

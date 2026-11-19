@@ -92,7 +92,8 @@ impl Todos {
             return Ok(None);
         }
         let was_blocked = store.blocked_ids()?;
-        let todo = store.set_done_by_merge(id, pr, merged_at, ctx.touches.sequence()?, &ctx.actor)?;
+        let todo =
+            store.set_done_by_merge(id, pr, merged_at, ctx.touches.sequence()?, &ctx.actor)?;
         ctx.touch(Verb::Wrote, &item(id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
