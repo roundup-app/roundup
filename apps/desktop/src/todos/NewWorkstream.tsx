@@ -92,7 +92,8 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       setPending(true);
       setFailure(null);
 
-      const outcome = await applying(() => connected.app.rpc("todo.startWorkstream", { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) }));
+      const request = { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) };
+      const outcome = await applying(() => connected.app.rpc("todo.startWorkstream", request));
 
       // An unknown outcome keeps the form busy: a second submit could start a second Workstream.
       if (outcome.kind === "pending") return setFailure(unknownOutcomeLine(outcome.error));
