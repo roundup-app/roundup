@@ -207,7 +207,7 @@ async fn h11_an_agent_that_ends_while_a_steer_waits_is_not_found() {
 }
 
 #[tokio::test]
-async fn a4452d_agent_authored_text_never_types() {
+async fn ap3_an_agent_steer_is_typed_into_any_agent() {
     let f = Arc::new(frozen(Fixture::running(RECORD), Duration::from_secs(30)));
     let workstream = f.workstream("team", None).await;
     let child = f.spawn(Some(&workstream), None).await.unwrap();
@@ -224,25 +224,19 @@ async fn a4452d_agent_authored_text_never_types() {
         ..f.ctx()
     };
     let params = json!({"id": child.id, "text": "go"});
-    for stranger in [
-        from(ActorKind::Agent, "999"),
-        from(ActorKind::Ext, &workstream),
-    ] {
-        let err = f
-            .agents
-            .call(&stranger, "agent.prompt", params.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::FORBIDDEN);
-    }
+    let err = f
+        .agents
+        .call(&from(ActorKind::Ext, &workstream), "agent.prompt", params.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::FORBIDDEN);
     assert_eq!(read(&typed(&f)), "");
 
-    // A4452d: a Door's own text goes to the inbox, and no byte is typed.
-    let door = from(ActorKind::Agent, &workstream);
-    f.agents.call(&door, "agent.prompt", params).await.unwrap();
-    assert_eq!(f.inbox().len(), 1);
-    assert_eq!(f.inbox()[0].0, child.id);
-    assert_eq!(read(&typed(&f)), "");
+    // AP3: an Agent outside the target's ancestry types as the user does.
+    let stranger = from(ActorKind::Agent, "999");
+    f.agents.call(&stranger, "agent.prompt", params).await.unwrap();
+    assert!(f.inbox().is_empty());
+    assert!(read(&typed(&f)).contains("go"));
 }
 
 #[tokio::test]

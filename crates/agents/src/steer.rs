@@ -190,7 +190,7 @@ impl Agents {
             .map_err(PromptError::from)
     }
 
-    /// H11, H13, M7: the user, or an Agent for a node in its Reach, may Steer or Interrupt; an
+    /// H11, H13, M7: the user, or an Agent for any other node (AP4), may Steer or Interrupt; an
     /// Extension may not.
     pub(super) fn may_steer(&self, actor: &Actor, id: &str, verb: &str) -> Result<(), RpcError> {
         if actor.kind == ActorKind::Ext {

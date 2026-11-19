@@ -35,9 +35,6 @@ impl Agents {
         ctx: &Ctx,
         p: contracts::agent::SetAlertLevelParams,
     ) -> Result<(), RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user sets alert levels"));
-        }
         let choice: contracts::agent::SetAlertLevelParams = p;
         if Path::new(&choice.project) != self.project_dir() {
             return Err(RpcError::forbidden(
@@ -93,16 +90,15 @@ impl Agents {
             } else {
                 Steer::Instruction(&text)
             };
-            // A4452d: only the user's words are typed; an Agent's text goes to the inbox as its
-            // own Message, so U6260a's waiting reason is readable in the sender's Message list.
+            // AP3, AP6: an Agent's Steer is typed as the user's is; a finished target resumes
+            // first, and a target waiting on the user takes no byte.
             if ctx.actor.kind == ActorKind::Agent {
-                self.shared
-                    .coordinate(ctx.actor.clone(), &id, None, text)
-                    .await
-                    .map_err(PromptError::from)?;
-            } else {
-                self.prompt(&id, steer).await?;
+                self.shared.guard_not_waiting(&id)?;
+                if self.shared.runs().agent(&id).is_none() {
+                    self.resume(ctx, &id, None, None).await?;
+                }
             }
+            self.prompt(&id, steer).await?;
             Self::touch_rail(ctx, &id)?;
             Ok(())
         }

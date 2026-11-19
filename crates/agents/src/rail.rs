@@ -372,16 +372,6 @@ impl Rail {
         Ok(())
     }
 
-    /// DCR1: whether a quit cut `id` off mid-turn and nothing has started it since.
-    pub fn is_cut_off(&self, id: AgentId) -> Result<bool, StoreError> {
-        self.node(id)?;
-        Ok(self.db.query_row(
-            "SELECT cut_off FROM nodes WHERE id = ?",
-            params![id.get()],
-            |row| row.get(0),
-        )?)
-    }
-
     pub fn detach_terminal(&mut self, id: AgentId) -> Result<(), StoreError> {
         self.db.execute(
             "UPDATE nodes SET terminal_id = NULL WHERE id = ?",

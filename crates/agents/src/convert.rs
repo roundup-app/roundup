@@ -6,9 +6,6 @@ impl Agents {
     /// live Agent restarts once on that conversation so it launches with the Door's Brief and
     /// tools; an exited one converts without a launch. A refusal leaves the node as it was.
     pub(super) async fn make_workstream(&self, ctx: &Ctx, id: &str) -> Result<RailNode, RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user converts an Agent"));
-        }
         let _lifecycle = self.shared.door_lifecycle.read().await;
         let live = {
             let mut rail = self.shared.rail();
@@ -58,9 +55,6 @@ impl Agents {
         ctx: &Ctx,
         SaveAsModeParams { id, name }: SaveAsModeParams,
     ) -> Result<RailNode, RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user saves a Mode"));
-        }
         let name = name.trim();
         if name.is_empty() {
             return Err(RpcError::new(code::INVALID_PARAMS, "a Mode needs a name"));
@@ -109,9 +103,6 @@ impl Agents {
             prompt,
         }: CreateModeParams,
     ) -> Result<RailNode, RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user creates a Mode"));
-        }
         let name = name.trim();
         if name.is_empty() || name.chars().count() > crate::name::MAX_CHARS {
             return Err(RpcError::new(
@@ -152,9 +143,6 @@ impl Agents {
         ctx: &Ctx,
         ModePromptParams { id, prompt }: ModePromptParams,
     ) -> Result<(), RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user sets a Mode prompt"));
-        }
         let prompt = prompt.as_deref().filter(|text| !text.trim().is_empty());
         if prompt.is_some_and(|text| text.chars().count() > contracts::agent::MODE_PROMPT_MAX) {
             return Err(RpcError::new(
