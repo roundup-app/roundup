@@ -272,7 +272,13 @@ async fn u4547e_reparenting_survives_reopen() {
 /// Agent's finish count stays put.
 #[tokio::test]
 async fn a12a_a_reopen_keeps_the_status_and_the_finish_count() {
-    let fake = [(daemon::CORE_PERSIST, "")];
+    // The launch log makes the fake program play SessionStart and idle, as the vendor does.
+    let logs = tempfile::tempdir().unwrap();
+    let launches = logs.path().join("launches");
+    let fake = [
+        (daemon::CORE_PERSIST, ""),
+        ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
+    ];
     let mut project = daemon::start(&fake);
     let c = project.client().await;
     let mut events = project.subscribed().await;
