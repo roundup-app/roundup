@@ -292,8 +292,8 @@ export default defineConfig({
     // tsconfig.json's `@contracts/*` path, for the one value the webview imports from there (S11).
     alias: {
       "@contracts": fileURLToPath(new URL("../../contracts/generated", import.meta.url)),
-      // 0.10 ships its declared ESM module but omits its CommonJS main.
-      "@xterm/addon-ligatures": fileURLToPath(new URL("./node_modules/@xterm/addon-ligatures/lib/addon-ligatures.mjs", import.meta.url)),
+      // 0.11's ESM bundle statically imports node:diagnostics_channel (bundled lru-cache), which a browser build cannot resolve; its UMD bundle has no such import.
+      "@xterm/addon-ligatures": fileURLToPath(new URL("./node_modules/@xterm/addon-ligatures/lib/addon-ligatures.js", import.meta.url)),
     },
   },
 });

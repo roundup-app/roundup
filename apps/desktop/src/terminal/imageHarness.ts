@@ -87,7 +87,7 @@ type Owner = { _storage: { _virtCalls(start: number, end: number): Call[] } };
 
 /** What the image addon would draw over the viewport's placeholder cells: one call per run of tiles. */
 export const placements = (addon: ImageAddon, rows: number): Call[] => {
-  // SAFETY: the pinned addon keeps its storage in `_storage`, and `_virtCalls` is the placeholder walk that patches/@xterm__addon-image@0.10.0-beta.331.patch adds to it.
+  // SAFETY: the pinned addon keeps its storage in `_storage`, and `_virtCalls` is the placeholder walk that patches/@xterm__addon-image@0.10.0-beta.333.patch adds to it.
   const { _storage } = addon as ImageAddon & Owner;
 
   return _storage._virtCalls(0, rows - 1).map(({ col, row, count, tileId }) => ({ col, row, count, tileId }));
