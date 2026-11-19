@@ -152,7 +152,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   for (const name of ["api", "web"]) {
     const daemon = app.of(path(name));
     daemon.handlers["agent.worktreeState"] = () => STATE;
-    daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
+    daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
     daemon.handlers["agent.compareFile"] = () => COMPARISON;
   }
 

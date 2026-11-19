@@ -17,11 +17,11 @@ it("u2539b_the_library_loads_on_first_open", async () => {
 
 it("u2539b_file_names_announce_status_old_path_and_deleted_action", async () => {
   await mountControl(() => ({ files: [
-    { path: "new.ts", from: "old.ts", status: "renamed", line: 1 },
-    { path: "gone.ts", status: "deleted", line: null },
-    { path: "added.ts", status: "added", line: 1 },
-    { path: "modified.ts", status: "modified", line: 1 },
-    { path: "untracked.ts", status: "untracked", line: 1 },
+    { path: "new.ts", from: "old.ts", status: "renamed", line: 1, counts: null },
+    { path: "gone.ts", status: "deleted", line: null, counts: null },
+    { path: "added.ts", status: "added", line: 1, counts: null },
+    { path: "modified.ts", status: "modified", line: 1, counts: null },
+    { path: "untracked.ts", status: "untracked", line: 1, counts: null },
   ] }));
   fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
 

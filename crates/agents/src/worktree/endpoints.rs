@@ -1,16 +1,16 @@
 //! U7186b: the endpoints a user compares and the file lists between any two. Reads only: a
 //! worktree endpoint reads its working tree, a head endpoint the branch's commit.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use contracts::agent::{
     ChangedFile, ChangedFiles, ChangedStatus, CompareEndpoint, CompareRef, CompareRefs,
-    FileComparison,
+    FileComparison, LineCounts,
 };
 use rpc::{RpcError, code};
 
-use super::comparison::{file_content, read_worktree_file};
+use super::comparison::{file_content, numstat_row, read_worktree_file};
 use super::{Git, failed, invalid};
 
 fn endpoint_missing() -> RpcError {
@@ -84,6 +84,7 @@ impl Git {
                 .filter(|n| !n.is_empty())
                 .map(str::to_owned),
         );
+        let counted = self.endpoint_counts(project, &from, &to)?;
         let mut files = Vec::new();
         for path in paths {
             if path.starts_with(".roundup/") || path.split('/').any(|part| part == ".git") {
@@ -102,14 +103,74 @@ impl Git {
                 (_, Some(new)) if !new.contains(&0) => first_difference(old.as_deref(), new),
                 _ => None,
             };
+            let counts = match counted.as_ref().and_then(|map| map.get(&path)) {
+                Some(counts) => *counts,
+                None => self.fallback_counts(old.as_deref(), new.as_deref()),
+            };
             files.push(ChangedFile {
                 path,
                 status,
                 line,
+                counts,
                 from: None,
             });
         }
         Ok(ChangedFiles { files })
+    }
+
+    /// Every file's counts between two endpoints from one `git diff --numstat` call, run where a
+    /// worktree side's files are; `None` when both sides are worktrees (no single call sees both).
+    fn endpoint_counts(
+        &self,
+        project: &Path,
+        from: &Side,
+        to: &Side,
+    ) -> Result<Option<BTreeMap<String, Option<LineCounts>>>, RpcError> {
+        let diff = [
+            "--no-optional-locks",
+            "diff",
+            "--no-ext-diff",
+            "--no-renames",
+            "-z",
+            "--numstat",
+        ];
+        let output = match (&from.dir, &to.dir) {
+            (Some(_), Some(_)) => return Ok(None),
+            (_, Some(dir)) => self.run(Path::new(dir), &[&diff[..], &[&from.rev]].concat()),
+            (Some(dir), None) => self.run(Path::new(dir), &[&diff[..], &["-R", &to.rev]].concat()),
+            (None, None) => self.run(project, &[&diff[..], &[&from.rev, &to.rev]].concat()),
+        }
+        .map_err(failed)?;
+        Ok(Some(
+            output
+                .split('\0')
+                .filter_map(|record| {
+                    let (counts, path) = record.rsplit_once('\t')?;
+                    Some((path.to_owned(), numstat_row(&format!("{counts}\t"))))
+                })
+                .collect(),
+        ))
+    }
+
+    /// Counts for a file numstat did not list (untracked, or between two worktrees): git's
+    /// `--no-index` on the two sides' bytes; none for a binary file.
+    fn fallback_counts(&self, old: Option<&[u8]>, new: Option<&[u8]>) -> Option<LineCounts> {
+        if old.is_some_and(|bytes| bytes.contains(&0))
+            || new.is_some_and(|bytes| bytes.contains(&0))
+        {
+            return None;
+        }
+        let dir = tempfile::tempdir().ok()?;
+        std::fs::write(dir.path().join("a"), old.unwrap_or_default()).ok()?;
+        std::fs::write(dir.path().join("b"), new.unwrap_or_default()).ok()?;
+        let output = self
+            .output(
+                dir.path(),
+                &["diff", "--no-index", "--no-ext-diff", "--numstat", "a", "b"],
+                None,
+            )
+            .ok()?;
+        numstat_row(String::from_utf8_lossy(&output.stdout).lines().next()?)
     }
 
     /// One file's bytes on each side of a comparison.

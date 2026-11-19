@@ -69,6 +69,7 @@ pub fn types() -> specta::Types {
         .register::<crate::agent::WorktreePr>()
         .register::<crate::agent::ChangedStatus>()
         .register::<crate::agent::ChangedFile>()
+        .register::<crate::agent::LineCounts>()
         .register::<crate::agent::ChangedFiles>()
         .register::<crate::agent::OwnedGroup>()
         .register::<crate::agent::OwnedChanges>()

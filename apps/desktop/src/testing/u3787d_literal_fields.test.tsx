@@ -31,7 +31,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Original" }), todo(2, { title: "Other" })] }, () => {}), padHandlers({ pads: [padOf("Original", USER)], history: [] }, () => {}));
   daemon.handlers["project.importDiscover"] = () => ({ candidates: [], excluded: [] });
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
-  daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
+  daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
   daemon.handlers["agent.compareFile"] = async () => (await import("../changes/noteHarness")).COMPARISON;
   daemon.handlers["terminal.list"] = () => [info("term", { owner: path("p"), title: "Shell" })];
   daemon.handlers["terminal.open"] = () => ({ terminal_id: "term" });
