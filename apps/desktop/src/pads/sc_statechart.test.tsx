@@ -22,10 +22,10 @@ const api: StatechartApi = {
       return actor;
     };
   },
-  layout: async (ids, moves): Promise<Layout> => ({
+  layout: async (boxes, moves): Promise<Layout> => ({
     width: 100,
     height: 100,
-    boxes: Object.fromEntries(ids.map((id, at) => [id, { x: at * 10, y: 0 }])),
+    boxes: Object.fromEntries(boxes.map(([id], at) => [id, { x: at * 10, y: 0 }])),
     routes: Object.fromEntries(moves.map(([key]) => [key, [{ x: 0, y: 0 }, { x: 5, y: 5 }]])),
     labels: Object.fromEntries(moves.map(([key]) => [key, { x: 2, y: 2 }])),
   }),
@@ -87,6 +87,8 @@ const arrows = () => [...document.querySelectorAll<HTMLButtonElement>(".statecha
 
 const named = (name: string) => [...document.querySelectorAll<HTMLButtonElement>(".visual-statechart button")].find((node) => node.textContent === name);
 
+const inert = (node: HTMLElement) => node.matches("[aria-disabled=true]");
+
 const moves = () => [...document.querySelectorAll(".statechart-move-list button")].map((node) => node.textContent);
 
 describe("sc statechart block", () => {
@@ -117,7 +119,7 @@ describe("sc statechart block", () => {
     await show(chart);
 
     expect(lit()).toBe("a");
-    expect(arrows().filter((arrow) => !arrow.disabled).length).toBe(2);
+    expect(arrows().filter((arrow) => !inert(arrow)).length).toBe(2);
     fireEvent.click(must(arrows()[0]));
     expect(lit()).toBe("b");
     expect(moves()).toEqual(["you wait"]);
@@ -128,7 +130,7 @@ describe("sc statechart block", () => {
   it("sc3_back_and_start_over_undo_the_steps", async () => {
     await show(chart);
 
-    expect(must(named("Back")).disabled).toBe(true);
+    expect(inert(must(named("Back")))).toBe(true);
     fireEvent.click(must(named("you type")));
     fireEvent.click(must(named("you wait")));
     fireEvent.click(must(named("Back")));
@@ -136,14 +138,14 @@ describe("sc statechart block", () => {
     fireEvent.click(must(named("you wait")));
     fireEvent.click(must(named("Start over")));
     expect(lit()).toBe("a");
-    expect(must(named("Back")).disabled).toBe(true);
+    expect(inert(must(named("Back")))).toBe(true);
   });
 
   it("sc3_tab_reaches_each_move_and_enter_takes_it", async () => {
     await show(chart);
     const buttons = [...document.querySelectorAll<HTMLButtonElement>(".statechart-move-list button")];
 
-    expect(buttons.every((node) => node.tagName === "BUTTON" && node.tabIndex === 0 && !node.disabled)).toBe(true);
+    expect(buttons.every((node) => node.tagName === "BUTTON" && node.tabIndex === 0 && !inert(node))).toBe(true);
     // A button takes Enter as a click.
     must(buttons[0]).focus();
     fireEvent.click(must(document.activeElement));
@@ -180,11 +182,11 @@ describe("sc statechart block", () => {
 
   it("sc4_walk_to_the_break_is_disabled_without_a_reachable_break", async () => {
     await show({ ...chart, start: "d" });
-    expect(must(named("Walk to the break")).disabled).toBe(true);
-    expect(textOf(".statechart-reason")).toBe(copy.statechartAlreadyBroken);
+    expect(inert(must(named("Walk to the break")))).toBe(true);
+    expect(must(named("Walk to the break")).title).toBe(copy.statechartAlreadyBroken);
     cleanup();
     await show({ ...chart, start: "c", steps: [{ from: "c", to: "b", label: "back" }] });
-    expect(must(named("Walk to the break")).disabled).toBe(true);
+    expect(inert(must(named("Walk to the break")))).toBe(true);
     expect(textOf(".statechart-reason")).toBe(copy.statechartNoBreakReachable);
   });
 

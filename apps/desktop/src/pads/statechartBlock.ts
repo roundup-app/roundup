@@ -31,11 +31,19 @@ export type StepActor = { start(): void; send(event: { type: string }): void; st
 export type StatechartApi = {
   /** A machine whose states each list the events they take and the state each leads to; the call returns what makes a running actor of it. */
   createMachine(config: MachineConfig): () => StepActor;
-  /** Places each box, routes each move and centres its label where it is clear of boxes and other lines; `moves` are `[key, from, to, label size]`. */
-  layout(ids: string[], moves: [string, string, string, Size][], box: Size): Promise<Layout>;
+  /** Places each box (`[id, size]`), routes each move and centres its label where it is clear of boxes and other lines; `moves` are `[key, from, to, label size]`. */
+  layout(boxes: [string, Size][], moves: [string, string, string, Size][]): Promise<Layout>;
 };
 
-const BOX = { width: 132, height: 44 };
+const BOX = { width: 132, height: 44, maxWidth: 176, line: 16, pad: 12 };
+
+/** A state's box: its label at the small size wrapped at the widest box, grown in height to hold every line. */
+const boxSize = (label: string): Size => {
+  const width = Math.min(BOX.maxWidth, Math.max(BOX.width, label.length * 7 + 16));
+  const lines = Math.ceil((label.length * 7) / (width - 16));
+
+  return { width, height: Math.max(BOX.height, lines * BOX.line + BOX.pad) };
+};
 
 /** The room a move's label takes beside its line: an estimate of its text at the small size, plus the label's padding. */
 const labelSize = (label: string): Size => ({ width: label.length * 7 + 8, height: 20 });
@@ -114,9 +122,20 @@ const button = (label: string, onClick: () => void) => {
   node.type = "button";
   node.dataset.button = "quiet";
   // listener-owner: the button belongs to a block's host, which the Pad drops with it.
-  node.addEventListener("click", onClick);
+  node.addEventListener("click", () => {
+    if (node.getAttribute("aria-disabled") !== "true") onClick();
+  });
 
   return node;
+};
+
+/** A control that cannot act stays focusable and says why as its title; its click does nothing. */
+const setDisabled = (node: HTMLElement, off: boolean, reason = "") => {
+  if (off) node.setAttribute("aria-disabled", "true");
+  else node.removeAttribute("aria-disabled");
+
+  if (off && reason) node.title = reason;
+  else node.removeAttribute("title");
 };
 
 const svgNS = "http://www.w3.org/2000/svg";
@@ -218,6 +237,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
   const frame = element("div", "statechart-chart");
   const boxes = new Map<string, HTMLElement>();
   const arrows = new Map<string, HTMLButtonElement>();
+  const sizeOf = new Map(chart.states.map((state) => [state.id, boxSize(state.label)]));
   const bar = element("p", "statechart-bar");
   const group = element("div", "statechart-moves");
   const heading = element("p", "statechart-moves-title", copy.statechartMoves);
@@ -243,7 +263,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
 
   controls.append(back, startOver);
 
-  if (hasBreak) controls.append(walk, reason);
+  if (hasBreak) controls.append(walk);
 
   const paintChart = (broken: string[] | undefined) => {
     for (const [id, box] of boxes) {
@@ -254,16 +274,19 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
 
     const offered = new Set(out().map((move) => move.key));
 
-    for (const [key, arrow] of arrows) arrow.disabled = !offered.has(key);
+    for (const [key, arrow] of arrows) setDisabled(arrow, !offered.has(key));
     bar.textContent = broken ? copy.statechartBreaks(broken.join(", ")) : "";
     list.replaceChildren(...out().map((move) => button(move.label, () => play([move]))));
     group.hidden = list.childElementCount === 0;
   };
 
   const paintControls = (onBreak: boolean) => {
-    back.disabled = taken.length === 0;
-    walk.disabled = onBreak || wayToBreak(chart, moves, lit()).length === 0;
-    reason.textContent = onBreak ? copy.statechartAlreadyBroken : walk.disabled ? copy.statechartNoBreakReachable : "";
+    const noWay = onBreak || wayToBreak(chart, moves, lit()).length === 0;
+
+    setDisabled(back, taken.length === 0);
+    setDisabled(walk, noWay, onBreak ? copy.statechartAlreadyBroken : copy.statechartNoBreakReachable);
+    // The bar already says a breaking state is lit, so the reason shows only when no break can be reached.
+    reason.textContent = noWay && !onBreak ? copy.statechartNoBreakReachable : "";
   };
 
   const paintDetails = (at: Statechart["states"][number] | undefined) => {
@@ -287,14 +310,14 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
     // The button the user pressed may be gone or disabled; focus goes where the next Tab reaches the moves.
     const now = document.activeElement;
 
-    if (focusInside && !(now instanceof HTMLButtonElement && host.contains(now) && !now.disabled)) heading.focus();
+    if (focusInside && !(now instanceof HTMLButtonElement && host.contains(now) && now.getAttribute("aria-disabled") !== "true")) heading.focus();
   };
 
-  host.replaceChildren(summary, credit, rules, frame, bar, controls, group, toggle, details);
+  host.replaceChildren(summary, credit, rules, frame, bar, controls, ...(hasBreak ? [reason] : []), group, toggle, details);
   update();
 
   void api
-    .layout(chart.states.map((state) => state.id), moves.map((move): [string, string, string, Size] => [move.key, move.from, move.to, labelSize(move.label)]), BOX)
+    .layout(chart.states.map((state): [string, Size] => [state.id, sizeOf.get(state.id) ?? BOX]), moves.map((move): [string, string, string, Size] => [move.key, move.from, move.to, labelSize(move.label)]))
     .then((layout) => {
       if (!live) return;
       const svg = edgesSvg(layout, moves);
@@ -308,10 +331,11 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
       for (const state of chart.states) {
         const at = layout.boxes[state.id] ?? { x: 0, y: 0 };
         const box = element("div", "statechart-box", state.label);
+        const size = sizeOf.get(state.id) ?? BOX;
 
         box.dataset.state = state.id;
 
-        box.style.cssText = `left:${at.x}px;top:${at.y}px;width:${BOX.width}px;height:${BOX.height}px`;
+        box.style.cssText = `left:${at.x}px;top:${at.y}px;width:${size.width}px;height:${size.height}px`;
         boxes.set(state.id, box);
         canvas.append(box);
       }

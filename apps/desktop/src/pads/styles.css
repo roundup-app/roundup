@@ -486,7 +486,7 @@ li[aria-selected="true"] svg {
   flex-direction: column;
 }
 
-.statechart-rules p {
+.statechart-rules .statechart-rule {
   margin: 0;
 }
 
@@ -524,7 +524,7 @@ li[aria-selected="true"] svg {
   align-items: center;
   justify-content: center;
   padding: 0 var(--space-2);
-  overflow: hidden;
+  overflow-wrap: anywhere;
   text-align: center;
   font-size: var(--text-small);
   background: var(--gray-3);
@@ -543,6 +543,8 @@ li[aria-selected="true"] svg {
   transform: translate(-50%, -50%);
   padding: 0 var(--space-1);
   background: var(--ground);
+  color: var(--text);
+  font-family: inherit;
   font-size: var(--text-small);
   white-space: nowrap;
 }
@@ -562,7 +564,25 @@ li[aria-selected="true"] svg {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-2) var(--space-4);
+}
+
+.statechart-moves-title {
+  margin: 0;
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.statechart-arrow[aria-disabled="true"] {
+  color: var(--disabled);
+}
+
+.visual-statechart [aria-expanded]::before {
+  content: "▸ ";
+}
+
+.visual-statechart [aria-expanded="true"]::before {
+  content: "▾ ";
 }
 
 .statechart-values {

@@ -26,11 +26,11 @@ export const bundledRenderers: Renderers = {
 
         return () => createActor(machine);
       },
-      layout: async (ids, moves, box) => {
+      layout: async (boxes, moves) => {
         const graph = await elk.layout({
           id: "root",
           layoutOptions: { "elk.algorithm": "layered", "elk.direction": "DOWN", "elk.edgeRouting": "POLYLINE", "elk.edgeLabels.inline": "true" },
-          children: ids.map((id) => ({ id, ...box })),
+          children: boxes.map(([id, size]) => ({ id, ...size })),
           edges: moves.map(([id, from, to, label]) => ({ id, sources: [from], targets: [to], labels: [{ text: id, ...label }] })),
         });
 
