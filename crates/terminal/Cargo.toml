@@ -20,6 +20,7 @@ base64.workspace = true
 portable-pty = { workspace = true, optional = true }
 vt100.workspace = true
 regex.workspace = true
+which = "8.0.6"
 tokio.workspace = true
 
 [dev-dependencies]

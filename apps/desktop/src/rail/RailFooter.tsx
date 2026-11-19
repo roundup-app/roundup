@@ -2,6 +2,7 @@ import { Disclosure } from "../ui/Disclosure";
 import { KindGlyph } from "../ink/KindGlyph";
 import { createSignal, For, Show } from "solid-js";
 import { dismissable, type Dismissible } from "../ink/recovery";
+import { missingCoreContent } from "../ink/MissingCore";
 import { createMessageToast } from "../ink/messageToast";
 import { StatusNote } from "../ink/MountedLine";
 import { Icon } from "../ink/Icon";
@@ -49,7 +50,7 @@ export const RailFooter = (props: {
   createMessageToast({
     class: "rail-command-notice",
     get message() { return line().message; },
-    get content() { return newAgentFailure(); },
+    get content() { return newAgentFailure() ?? missingCoreContent(failure.message()); },
     get notice() { return line().notice; },
     dismiss: () => line().dismiss(),
     get recover() { return line().recover; },

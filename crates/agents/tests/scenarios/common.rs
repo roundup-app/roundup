@@ -56,6 +56,17 @@ pub fn open_wired(
     wiring: agents::Quiet,
 ) -> (Agents, Arc<Terminals>) {
     let terminals = Arc::new(Terminals::open(dir, bus.clone()).unwrap());
+    open_over(dir, bus, bin, git, wiring, terminals)
+}
+
+fn open_over(
+    dir: &Path,
+    bus: &Bus,
+    bin: &str,
+    git: Git,
+    wiring: agents::Quiet,
+    terminals: Arc<Terminals>,
+) -> (Agents, Arc<Terminals>) {
     let rup = dir.join("rup");
     std::fs::write(&rup, "").unwrap();
     let launcher = Launcher::new(bin, dir.join("claude.json"), rup, None);
@@ -192,6 +203,40 @@ impl Fixture {
             }
         } else {
             Self::over(dir, bus, &bin)
+        }
+    }
+
+    /// HM7589a: the same folder reopened on a computer with no `herdr-core` on `PATH`.
+    pub fn reopen_without_core(self) -> Self {
+        let Self {
+            dir, bus, agents, ..
+        } = self;
+        drop(agents);
+        let bin = dir
+            .path()
+            .join("fake-claude")
+            .to_string_lossy()
+            .into_owned();
+        let terminals = Arc::new(
+            Terminals::open(dir.path(), bus.clone())
+                .unwrap()
+                .with_core("herdr-core-absent-hm7589a"),
+        );
+        let events = bus.subscribe();
+        let (agents, terminals) = open_over(
+            dir.path(),
+            &bus,
+            &bin,
+            Git::from_env(),
+            agents::Quiet::default(),
+            terminals,
+        );
+        Self {
+            dir,
+            bus,
+            events,
+            agents,
+            terminals,
         }
     }
 

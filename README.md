@@ -12,14 +12,21 @@ Needs: macOS on Apple Silicon (the bundles are `aarch64` only), and `claude` and
 
 Stable and Dev install side by side and never share data. Both update themselves: Settings › Updates installs a newer roundup or herdr-core when you press its button, and "Update available" in the application menu opens it.
 
+Install herdr-core first, with no admin rights:
+
+```sh
+curl -fsSL https://releases.herdr.dev/core/install.sh | sh
+```
+
 ### Stable
 
 The newest `v0.1.0-alpha.<n>` release holds the bundle; the `alpha` release's `latest.json` names it. Until the first `just promote`, no Stable release exists.
 
 ```sh
+mkdir -p ~/Applications
 tag=$(gh release list -R roundup-app/roundup --json tagName --jq '[.[].tagName | select(startswith("v0.1.0-alpha."))][0]')
-gh release download "$tag" -R roundup-app/roundup -p 'roundup-stable_*_aarch64.app.tar.gz' -O - | tar -xz -C /Applications
-open /Applications/Roundup.app
+gh release download "$tag" -R roundup-app/roundup -p 'roundup-stable_*_aarch64.app.tar.gz' -O - | tar -xz -C ~/Applications
+open ~/Applications/Roundup.app
 ```
 
 ### Dev
@@ -27,16 +34,17 @@ open /Applications/Roundup.app
 The rolling `dev` release holds one `roundup-dev_0.1.0-dev.<n>_aarch64.app.tar.gz`.
 
 ```sh
-gh release download dev -R roundup-app/roundup -p 'roundup-dev_*_aarch64.app.tar.gz' -O - | tar -xz -C /Applications
+mkdir -p ~/Applications
+gh release download dev -R roundup-app/roundup -p 'roundup-dev_*_aarch64.app.tar.gz' -O - | tar -xz -C ~/Applications
 ```
 
 Without a Fork, Dev starts nothing. Install Stable and open it first, then run this in a Terminal inside Stable (it copies the live data through Stable's Daemon, whose socket a plain shell cannot find: "no Daemon answered at ~/.roundup/rupd.sock"; `echo $RUPD_SOCKET` there prints a path):
 
 ```sh
-"/Applications/Roundup Dev.app/Contents/MacOS/rup" data fork ~/.roundup/forks/dev --name Dev --colour violet
+"$HOME/Applications/Roundup Dev.app/Contents/MacOS/rup" data fork ~/.roundup/forks/dev --name Dev --colour violet
 ```
 
-Then open Dev: `open "/Applications/Roundup Dev.app"`.
+Then open Dev: `open ~/Applications/"Roundup Dev.app"`.
 
 ### Source
 

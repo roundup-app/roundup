@@ -11,7 +11,7 @@ Range.prototype.getClientRects ??= () => document.body.getClientRects();
 Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientRect();
 
 it("p2544d_stale_write_without_event_keeps_draft", async () => {
-  const pad = { incarnation: "original-notes", name: "notes", text: "original", revision: 1, updated_at: 0, home: null };
+  const pad = { incarnation: "original-notes", name: "notes", text: "original", revision: 1, updated_at: 0, home: null, visibility: "shown" as const };
   const { app } = await openShelf([pad]);
   const remote = { ...pad, text: "original remote", revision: 2 };
   const intervening = { ...pad, text: "original remote intervening", revision: 3 };
