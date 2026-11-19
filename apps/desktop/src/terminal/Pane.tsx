@@ -314,7 +314,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
         <Show when={doorState()}>
           {(state) => (
-            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<BusyButton kind="primary" class="word pane-action" busy={rail.launching(selected()!.id)} disabled={connected.daemonExit() !== null || (rail.doorFailure(selected()!.id) !== null && !rail.doorRetryable(selected()!.id))} busyLabel={copy.starting} onClick={() => rail.startDoor(selected()!.id)}>
+            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<BusyButton kind="primary" class="word pane-action" busy={rail.launching(selected()!.id)} disabled={connected.daemonExit() !== null} busyLabel={copy.starting} onClick={() => rail.startDoor(selected()!.id)}>
                 <Icon name="play" />
                 {rail.doorRetryable(selected()!.id) ? copy.retry : copy.start}
               </BusyButton>} />

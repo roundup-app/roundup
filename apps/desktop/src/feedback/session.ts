@@ -82,7 +82,7 @@ export const createFeedbackSession = (props: {
   const notify = (candidate: {
     name: string;
     line: string;
-    kind: "done" | "error";
+    kind: "done" | "error" | "idle";
     open: () => Promise<string | null> | string | null;
   }) => {
     const key = `feedback:${crypto.randomUUID()}`;
@@ -190,7 +190,7 @@ export const createFeedbackSession = (props: {
     if (outcome.kind === "pending") {
       const line = unknownOutcomeLine(outcome.error);
 
-      if (opened() !== current) return notify({ kind: "done", name: copy.unconfirmed, line, open: () => null });
+      if (opened() !== current) return notify({ kind: "idle", name: copy.unconfirmed, line, open: () => null });
 
       return setUnconfirmed(line);
     }
