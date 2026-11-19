@@ -573,12 +573,66 @@ li[aria-selected="true"] svg {
   margin-top: var(--space-4);
 }
 
+/* U7499a: one dot slot before the age on every row above the folds, so the dots line up down the list. */
+.pad-mark-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-1);
+  margin-inline-start: var(--space-2);
+}
+
+.pad-mark[data-mark="changed"] {
+  color: var(--amber);
+}
+
+/* U7499a: the fold row is a flex row, not `.rail-fold`'s two-column grid: its label starts where the Pad names do (the Pad row's leading padding, then an empty Glyph slot and the row gap) and the chevron trails on the same line. */
+.pad-fold {
+  position: relative;
+  min-height: var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  box-sizing: border-box;
+  padding-inline: var(--space-1) var(--rail-edge, var(--space-3));
+  color: var(--grey);
+  text-align: start;
+}
+
+.pad-fold:hover {
+  color: var(--text);
+}
+
+.pad-fold-content {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pad-fold-content::before {
+  content: "";
+  flex: none;
+  width: var(--space-4);
+}
+
+.pad-fold svg {
+  flex: none;
+  transition: transform var(--duration-instant) var(--easing-out);
+}
+
+.pad-fold[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
 .walk-keys {
   flex: 1;
   text-align: end;
   color: var(--grey);
 }
-
 
 .visual-statechart {
   display: flex;

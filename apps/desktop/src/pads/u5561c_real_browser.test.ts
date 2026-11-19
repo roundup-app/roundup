@@ -53,8 +53,8 @@ finally:
     await wait("!!document.querySelector('.pads-tab .shelf-group-control')");
 
     const openPad = async () => {
-      if (!await read("!!document.querySelector('.pad-name')")) await browser("click", ".pads-tab .shelf-group-control");
-      await wait("!!document.querySelector('.pad-name')");
+      // The Pads group may start collapsed and the agent's Pad lists in a closed fold (U7499a); only closed ones open, as a click on an open group collapses it.
+      await wait("(() => { document.querySelectorAll('.pads-tab .shelf-group-control[aria-expanded=false], .pads-tab .pad-fold[aria-expanded=false]').forEach(control => control.click()); return !!document.querySelector('.pad-name'); })()");
       await browser("focus", ".pad-name");
       await browser("press", "Enter");
       await wait("!!document.querySelector('details[data-pad-agents]')");

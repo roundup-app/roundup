@@ -25,7 +25,7 @@ it("u7314c_changes_and_fork_failures_show_as_toasts: Worktree control", async ()
   const { app, connected, view } = await mountControl(() => {
     if (failed) throw new RpcError(-32001, "read failed; original cause");
 
-    return { files: [{ path: "one", status: "modified", line: 1 }] };
+    return { files: [{ path: "one", status: "modified", line: 1, counts: null }] };
   });
 
   const elements = () => ownElements(view.container);

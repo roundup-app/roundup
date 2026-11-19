@@ -7,6 +7,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { projectMenu } from "../testing/menuProbe";
 import type { ConnectedProject } from "../state/connectedProject";
 import { todoHandlers } from "../testing/stores";
+import { padReadStorage } from "../pads/padRead";
 import { todo } from "../todos/testHarness";
 import { WORKTREE } from "../changes/harness";
 
@@ -15,6 +16,8 @@ export const mountNavigation = async (empty = false, projectCount = 1, agentCoun
 
   for (let n = 0; n < projectCount; n++) app.add(`/project${n}`);
   app.add("/p");
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+  padReadStorage("/p").write({});
   const daemon = app.of("/p");
   const nodes = empty ? [] : [workstream("home"), ...Array.from({ length: agentCount }, (_, index) => agent(`a${index}`, index === 0 ? "needs-you" : "idle", "ready", { name: `Agent ${index}`, parent: "home", worktree: WORKTREE }))];
   daemon.handlers["rail.tree"] = () => nodes;
@@ -22,7 +25,7 @@ export const mountNavigation = async (empty = false, projectCount = 1, agentCoun
   daemon.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   const shells: ReturnType<typeof info>[] = [];
   daemon.handlers["terminal.list"] = () => [...shells, ...nodes.flatMap(node => node.terminal_id ? [info(node.terminal_id, { owner: node.id })] : [])];
-  daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
+  daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] });
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 1, behind: 0, dirty: true });
   const store = { todos: [todo(1, { title: "Selected work", home: null })] };
   Object.assign(daemon.handlers, todoHandlers(store, () => {}));

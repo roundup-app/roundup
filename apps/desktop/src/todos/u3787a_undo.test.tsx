@@ -1,6 +1,7 @@
 import { flush } from "solid-js";
 import { padHandlers } from "../testing/stores";
-import { padOf, AGENT, openPad } from "../pads/padsFixture";
+import { padOf, AGENT, openPad, findPadRow } from "../pads/padsFixture";
+import { padReadStorage } from "../pads/padRead";
 import { USER } from "../testing/nodes";
 import { showShelfTab } from "../testing/shelfTabs";
 import { RpcError } from "../app/seam";
@@ -36,6 +37,8 @@ const mount = async (done = false, other = false) => {
 
   for (const path of other ? ["/a", "/b"] : ["/a"]) {
     app.add(path);
+    // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+    padReadStorage(path).write({});
     const daemon = app.of(path);
     Object.assign(daemon.handlers, padHandlers({ pads: [padOf("first", AGENT, "original"), padOf("second", USER, "other")], history: [] }, data => daemon.emit({ actor: USER, ...data })));
     daemon.handlers["todo.list"] = () => [todo(5, { done, title: "same" }), todo(7, { done, title: "same" })];
@@ -393,9 +396,10 @@ const showPads = async (name?: string) => {
 
     for (const control of document.querySelectorAll<HTMLElement>('.pads-tab [data-shelf-group] .shelf-group-control')) if (control.getAttribute("aria-expanded") === "false") fireEvent.click(control);
     flush();
-
-    if (name) expect([...document.querySelectorAll(".pads-tab .pad-name")].some(row => row.textContent === name)).toBe(true);
   });
+
+  // A Pad read in its Drawer lists in its closed fold once the Drawer leaves it (U7499a).
+  if (name) expect((await findPadRow(name)).closest(".pads-tab")).not.toBeNull();
 };
 
 for (const entry of ["selection", "single", "drawer"] as const) {

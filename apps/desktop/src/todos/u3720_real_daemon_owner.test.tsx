@@ -344,7 +344,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openPad = async () => {
       await lane.browser("click", "#shelf-tab-pads");
-      await lane.until("(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group] .shelf-group-control[aria-expanded=false]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
+      await lane.until("(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group] .shelf-group-control[aria-expanded=false], .pad-fold[aria-expanded=false]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
       await lane.browser("focus", ".pad-name");
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer .ProseMirror')");

@@ -75,7 +75,7 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
 it("u2556d_both_views_share_facts_and_identity", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "working", "busy", { worktree })]);
   connected.rail.select("a");
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
   render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   let finish!: (value: WorktreeState) => void;
   await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
@@ -106,7 +106,7 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   };
 
   connected.rail.select("a");
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
   render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   setNow(100_000_000_000_000);
   fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
@@ -133,7 +133,7 @@ it.each(["passed", "no-ci", "conflicts", "error", "unknown"] as const)("u2556c_c
 it("u2556b_unavailable_and_stale_are_explained", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "idle", "ready", { worktree })]);
   connected.rail.select("a");
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1 }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
   render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
   await screen.findByText("CI unavailable");

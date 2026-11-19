@@ -93,7 +93,7 @@ describe("U2539b", () => {
     expect(screen.queryByRole("button", { name: /changed files?/ })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("group")).toBeNull();
-    answer.resolve({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
+    answer.resolve({ files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] });
     expect(await screen.findByRole("button", { name: /1 changed file/ })).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -149,7 +149,7 @@ it("u2539b_changed_files_have_one_counted_opener", async () => {
 });
 
 it("u2539b_refresh_reconciles_the_count_for_its_selection", async () => {
-  let changed = { files: [{ path: "one", status: "modified" as const, line: 1 }] };
+  let changed = { files: [{ path: "one", status: "modified" as const, line: 1, counts: null }] };
   const { connected } = await mountControl(() => changed);
   changed = { files: [] };
   await connected.worktrees.refresh("a");
@@ -163,7 +163,7 @@ it("u2539b_failed_refresh_keeps_the_stale_count_until_retry", async () => {
   const { connected } = await mountControl(() => {
     if (failed) throw new RpcError(-32001, cause);
 
-    return { files: [{ path: "one", status: "modified", line: 1 }] };
+    return { files: [{ path: "one", status: "modified", line: 1, counts: null }] };
   });
 
   failed = true;

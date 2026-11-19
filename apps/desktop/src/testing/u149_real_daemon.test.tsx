@@ -59,6 +59,11 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
     });
 
     if (group.getAttribute("aria-expanded") === "false") fireEvent.click(group);
+
+    // The 1970 Pad is idle, so it sits in the closed fold (U7499a).
+    for (const fold of await waitFor(() => { const folds = document.querySelectorAll<HTMLElement>(".pad-fold"); expect(folds.length).toBeGreaterThan(0);
+
+ return folds; })) fireEvent.click(fold);
     const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
     row.focus();
     fireEvent.keyDown(row, { key: "Enter", code: "Enter" });

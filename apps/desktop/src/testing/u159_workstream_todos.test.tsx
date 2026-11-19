@@ -13,6 +13,7 @@ import { createShelfFrame } from "../shelf/frame";
 import { Switcher } from "../switcher/Switcher";
 import { leaderKey } from "../keys/leaderFixture";
 import { Tabs } from "../ui/Tabs";
+import { padReadStorage } from "../pads/padRead";
 
 afterEach(() => cleanup());
 
@@ -35,6 +36,8 @@ const mount = async (withSwitcher = false) => {
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => [info("shell-w", { owner: "w", title: "work shell" }), info("shell-root", { owner: "/p", title: "root shell" })];
   Object.assign(app.handlers, todoHandlers(store, data => app.emit(event(data))), padHandlers(pads, data => app.emit(event(data))));
+  // U7499b: an empty read record, so the Pads list above the folds.
+  padReadStorage(`/${project}`).write({});
   const connected = await connectProject(app, { name: project, path: `/${project}` }, () => true, () => 0);
   await connected.rail.settled();
   render(() => {

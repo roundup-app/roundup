@@ -6,6 +6,7 @@ import { createFakeApp } from "./fakeApp";
 import type { FakeApp } from "./fakeApp";
 import { agent, door } from "./nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { padReadStorage } from "../pads/padRead";
 
 afterEach(() => cleanup());
 
@@ -41,6 +42,9 @@ export const mountApp = async (prepare: (app: FakeApp) => void = () => {}, clock
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   prepare(app);
+
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds; only a Project with no record counts them read.
+  padReadStorage("/p").write({});
 
   const drafts = createProjectDrafts();
 

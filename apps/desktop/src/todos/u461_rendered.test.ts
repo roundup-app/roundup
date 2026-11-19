@@ -311,7 +311,8 @@ describe("u3789a connected browser rows", () => {
 
         await evaluate("document.querySelector('.shelf [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click()");
         const row = kind === "todo" ? `.todos-tab [data-todo="${todo.id}"] .todo-row-button` : '.pads-tab [data-pad="row pad"] .pad-name';
-        await until(`document.querySelector('${row}')`);
+        // A Pad lists in a closed fold when the fresh profile counts it read or the Daemon made it internal (U7499a).
+        await until(`(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); return !!document.querySelector('${row}'); })()`);
         await evaluate("window.__rowCalls.length = 0");
         await browser("click", row);
         await until(`document.activeElement === document.querySelector('${row}')`);

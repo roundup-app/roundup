@@ -15,6 +15,7 @@ import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
+import { padReadStorage } from "../pads/padRead";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
@@ -142,6 +143,8 @@ const mountOwners = async () => {
   const app = createFakeApp();
 
   app.opened.project = { name: "p", path: "/p" };
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+  padReadStorage("/p").write({});
   app.handlers["rail.tree"] = () => [door("w", "idle", "idle", { name: "lead" }), agent("a", "idle", "x", { parent: "w" })];
   app.handlers["agent.spawn"] = () => agent("b", "idle", "x", { parent: "w" });
   Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "w", visibility: "shown" as const }], history: [] }, () => {}));

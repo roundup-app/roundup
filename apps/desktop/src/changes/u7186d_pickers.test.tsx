@@ -6,7 +6,7 @@ import { mountRail, rowOf } from "../rail/railFixture";
 
 afterEach(cleanup);
 
-const OWNED: OwnedChanges = { groups: [{ repo: "/p", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 3 }] }] };
+const OWNED: OwnedChanges = { groups: [{ repo: "/p", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 3, counts: null }] }] };
 
 const REFS = { refs: [
   { kind: "worktree" as const, path: "/p", branch: "own/x", label: "p (own/x)" },
@@ -19,7 +19,7 @@ const open = async () => {
   const mounted = await mountRail([agent("a", "idle", "ready")], [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
     app.handlers["agent.ownedChanges"] = () => OWNED;
     app.handlers["project.compareRefs"] = () => REFS;
-    app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "z.rs", status: "added", line: 1 }] });
+    app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "z.rs", status: "added", line: 1, counts: null }] });
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "1 changed file" }));

@@ -1,9 +1,7 @@
 import { createMemo, createSignal, For, lazy, Loading, refresh, Show } from "solid-js";
-import { diffLines } from "diff";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
 import type { CompareRef } from "@contracts/agent/CompareRef";
-import type { AppSeam } from "../app/seam";
 import { failureOf } from "../app/failureOf";
 import { BlockedFailure } from "../ink/MountedLine";
 import { useConnectedProject } from "../state/connectedProject";
@@ -16,8 +14,6 @@ import "./styles.css";
 
 const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
 
-const HEAD: CompareEndpoint = { kind: "head", branch: "" };
-
 const keyOf = (endpoint: CompareEndpoint) => endpoint.kind === "worktree" ? `worktree:${endpoint.path}` : `head:${endpoint.branch}`;
 
 /** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
@@ -27,35 +23,12 @@ const sameEndpoint = (a: CompareEndpoint, b: CompareEndpoint) => keyOf(a) === ke
 
 const labelOf = (refs: readonly CompareRef[], endpoint: CompareEndpoint) => refs.find(ref => sameEndpoint(ref, endpoint))?.label ?? endpoint.branch;
 
-/** The `+added -removed` line counts of one file between two endpoints; none for a binary file or a failed read. */
-const countsOf = async (app: AppSeam, id: string, path: string, from: CompareEndpoint, to: CompareEndpoint): Promise<{ added: number; removed: number } | null> => {
-  try {
-    const comparison = await app.rpc("agent.compareFile", { id, path, from, to });
-
-    if (comparison.old.kind === "binary" || comparison.new.kind === "binary") return null;
-    let added = 0;
-    let removed = 0;
-
-    for (const part of diffLines(comparison.old.kind === "text" ? comparison.old.text : "", comparison.new.kind === "text" ? comparison.new.text : "")) {
-      if (part.added) added += part.count; else if (part.removed) removed += part.count;
-    }
-
-    return { added, removed };
-  } catch {
-    return null;
-  }
-};
-
-const FileRow = (props: { id: string; file: ChangedFile; from: CompareEndpoint; to: CompareEndpoint; onChoose: () => void }) => {
-  const { app } = useConnectedProject();
-  const [counts] = createSignal(() => countsOf(app, props.id, props.file.path, props.from, props.to), { loadingValue: null });
-
-  return <li><button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
-    <span class="changes-path">{props.file.path}</span>
-    <span class="changes-status">{statusText[props.file.status]}</span>
-    <Show when={counts()}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
-  </button></li>;
-};
+/** U7610b: the file's `+added -removed` counts as the Daemon counted them; none for a binary file. */
+const FileRow = (props: { file: ChangedFile; onChoose: () => void }) => <li><button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
+  <span class="changes-path">{props.file.path}</span>
+  <span class="changes-status">{statusText[props.file.status]}</span>
+  <Show when={props.file.counts}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
+</button></li>;
 
 /** U7186c, U7186d: the centre's diff of what one Agent owns, with From and To pickers over every worktree and branch head. */
 const Surface = (props: { id: string; name: string }) => {
@@ -146,7 +119,7 @@ const Surface = (props: { id: string; name: string }) => {
     <BlockedFailure message={listed()?.failure} recover={{ run: () => refresh(listed) }} />
     <div class="changes-body">
     <Show when={path()} fallback={<ul class="changes-files" aria-label={copy.changedFilesList}>
-      <For each={files()}>{file => <FileRow id={props.id} file={file} from={ends()?.from ?? HEAD} to={ends()?.to ?? HEAD} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
+      <For each={files()}>{file => <FileRow file={file} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
     </ul>}>
       {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} from={ends()?.from} to={ends()?.to} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Loading>}
     </Show>
