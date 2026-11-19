@@ -459,17 +459,21 @@ li[aria-selected="true"] svg {
 }
 
 .walk-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
+.walk-item,
+.walk-fold {
+  font-family: var(--font-ui);
+}
+
 .walk-item {
   display: flex;
   align-items: baseline;
+  white-space: normal;
+  height: auto;
   gap: var(--space-2);
   width: 100%;
   text-align: start;
@@ -483,7 +487,7 @@ li[aria-selected="true"] svg {
 
 .walk-mark {
   flex: none;
-  inline-size: 1.5ch;
+  inline-size: 2ch;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -497,13 +501,16 @@ li[aria-selected="true"] svg {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 
 .walk-step {
   flex: 1;
+  width: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 
 .walk-head,
@@ -511,8 +518,6 @@ li[aria-selected="true"] svg {
   box-sizing: border-box;
   width: 100%;
   max-width: var(--pad-reading-width, var(--reading-width));
-  margin-inline: auto;
-  padding-inline: var(--reading-gutter);
 }
 
 .walk-head {
@@ -557,7 +562,8 @@ li[aria-selected="true"] svg {
 }
 
 .walk-keys {
-  margin-inline-start: auto;
+  flex: 1;
+  text-align: end;
   color: var(--grey);
 }
 

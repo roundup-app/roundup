@@ -122,16 +122,14 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
   };
 
   const outline = () => (
-    <ol class="walk-steps">
+    <div class="walk-steps">
       <For each={steps}>{(step, at) => (
-        <li>
-          <button type="button" data-button="quiet" class="walk-item" data-done={at() < index() ? "" : undefined} aria-current={at() === index() ? "step" : undefined} onClick={() => { go(at()); setListOpen(false); }}>
-            <span class="walk-mark" aria-hidden="true"><Show when={at() < index()} fallback={at() === index() ? at() + 1 : null}><Icon name="check" /></Show></span>
-            <span class="walk-item-title">{step.title}</span>
-          </button>
-        </li>
+        <button type="button" data-button="quiet" class="walk-item" data-done={at() < index() ? "" : undefined} aria-current={at() === index() ? "step" : undefined} onClick={() => { go(at()); setListOpen(false); }}>
+          <span class="walk-mark" aria-hidden="true"><Show when={at() < index()} fallback={at() === index() ? at() + 1 : null}><Icon name="check" /></Show></span>
+          <span class="walk-item-title">{step.title}</span>
+        </button>
       )}</For>
-    </ol>
+    </div>
   );
 
   return (
@@ -148,7 +146,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
         <div class="walk-step" ref={slide}>
           <header class="walk-head">
             <h2 class="walk-title">{stepAt(index()).title}</h2>
-            <span class="walk-count" aria-live="polite">{copy.walkCount(index() + 1, steps.length)}</span>
+            <Show when={!folded()}><span class="walk-count" aria-live="polite">{copy.walkCount(index() + 1, steps.length)}</span></Show>
           </header>
           <div class="walk-body pad-body" ref={el => { body = el; makeEventListener(el, "scroll", measure, { capture: true }); }} data-more={more() ? "" : undefined}>
             <DrawerExpandContext value={null}><Loading>
