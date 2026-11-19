@@ -124,7 +124,9 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   const edited = `Reviewed ${visualSource}`;
   await expect.poll(source, { timeout: 30_000 }).toBe(edited);
   await browser("click", ".drawer .close");
-  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
+  await browser("wait", "--fn", "!document.querySelector('.drawer .ProseMirror')");
+  // The Pad was read in its Drawer, so it returns in a closed fold (U7499a): the folds open until its row takes focus.
+  await browser("wait", "--fn", "(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); const row = [...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3'); row?.focus(); return !!row && document.activeElement === row; })()");
   await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
   await browser("press", "Enter");
   await browser("wait", ".visual-mermaid svg");

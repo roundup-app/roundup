@@ -56,9 +56,9 @@ describe("u20 open and edit", () => {
     await screen.findByRole("textbox", { name: "Pad body" });
 
     expect(app.calls.slice(before).map(call => call.method)).toEqual([
+      "pad.list",
       "provenance.history",
       "pad.read",
-      "pad.list",
     ]);
     // Rule 10: this opening trace also proves the removed separate history-identity test.
     expect(app.calls.slice(before).find(call => call.method === "provenance.history")?.params).toEqual({ item: "pad:auth-notes" });

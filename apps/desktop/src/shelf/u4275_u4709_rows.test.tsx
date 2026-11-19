@@ -11,6 +11,7 @@ import { NOW_TICK_MS } from "../state/clock";
 import { USER } from "../testing/nodes";
 import type { seedApp } from "../testing/seeds";
 import { rpcCalls } from "../testing/appFixture";
+import { findPadRow } from "../pads/padsFixture";
 
 afterEach(() => cleanup());
 
@@ -125,6 +126,9 @@ it.each(["todos", "pads"] as const)("u4709a_rows_use_updated_at_%s", async kind 
       app.handlers["pad.list"] = () => items.map(item => ({...item, updated_at: new Date(2026, 8, 12, 12).getTime()}));
     }
   });
+
+  // The Pad no one wrote for 48 days is idle, so it lists in the closed idle fold (U7499a).
+  if (kind === "pads") await findPadRow("a-pad-with-a-very-long-name-here");
   expect(itemRow(kind).querySelector(".item-age")?.textContent).toBe(kind === "todos" ? "5m" : "2026-09-12");
 });
 

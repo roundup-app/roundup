@@ -1,4 +1,5 @@
 import { useTodoList } from "../todos/todoList";
+import { FoldContent } from "../ui/FoldRow";
 import { usePadList } from "../pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
@@ -819,12 +820,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <TreeItem value={view().key} class="rail-fold row-wash row-wash-inert" data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}
+                        <TreeItem value={view().key} class="rail-fold row-wash row-wash-inert" data-id={view().key} aria-label={copy.foldLabel(view())}
                           style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}
                           onClick={click => { if (!click.defaultPrevented) setUnfolded(open => toggled(open, view().key.slice(5))); }}
                           render={tabStop(() => false)}>
                           <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
-                          <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
+                          <FoldContent label={copy.foldLabel(view())} glyph={<KindGlyph kind={view().status} decorative />} />
                           <TreeItemIndicator><Icon name="right" /></TreeItemIndicator>
                         </TreeItem>
                       )}

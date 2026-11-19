@@ -28,6 +28,7 @@ import { createDraftField } from "../state/draftField";
 
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
+import { usePadRead } from "./padRead";
 import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
 
@@ -84,7 +85,7 @@ const PadBody = (props: {
   onLateFailure: (message: string) => void;
   onFailureCleared?: (() => void) | undefined;
   /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
-  onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
+  onAcknowledged?: ((incarnation: Pad["incarnation"], saved: Pad) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
@@ -344,7 +345,7 @@ const PadBody = (props: {
 
       // The cycle, the origin and the shown text the reply just moved are read below, by this and by the next `write`.
       commitWrites();
-      props.onAcknowledged?.(destination.object);
+      props.onAcknowledged?.(destination.object, next);
 
       // A write asked for in flight goes out now; with none due, `write` sends nothing.
       void write();
@@ -533,7 +534,7 @@ export const PadDrawer = (props: {
   onLateFailure: (message: string) => void;
   onFailureCleared?: (() => void) | undefined;
   /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
-  onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
+  onAcknowledged?: ((incarnation: Pad["incarnation"], saved: Pad) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
   const initialFocus = captureFocus();
@@ -548,6 +549,27 @@ export const PadDrawer = (props: {
 
     return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }
+
+  // U7499b: the Pad is read when the Drawer opens on it and when it leaves it, and it keeps its place on the Pads tab meanwhile.
+  const padRead = usePadRead();
+  const list = usePadList();
+  const seen = () => untrack(() => list.pads().find(pad => pad.name === props.name));
+
+  createEffect(() => props.name, name => {
+    padRead.setOpen(name);
+
+    const pad = seen();
+
+    if (pad) padRead.record(pad);
+
+    return () => {
+      const left = seen();
+
+      if (left) padRead.record(left);
+
+      if (untrack(padRead.open) === name) padRead.setOpen(null);
+    };
+  });
 
   return (
     <ItemDrawer
@@ -564,7 +586,11 @@ export const PadDrawer = (props: {
           heading={props.heading}
           onLateFailure={props.onLateFailure}
           onFailureCleared={props.onFailureCleared}
-          onAcknowledged={props.onAcknowledged}
+          onAcknowledged={(incarnation, saved) => {
+            // U7499b: a save is the user's own write, so it counts as read.
+            padRead.record(saved);
+            props.onAcknowledged?.(incarnation, saved);
+          }}
         />
       )}
     </ItemDrawer>

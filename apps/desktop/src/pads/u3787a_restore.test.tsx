@@ -5,6 +5,7 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { menuProbe, projectMenu } from "../testing/menuProbe";
 import { Todos } from "../todos/Todos";
 import { Pads } from "./Pads";
+import { padReadStorage } from "./padRead";
 import type { ConnectedProject } from "../state/connectedProject";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -407,6 +408,8 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
 
   if (kind === "clear-done") await app.rpc("todo.complete", { id: todo!.id });
   let connected: ConnectedProject | undefined;
+  // U7499b: an empty read record, so the Pad lists above the folds.
+  padReadStorage(real.dir).write({});
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} initialShelfOpen={kind !== "todos" && kind !== "pads"} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
   await waitFor(() => expect(connected !== undefined).toBe(true));
 
@@ -472,6 +475,11 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
       for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] .shelf-group-control')) {
         if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
       }
+
+      // The Pad was read in its Drawer, so it returns in a closed fold (U7499a).
+      await waitFor(() => expect(document.querySelector(".pad-fold")).not.toBeNull());
+
+      for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) fireEvent.click(fold);
     }
 
     const restoredRow = isPad ? (await screen.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await screen.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));

@@ -5,6 +5,7 @@ import { createRoot, flush } from "solid-js";
 import { App } from "../App";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
+import { padReadStorage } from "../pads/padRead";
 import { rowOf, settled } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
@@ -58,6 +59,8 @@ const open = async () => {
   let listed = [info("1", { owner: "w", title: "zsh" })];
 
   app.opened.project = { name: "p", path: "/p" };
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+  padReadStorage("/p").write({});
   app.handlers["rail.tree"] = () => [
     door("w", "idle", "idle", { name: "lead" }),
     ...["a", "b", "c"].map((id) => agent(id, id === "a" ? "needs-you" : "idle", "x", { parent: id === "a" ? null : "w" })),

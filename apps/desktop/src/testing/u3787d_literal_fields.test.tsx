@@ -5,6 +5,7 @@ import { path, tab } from "../header/stripFixture";
 import { agent, workstream, mode, info, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 import { padOf } from "../pads/padsFixture";
+import { padReadStorage } from "../pads/padRead";
 import { todo } from "../todos/testHarness";
 import { App } from "../App";
 import { createFakeApp } from "./fakeApp";
@@ -24,6 +25,8 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => {
   const app = createFakeApp();
   app.add(path("p"));
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+  padReadStorage(path("p")).write({});
 
   if (opening === "Project query") app.add(path("other"));
   const daemon = app.of(path("p"));

@@ -1,5 +1,6 @@
 import { createNow, DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
+import { padReadStorage } from "./padRead";
 import { usePadList } from "./padList";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect } from "vitest";
@@ -73,8 +74,11 @@ export const deferred = <T,>(): Deferred<T> => {
 const reloaded = new WeakMap<FakeApp, () => Promise<void>>();
 
 /** The Shelf and the Drawer over a fake Daemon whose Pads are `state.pads`, with `AGENT` off the Rail unless `onRail`; `state.history` answers `provenance.history`. */
-export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p") => {
+export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p", reading: { now?: number; read?: Record<string, string> | null } = {}) => {
   if (!keepDrafts) localStorage.removeItem(`roundup:drafts:${project}`);
+
+  // An empty read record: the Pads are unread, so they list above the folds (U7499b); only the first list of a Project with no record counts them read.
+  if (reading.read !== null) padReadStorage(project).write(reading.read ?? {});
   const history: Touch[] = [];
   const state: PadStore = { pads, history };
   const app = createFakeApp();
@@ -103,7 +107,7 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
     app,
     { name: "p", path: project },
     () => false,
-    () => 0,
+    () => reading.now ?? 0,
   );
 
   await showEverything(connected);
@@ -124,7 +128,9 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
     return <DisplayClockContext value={now.subscribe}><ToastHost><ConnectedProjectContext value={connected}><Content /></ConnectedProjectContext></ToastHost></DisplayClockContext>;
   });
 
-  await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
+  // Folded Pads draw no row, so a test that folds Pads waits for the group instead.
+  if (reading.read === undefined) await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
+  else await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"]')).not.toBeNull());
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control');
 
   if (disclosure?.getAttribute("aria-expanded") === "false") {
@@ -160,6 +166,25 @@ const trackEditors = () => {
   };
 };
 
+/** The `.pad-name` button of the listed Pad `name`. A Pad the user has read sits in a closed fold (U7499a); opening the folds lists it, and the list redraws its rows once more before it settles. */
+export const findPadRow = async (name: string) => {
+  const find = () => [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
+  const opened = new Set<Element>();
+
+  const listed = () => waitFor(() => {
+    for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) if (!opened.has(fold)) { opened.add(fold); fireEvent.click(fold); }
+
+    expect(find()).toBeDefined();
+  });
+
+  // A Pad the Drawer just left moves to its fold a tick after the row is first found, so the list is read again once it has settled.
+  await listed();
+  await new Promise(resolve => setTimeout(resolve));
+  await listed();
+
+  return find()!;
+};
+
 /** Opens a Pad's Drawer and returns its scroll root with textarea-shaped `value` accessors over the document, so a test can type `fireEvent.input(field, { target: { value } })` and read what the Pad holds. */
 export const openPad = async (name: string, recovery?: { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[]; revision: string }) => {
   trackEditors();
@@ -168,12 +193,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     const { connected, pads, revision } = recovery;
     connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
   } else {
-    const row = await waitFor(() => {
-      const row = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
-      expect(row).toBeDefined();
-
-      return row!;
-    });
+    const row = await findPadRow(name);
 
     for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
       const control = group.querySelector<HTMLElement>(".shelf-group-control");

@@ -52,7 +52,7 @@ export const copy = {
   lineNote: "Line note",
   noteSide: "Side",
   oldSide: "Old",
-  newSide: "New",
+  newSide: sharedCopy.newWord,
   selectOldLines: "Select old lines",
   selectNewLines: "Select new lines",
   startLine: "Start line",

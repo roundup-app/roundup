@@ -13,7 +13,7 @@ export const railItems = (rows: readonly RailRow[]): TreeItemData[] => {
       row.kind === "fold"
         ? {
             value: row.key,
-            label: `${row.count}${row.group === "internal" ? copy.internalCount : copy.idleCount}`,
+            label: copy.foldLabel(row),
             children: [],
           }
         : isWorkstream(row.node) || row.node.kind === "group"
