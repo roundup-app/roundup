@@ -338,7 +338,8 @@ mod tests {
         let big = source.path().join("big.png");
         fs::write(&big, vec![0u8; LIMIT + 1]).unwrap();
 
-        let err = save_dropped(cache.path(), &big, UNIX_EPOCH + Duration::from_secs(1)).unwrap_err();
+        let err =
+            save_dropped(cache.path(), &big, UNIX_EPOCH + Duration::from_secs(1)).unwrap_err();
 
         assert_eq!(err.code, rpc::code::FORBIDDEN);
         assert!(!cache.path().join("roundup-pasted").exists());
@@ -354,7 +355,8 @@ mod tests {
         fs::create_dir(&folder).unwrap();
 
         for refused in [text, folder] {
-            let err = save_dropped(cache.path(), &refused, UNIX_EPOCH + Duration::from_secs(1)).unwrap_err();
+            let err = save_dropped(cache.path(), &refused, UNIX_EPOCH + Duration::from_secs(1))
+                .unwrap_err();
 
             assert_eq!(err.code, rpc::code::FORBIDDEN, "{}", refused.display());
         }
