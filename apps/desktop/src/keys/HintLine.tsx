@@ -76,6 +76,15 @@ const shelfHints = (
   );
 };
 
+const sameHints = (
+  a: readonly { keys: string; label: string }[],
+  b: readonly { keys: string; label: string }[],
+): boolean =>
+  a.length === b.length &&
+  a.every(
+    (hint, index) => hint.keys === b[index]?.keys && hint.label === b[index]?.label,
+  );
+
 /** Hints drop from the end until the rest fit whole: one that would clip is hidden with every hint after it. */
 const fitHints = (line: HTMLElement): void => {
   const children = [...line.children].filter(
@@ -101,7 +110,8 @@ export const HintLine = () => {
   const actions = createMemo(() => captureActions(focus()));
   const place = createMemo(() => placeAt(focus()));
 
-  const hints = () => {
+  // `hintsFor` builds new rows on each call, so the memo holds while they read the same: a key registered elsewhere, as when a view opens, rebuilds no hint.
+  const hints = createMemo(() => {
     if (modalOpen()) return [];
 
     if (leaderArmed()) {
@@ -125,7 +135,7 @@ export const HintLine = () => {
     return at === "shelf"
       ? shelfHints(shown, focus(), (keys) => choices(keys).length > 0)
       : shown;
-  };
+  }, { equals: sameHints });
 
   let line: HTMLParagraphElement | undefined;
 

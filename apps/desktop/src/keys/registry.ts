@@ -95,22 +95,30 @@ export const questionAsked = (): (() => void) => {
 /** NA10: whether a native question is waiting for the user. */
 export const questionPending = (): boolean => questions > 0;
 
-/** The most recently mounted active modal layer. One memo, so a registration that leaves it unchanged reruns none of its readers. */
-const topModal = createRoot(() => createMemo(() => {
+/** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
+export const modalOpen = (): boolean => {
+  layers();
+
+  return [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
+};
+
+/** The most recently mounted active modal layer, as the registrations stand now. */
+const topModal = (): KeyScope | undefined => {
   layers();
 
   return [...registrations].filter(({ scope }) => scope.kind === "layer" && scope.modal && scope.active()).at(-1)?.scope;
-}));
+};
 
-/** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
-export const modalOpen = (): boolean => topModal() !== undefined;
+/** `topModal` as one memo that every reader of `modalOutsideTracked` shares. */
+const shownModal = createRoot(() => createMemo(topModal));
+
+const excludes = (modal: KeyScope | undefined, owner: HTMLElement | undefined): boolean => modal?.kind === "layer" && (!owner || !modal.element()?.contains(owner));
 
 /** Whether the most recently mounted active modal excludes this control's owner, including through a Portal. */
-export const modalOutside = (owner: HTMLElement | undefined): boolean => {
-  const modal = topModal();
+export const modalOutside = (owner: HTMLElement | undefined): boolean => excludes(topModal(), owner);
 
-  return modal?.kind === "layer" && (!owner || !modal.element()?.contains(owner));
-};
+/** `modalOutside` for reactive readers: a registration that leaves the top modal unchanged, as when a view opens, reruns none of them. Its memo lags until Solid flushes, so code that reads once, as a click does, calls `modalOutside`. */
+export const modalOutsideTracked = (owner: HTMLElement | undefined): boolean => excludes(shownModal(), owner);
 
 /** The wait's one key: a registered leader key runs, any other key ends the wait and runs nothing. Either way the webview handles it, so no Terminal, field or Rail sees it. A lone modifier changes nothing. */
 const takeLeaderKey = (event: KeyboardEvent): void => {

@@ -25,9 +25,12 @@ export const ChangesIcon = (props: { id: string }) => {
   });
 
   return <Show when={count() > 0}>
-    <IconButton class="changes-icon" aria-label={copy.changedFiles(count())} onKeyDown={(press) => press.stopPropagation()} onClick={(click) => { click.stopPropagation();
+    <IconButton class="changes-icon" aria-label={copy.changedFiles(count())} onKeyDown={(press) => press.stopPropagation()} onClick={(click) => {
+      click.stopPropagation();
 
- if (rail.selected() !== id) rail.select(id); showView("changes"); }}>
+      if (rail.selected() !== id) rail.select(id);
+      showView("changes");
+    }}>
       <Icon name="branch" /><span class="changes-count">{count()}</span>
     </IconButton>
   </Show>;
