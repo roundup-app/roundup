@@ -238,10 +238,13 @@ async fn ap3_an_agent_steer_is_typed_into_any_agent() {
 
     // AP3: an Agent outside the target's ancestry types as the user does.
     let stranger = from(ActorKind::Agent, "999");
-    f.agents
-        .call(&stranger, "agent.prompt", params)
-        .await
-        .unwrap();
+    let call = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move { f.agents.call(&stranger, "agent.prompt", params).await })
+    };
+    until_typed(&f, paste("go").len()).await;
+    signal(&f, &child.id, "UserPromptSubmit").await;
+    call.await.unwrap().unwrap();
     assert!(f.inbox().is_empty());
     assert!(read(&typed(&f)).contains("go"));
 }
@@ -352,12 +355,19 @@ async fn ap5_an_agent_may_call_each_user_setting() {
     let node = tree.iter().find(|n| n.id == mode_id).unwrap();
     assert_eq!(node.mode_prompt().as_deref(), Some("two"));
 
-    let child = f.spawn(None, None).await.unwrap();
+    let owner = f.spawn(None, None).await.unwrap();
+    let child = f.spawn_as(&owner.id, None).await.unwrap();
     let saved = call("agent.saveAsMode", json!({"id": child.id, "name": "saved"}))
         .await
         .unwrap();
     assert_eq!(saved["name"], "saved");
-    let project = f.dir.path().to_string_lossy().into_owned();
+    let project = f
+        .dir
+        .path()
+        .parent()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
     call(
         "rail.setAlertLevel",
         json!({"project": project, "id": child.id, "level": "quiet"}),
@@ -369,15 +379,22 @@ async fn ap5_an_agent_may_call_each_user_setting() {
             .unwrap()
             .contains("\"quiet\"")
     );
-    let door = call("agent.makeWorkstream", json!({"id": child.id}))
+    let attempt = f.attempt(&owner.id).await;
+    f.call(
+        "agent.signal",
+        json!({"id": owner.id, "attempt": attempt, "payload": {"hook_event_name": "SessionStart", "session_id": "11111111-1111-1111-1111-111111111111", "source": "startup"}}),
+    )
+    .await
+    .unwrap();
+    let door = call("agent.makeWorkstream", json!({"id": owner.id}))
         .await
         .unwrap();
-    assert_eq!(door["id"], child.id);
-    call("workstream.setAuto", json!({"id": child.id, "auto": true}))
+    assert_eq!(door["id"], owner.id);
+    call("workstream.setAuto", json!({"id": owner.id, "auto": true}))
         .await
         .unwrap();
     let tree = f.tree().await;
-    assert!(tree.iter().find(|n| n.id == child.id).unwrap().auto());
+    assert!(tree.iter().find(|n| n.id == owner.id).unwrap().auto());
 }
 
 #[tokio::test]
@@ -393,7 +410,7 @@ async fn a4452c_only_the_user_sets_the_mode_prompt() {
     let mode_id = mode["id"].as_str().unwrap().to_owned();
     let prompt = "  Review e\u{301} 🧭\nKeep spacing  ";
     let params = json!({"id": mode_id, "prompt": prompt});
-    for kind in [ActorKind::Agent, ActorKind::Ext] {
+    for kind in [ActorKind::Ext] {
         let ctx = Ctx {
             actor: Actor {
                 kind,

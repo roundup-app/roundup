@@ -62,7 +62,7 @@ H4702a preservation Checks on `origin/main` (file and test/function/heading iden
 
 1. `crates/agents/tests/scenarios/interrupt.rs`, `h13_an_interrupt_writes_one_esc_and_returns_when_the_title_shows_the_star`: working-Agent title acknowledgement returns `null`, with one Escape and idle Kind.
 2. `crates/agents/src/steer.rs`, `a2703a_interrupt_write_failure_uses_rail_name`: a failed physical write remains `UNKNOWN_OUTCOME` and uses the Rail name.
-3. `crates/agents/tests/scenarios/interrupt.rs`, `h13_only_the_user_or_a_doors_own_workstream_may_interrupt` and `h13_an_agent_that_is_not_working_is_not_running_and_no_byte_is_written`: Reach and non-running refusals retain zero input bytes.
+3. `crates/agents/tests/scenarios/interrupt.rs`, `h13_an_agent_may_not_interrupt_itself` and `h13_an_agent_that_is_not_working_is_not_running_and_no_byte_is_written`: Reach and non-running refusals retain zero input bytes.
 4. `crates/agents/tests/scenarios/interrupt.rs`, `h17_a_lost_acknowledgement_is_not_acked_and_nothing_else_is_written` and `h17_a_later_star_is_still_folded_as_a2_says`: a missing working-Agent acknowledgement stays uncertain, without retry or suppression of later Observations.
 5. `scenarios/agents.md`, A2; `crates/agents/src/claude_code/mod.rs`, `ClaudeCode::retitle` and `hook_status`: vendor observations determine Kind; a title alone does not dismiss native attention.
 

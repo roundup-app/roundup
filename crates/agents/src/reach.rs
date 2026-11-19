@@ -56,7 +56,7 @@ impl Shared {
         itself: bool,
     ) -> Result<(), RpcError> {
         self.rail().node(crate::rail::agent_id(id)?)?;
-        if actor.kind != contracts::ActorKind::Agent || (itself && actor.id == id) {
+        if actor.kind != contracts::ActorKind::Agent || itself || actor.id != id {
             return Ok(());
         }
         // AP4: an Agent acts on any node but itself.

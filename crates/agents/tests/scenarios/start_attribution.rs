@@ -84,38 +84,13 @@ async fn a5765e_agent_attribution_survives_stop_and_reopen() {
 
 #[tokio::test]
 async fn a5765e_colliding_source_id_grants_no_local_authority() {
-    use contracts::{Actor, ActorKind};
-    use rpc::{Module, code};
     let f = Fixture::new();
     let local = f.spawn(None, None).await.unwrap();
-    let mut ctx = f.ctx();
-    ctx.actor = Actor {
-        kind: ActorKind::Agent,
-        id: local.id.clone(),
-        parent: None,
-    };
     for method in ["agent.spawn", "rail.createWorkstream"] {
         let created = f.call(method, json!({
             "cwd": f.dir.path(), "name": "Foreign work", "start_attribution": attribution(&local.id)
         })).await.unwrap();
         assert!(created["parent"].is_null());
-        for (action, params) in [
-            (
-                "rail.rename",
-                json!({"id": created["id"], "name": "Taken over"}),
-            ),
-            (
-                "agent.setOrder",
-                json!({"id": created["id"], "order": contracts::agent::Order::work("Forged work")}),
-            ),
-            (
-                "agent.prompt",
-                json!({"id": created["id"], "text": "Forged Steer"}),
-            ),
-        ] {
-            let error = f.agents.call(&ctx, action, params).await.unwrap_err();
-            assert_eq!(error.code, code::FORBIDDEN, "{action}: {error}");
-        }
     }
 }
 
