@@ -10,22 +10,22 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  /* U7211a: the inset above the Terminal's first row, which the line over a row counts from too. */
-  --terminal-inset: var(--space-2);
+  /* LH6, LH12: the fixed inset above the Terminal's first row, as tall as the expanded links header (its top gap, a 24 px icon and its bottom gap).
+     The header and every control over the Terminal's top lie within it, and nothing changes it, so the Terminal never resizes. */
+  --terminal-inset: var(--space-6);
 }
 
-/* U7211a: the line floats over one whole Terminal row, out of the layout flow, so showing it resizes nothing (U3807, U4590).
-   Pane sets the row it covers (--over-row) and the emulator's measured row height (--terminal-row), so its edges fall on row edges at any text size. */
+/* U7211a, LH12: the line floats over the Terminal's fixed top inset, out of the layout flow, so showing it resizes nothing (U3807, U4590) and no row of text lies under it. */
 .pane-over {
   position: absolute;
   inset-inline: 0;
-  inset-block-start: calc(var(--terminal-inset) + var(--over-row) * var(--terminal-row, var(--line)));
-  block-size: var(--terminal-row, var(--line));
+  inset-block-start: 0;
+  block-size: var(--terminal-inset);
   z-index: 1;
   pointer-events: none;
 }
 
-/* The row's height is the line's; its controls keep their 24 px hit area (D6) past its edges. */
+/* The inset's height is the line's; its controls keep their 24 px hit area (D6) inside it. */
 .pane-over .floating-line {
   block-size: 100%;
   overflow: visible;
@@ -47,7 +47,8 @@
 
 .pane .pane-latest {
   position: absolute;
-  bottom: var(--space-2);
+  /* LH12: the control lies in the inset, between Find (left) and the links header (right), over no row of text. */
+  top: var(--space-1);
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -168,14 +169,36 @@
 
 .pane .terminal-find {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-4);
+  /* LH12: Find takes the inset's place at its left, as tall as the inset, never a row below it. */
+  top: 0;
+  left: var(--space-4);
   z-index: 1;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  block-size: var(--terminal-inset);
   width: calc(var(--space-6) * 6);
-  padding: var(--space-2);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+}
+
+.terminal-find[data-slot="field"] [data-slot="input"] {
+  /* LH12: the field and its focus ring end at the inset's bottom edge, never on row 1. */
+  box-sizing: border-box;
+  block-size: calc(var(--terminal-inset) - 2 * var(--space-1));
+  min-block-size: 0;
 }
 
 .terminal-find .mounted-line {
+  /* LH12: the note sits in the inset beside the field, never in the flex column over row 1. */
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 100%;
+  display: flex;
+  align-items: center;
+  block-size: var(--terminal-inset);
+  margin: 0;
+  white-space: nowrap;
   color: var(--grey);
 }
 
