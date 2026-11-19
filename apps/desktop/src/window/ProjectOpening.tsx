@@ -31,6 +31,38 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
     }
   };
 
+  const showFailure = (request: ProjectRequest, message: string, unknown: boolean, signal: AbortSignal) => {
+    if (signal.aborted) return;
+
+    setPending(all => [...all, {
+      kind: "failure", request, message, unknown,
+      dismiss: () => setPending(all => all.filter(item => item.request !== request)),
+    }]);
+  };
+
+  const failed = (request: ProjectRequest, error: Error, created: { path: string; id: string; stage: "start" } | undefined, signal: AbortSignal): ActionReply => {
+    const answered = (failure: { code: number; message: string }): ActionReply => ({ jsonrpc: "2.0", id: request.id, error: failure });
+
+    // U7498b: a launch after the row exists that may have happened is unknown, never failed.
+    if (created && request.method === "project.start" && outcomeOf(error) === "unknown") {
+      showFailure(request, copy.projectStartUnknown(request.params.name), true, signal);
+
+      return answered({ code: -32004, message: copy.projectStartUnknownReply(created.path, created.id) });
+    }
+
+    if (!(error instanceof Error)) throw error;
+
+    const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
+    const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
+    const cause = retained?.cause ?? error.message;
+    const resultCause = partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause;
+    const message = partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause;
+
+    showFailure(request, message, false, signal);
+
+    return answered({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(request.params.path, resultCause) });
+  };
+
   const answer = async (request: ProjectRequest, signal: AbortSignal): Promise<ActionReply> => {
     const { id, params } = request;
     const reply = (error: { code: number; message: string }): ActionReply => ({ jsonrpc: "2.0", id, error });
@@ -103,32 +135,9 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
 
       return { jsonrpc: "2.0", id, result: { path: opened.path } };
     } catch (error) {
-      // U7498b: a launch after the row exists that may have happened is unknown, never failed.
-      const unknown = request.method === "project.start" && outcomeOf(error) === "unknown";
-
-      if (created && unknown) {
-        if (!signal.aborted) setPending(all => [...all, {
-        kind: "failure", request, unknown, message: copy.projectStartUnknown(request.params.name),
-          dismiss: () => setPending(all => all.filter(item => item.request !== request)),
-        }]);
-
-        return reply({ code: -32004, message: copy.projectStartUnknownReply(created.path, created.id) });
-      }
-
       if (!(error instanceof Error)) throw error;
 
-      const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
-      const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
-      const cause = retained?.cause ?? error.message;
-      const resultCause = partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause;
-      const message = partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause;
-
-      if (!signal.aborted) setPending(all => [...all, {
-        kind: "failure", request, message, unknown: false,
-        dismiss: () => setPending(all => all.filter(item => item.request !== request)),
-      }]);
-
-      return reply({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(params.path, resultCause) });
+      return failed(request, error, created, signal);
     } finally {
       setPending(all => all.filter(item => item.request !== request || item.kind === "failure"));
     }
