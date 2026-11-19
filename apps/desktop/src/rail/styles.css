@@ -732,7 +732,7 @@
 .rail-row .row-tail { justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
-.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"], [data-slot="restart"], [data-slot="more"]):empty { display: none; } /* A mark slot and the restart and more slots collapse when empty, so the name keeps the room no action uses; run keeps its width. */
+.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"], [data-slot="restart"]):empty { display: none; } /* A mark slot and the leading restart slot collapse when empty; run and more keep their width, so the run slot sits at one x. */
 /* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
 .rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
 .rail-row .action-slot[data-slot="todos"] { inline-size: auto; min-inline-size: 0; }
