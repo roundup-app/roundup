@@ -45,5 +45,5 @@
     950
   ],
   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
-  "sourceTree": "Identical to the tree of pre-merge branch commit 4669d4fefd4d2e757e366b882d9abece18415d83, the revision the build ran on (git tree equality checked)."
+  "sourceTree": "The build ran on the pre-merge branch commit of #7541; its git tree (6f886abcfef2d197c141a9447f6ccc8e8d2b01ec) is the tree of a7ef7ef0bff5c81ecedce6940fe6cf69d8b4cccb (git rev-parse <commit>^{tree})."
 }

@@ -29,7 +29,7 @@ The cap measures the addon's public image storage, not total resident memory. De
 
 ## Production bytes
 
-Two production builds on one macOS host (Vite 8.3.5, Node v22.18.0), one at a time: main `d53b12807` before #7541 (xterm 6.1.0-beta.336) and main `a7ef7ef0b` with #7541 (xterm 6.1.0-beta.338). The second build ran on the pre-merge branch commit `4669d4fef`, whose git tree equals `a7ef7ef0b`'s. Node gzip level 9, recursive static imports, each emitted JS file counted once. `pnpm --filter desktop check:startup` exits 0 at both against the unchanged `startup.json` ceiling of 1,000,000 gzip bytes.
+Two production builds on one macOS host (Vite 8.3.5, Node v22.18.0), one at a time: main `d53b12807` before #7541 (xterm 6.1.0-beta.336) and main `a7ef7ef0b` with #7541 (xterm 6.1.0-beta.338). The second build ran on the pre-merge branch commit of #7541, whose git tree (`6f886abcfef2`) is the tree of `a7ef7ef0b`. Node gzip level 9, recursive static imports, each emitted JS file counted once. `pnpm --filter desktop check:startup` exits 0 at both against the unchanged `startup.json` ceiling of 1,000,000 gzip bytes.
 
 | Revision | Entry chunk gzip | Entry chunk raw | Eager closure gzip | Eager closure raw | Lazy Terminal gzip | Lazy Terminal raw | WASM |
 | --- | --- | --- | --- | --- | --- | --- | --- |
