@@ -59,7 +59,7 @@ it("u7413a_a_shortcut_shows_alone_on_a_universal_icon", async () => {
 it("u7413b_each_screen_icon_button_follows_the_tooltip_rule", () => {
   const roles = {
     "header/ProjectTab.tsx": ['icon="close"'],
-    "rail/RowIcons.tsx": ['"more"'],
+    "rail/RowIcons.tsx": ['"stop"', '"more"'],
     "rail/RailRow.tsx": ['icon="expand"'],
     "drawer/DrawerHost.tsx": ['icon="close"'],
     "pads/PadContent.tsx": ['icon="delete"'],

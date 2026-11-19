@@ -7,7 +7,7 @@ import { ownKeys, type RowActions } from "./rows";
 
 const RowIcon = (props: { name: "rotate-cw" | "pause" | "play" | "more"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
   <IconButton
-    icon={props.name === "more" ? "more" : undefined}
+    icon={props.name === "more" ? "more" : props.name === "pause" ? "stop" : undefined}
     aria-label={props.label}
     aria-disabled={props.disabled ? "true" : undefined}
     {...ownKeys}
