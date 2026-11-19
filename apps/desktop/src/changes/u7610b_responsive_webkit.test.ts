@@ -34,8 +34,11 @@ const longestBlock = async (type: BrowserType) => {
       window.__fake.setStatus("agent-1", "idle", "idle");
     });
 
-    // The status change's own re-render lands before the beat starts, so the beat measures opening the list alone.
-    await page.waitForSelector(".changes-icon");
+    // A first open pays the engine's one-time style, layout and JIT warm-up for the view; open and close it once so the beat measures an open.
+    await page.click(".changes-icon");
+    await page.waitForSelector(".changes-files li");
+    await page.getByRole("button", { name: "Close changes" }).click();
+    await page.waitForSelector(".changes-files", { state: "detached" });
     await page.waitForTimeout(1000);
 
     const beat = await page.evaluateHandle(() => {
