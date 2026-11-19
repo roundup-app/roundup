@@ -44,8 +44,8 @@ export const showScrollbars = (element: HTMLElement): void => {
  * inserts later children straight into the host, outside that wrapper (probed: after wrapping, a
  * second render put its nodes beside the viewport, so they never scrolled), so every Solid-owned
  * host keeps the host itself as the viewport and its bars in an external slot. The slot is the
- * host's next sibling, absolutely placed from the host's own `offsetLeft`/`offsetTop`: both share
- * one parent and so one containing block, which scrolls with every ancestor, so the bar never
+ * host's next sibling, absolutely placed from the host's rect measured against the slot's own containing block (a
+ * fixed dialog host has no offsetParent), which scrolls with every ancestor, so the bar never
  * leaves its edge and nothing re-places it on scroll. The library owns visibility, drag, geometry
  * and its idle delay. See #3742/#4094. */
 export const trackScrollbars = (doc: Document): void => {
@@ -59,9 +59,23 @@ export const trackScrollbars = (doc: Document): void => {
 
     if (hidden) return;
 
+    // Placed from the slot's own containing block, so a fixed host (a dialog, whose offsetParent is null) still gets its bar on its edge.
+    const rect = element.getBoundingClientRect();
+    const parent = slot.offsetParent;
+    const view = element.ownerDocument.defaultView;
+
+    const origin =
+      parent instanceof HTMLElement && !(parent === element.ownerDocument.body && getComputedStyle(parent).position === "static")
+        ? (() => {
+            const box = parent.getBoundingClientRect();
+
+            return { x: box.left + parent.clientLeft - parent.scrollLeft, y: box.top + parent.clientTop - parent.scrollTop };
+          })()
+        : { x: -(view?.scrollX ?? 0), y: -(view?.scrollY ?? 0) };
+
     const styles = {
-      left: `${element.offsetLeft + element.clientLeft}px`,
-      top: `${element.offsetTop + element.clientTop}px`,
+      left: `${rect.left + element.clientLeft - origin.x}px`,
+      top: `${rect.top + element.clientTop - origin.y}px`,
       width: `${element.clientWidth}px`,
       height: `${element.clientHeight}px`,
     };
