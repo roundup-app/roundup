@@ -184,17 +184,10 @@ export const createFeedbackSession = (props: {
     const unknown = outcome.kind === "pending";
     const message = unknown ? unknownOutcomeLine(outcome.error) : outcome.error.message;
 
-    if (opened() === current) {
-      setFailure(message);
+    if (opened() !== current) return notify({ kind: "error", name: unknown ? copy.notSent : message, line: unknown ? message : copy.notSent, open: () => null });
+    setFailure(message);
 
-      if (!unknown) setSending(false);
-    } else
-      notify({
-        kind: "error",
-        name: unknown ? copy.notSent : message,
-        line: unknown ? message : copy.notSent,
-        open: () => null,
-      });
+    if (!unknown) setSending(false);
   };
 
   return {

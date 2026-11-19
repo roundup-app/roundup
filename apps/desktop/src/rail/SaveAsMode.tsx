@@ -30,7 +30,8 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
     if (busy() || !name().trim()) return;
     setBusy(true);
 
-    const outcome = await applying(() => app.rpc("agent.saveAsMode", { id: props.id, name: name().trim() }));
+    const params = { id: props.id, name: name().trim() };
+    const outcome = await applying(() => app.rpc("agent.saveAsMode", params));
 
     if (outcome.kind === "applied") {
       try {
