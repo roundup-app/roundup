@@ -95,5 +95,5 @@ export const copy = {
   walkOutline: "Steps",
   walkHint: "← → to move",
   walkCount: (step: number, steps: number) => `${step} of ${steps}`,
-  walkFolded: (step: number, steps: number, title: string) => `Step ${step} of ${steps} · ${title}`,
+  walkFolded: (step: number, steps: number, title: string) => `${step}/${steps} · ${title}`,
 } as const;

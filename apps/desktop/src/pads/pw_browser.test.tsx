@@ -274,11 +274,11 @@ it("pw8_a_narrow_pane_folds_the_outline_into_one_row", async () => {
   const walk = await shown();
   await waitFor(() => expect(watchers.some(watcher => watcher.target === walk)).toBe(true));
   watchers.filter(watcher => watcher.target === walk).forEach(watcher => watcher.run());
-  const row = await screen.findByRole("button", { name: "Step 1 of 3 · Part 1" });
+  const row = await screen.findByRole("button", { name: "1/3 · Part 1" });
   fireEvent.click(row);
   fireEvent.click(await screen.findByRole("button", { name: "Part 2" }));
   expect(await step()).toEqual([2, 3]);
-  await screen.findByRole("button", { name: "Step 2 of 3 · Part 2" });
+  await screen.findByRole("button", { name: "2/3 · Part 2" });
 });
 
 it("pw9_a_step_is_drawn_by_the_pads_readonly_editor_at_the_pad_width", async () => {
