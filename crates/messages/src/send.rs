@@ -73,7 +73,7 @@ impl Messages {
             )));
         }
         if let Some(status) = &receiver_status
-            && ended(status)
+            && closes(status)
         {
             return Err(Error::conflict(format!(
                 "{} cannot receive a Message: its Kind is {:?}",

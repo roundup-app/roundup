@@ -6,6 +6,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
 import { Menu } from "../ui/Menu";
 import { createCutTitle } from "../ui/cutTitle";
+import { PriorityIcon } from "./PriorityIcon";
 import { TickBox } from "./TickBox";
 import { BlockerMenu } from "./BlockerMenu";
 import { blockerChoices, type blockerGraph } from "./todoView";
@@ -41,8 +42,8 @@ export const TodoMeta = (props: {
       void applied(() => app.rpc("todo.update", { id: props.todo.id, title: null, body: null, priority: choice.value }))
         .then(() => props.fail(null), error => { if (!(error instanceof Error)) throw error; props.fail(error.message); });
     }}>
-      <Menu.Trigger data-button="quiet" class="word todo-meta-chip" aria-label={copy.todoPriority}><Icon name="diamond" />{priorities.find(priority => priority.value === props.todo.priority)?.label}</Menu.Trigger>
-      <Menu.Content aria-label={copy.todoPriority}><For each={priorities}>{priority => <Menu.Item value={priority.value ?? "unset"}>{priority.label}</Menu.Item>}</For></Menu.Content>
+      <Menu.Trigger data-button="quiet" class="word todo-meta-chip" aria-label={copy.todoPriority}><PriorityIcon priority={props.todo.priority} />{priorities.find(priority => priority.value === props.todo.priority)?.label}</Menu.Trigger>
+      <Menu.Content aria-label={copy.todoPriority}><For each={priorities}>{priority => <Menu.Item value={priority.value ?? "unset"}><PriorityIcon priority={priority.value} />{priority.label}</Menu.Item>}</For></Menu.Content>
     </Menu.Root>
     <BlockerMenu open={offering()} onOpenChange={setOffering}
       label={copy.blockedByCount(choices().blockers.filter(todo => !todo.done).length)} icon={<Icon name="branch" />}

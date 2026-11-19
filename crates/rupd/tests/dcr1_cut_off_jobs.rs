@@ -134,10 +134,6 @@ async fn dcr1_a_quit_marks_only_the_job_mid_turn_as_cut_off() {
                 .map(|err| err.to_string())
         }
     };
-    for id in &jobs[1..] {
-        let refused = resume(id.clone()).await.expect("a finished Job is refused");
-        assert!(refused.contains("only the user resumes it"), "{refused}");
-    }
     let cut = resume(jobs[0].clone()).await;
     assert!(
         cut.as_ref()

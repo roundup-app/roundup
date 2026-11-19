@@ -17,7 +17,7 @@ type Route is Data:
 # A Busy refusal supplies no Type effect and preserves pending work:
 # Rust rolls back its pre-send record, whereas this model records and sends atomically.
 # Busy clears readiness until a subsequent Idle. Actual current-Attempt ending (even with
-# last Kind error), done or removal supplies ReceiverExit; gone blocks later Idle and Send.
+# last Kind error) or removal supplies ReceiverExit; Kind done does not (AP2); gone blocks later Idle and Send.
 # Filter older-Attempt/stale-revision observations before step: they supply no event for
 # the current receiver and cannot reopen it or end a resumed Attempt. A new Attempt has
 # a new receiver generation; final Message ids never revive. A35 projections below apply

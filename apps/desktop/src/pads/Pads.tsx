@@ -340,7 +340,7 @@ const PadRows = (props: {
         <Trunks depth={0} trail={[]} stem={props.isFoldOpen(fold)} />
       </button>
       <Show when={props.isFoldOpen(fold)}>
-        <div class="shelf-list" role="group">
+        <div class="shelf-list pad-fold-list" role="group">
           <For each={props.folded()[fold]}>{(pad, at) => <PadRow {...props} pad={pad} mark={null} parts={undefined} nested={{ last: at() === props.folded()[fold].length - 1 }} isSelected={isSelected} onOrderChange={onOrderChange} />}</For>
         </div>
       </Show>

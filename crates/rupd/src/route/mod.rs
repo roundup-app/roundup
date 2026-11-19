@@ -479,12 +479,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn r5638d_resolved_agent_cannot_write_as_user() {
+    async fn r5638d_resolved_agent_writes_as_that_agent() {
         let (_dir, daemon, mut conn, input) = fixture();
         let reply = daemon
             .dispatch_parsed(
                 &mut conn,
-                request(json!({"id":"1","data":"!"})),
+                request(json!({"id":"1","data":"eA=="})),
                 Some(actor("2")),
             )
             .await
@@ -492,8 +492,8 @@ mod tests {
             .into_value()
             .unwrap();
         assert_eq!(conn.actor, actor("2"));
-        assert_eq!(reply["error"]["code"], code::FORBIDDEN);
-        assert!(input.0.lock().is_empty());
+        assert!(reply.get("error").is_none(), "{reply}");
+        assert_eq!(input.0.lock().as_slice(), &[b"x".to_vec()]);
     }
     #[tokio::test]
     async fn r5638d_malformed_write_has_no_effect() {
@@ -581,10 +581,10 @@ mod tests {
                     .unwrap();
                 let reply: Value = serde_json::from_slice(&line).unwrap();
                 assert_eq!(reply["id"], id);
-                assert_eq!(reply.get("result").is_some(), caller == "1");
+                assert!(reply.get("result").is_some(), "{caller}");
             }
         }
-        assert_eq!(input.0.lock().len(), 9);
+        assert_eq!(input.0.lock().len(), 18);
         let parse = daemon
             .dispatch(&mut conn, "{", None)
             .await
@@ -606,7 +606,7 @@ mod tests {
                     .await
                     .is_none()
             );
-            assert_eq!(input.0.lock().as_slice(), &[b"x".to_vec()]);
         }
+        assert_eq!(input.0.lock().as_slice(), &[b"x".to_vec(), b"x".to_vec()]);
     }
 }

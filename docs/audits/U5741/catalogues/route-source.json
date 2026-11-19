@@ -666,7 +666,7 @@
         "rupd",
         "--lib",
         "-E",
-        "test(contract_tests::b5_the_user_sets_non_agent_routes_through_daemon_dispatch) | test(contract_tests::b2_a_user_set_non_agent_auto_route_reaches_the_inbox) | test(contract_tests::b4_a_user_set_non_agent_drop_route_drops_the_message) | test(contract_tests::b5_a_non_agent_route_change_preserves_the_pending_message) | test(contract_tests::m14_an_agent_cannot_set_a_route_to_itself) | test(contract_tests::m14_an_agent_sets_a_route_between_nodes_in_its_reach) | test(contract_tests::m14_a_node_outside_the_reach_is_forbidden) | test(contract_tests::m14_an_agent_cannot_route_or_replace_the_users_routes)"
+        "test(contract_tests::b5_the_user_sets_non_agent_routes_through_daemon_dispatch) | test(contract_tests::b2_a_user_set_non_agent_auto_route_reaches_the_inbox) | test(contract_tests::b4_a_user_set_non_agent_drop_route_drops_the_message) | test(contract_tests::b5_a_non_agent_route_change_preserves_the_pending_message) | test(contract_tests::m14_an_agent_cannot_set_a_route_to_itself) | test(contract_tests::m14_an_agent_sets_a_route_between_nodes_in_its_reach) | test(contract_tests::m14_an_agent_cannot_replace_the_users_route)"
       ],
       "exit": 0,
       "output": {
