@@ -335,7 +335,7 @@ const PadRows = (props: {
         <Icon name="right" />
       </button>
       <Show when={props.isFoldOpen(fold)}>
-        <div class="shelf-list" role="list">
+        <div class="shelf-list pad-fold-list" role="list">
           <For each={props.folded()[fold]}>{pad => <PadRow {...props} pad={pad} mark={null} parts={undefined} isSelected={isSelected} onOrderChange={onOrderChange} />}</For>
         </div>
       </Show>
