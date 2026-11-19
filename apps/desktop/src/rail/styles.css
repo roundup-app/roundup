@@ -329,6 +329,9 @@
 }
 
 /* U404: the owned control is `◇<n>` in --grey (the row action's) at --text-caption. */
+/* The changes mark sits left of the ring, so a row with none holds no room and the ring's x still never depends on it. */
+.rail-row .action-slot[data-slot="changes"]:empty { display: none; }
+.rail-row .action-slot[data-slot="changes"] { order: -1; }
 .rail-row .rail-pads-control {
   --button-inline: 0;
   --button-lead: 0;
@@ -637,7 +640,8 @@
 .rail-row .line::before { content: none; }
 .rail-row .row-state { position: static; margin-inline-start: 0; }
 /* U4707: the 32px Token leaves no column left of the glyph, so the chevron takes the glyph's place only while the pointer or keyboard is on it; selection and focus keep the glyph. */
-.rail-row .rail-chevron { left: calc(var(--rail-inset) + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
+/* U7590c: the chevron stays inside the Glyph's box, so the line's gap to the name holds. */
+.rail-row .rail-chevron { left: 0; transform: none; z-index: 1; box-sizing: border-box; max-inline-size: var(--space-4); padding: 0; overflow: hidden; }
 .rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .row-state { opacity: 0; }
 .rail-row .row-icons { display: inline-flex; align-items: center; flex: none; }
 .rail-row[data-lifted="true"] :is(.row-icons, .row-controls, [data-slot="changes"]) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
@@ -727,19 +731,18 @@
   flex: none;
 }
 /* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. The actions take no room at rest (zero width, still in the Tab order); on hover, focus or selection they take their three slots in the row's flow just left of the age, whose width is fixed, so they sit at one x on every row and the name, marks, ring and count give way. A group's chevron keeps its one slot. */
-:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
+:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-todos-room: calc(var(--space-4) + var(--text-caption) * 3); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
 .rail-row .line { position: relative; }
 .rail-row .row-tail { justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
-.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"], [data-slot="restart"]):empty { display: none; } /* A mark slot and the leading restart slot collapse when empty; run and more keep their width, so the run slot sits at one x. */
 /* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
 .rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
-.rail-row .action-slot[data-slot="todos"] { inline-size: auto; min-inline-size: 0; }
+/* U7590a: the Todos slot is one fixed size wide enough for "34/34", so the ring's x never depends on the count. */
+.rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); }
 .rail-row .rail-pads-control { min-inline-size: 0; inline-size: auto; }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
-.rail-row .row-icons { display: inline-flex; flex: none; align-items: center; overflow: hidden; inline-size: 0; position: absolute; } /* At rest, and on a row with no action, the group leaves the flow, so it takes neither width nor the line's gap. */
-[data-reveal="shown"].rail-row .row-icons:has(.action-slot:not(:empty)) { inline-size: auto; position: static; }
+.rail-row .row-icons { display: inline-flex; flex: none; align-items: center; } /* U7590b: the actions hold their slots at rest (hidden, not removed), so revealing them moves no mark. */
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
