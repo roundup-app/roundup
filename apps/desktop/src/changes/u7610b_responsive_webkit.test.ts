@@ -34,6 +34,10 @@ const longestBlock = async (type: BrowserType) => {
       window.__fake.setStatus("agent-1", "idle", "idle");
     });
 
+    // The status change's own re-render lands before the beat starts, so the beat measures opening the list alone.
+    await page.waitForSelector(".changes-icon");
+    await page.waitForTimeout(1000);
+
     const beat = await page.evaluateHandle(() => {
       const gaps = { longest: 0 };
       let last = performance.now();
