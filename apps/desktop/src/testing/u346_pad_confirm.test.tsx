@@ -87,7 +87,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
   const visualSource = 'Agent prose.\n\n```mermaid\ngraph LR\nA-->B\n```\n\n```excalidraw\n{"type":"excalidraw","elements":[]}\n```\n\nTail prose.\n';
 
   const real = await startRealDaemon({
-    FAKE_CLAUDE_RUN: JSON.stringify([[resolve(process.cwd(), "../../target/debug/rup"), "pad", "create", "agent-work", "--text", visualSource]]),
+    FAKE_CLAUDE_RUN: JSON.stringify([[resolve(process.cwd(), "../../target/debug/rup"), "pad", "create", "agent-work", "--text", visualSource, "--visibility", "shown"]]),
     FAKE_CLAUDE_RUN_REPORT: join(report, "calls.json"),
   }, true);
 
