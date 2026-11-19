@@ -24,6 +24,9 @@ pub enum Error {
     Rpc(#[from] RpcError),
 }
 
+/// HM7589a: what a missing herdr-core says, with the command that installs it.
+const MISSING_CORE: &str = "herdr-core is not installed. Install it with: curl -fsSL https://releases.herdr.dev/core/install.sh | sh";
+
 impl Error {
     pub(crate) fn internal(err: impl std::fmt::Display) -> Self {
         Self::Internal(err.to_string())
@@ -32,6 +35,9 @@ impl Error {
     /// MC4, MC56: a core failure, its code first, so the App shows the code's label and never the
     /// core's own words.
     pub(crate) fn core(err: &herdr::Error) -> Self {
+        if matches!(err, herdr::Error::Missing) {
+            return Self::Internal(format!("{}: {MISSING_CORE}", err.code()));
+        }
         Self::Internal(format!("{}: {err}", err.code()))
     }
 
