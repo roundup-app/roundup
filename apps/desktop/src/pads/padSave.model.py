@@ -1,24 +1,13 @@
 #!/usr/bin/env python3
-"""P7547c: runs TLC (tlaplus v1.8.0, Java) on padSave.tla, fails on a rule violation, and writes padSave.dump or, with --check, fails when it differs from the committed one.
+"""P7547c: runs everystate (the lockfile-pinned npm package, a TLC-compatible checker) on padSave.tla, fails on a rule violation, and writes padSave.dump or, with --check, fails when it differs from the committed one.
 
 The dump holds the model's reachable `save` records and its steps (save, event, next save), one JSON line each, sorted; padSave.test.ts walks `step` against it.
 """
-import hashlib, json, re, subprocess, sys, tempfile, urllib.request
+import json, re, subprocess, sys, tempfile
 from pathlib import Path
 
 here = Path(__file__).resolve().parent
-version, sha256 = "1.8.0", "7e53aa636dac8a3cb0533f343115c0548e03fc0ce5edc7739becf58d3d0fb84f"
-jar = here / ".tools" / f"tla2tools-{version}.jar"
-
-
-def fetch():
-    if jar.exists() and hashlib.sha256(jar.read_bytes()).hexdigest() == sha256:
-        return
-    jar.parent.mkdir(exist_ok=True)
-    data = urllib.request.urlopen(f"https://github.com/tlaplus/tlaplus/releases/download/v{version}/tla2tools.jar", timeout=120).read()
-    if hashlib.sha256(data).hexdigest() != sha256:
-        sys.exit("pad-save-model: tla2tools.jar does not match its pinned sha256")
-    jar.write_bytes(data)
+everystate = here.parents[3] / "node_modules" / ".bin" / "everystate"
 
 
 def record(text):
@@ -27,12 +16,11 @@ def record(text):
 
 
 def main():
-    fetch()
     with tempfile.TemporaryDirectory() as tmp:
         dot = Path(tmp) / "g.dot"
-        run = subprocess.run(["java", "-cp", str(jar), "tlc2.TLC", "-workers", "1", "-metadir", tmp, "-config", "padSave.cfg", "-dump", "dot", str(dot), "padSave.tla"], cwd=here, capture_output=True, text=True)
+        run = subprocess.run([str(everystate), "-workers", "1", "-config", "padSave.cfg", "-dump", "dot", str(dot), "padSave.tla"], cwd=here, capture_output=True, text=True)
         if run.returncode != 0:
-            sys.exit(f"pad-save-model: TLC failed\n{run.stdout}{run.stderr}")
+            sys.exit(f"pad-save-model: everystate failed\n{run.stdout}{run.stderr}")
         graph = dot.read_text()
     nodes = {}
     for ident, label in re.findall(r'^(-?\d+) \[label="((?:[^"\\]|\\.)*)"', graph, re.M):
