@@ -19,6 +19,8 @@ type Move = { key: string; from: string; to: string; label: string };
 
 type Point = { x: number; y: number };
 
+type Size = { width: number; height: number };
+
 export type Layout = { width: number; height: number; boxes: Record<string, Point>; routes: Record<string, Point[]> };
 
 export type MachineConfig = { id: string; initial: string; states: Record<string, { on: Record<string, string> }> };
@@ -29,11 +31,34 @@ export type StepActor = { start(): void; send(event: { type: string }): void; st
 export type StatechartApi = {
   /** A machine whose states each list the events they take and the state each leads to; the call returns what makes a running actor of it. */
   createMachine(config: MachineConfig): () => StepActor;
-  /** Places each box and routes each move; `moves` are `[key, from, to]`. */
-  layout(ids: string[], moves: [string, string, string][], box: { width: number; height: number }): Promise<Layout>;
+  /** Places each box and routes each move, leaving room for each move's label; `moves` are `[key, from, to, label size]`. */
+  layout(ids: string[], moves: [string, string, string, Size][], box: Size): Promise<Layout>;
 };
 
 const BOX = { width: 132, height: 44 };
+
+/** The room a move's label takes beside its line: an estimate of its text at the small size, plus the label's padding. */
+const labelSize = (label: string): Size => ({ width: label.length * 7 + 8, height: 20 });
+
+/** The point halfway along the polyline's length. */
+const midpoint = (route: Point[]): Point => {
+  const legs = route.slice(1).map((to, at) => ({ from: route[at] ?? to, to }));
+  let left = legs.reduce((sum, leg) => sum + Math.hypot(leg.to.x - leg.from.x, leg.to.y - leg.from.y), 0) / 2;
+
+  for (const { from, to } of legs) {
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
+
+    if (left <= length) {
+      const along = length === 0 ? 0 : left / length;
+
+      return { x: from.x + (to.x - from.x) * along, y: from.y + (to.y - from.y) * along };
+    }
+
+    left -= length;
+  }
+
+  return route[0] ?? { x: 0, y: 0 };
+};
 
 /** The block's object, or the first failure in words. */
 export const readStatechart = (text: string): { chart: Statechart } | { cause: string } => {
@@ -206,7 +231,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
   for (const rule of chart.rules) {
     const line = element("p", "statechart-rule", copy.statechartRule(rule.name, rule.verdict));
 
-    line.classList.add(["is", rule.verdict].join("-"));
+    line.classList.add(`is-${rule.verdict}`);
     rules.append(line);
   }
 
@@ -252,7 +277,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
     for (const [key, arrow] of arrows) arrow.disabled = !offered.has(key);
     bar.textContent = broken ? copy.statechartBreaks(broken.join(", ")) : "";
     list.replaceChildren(...out().map((move) => button(move.label, () => play([move]))));
-    list.hidden = list.childElementCount === 0;
+    group.hidden = list.childElementCount === 0;
   };
 
   const paintControls = (onBreak: boolean) => {
@@ -289,7 +314,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
   update();
 
   void api
-    .layout(chart.states.map((state) => state.id), moves.map((move) => [move.key, move.from, move.to]), BOX)
+    .layout(chart.states.map((state) => state.id), moves.map((move): [string, string, string, Size] => [move.key, move.from, move.to, labelSize(move.label)]), BOX)
     .then((layout) => {
       if (!live) return;
       const svg = edgesSvg(layout, moves);
@@ -313,7 +338,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
 
       for (const move of moves) {
         const route = layout.routes[move.key] ?? [];
-        const mid = route[Math.floor(route.length / 2)] ?? { x: 0, y: 0 };
+        const mid = midpoint(route);
         const arrow = button(move.label, () => play([move]));
 
         arrow.className = "statechart-arrow";

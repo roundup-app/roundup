@@ -498,8 +498,6 @@ li[aria-selected="true"] svg {
   overflow: auto;
   overscroll-behavior: contain;
   max-height: var(--pad-editor-height);
-  border: var(--hairline-width) solid var(--hairline);
-  border-radius: var(--radius-control);
 }
 
 .statechart-canvas {
@@ -531,8 +529,6 @@ li[aria-selected="true"] svg {
   text-align: center;
   font-size: var(--text-small);
   background: var(--sunken);
-  border: var(--hairline-width) solid var(--hairline);
-  border-radius: var(--radius-control);
 }
 
 .statechart-box.is-lit {
