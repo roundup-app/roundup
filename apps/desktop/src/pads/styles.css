@@ -634,7 +634,6 @@ li[aria-selected="true"] svg {
   color: var(--grey);
 }
 
-
 .visual-statechart {
   display: flex;
   flex-direction: column;
