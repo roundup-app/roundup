@@ -15,7 +15,7 @@ import type { StatusEvent } from "@contracts/agent/StatusEvent";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { attemptAfter, doorAttempt, doorTerminalId, isDoor, type DoorNode } from "./doorNode";
 import { defaultWorkstreamName } from "./defaultName";
-import { ancestorsOf, isWorkstream, railTopology, type RailTopology } from "./railTopology";
+import { ancestorsOf, isFoldable, isWorkstream, railTopology, type RailTopology } from "./railTopology";
 import type { RailSection, RailStorage, ResumptionStorage } from "./railStorage";
 import { handleEvent, type EventHandlers, type Events } from "../app/events";
 import { unknownOutcomeLine } from "../app/failureOf";
@@ -484,7 +484,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         flush();
         setSelected(chosen);
         seenAtSelect = new Set(tree.map(node => node.id));
-        setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
+        setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isFoldable(node)))));
         setRestored(chosen !== null);
         save({ selected: chosen, collapsed: [...reveal(chosen)] });
       }

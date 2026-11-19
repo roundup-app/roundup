@@ -4,7 +4,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { byUrgency } from "../ink/glyph";
 import { attentionCounts, raisesAttention, statusOf } from "./attention";
 import { agentKindsBelow } from "./layout";
-import { descendantsOf, isWorkstream, type RailSource } from "../state/railTopology";
+import { descendantsOf, isFoldable, type RailSource } from "../state/railTopology";
 import { appSettings } from "../settings/preferences";
 
 /** U5940a, DCL2: whether the owner dismissed the node's current failure. */
@@ -27,7 +27,7 @@ const stateKind = (source: RailSource, node: RailNode, dismissed: Dismissed): Ki
 
 /** U403, DCL2: the Kind a row's glyph draws: the most urgent of its own Status, a Workstream's state, or, for a folded container, the Agents below it. */
 export const rowKind = (source: RailSource, node: RailNode, dismissed: Dismissed, folded: boolean): Kind | null => {
-  const container = isWorkstream(node) || node.kind === "group";
+  const container = isFoldable(node);
   const below = node.kind === "workstream" && node.workstream_state !== undefined ? [stateKind(source, node, dismissed)] : container && folded ? agentKindsBelow(source, node.id, dismissed) : [];
 
   return byUrgency([dismissed(node) ? "idle" as const : statusOf(node)?.kind, ...below].filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
@@ -38,7 +38,7 @@ export const markKind = (kind: Kind | null): Kind => kind ?? "idle";
 
 /** U3566, U6119: whether the row, or while it is folded any Agent below it, has a result the user has not seen. */
 export const rowUnread = (source: RailSource, node: RailNode, unseen: (id: string) => boolean, folded: boolean): boolean =>
-  unseen(node.id) || ((isWorkstream(node) || node.kind === "group") && folded && descendantsOf(source, node.id).some(each => unseen(each.id)));
+  unseen(node.id) || (isFoldable(node) && folded && descendantsOf(source, node.id).some(each => unseen(each.id)));
 
 /** PS12, U7189, U7259: how many of the row and its Agents below need you or failed, as the Project's count reads them (quiet, unstarted and dismissed ones excluded). */
 export const rowAttention = (source: RailSource, node: RailNode, dismissed: Dismissed) => {

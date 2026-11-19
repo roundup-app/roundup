@@ -122,6 +122,8 @@ pub enum Observation {
     /// DCL3c: the background work a Daemon reopen kept; the first process snapshot decides what
     /// still runs.
     Resumed(claude_code::background::Retained),
+    /// A12a: the Status the Run had before a Daemon reopen; adopted silently, never published.
+    Restored(Status),
     /// TS1: a Message reached the Agent's inbox as its next prompt: a turn starts, though the
     /// vendor fires no prompt Signal for it.
     Delivered,
