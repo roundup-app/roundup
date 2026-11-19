@@ -1,6 +1,7 @@
 import { chromium, webkit, type Browser, type BrowserType } from "playwright";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer, type AppServer } from "../testing/appServer";
+import { chromePath } from "../testing/chromePage";
 
 let server: AppServer;
 
@@ -14,7 +15,7 @@ afterAll(async () => {
 
 /** The longest stretch the page's main thread ran without yielding while the Changes list opened. */
 const longestBlock = async (type: BrowserType) => {
-  const engine: Browser = await type.launch();
+  const engine: Browser = await type.launch(type === chromium ? { executablePath: chromePath() } : {});
 
   try {
     const page = await engine.newPage();
