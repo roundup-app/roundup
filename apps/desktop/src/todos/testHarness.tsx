@@ -70,6 +70,7 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   owner: null,
   refs: [],
   priority: null,
+  pr: null,
   ...over,
 });
 

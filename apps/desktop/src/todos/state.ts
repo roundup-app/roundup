@@ -128,6 +128,16 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     setRows(() => store.rows);
   });
 
+  // U7708d: the Project's first list asks the Daemon once to read the PRs of the open linked Todos; a Project with none asks nothing.
+  let swept = false;
+
+  createEffect(() => rows(), (all) => {
+    if (swept || all === undefined) return;
+    swept = true;
+
+    if (all.some(todo => !todo.done && todo.pr !== null)) void app.rpc("todo.checkPrs", null).then(undefined, error => console.error(error));
+  });
+
   const handedRead = createRead(() => app.rpc("todo.listHanded", null), reply => { setFacts(() => reply); });
   const [waiting, setWaiting] = createSignal(false);
   const shelf = () => rows() ?? [];

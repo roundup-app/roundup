@@ -147,6 +147,7 @@ const todosAt = (now: number): Todo[] =>
     owner: null,
     refs: [],
     priority: null,
+    pr: null,
   }));
 
 const padsAt = (now: number): Pad[] =>

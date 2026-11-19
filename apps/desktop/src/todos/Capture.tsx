@@ -167,7 +167,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     // Submitted: the row shows and the field clears before the Daemon answers.
     const submitted = () => {
       stranded = null;
-      const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner, refs: [], priority: null };
+      const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner, refs: [], priority: null, pr: null };
       hide = todos.show(row);
       props.onFile?.();
 

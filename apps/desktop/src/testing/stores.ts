@@ -11,6 +11,7 @@ import type { Change } from "@contracts/todo/Change";
 import type { Comment } from "@contracts/todo/Comment";
 import type { Values } from "@contracts/todo/Values";
 import type { Todo } from "@contracts/todo/Todo";
+import type { PrState } from "@contracts/todo/PrState";
 import { RpcError } from "../app/seam";
 import type { Handlers } from "./fakeApp";
 import { USER } from "./nodes";
@@ -23,10 +24,12 @@ const INVALID_PARAMS = -32602;
 
 const CONFLICT = -32003;
 
+const DAEMON: Actor = { kind: "ext", id: "rupd", parent: null };
+
 /** Where a handler reports the Event the real Daemon would send after the same write. */
 export type Announce = (data: EventData) => void;
 
-export type TodoStore = { todos: Todo[]; changes?: Map<number, Change[]>; reads?: Map<number, number>; comments?: Map<number, Comment[]>; /** Ref URLs whose Pad or heading the fake Daemon calls gone. */ missing?: Set<string> };
+export type TodoStore = { todos: Todo[]; changes?: Map<number, Change[]>; reads?: Map<number, number>; comments?: Map<number, Comment[]>; /** Ref URLs whose Pad or heading the fake Daemon calls gone. */ missing?: Set<string>; /** What the fake `gh` reports of each linked PR number; an unlisted one is open. */ prs?: Map<number, { state: PrState; cause?: string }> };
 
 export type PadStore = { pads: Pad[]; history: Touch[] };
 
@@ -90,6 +93,17 @@ export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => 
 const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => {
   const deletions = new Map<string, { author: string; chosen: string; result: TodoDeletion; rows: { todo: Todo; at: number; changes: Change[]; comments: Comment[] }[]; edges: { id: number; blockers: number[] }[] }>();
 
+  const readPr = (id: number) => {
+    const target = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+
+    if (target.pr === null) throw new RpcError(CONFLICT, `todo ${id} links no pull request`);
+    const read = store.prs?.get(target.pr) ?? { state: "open" as const };
+
+    if (read.state === "merged" && !target.done) changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, done: true } : todo)), DAEMON);
+
+    return { id, pr: target.pr, state: read.state, cause: read.state === "unknown" ? (read.cause ?? "gh failed") : null };
+  };
+
   const retained = (operation: string) => {
     const kept = deletions.get(operation);
 
@@ -124,10 +138,10 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return null;
   },
-  "todo.create": ({ title, body, blockers, owner, priority }) => {
+  "todo.create": ({ title, body, blockers, owner, priority, pr }) => {
     const selected = v.parse(ownerActor, owner ?? null);
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), updated_at: Date.now(), creator: actor(), home: null, owner: selected, refs: [], priority: priority ?? null };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), updated_at: Date.now(), creator: actor(), home: null, owner: selected, refs: [], priority: priority ?? null, pr: pr ?? null };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, [], actor());
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
@@ -135,10 +149,13 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return { ...stored };
   },
-  "todo.update": ({ id, title, body, priority }) =>
+  "todo.update": ({ id, title, body, priority, pr }) =>
     changeTodos(store, announce, id, (todos) =>
-      todos.map((todo) => (todo.id === id ? { ...todo, title: title ?? todo.title, body: body ?? todo.body, priority: priority === undefined ? todo.priority : priority } : todo)), actor(),
+      todos.map((todo) => (todo.id === id ? { ...todo, title: title ?? todo.title, body: body ?? todo.body, priority: priority === undefined ? todo.priority : priority, pr: pr === undefined ? todo.pr : pr } : todo)), actor(),
     ),
+  // T7708b: the fake `gh` answers from `store.prs`; a merge completes the Todo as the Daemon does, once.
+  "todo.checkPr": ({ id }) => readPr(id),
+  "todo.checkPrs": () => store.todos.filter((todo) => !todo.done && todo.pr !== null).map((todo) => readPr(todo.id)),
   "todo.complete": ({ id }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, done: true } : todo)), actor()),
   "todo.reopen": ({ id }) => {
