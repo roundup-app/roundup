@@ -489,20 +489,21 @@ li[aria-selected="true"] svg {
   color: var(--amber);
 }
 
-/* U7499a: the fold row is a flex row, not `.rail-fold`'s two-column grid: its label starts where the Pad names do (the Pad row's leading padding, then an empty Glyph slot and the row gap) and the chevron trails on the same line. */
-.rail-fold.pad-fold {
+/* U7499a: the fold row is a flex row, not the Shelf row's one-column grid: its label starts where the Pad names do (the Pad row's leading padding, then an empty Glyph slot and the row gap) and the chevron trails on the same line. */
+.shelf-row.pad-fold {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   width: 100%;
   box-sizing: border-box;
+  padding-block: var(--space-1);
   padding-inline: var(--space-1) var(--rail-edge, var(--space-3));
   color: var(--grey);
   text-align: start;
 }
 
-.rail-fold.pad-fold:hover {
+.shelf-row.pad-fold:hover {
   color: var(--text);
 }
 
@@ -517,6 +518,11 @@ li[aria-selected="true"] svg {
   content: "";
   flex: none;
   width: var(--space-4);
+}
+
+.pad-fold .shelf-title {
+  display: block;
+  white-space: nowrap;
 }
 
 .pad-fold svg {

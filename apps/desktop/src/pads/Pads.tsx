@@ -324,13 +324,13 @@ const PadRows = (props: {
 
   const foldRows = (fold: "internal" | "idle") => (
     <Show when={props.folded()[fold].length > 0}>
-      <button type="button" class="rail-fold pad-fold row-wash row-wash-inert" data-fold={fold} aria-expanded={props.isFoldOpen(fold) ? "true" : "false"}
+      <button type="button" class="shelf-row pad-fold row-wash row-wash-inert" data-fold={fold} aria-expanded={props.isFoldOpen(fold) ? "true" : "false"}
         onClick={() => props.toggleFold(fold)}
         onKeyDown={event => {
           if (event.key === "ArrowRight" && !props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
           else if (event.key === "ArrowLeft" && props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
         }}>
-        <FoldContent count={props.folded()[fold].length} group={fold} />
+        <FoldContent count={props.folded()[fold].length} group={fold} shelf />
         <Icon name="right" />
       </button>
       <Show when={props.isFoldOpen(fold)}>
