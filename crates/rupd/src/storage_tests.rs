@@ -270,6 +270,8 @@ async fn n16_all_stores_share_one_project_database() {
     actual.remove("marks");
     // MC20: the report Marks are the Daemon's own; they are proved through its RPC.
     actual.remove("report_marks");
+    // C7707c: the search index and its triggers are the Project's own; `search.find` proves them through the Daemon.
+    actual.retain(|name, _| !["todos_fts", "messages_fts", "pads_fts"].iter().any(|fts| name.starts_with(fts)));
     assert_eq!(actual, expected);
     assert_eq!(
         Migrations::new(storage::migrations())
