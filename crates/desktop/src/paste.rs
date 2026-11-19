@@ -148,7 +148,7 @@ pub fn save_dropped(cache: &Path, path: &Path, now: SystemTime) -> Result<PathBu
             path.display()
         )));
     }
-    // Refuse before reading, so a huge file is never held in memory.
+    // Refuse before reading, so a huge file never sits in memory.
     if meta.len() > LIMIT as u64 {
         return Err(RpcError::forbidden(format!(
             "the image is {} MiB, over the {} MiB a drop can copy",
@@ -338,7 +338,7 @@ mod tests {
         let big = source.path().join("big.png");
         fs::write(&big, vec![0u8; LIMIT + 1]).unwrap();
 
-        let err = save_dropped(cache.path(), &big, SystemTime::now()).unwrap_err();
+        let err = save_dropped(cache.path(), &big, UNIX_EPOCH + Duration::from_secs(1)).unwrap_err();
 
         assert_eq!(err.code, rpc::code::FORBIDDEN);
         assert!(!cache.path().join("roundup-pasted").exists());
@@ -354,7 +354,7 @@ mod tests {
         fs::create_dir(&folder).unwrap();
 
         for refused in [text, folder] {
-            let err = save_dropped(cache.path(), &refused, SystemTime::now()).unwrap_err();
+            let err = save_dropped(cache.path(), &refused, UNIX_EPOCH + Duration::from_secs(1)).unwrap_err();
 
             assert_eq!(err.code, rpc::code::FORBIDDEN, "{}", refused.display());
         }

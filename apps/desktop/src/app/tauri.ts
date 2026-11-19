@@ -49,6 +49,10 @@ const parsedCommand = <Schema extends v.GenericSchema>(
   options?: InvokeOptions,
 ): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args, options)));
 
+// The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
+const savePastedImage: App["savePastedImage"] = ({ type, bytes }) =>
+  parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } });
+
 /** U7659a: the dropped file's path crosses and the copy's path returns. */
 const saveDroppedImage = (path: string): Promise<string> => parsedCommand(v.string(), "save_dropped_image", { path });
 
@@ -188,8 +192,7 @@ export const createTauriApp = (): App => {
     onUpdateProgress: (listener) => subscribe(() => listen("update-progress", event => listener(v.parse(updateProgressSchema, event.payload)))),
     showContextMenu: (items, x, y) => parsedCommand(v.nullable(v.string()), "show_context_menu", { items, x, y }),
     openInEditor: (path, line, editor) => command<void>("open_in_editor", { path, line, editor: editor || undefined }),
-    // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
-    savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
+    savePastedImage,
     saveDroppedImage,
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
     selectProjectMenu: (path, items) => command("select_project_menu", { path, items }),
