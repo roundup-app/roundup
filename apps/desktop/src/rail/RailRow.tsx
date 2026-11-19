@@ -353,10 +353,10 @@ export const RailRowView = (props: {
       <Show when={unreachable()}>{reached => <BusyButton kind="quiet" class="rail-unreachable" busyLabel={retry() ? copy.retrying : copy.opening} aria-label={`${reachLabel()} ${reached().name}`} onClick={reachAct}>{reachLabel()}</BusyButton>}</Show>
       <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><BusyButton kind="quiet" class="rail-resume" busyLabel={copy.resuming} aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</BusyButton></Show>
       <span class="row-tail">
-        <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isGroup()}>
           <span class="action-slot" data-slot="todos"><Show when={!isContainer()}><PadsControl todos={props.todos} agent={props.row.node.id} /></Show></span>
           <span class="action-slot" data-slot="changes"><Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /></Show></span>
+          <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
         </Show>
         <Show when={isGroup()}><FoldControl class="rail-group-chevron" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
       </span>

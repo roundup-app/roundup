@@ -7,7 +7,7 @@ import { copy } from "./copy";
 
 afterEach(cleanup);
 
-const SLOTS = ["restart", "run", "more", "todos", "changes"];
+const SLOTS = ["todos", "changes", "restart", "run", "more"];
 
 const slotsOf = (row: HTMLElement) => [...row.querySelectorAll<HTMLElement>(".action-slot")].map(slot => slot.dataset.slot);
 
