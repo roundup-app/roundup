@@ -286,6 +286,8 @@ pub(crate) struct Run {
     input_started: bool,
     attempt: Ordinal,
     status_revision: Ordinal,
+    /// A7498a: Signals folded so far; a prompt's Enter retry reads whether any came after it.
+    signals: u64,
     life: Life,
     fold: Fold,
     first: FirstSteer,
@@ -326,6 +328,7 @@ impl Run {
             input_started,
             attempt,
             status_revision: Ordinal::first(),
+            signals: 0,
             life: Life::Live,
             fold,
             first,
@@ -467,6 +470,9 @@ impl Run {
 
     /// Fold `observation` into the Agent's Status; the second is whether its completion moved.
     pub(crate) fn observe(&mut self, observation: Observation) -> (Option<Status>, bool) {
+        if matches!(observation, Observation::Signal(_)) {
+            self.signals += 1;
+        }
         self.fold.observe(observation)
     }
 
@@ -568,6 +574,11 @@ impl Run {
         } else {
             Naming::Settled
         };
+    }
+
+    /// A7498a: how many Signals this Run has folded.
+    pub(crate) fn signals(&self) -> u64 {
+        self.signals
     }
 
     pub(crate) fn steer(&self) -> Option<&SteerWait> {
