@@ -1,6 +1,7 @@
 import PQueue from "p-queue";
 import { applying } from "../app/pending";
 import type { Applied } from "../app/pending";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { RpcError } from "../app/seam";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { isDoor } from "../state/doorNode";
@@ -22,6 +23,8 @@ export type RailCommand<R> = {
   /** Names the command in its failure line. */
   label?: string;
   retry?: () => void;
+  /** A Retry kept on an unknown outcome, only for a call safe to repeat (`agent.restartMode` with its request id). */
+  retryUnknown?: () => void;
   /** Reads the Terminals with the tree once the call applied. */
   terminals?: boolean;
   /** Settles a call with no answer, which the Daemon may still apply, in place of a failure line. */
@@ -34,7 +37,7 @@ export const showsFailure = (error: Error): boolean =>
 
 /** U5991a: draws the row, calls the Daemon, reads the tree back and lifts the row; a refusal comes back unshown for a caller that settles its own draft. A non-Error rethrows. */
 const applyCommand = async <R>(
-  rail: RailState,
+  rail: Pick<RailState, "refresh" | "commandFailure">,
   command: RailCommand<R>,
 ): Promise<Applied<R>> => {
   const lift = command.draw?.();
@@ -56,7 +59,7 @@ const applyCommand = async <R>(
 
 /** U5172a, U5991a: the one place a Rail command draws its row, calls the Daemon, reads the tree back, then clears or shows its failure. */
 export const railCommand = async <R>(
-  rail: RailState,
+  rail: Pick<RailState, "refresh" | "commandFailure">,
   command: RailCommand<R>,
 ): Promise<Applied<R>> => {
   const outcome = await applyCommand(rail, command);
@@ -66,6 +69,8 @@ export const railCommand = async <R>(
 
   if (outcome.kind === "pending" && command.unknown)
     await command.unknown(outcome.error);
+  else if (outcome.kind === "pending")
+    rail.commandFailure.show(unknownOutcomeLine(outcome.error), command.item ?? null, "rail", command.retryUnknown ?? null, true);
   else {
     const message =
       command.label === undefined

@@ -35,6 +35,7 @@ import type { RailTopology } from "../state/railTopology";
 import { PadsControl } from "./pads/AgentPads";
 import { ChangesIcon } from "../changes/ChangesIcon";
 import { createDraftField } from "../state/draftField";
+import { createRowReveal } from "../ui/rowReveal";
 
 const nameSchema = v.object({ text: v.string(), base: v.string() });
 
@@ -142,11 +143,6 @@ const MachineIcon = (props: { node: RailNode }) => {
   </span>}</Show>;
 };
 
-/** U7205e: who started the row as one icon in its fixed slot; the full text is its Tooltip and accessible name. */
-const AttributionIcon = (props: { text: string }) => <span class="row-slot row-attribution">
-  <Tip kind="changing" text={props.text}>{trigger => <span {...trigger()} class="attribution-icon" role="img" aria-label={props.text}><Icon name="started" /></span>}</Tip>
-</span>;
-
 /** U7205c: the age in the row's one trailing slot. */
 const RowAge = (props: { since: number | undefined }) => {
   const now = useDisplayNow(() => false);
@@ -170,7 +166,7 @@ const FoldControl = (props: { class: string; collapsed: boolean; onToggle: () =>
 
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
-  topology: RailTopology; todoCount: number;
+  topology: RailTopology; todos: { done: number; total: number }; selected: boolean;
   row: NodeRow; rootDivider?: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: (id?: string) => void;
@@ -217,7 +213,6 @@ export const RailRowView = (props: {
   });
 
   const resumeWait = () => door()?.resume;
-  const attribution = () => door()?.start_attribution;
 
   const statusLabel = () => {
     const status = doorStatus();
@@ -297,6 +292,8 @@ export const RailRowView = (props: {
     return queued ? queued.entry.start.kind === "afterTodo" ? copy.afterBadge(queued.entry.start.todo) : copy.queuedBadge(queued.place) : null;
   };
 
+  const reveal = createRowReveal(() => props.selected);
+
   const rowProps = () => ({
     class: rootDivider() ? "rail-row row-wash rail-root-divider" : "rail-row row-wash", "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
@@ -310,8 +307,11 @@ export const RailRowView = (props: {
       if (!(event.target instanceof Element) || event.target.closest("button, input") || props.lifted) return;
       props.onEditing(true);
     },
-    onFocusIn: (event: FocusEvent) => glyphFocusOn(event, glyphFocus?.onFocusIn),
-    onFocusOut: (event: FocusEvent) => glyphFocusOn(event, glyphFocus?.onFocusOut),
+    "data-reveal": reveal["data-reveal"],
+    onPointerEnter: reveal.onPointerEnter,
+    onPointerLeave: reveal.onPointerLeave,
+    onFocusIn: (event: FocusEvent) => { reveal.onFocusIn(); glyphFocusOn(event, glyphFocus?.onFocusIn); },
+    onFocusOut: (event: FocusEvent) => { reveal.onFocusOut(event); glyphFocusOn(event, glyphFocus?.onFocusOut); },
     onKeyDown: (event: KeyboardEvent) => {
       if (event.target !== event.currentTarget || event.key !== "F2" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat) return;
       event.preventDefault(); event.stopPropagation(); props.onEditing(true);
@@ -349,13 +349,15 @@ export const RailRowView = (props: {
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
-      <Show when={attribution()}>{source => <AttributionIcon text={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
       <Show when={!isGroup()}><MachineIcon node={props.row.node} /></Show>
       <Show when={unreachable()}>{reached => <BusyButton kind="quiet" class="rail-unreachable" busyLabel={retry() ? copy.retrying : copy.opening} aria-label={`${reachLabel()} ${reached().name}`} onClick={reachAct}>{reachLabel()}</BusyButton>}</Show>
       <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><BusyButton kind="quiet" class="rail-resume" busyLabel={copy.resuming} aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</BusyButton></Show>
       <span class="row-tail">
-        <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
-        <Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
+        <Show when={!isGroup()}>
+          <span class="action-slot" data-slot="todos"><Show when={!isContainer()}><PadsControl todos={props.todos} agent={props.row.node.id} /></Show></span>
+          <span class="action-slot" data-slot="changes"><Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /></Show></span>
+          <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
+        </Show>
         <Show when={isGroup()}><FoldControl class="rail-group-chevron" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
       </span>
       <RowAge since={doorStatus()?.since} />

@@ -20,6 +20,7 @@ import { TickBox } from "./TickBox";
 import { RowButton } from "./RowButton";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { kindOf } from "./todoView";
+import { createRowReveal } from "../ui/rowReveal";
 
 const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } as const;
 
@@ -192,7 +193,7 @@ export const OpenRow = (props: {
   );
 
   return (
-    <ShelfRow
+    <ShelfRow {...createRowReveal(() => !!(props.pressed || picked() || props.selected))}
       glyph={<span><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}

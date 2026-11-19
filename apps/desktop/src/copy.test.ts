@@ -2,6 +2,7 @@ import { copy } from "./app/copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
+import { RpcError } from "./app/seam";
 import { door, workstream } from "./testing/nodes";
 import { mountRailAndPane } from "./terminal/paneHarness";
 import { notices } from "./testing/notices";
@@ -94,6 +95,8 @@ const STRUCTURE = new Set([
   "layer",
   // U3794: tool names the Agent runtime sends and a selector for text fields are executable structure, not prose.
   "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
+  // ELK layout option values for the statechart Pad, never shown.
+  "DOWN", "POLYLINE",
   // U3517a: a console-only font fallback diagnostic, never rendered by the App.
   "Terminal font unavailable; using the fallback face",
   // U2749b: a development/test invariant, never App copy.
@@ -295,7 +298,7 @@ it("u471_serialized_pad_wrappers_are_structure_while_authored_text_is_copy", () 
 it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () => {
   const { app, connected } = await mountRailAndPane([workstream("w")]);
 
-  app.handlers["rail.startDoor"] = () => { throw new Error("keep THIS launch failure 🧭"); };
+  app.handlers["rail.startDoor"] = () => { throw new RpcError(-32602, "keep THIS launch failure 🧭"); };
 
   connected.rail.select("w");
   flush();

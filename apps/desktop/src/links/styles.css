@@ -5,7 +5,7 @@
   inset-inline-end: var(--space-2);
   z-index: 1;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   align-items: center;
   gap: var(--space-1);
@@ -15,3 +15,35 @@
 /* LH10: collapsed, the handle alone stays; it sits quiet until hovered or focused. */
 .links-header:not([data-open]) .links-handle { opacity: 0.5; }
 .links-header .links-handle:is(:hover, :focus-visible) { opacity: 1; }
+
+/* LH13: the count's reveal is the shared popover left of the whole header, on its own row and inside the inset (opaque surface from the `.app-popover` recipe): one row, never over the header's own icons and never over a row of Terminal text. The two-class selector beats `.app-popover`'s padding and the ui-sdk content layout. */
+.app-popover.links-popover {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  flex-direction: row;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  z-index: var(--layer-popover);
+}
+
+/* LH13: the revealed icons are bare like the header's: no pill surface at rest or on hover, ink grey at rest and `--text` on hover. The tripled class outranks the shared floating-button recipe's `:is()` specificity whatever the bundle order. */
+.app-popover.links-popover.links-popover button[data-button="icon"] {
+  --button-surface: var(--transparent);
+  color: var(--grey);
+}
+
+.app-popover.links-popover.links-popover button[data-button="icon"]:is(:hover, :focus-visible):not(:disabled, [aria-disabled="true"]) {
+  color: var(--text);
+}
+
+/* LH13: the count holds the width of `+N` open or closed, so the inline icons stay still as the reveal opens. */
+.links-header .links-count {
+  min-inline-size: 3ch;
+  text-align: center;
+}

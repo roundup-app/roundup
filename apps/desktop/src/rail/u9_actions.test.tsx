@@ -134,7 +134,7 @@ describe("u9 actions", () => {
   it("u9_a_failed_call_shows_one_ink_line_until_the_next_click", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => {
-      throw new RpcError(-32000, "no claude on PATH");
+      throw new RpcError(-32003, "no claude on PATH");
     };
 
     chord("n");
@@ -148,7 +148,7 @@ describe("u9 actions", () => {
   it("u9_the_failure_line_clears_on_a_click_on_promote", async () => {
     const mounted = await mountRail([workstream("g")], [], undefined, undefined, { pane: fakeEmulators().factory });
     mounted.app.handlers["rail.createWorkstream"] = () => {
-      throw new RpcError(-32000, "boom");
+      throw new RpcError(-32003, "boom");
     };
 
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");

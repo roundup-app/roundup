@@ -8,14 +8,17 @@ import type { ExitState } from "../state/rail";
 export type DoorState =
   | { kind: "starting" }
   | { kind: "failed" }
+  | { kind: "unconfirmed" }
   | { kind: "never-started" }
   | { kind: "stopped"; exit: ExitState };
 
 /** `null` while the Door's program runs; `exit` is `rail.exitOf` for the Workstream, `pending` and `failed` are the Rail's record of a `rail.startDoor` call. */
-export const doorStateOf = (workstream: RailNode, exit: ExitState | null, pending: boolean, failed: boolean): DoorState | null => {
+export const doorStateOf = (workstream: RailNode, exit: ExitState | null, pending: boolean, failed: boolean, unconfirmed = false): DoorState | null => {
   if (exit === null) return null;
 
   if (pending) return { kind: "starting" };
+
+  if (unconfirmed) return { kind: "unconfirmed" };
 
   if (failed) return { kind: "failed" };
 
@@ -26,6 +29,8 @@ export const doorStateText = (state: DoorState, name: string): string => {
   switch (state.kind) {
     case "starting":
       return copy.startingDoor(name);
+    case "unconfirmed":
+      return copy.doorUnconfirmed;
     case "failed":
       return copy.doorDidNotStart;
     case "never-started":
