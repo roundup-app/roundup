@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { LinkEntry } from "@contracts/links/LinkEntry";
@@ -172,4 +172,33 @@ it("lh10_a_set_change_keeps_the_users_toggle", async () => {
   app.emit(event({ name: "agent.links", data: { id: "a", set: setOf(2) } }));
   await waitFor(() => expect(names()).toContain("pr 0"));
   expect(handle().getAttribute("aria-expanded")).toBe("true");
+});
+
+it("lh13_a_narrow_pane_keeps_the_header_to_one_row_inside_the_inset", async () => {
+  const callbacks: (() => void)[] = [];
+  let paneWidth = 800;
+
+  vi.stubGlobal("ResizeObserver", class { constructor(run: () => void) { callbacks.push(run); } observe() {} disconnect() {} });
+  vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(() => paneWidth);
+
+  try {
+    await mount({ set: setOf(6) });
+    callbacks.forEach(run => run());
+    flush();
+    await waitFor(() => expect(names()).toContain(copy.moreName(2)));
+
+    paneWidth = 150;
+    callbacks.forEach(run => run());
+    flush();
+    await waitFor(() => expect(names()).toContain(copy.moreName(6)));
+    fireEvent.click(screen.getByRole("button", { name: copy.moreName(6) }));
+    expect(document.querySelector(".links-popover")?.querySelectorAll("button").length).toBe(6);
+    await waitFor(() => expect(document.querySelector(".links-popover")?.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(document.querySelector(".links-popover")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: copy.moreName(6) })));
+  } finally {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  }
 });
