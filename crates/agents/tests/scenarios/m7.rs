@@ -144,18 +144,16 @@ async fn ap4_an_agent_acts_outside_its_former_reach() {
         .await;
     assert_eq!(code_of(own), code::FORBIDDEN);
 
-    let pane = w
-        .f
-        .tree()
-        .await
-        .into_iter()
-        .find(|n| n.base.id == w.child)
-        .and_then(|n| n.terminal_id())
-        .unwrap();
-    let write = w
-        .f
-        .agents
-        .guard_terminal_read(&agent(&w.child), &pane, None, false);
+    let pane =
+        w.f.tree()
+            .await
+            .into_iter()
+            .find(|n| n.base.id == w.child)
+            .and_then(|n| n.terminal_id())
+            .unwrap();
+    let write =
+        w.f.agents
+            .guard_terminal_read(&agent(&w.child), &pane, None, false);
     assert_eq!(code_of(write.map(|()| Value::Null)), code::FORBIDDEN);
 }
 
