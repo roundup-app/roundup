@@ -38,7 +38,7 @@ export const ProjectCentre = (props: {
       {(open) => (
         <>
           <Show when={props.panes.screensOf(open.project.path)}>{(shared) => <Bubbles screens={shared()} />}</Show>
-          <ResourceStrip returnFocus={() => props.panes.focusSelected(open, () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run())} />
+          <ResourceStrip />
         </>
       )}
     </InProject>

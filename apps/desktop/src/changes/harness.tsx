@@ -1,4 +1,4 @@
-import { render, waitFor } from "@solidjs/testing-library";
+import { render } from "@solidjs/testing-library";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -26,8 +26,7 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
 
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("plain", "working", "building")];
   app.handlers["agent.worktreeState"] = () => STATE;
-  let finished = false;
-  app.handlers["agent.changedFiles"] = async () => { try { return await changed(); } finally { finished = true; } };
+  app.handlers["agent.changedFiles"] = () => changed();
 
   const connected = await connectProject(app, { name: "p", path: project }, () => false, () => NOW, () => null, undefined, drafts);
 
@@ -44,8 +43,6 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
       </ToastHost>
     );
   });
-
-  await waitFor(() => { if (!finished) throw new Error(); });
 
   const calls = (method: string) => app.calls.filter((call) => call.method === method).length;
 

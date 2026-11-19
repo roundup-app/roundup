@@ -42,7 +42,7 @@ const Values = (props: { memory: string; cpu: string; disk: string }) => (
 );
 
 /** U444: the centre's last line, under the Terminal, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
-export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined }) => {
+export const ResourceStrip = () => {
   const { app, rail, daemonExit, hasView, hideView } = useConnectedProject();
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
 
@@ -120,7 +120,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
       <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
     </section></Show>
     <div class="resource-strip" aria-live="off">
-      <WorktreeControl returnFocus={props.returnFocus} />
+      <WorktreeControl />
     </div>
     <span class="resource-agent" />
   </>);
