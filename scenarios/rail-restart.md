@@ -29,7 +29,7 @@ Module: `apps/desktop/src/rail/` (the menu) and `crates/agents/` (the resume pat
 
 - Restart (its menu entry, the `R` key and a running Mode's restart icon) always calls `agent.restartMode` once: a fresh run that types the saved prompt once (A4452c), whether or not a conversation is saved, and never `agent.resume`. Vitest: `u7493a_a_mode_restart_always_runs_restart_mode`.
 - A stopped Mode's play icon is named Resume and calls `agent.resume` for its saved conversation, typing no prompt. Vitest: `u7493a_a_stopped_mode_play_icon_resumes_its_conversation`.
-- A stopped Mode with no saved conversation has a play icon that calls `agent.restartMode`. Vitest: `u7493a_a_mode_without_a_conversation_plays_restart_mode`.
+- A stopped Mode with no saved conversation shows no play icon: its Restart is its one start, so no icon named Resume restarts and no icon repeats Restart. Vitest: `u7493a_a_mode_without_a_conversation_has_no_play_icon`.
 - Every other Agent keeps U7191a; U7191b's Mode exception (Restart present with no saved conversation) and its confirmation rule stand. Vitest: `u7493a_other_agents_keep_restart_on_resume`.
 
 ```text

@@ -18,9 +18,10 @@ impl Rail {
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
         check_parent(&nodes, node.kind(), parent)?;
-        if node.mode_prompt().is_some() && parent.is_some() {
+        // U4547e, A7494a: a Mode stays where it started, at the root or under its starter.
+        if node.mode_prompt().is_some() && (parent.is_some() || node.parent.is_some()) {
             return Err(StoreError::conflict(format!(
-                "Mode {} must stay at the Project root",
+                "Mode {} must stay where it started",
                 node.name
             )));
         }

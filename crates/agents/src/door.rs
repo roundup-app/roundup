@@ -88,6 +88,7 @@ impl Agents {
     /// A4452c: type the reserved user text only into the matching fresh, idle Mode Agent.
     /// The coordinator persists its Typing fence before calling; never retry this effect.
     pub async fn mode_prompt(&self, id: &str, attempt: &str, text: &str) -> Result<(), RpcError> {
+        // A7498a: only this wait ends as a known failure; nothing is typed until it is over.
         let ready = async {
             loop {
                 let observed = self.shared.events.observed.notified();
@@ -105,7 +106,7 @@ impl Agents {
                                     .as_ref()
                                     .is_some_and(|s| s.kind == contracts::Kind::Idle)
                             {
-                                break;
+                                return Ok(());
                             }
                         }
                         _ => {
@@ -117,21 +118,34 @@ impl Agents {
                 }
                 observed.await;
             }
-            self.shared
-                .prompt(id, text, Some(attempt), true, None)
-                .await
-                .map_err(|error| {
-                    RpcError::unknown_outcome(format!(
-                        "Mode prompt was not acknowledged: {}; do not retype",
-                        PromptError::from(error)
-                    ))
-                })
         };
-        tokio::time::timeout(Duration::from_secs(15), ready)
+        tokio::time::timeout(self.shared.ready_bound, ready)
             .await
             .map_err(|_| {
-                RpcError::unknown_outcome("Mode prompt acknowledgement timed out; do not retype")
-            })?
+                RpcError::not_accepted("Mode Agent did not become ready; nothing was typed")
+            })??;
+        let name = self.shared.rail().name_or_gone(id)?;
+        self.shared
+            .prompt(
+                id,
+                text,
+                Some(attempt),
+                true,
+                Some(PromptRecord {
+                    attempt: None,
+                    revision: None,
+                    written: None,
+                    retry_enter: true,
+                }),
+            )
+            .await
+            .map_err(|error| {
+                RpcError::unknown_outcome(format!(
+                    "Mode {name} ({id}): the prompt was typed and no receipt came: {}; \
+                     check it before starting it again",
+                    PromptError::from(error)
+                ))
+            })
     }
 
     /// Stop the program before a fresh Mode Agent run.
@@ -150,15 +164,21 @@ impl Agents {
     ) -> Result<RailNode, RpcError> {
         let id = params.id.as_str();
         let parked = self.shared.node(id)?;
+        // A7494c: a nested Mode restarts as a root Mode does.
+        let under_root = parked.parent.as_deref().is_none_or(|parent| {
+            self.shared
+                .node(parent)
+                .is_ok_and(|node| node.kind() == NodeKind::Agent && node.parent.is_none())
+        });
         if parked.kind() != NodeKind::Agent
-            || parked.parent.is_some()
+            || !under_root
             || parked
                 .mode_prompt()
                 .as_deref()
                 .is_none_or(|prompt| prompt.trim().is_empty())
         {
             return Err(RpcError::conflict(
-                "only a root Mode Agent can be restarted",
+                "only a Mode Agent at the root or under its root starter can be restarted",
             ));
         }
         let params = StartDoorParams {

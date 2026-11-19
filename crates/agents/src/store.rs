@@ -148,6 +148,8 @@ impl Agents {
                 me: me.clone(),
                 resume_effect: None,
                 steer_bound: STEER_BOUND,
+                receipt_bound: crate::RECEIPT_BOUND,
+                ready_bound: crate::MODE_READY_BOUND,
                 steer: crate::SteerSettings {
                     before_steer: None,
                     interrupt_bound: interrupt_bound_from_env(),
@@ -251,6 +253,20 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
+    }
+
+    /// A7498a: wait `bound` instead of `RECEIPT_BOUND` for a first prompt's receipt after its Enter.
+    /// Call it before the first call is made.
+    #[must_use]
+    pub fn with_receipt_bound(self, bound: Duration) -> Self {
+        self.configure(|shared| shared.receipt_bound = bound)
+    }
+
+    /// A7498a: wait `bound` instead of `MODE_READY_BOUND` for a Mode to take its first prompt.
+    /// Call it before the first call is made.
+    #[must_use]
+    pub fn with_ready_bound(self, bound: Duration) -> Self {
+        self.configure(|shared| shared.ready_bound = bound)
     }
 
     /// B50(c): tell `observer` the Message ids an Agent's transcript records as another
@@ -586,6 +602,8 @@ pub(super) mod tests {
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
+            receipt_bound: crate::RECEIPT_BOUND,
+            ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
                 interrupt_bound: crate::INTERRUPT_BOUND,
@@ -645,6 +663,8 @@ pub(super) mod tests {
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
+            receipt_bound: crate::RECEIPT_BOUND,
+            ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
                 interrupt_bound: crate::INTERRUPT_BOUND,
@@ -738,6 +758,8 @@ pub(super) mod tests {
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
+            receipt_bound: crate::RECEIPT_BOUND,
+            ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
                 interrupt_bound: crate::INTERRUPT_BOUND,
