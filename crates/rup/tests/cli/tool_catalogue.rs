@@ -144,12 +144,10 @@ async fn m2219_a_rup_command_is_judged_and_touched_like_the_tool() {
         .as_str()
         .unwrap()
         .to_owned();
-    // Reach (M7): the maker changes what it made; another Agent is refused, as over MCP.
+    // AP4: any Agent changes a node, as over MCP.
     assert_eq!(code(&maker.rup(&["rail", "rename", &id, "w2"]).await), 0);
     let other = on(&project.socket).acting_as(Some("a8"));
-    let refused = other.rup(&["rail", "rename", &id, "w3"]).await;
-    assert_eq!(code(&refused), 1);
-    assert!(err(&refused).contains("FORBIDDEN"), "{}", err(&refused));
+    assert_eq!(code(&other.rup(&["rail", "rename", &id, "w3"]).await), 0);
     // The Touch names the calling Agent.
     let touched = out(&maker.rup(&["provenance", "touched", "a7", "--json"]).await);
     assert!(touched.contains(&format!("rail:{id}")), "{touched}");

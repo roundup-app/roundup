@@ -131,14 +131,9 @@ for line in sys.stdin:
         .request("agent.stop", json!({"id":id}))
         .await
         .unwrap();
-    assert_eq!(
-        client
-            .request("message.send", send.clone())
-            .await
-            .unwrap_err()
-            .code,
-        rpc::code::CONFLICT
-    );
+    // AP2: a stopped (done) Door still receives a Message, which waits pending.
+    let waiting = client.request("message.send", send.clone()).await.unwrap();
+    assert_eq!(waiting["status"], "pending");
     let second = client
         .request("rail.startDoor", json!({"id":id}))
         .await

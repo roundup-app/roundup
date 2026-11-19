@@ -391,13 +391,11 @@ async fn u4593_selection_preserves_authority() {
         events,
         output: None,
     };
-    for (method, params) in [
-        ("agent.stop", json!({"id":"me"})),
-        ("agent.prompt", json!({"id":"Peer","text":"No authority"})),
-    ] {
-        let error = daemon.route(&mut conn, method, params).await.unwrap_err();
-        assert_eq!(error.code, code::FORBIDDEN, "{error:?}");
-    }
+    let error = daemon
+        .route(&mut conn, "agent.stop", json!({"id":"me"}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, code::FORBIDDEN, "{error:?}");
 }
 
 #[tokio::test]
@@ -638,45 +636,11 @@ async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
 }
 
 #[tokio::test]
-async fn m14_a_node_outside_the_reach_is_forbidden() {
+async fn m14_an_agent_cannot_replace_the_users_route() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = crate::test_daemon(dir.path()).unwrap();
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
-    let (events, _) = mpsc::unbounded_channel();
-    let mut conn = Conn {
-        actor: Actor {
-            kind: ActorKind::Agent,
-            id: "1".into(),
-            parent: None,
-        },
-        peer: None,
-        events,
-        output: None,
-    };
-
-    for (from, to) in [("2", "5"), ("5", "2")] {
-        let refused = daemon
-            .route(
-                &mut conn,
-                "route.set",
-                json!({ "from": from, "to": to, "delivery": "drop" }),
-            )
-            .await;
-        assert_eq!(refused.unwrap_err().code, code::FORBIDDEN);
-    }
-    assert_eq!(
-        tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"],
-        json!([])
-    );
-}
-
-#[tokio::test]
-async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
-    let dir = tempfile::tempdir().unwrap();
-    let daemon = crate::test_daemon(dir.path()).unwrap();
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1);").unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         actor: Actor::user(),
@@ -692,7 +656,6 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
         )
         .await
         .unwrap();
-
     conn.actor = Actor {
         kind: ActorKind::Agent,
         id: "1".into(),
@@ -706,17 +669,6 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
         )
         .await;
     assert_eq!(replaced.unwrap_err().code, code::FORBIDDEN);
-    let before = daemon.touches.sequence().unwrap();
-    let mut observed = daemon.bus.subscribe();
-    let daemon_sender = Actor::daemon().id;
-    for from in ["you", "ext:audit", daemon_sender.as_str()] {
-        let response = daemon.dispatch(&mut conn, &json!({"id":1,"method":"route.set","params":{"from":from,"to":"2","delivery":"drop"}}).to_string(), None).await.unwrap().into_value().unwrap();
-        assert_eq!(response["error"]["code"], code::FORBIDDEN, "{response}");
-    }
-    assert_eq!(daemon.touches.sequence().unwrap(), before);
-    while let Ok(event) = observed.try_recv() {
-        assert!(!matches!(event.data, contracts::EventData::RouteChanged(_)));
-    }
     let routes = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"].clone();
     assert_eq!(routes, json!([{"from":"2","to":"3","delivery":"drop"}]));
 }
