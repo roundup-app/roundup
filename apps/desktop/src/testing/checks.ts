@@ -288,6 +288,11 @@ const d2 = (page: Page): Measure =>
       (el.style.paddingInlineStart === `calc(var(--space-2) + ${level - 1} * var(--tree-step))` || el.style.getPropertyValue("--todo-depth") === String(level - 1))
       ? (px(page.token("space-2") ?? "") ?? NaN) + (level - 1) * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
 
+    // U7637a: a Pad in an open fold carries its depth in --todo-depth, as a nested Todo does.
+    const padDepth = el instanceof HTMLElement && el.matches(".pad-inset[data-pad]") ? Number(el.style.getPropertyValue("--todo-depth") || 0) : 0;
+
+    const padPadding = padDepth > 0 ? (px(page.token("space-2") ?? "") ?? NaN) + padDepth * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
+
     const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
     const chip = el.matches("kbd.key-chip");
     const chipPadding = px(page.token("key-chip-padding") ?? "");
@@ -305,7 +310,7 @@ const d2 = (page: Page): Measure =>
       const keyGap = chip && (property === "column-gap" || property === "row-gap") && value === (px(page.token("space-1") ?? "") ?? NaN) / 4;
 
       const conforms = keyGap ? true : chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
-        : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && treePadding !== null && value === treePadding);
+        : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && (treePadding ?? padPadding) !== null && value === (treePadding ?? padPadding));
 
       if (!conforms && !(/^(margin|padding)-/.test(property) && vendorWins(page, el, property))) return { [property]: style.getPropertyValue(property) };
     }
@@ -765,8 +770,9 @@ const d12 = (page: Page): Measure => {
 
     const indent = (row: Element) => {
       const level = list === "pads" ? row.closest("[data-shelf-group]")?.getAttribute("aria-level") : row.getAttribute("aria-level");
+      const nested = list === "pads" && row instanceof HTMLElement ? Number(row.style.getPropertyValue("--todo-depth") || 0) : 0;
 
-      return (Number(level ?? 1) - 1) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0");
+      return (Number(level ?? 1) - 1 + nested) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0");
     };
 
     const glyphs = own.flatMap(({ row }) => {

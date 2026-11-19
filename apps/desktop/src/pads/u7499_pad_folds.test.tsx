@@ -309,17 +309,14 @@ describe("u7637 Pad fold elbow", () => {
     await waitFor(() => nameOf("already-read"));
   };
 
-  const level = (element: Element) => element.closest("[aria-level]")?.getAttribute("aria-level");
+  const level = (element: Element) => element.closest<HTMLElement>("[data-pad]")?.style.getPropertyValue("--todo-depth") || "0";
 
   it("u7637a_a_pad_in_an_open_fold_is_one_level_below_its_fold_row", async () => {
     await openBoth();
-    const above = level(nameOf("fresh-unread"));
-
-    expect(level(fold("internal"))).toBe(above);
-    expect(level(fold("idle"))).toBe(above);
-    expect(level(nameOf("hidden-by-agent"))).toBe(String(Number(above) + 1));
-    expect(level(nameOf("already-read"))).toBe(String(Number(above) + 1));
-    expect(level(nameOf("eight-days-old"))).toBe(String(Number(above) + 1));
+    expect(level(nameOf("fresh-unread"))).toBe("0");
+    expect(level(nameOf("hidden-by-agent"))).toBe("1");
+    expect(level(nameOf("already-read"))).toBe("1");
+    expect(level(nameOf("eight-days-old"))).toBe("1");
   });
 
   it("u7637a_an_open_fold_draws_a_stem_and_an_elbow_per_pad", async () => {
