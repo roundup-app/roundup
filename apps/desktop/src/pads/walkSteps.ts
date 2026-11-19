@@ -1,21 +1,36 @@
-import { lexer } from "marked";
+import { lexer, type Token } from "marked";
+import { copy } from "./copy";
 
 export type WalkStep = { title: string; text: string };
 
-/** PW1: a Pad's steps. Each top-level `#` heading with its text up to the next one is a step, the heading its `title` and the text under it its `text`; text before the first heading joins step 1; a Pad with none is one step named `name`. A heading in a fenced code block does not split, because `marked` reads it as code. */
+/** PW1: a Pad's steps. The section level is the shallowest heading level the Pad uses at least twice; each heading of that level with the text under it up to the next one is a step. One heading above that level at the very top is the Pad's title and makes no step, text before the first section is the step "Overview", and a Pad with no level used twice is one step named `name`. A heading in a fenced code block does not count, because `marked` reads it as code. */
 export const walkSteps = (text: string, name: string): WalkStep[] => {
+  const tokens = lexer(text);
+  const uses = new Map<number, number>();
+
+  for (const token of tokens) if (token.type === "heading") uses.set(token.depth, (uses.get(token.depth) ?? 0) + 1);
+
+  const level = [...uses].flatMap(([depth, count]) => count >= 2 ? [depth] : []).sort((a, b) => a - b)[0];
+
+  if (level === undefined) return [{ title: name, text }];
+
+  const first = tokens.findIndex(token => token.type !== "space");
+  const head = tokens[first];
+  const titled = head?.type === "heading" && head.depth < level;
   const steps: { title: string; raw: string }[] = [];
   let before = "";
 
-  for (const token of lexer(text)) {
+  tokens.forEach((token: Token, at) => {
     const last = steps.at(-1);
 
-    if (token.type === "heading" && token.depth === 1) steps.push({ title: token.text || name, raw: last ? "" : `${before.trimEnd()}\n\n` });
+    if (titled && at === first) return;
+
+    if (token.type === "heading" && token.depth === level) steps.push({ title: token.text || name, raw: "" });
     else if (last) last.raw += token.raw;
     else before += token.raw;
-  }
+  });
 
-  if (steps.length === 0) return [{ title: name, text }];
+  const overview = before.trim() === "" ? [] : [{ title: copy.walkOverview, text: before.trim() }];
 
-  return steps.map(step => ({ title: step.title, text: step.raw.trim() }));
+  return [...overview, ...steps.map(step => ({ title: step.title, text: step.raw.trim() }))];
 };
