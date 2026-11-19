@@ -501,7 +501,7 @@ async fn a7494a_a_nested_mode_is_refused_where_a_mode_may_not_nest() {
             .unwrap()
             .iter()
             .map(|n| {
-                ["id", "name", "parent", "role", "prompt"]
+                ["id", "name", "parent", "kind", "mode_prompt"]
                     .map(|field| n.get(field).cloned().unwrap_or(Value::Null))
             })
             .collect::<Vec<_>>()
