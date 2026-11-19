@@ -35,7 +35,7 @@ import {
   type DialogFinalFocus,
   type DialogInitialFocus,
 } from "@ui-sdk/solid/dialog";
-import { modalOutside, registerKeys } from "../keys/registry";
+import { modalOutside, modalOutsideTracked, registerKeys } from "../keys/registry";
 import "./Dialog.css";
 
 type Owner = {
@@ -64,13 +64,16 @@ export const createFloatingControl = (
   const [dismissed, setDismissed] = createSignal(false);
   const requested = () => props.open ?? local();
 
-  const blocked = () =>
+  const outside = (excluded: (owner: HTMLElement | undefined) => boolean) =>
     owner
-      ? owner.element() !== undefined && modalOutside(owner.element())
-      : modalOutside(element());
+      ? owner.element() !== undefined && excluded(owner.element())
+      : excluded(element());
+
+  // Every Tooltip reads `blocked`, so it shares the registry's memo; a click reads the layers as they stand.
+  const blocked = () => outside(modalOutsideTracked);
 
   const change = (details: { open: boolean }) => {
-    if (details.open && blocked()) return;
+    if (details.open && outside(modalOutside)) return;
     setDismissed(false);
     setLocal(details.open);
     props.onOpenChange?.(details);

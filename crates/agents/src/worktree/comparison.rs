@@ -3,7 +3,7 @@
 use std::io::Read;
 use std::path::Path;
 
-use contracts::agent::{ChangedFile, ChangedFiles, ChangedStatus};
+use contracts::agent::{ChangedFile, ChangedFiles, ChangedStatus, LineCounts};
 use rpc::{RpcError, code};
 
 use super::{Git, Worktree, WorktreeError, failed, invalid};
@@ -45,14 +45,15 @@ impl Git {
             .map_err(failed)?;
         // Git quotes unusual paths without -z, so each count record occupies one line even for a rename.
         // Counts also classify a pure binary rename, whose patch has no binary marker or hunk.
-        let mut binary = counts.lines().map(|row| row.starts_with("-\t-\t"));
+        let mut counts = counts.lines().map(numstat_row);
         // All outputs use the same ordered diff queue, one record per name-status entry.
         let mut sections = patch.split("\ndiff --git ").map(first_changed_line);
         let mut fields = names.split('\0').filter(|field| !field.is_empty());
         let mut files = Vec::new();
         while let Some(mut file) = changed_name(&mut fields) {
             let line = sections.next().flatten();
-            let is_binary = binary.next().unwrap_or(false);
+            file.counts = counts.next().flatten();
+            let is_binary = file.counts.is_none();
             file.line = if file.status == ChangedStatus::Deleted || is_binary {
                 None
             } else {
@@ -73,10 +74,12 @@ impl Git {
             )
             .map_err(failed)?;
         for path in untracked.split('\0').filter(|path| !path.is_empty()) {
+            let text = untracked_text(&dir.join(path));
             files.push(ChangedFile {
                 path: path.to_owned(),
                 status: ChangedStatus::Untracked,
-                line: untracked_line(&dir.join(path)),
+                line: text.is_some().then_some(1),
+                counts: text.map(|added| LineCounts { added, removed: 0 }),
                 from: None,
             });
         }
@@ -205,15 +208,29 @@ pub(super) fn first_changed_line(section: &str) -> Option<u32> {
     Some(start.parse::<u32>().ok()?.max(1))
 }
 
-/// 1 for a text file, `None` for a binary one (a NUL in its first 8000 bytes) or one that cannot be read.
-fn untracked_line(path: &Path) -> Option<u32> {
-    let mut head = Vec::new();
-    std::fs::File::open(path)
-        .ok()?
-        .take(8000)
-        .read_to_end(&mut head)
-        .ok()?;
-    (!head.contains(&0)).then_some(1)
+/// The line count of an untracked text file, `None` for a binary one (a NUL in its first 8000
+/// bytes, git's rule) or one that cannot be read. Streams the file; nothing of it is returned.
+fn untracked_text(path: &Path) -> Option<u32> {
+    let file = std::io::BufReader::new(std::fs::File::open(path).ok()?);
+    let (mut lines, mut last) = (0u32, b'\n');
+    for (at, byte) in file.bytes().enumerate() {
+        let byte = byte.ok()?;
+        if byte == 0 && at < 8000 {
+            return None;
+        }
+        lines += u32::from(byte == b'\n');
+        last = byte;
+    }
+    Some(lines + u32::from(last != b'\n'))
+}
+
+/// One `git diff --numstat` row's counts; `None` for a binary file (`-\t-\t`).
+pub(super) fn numstat_row(row: &str) -> Option<LineCounts> {
+    let mut parts = row.splitn(3, '\t');
+    Some(LineCounts {
+        added: parts.next()?.parse().ok()?,
+        removed: parts.next()?.parse().ok()?,
+    })
 }
 
 const CONTENT_LIMIT: u64 = 4 * 1024 * 1024;
@@ -312,6 +329,7 @@ fn changed_name<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<Change
         path,
         status,
         line: None,
+        counts: None,
         from,
     })
 }

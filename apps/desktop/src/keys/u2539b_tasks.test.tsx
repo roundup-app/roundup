@@ -237,7 +237,7 @@ it("u2539b_hiding_optional_views_preserves_original_drafts", async () => {
 it("u2539b_unknown_and_late_answers_never_supply_another_selection", async () => {
   const { connected, daemon } = await mount();
   let finish!: (value: { files: [] }) => void;
-  daemon.handlers["agent.changedFiles"] = ({ id }) => id === "a1" ? new Promise(resolve => { finish = resolve; }) : { files: [{ path: "current", status: "modified", line: 1 }] };
+  daemon.handlers["agent.changedFiles"] = ({ id }) => id === "a1" ? new Promise(resolve => { finish = resolve; }) : { files: [{ path: "current", status: "modified", line: 1, counts: null }] };
   connected().rail.select("a1");
   await waitFor(() => expect(daemon.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
   expect(document.querySelector(".worktree-control")).toBeNull();

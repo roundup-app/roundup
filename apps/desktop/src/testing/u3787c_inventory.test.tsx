@@ -99,7 +99,7 @@ it.each(shelf)("u3787c_each_list_selects_only_visible_rows Shelf navigation %s",
 });
 
 // Full App, rather than WorktreeControl alone: both production openings reach the shadow tree.
-const files = names.map((_, i) => ({ path: `${["alpha", "bravo", "charlie", "delta", "echo"][i]}.ts`, status: "modified" as const, line: i + 1 }));
+const files = names.map((_, i) => ({ path: `${["alpha", "bravo", "charlie", "delta", "echo"][i]}.ts`, status: "modified" as const, line: i + 1, counts: null }));
 
 const shadow = () => document.querySelector("file-tree-container")?.shadowRoot;
 

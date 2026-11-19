@@ -288,12 +288,15 @@ type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends Selector
   : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"] & { machine?: string | null }; result: { path: string } }
   : BeforeRpcMethods[K] };
 
+// U7610a adds `counts` to ChangedFile.
 // U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.
 // RO5 replaces the flat RailNode with a union discriminated on `kind`; its fields are pinned in the Daemon's tests.
 type WithGroups<T> = [T] extends [Before["agent/RailNode"]]
   ? ([Before["agent/RailNode"]] extends [T] ? import("./generated/agent/RailNode").RailNode : T)
   : [T] extends [Before["pad/Pad"]]
   ? ([Before["pad/Pad"]] extends [T] ? import("./generated/pad/Pad").Pad : T)
+  : [T] extends [Before["agent/ChangedFile"]]
+  ? ([Before["agent/ChangedFile"]] extends [T] ? import("./generated/agent/ChangedFile").ChangedFile : T)
   : [T] extends [Before["agent/NodeKind"]]
   ? ([Before["agent/NodeKind"]] extends [T] ? T | "group" : T)
   : T extends object ? { [K in keyof T]: WithGroups<T[K]> } : T;
