@@ -20,6 +20,7 @@ pub struct Pad {
     /// The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
     pub home: Option<String>,
     /// `internal` Pads fold on the Pads tab (P7499a); nothing else treats them differently.
+    #[serde(default)]
     pub visibility: RailVisibility,
 }
 

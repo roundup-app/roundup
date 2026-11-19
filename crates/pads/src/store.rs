@@ -277,7 +277,7 @@ fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
     })
 }
 
-fn visibility_text(visibility: RailVisibility) -> &'static str {
+pub(crate) fn visibility_text(visibility: RailVisibility) -> &'static str {
     match visibility {
         RailVisibility::Shown => "shown",
         RailVisibility::Internal => "internal",

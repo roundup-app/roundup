@@ -228,7 +228,7 @@ async fn mc22_the_two_lists_cover_tools_list() {
     let waits = scenario_tools("- **Waits**");
     let loud = scenario_tools("- **Fail loud**");
     assert_eq!(waits, ["message_send"]);
-    assert_eq!(loud.len(), 29, "{loud:?}");
+    assert_eq!(loud.len(), 30, "{loud:?}");
     assert!(waits.iter().all(|w| !loud.contains(w)));
     let (client, _child) = shim(dir.path(), &dir.path().join("none.sock"), true).await;
     let mut served: Vec<String> = client

@@ -89,7 +89,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "pad_create",
-        "start a Pad, a named text, for notes you want to keep. Your Pads start `internal`, folded away from the user; pass `visibility: \"shown\"` (or call `pad_setVisibility` later) when the user should read it, and link it from a Todo as usual. Name it for what the reader learns, in words, with any Issue or PR number after the words",
+        "start a Pad; yours start `internal`, so pass `visibility: \"shown\"` when the user should read it, and name it for what the reader learns",
     ),
     (
         "pad_setVisibility",
@@ -528,6 +528,7 @@ use `<details><summary>For Agents</summary>`, blank lines around its Markdown co
 On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. \
 A comment with `todo_comment` is the verdict in its one line; any Agent-only details go after it in the same closing `For Agents` section. \
 Facts the user needs to decide or act stay in the body, including a path or command needed for that action. \
+Name a Pad in words for what the reader learns, with any Issue or PR number after the words; a Pad shown to the user is linked from a Todo or a message. \
 Write the Pad for a reader who opened it from a link, and put each fact the user needs to decide or act in the message that points to the Pad as well: a Pad never carries it alone. \
 When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up. \
 Where you would send a Pad's sections one by one, give the Pad's walk link instead: its `link` with `pad` replaced by `walk` (`roundup://walk/<pad>?project=<key>`), never made up; one click plays the Pad as a walk, one step per top-level heading.
@@ -788,7 +789,7 @@ mod tests {
     fn p7499a_the_brief_names_the_default_and_how_to_show_a_pad() {
         let brief = text(Role::Door, true);
         for phrase in [
-            "Your Pads start `internal`",
+            "yours start `internal`",
             "pad_setVisibility",
             "when the user should read it",
             "what the reader learns",
