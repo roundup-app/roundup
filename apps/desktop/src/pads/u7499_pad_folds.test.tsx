@@ -300,3 +300,39 @@ describe("u7499 Pad folds", () => {
     expect(document.querySelector(".shelf-list > [data-pad='fresh-unread'], .shelf-list [data-pad='fresh-unread']")).not.toBeNull();
   });
 });
+
+describe("u7637 Pad fold elbow", () => {
+  const openBoth = async () => {
+    await open();
+    fireEvent.click(fold("internal"));
+    fireEvent.click(fold("idle"));
+    await waitFor(() => nameOf("already-read"));
+  };
+
+  const level = (element: Element) => element.closest("[aria-level]")?.getAttribute("aria-level");
+
+  it("u7637a_a_pad_in_an_open_fold_is_one_level_below_its_fold_row", async () => {
+    await openBoth();
+    const above = level(nameOf("fresh-unread"));
+
+    expect(level(fold("internal"))).toBe(above);
+    expect(level(fold("idle"))).toBe(above);
+    expect(level(nameOf("hidden-by-agent"))).toBe(String(Number(above) + 1));
+    expect(level(nameOf("already-read"))).toBe(String(Number(above) + 1));
+    expect(level(nameOf("eight-days-old"))).toBe(String(Number(above) + 1));
+  });
+
+  it("u7637a_an_open_fold_draws_a_stem_and_an_elbow_per_pad", async () => {
+    await open();
+    expect(document.querySelectorAll(".tree-stem, .tree-branch")).toHaveLength(0);
+    fireEvent.click(fold("idle"));
+    await waitFor(() => nameOf("already-read"));
+    expect(fold("idle").querySelectorAll(".tree-stem")).toHaveLength(1);
+    const branches = [...document.querySelectorAll<HTMLElement>(".tree-branch")];
+
+    expect(branches).toHaveLength(2);
+    expect(branches.map(branch => branch.dataset.last)).toEqual([undefined, "true"]);
+    fireEvent.click(fold("idle"));
+    await waitFor(() => expect(document.querySelectorAll(".tree-stem, .tree-branch")).toHaveLength(0));
+  });
+});
