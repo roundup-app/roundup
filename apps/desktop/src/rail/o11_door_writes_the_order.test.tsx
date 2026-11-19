@@ -1,6 +1,7 @@
 import { copy } from "./copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
 import { agent, door, USER, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
@@ -54,7 +55,7 @@ describe("o11 the Door writes the order for a prompt the user types", () => {
     const mounted = await mountRail([door("g", "idle", "idle")]);
 
     mounted.app.handlers["message.send"] = () => {
-      throw new Error("no such door");
+      throw new RpcError(-32602, "no such door");
     };
 
     mounted.rail.select("g");
