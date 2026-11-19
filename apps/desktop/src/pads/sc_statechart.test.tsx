@@ -250,6 +250,20 @@ describe("sc statechart block", () => {
     expect(requested).toBe(1);
   });
 
+  it("sc1_a_changed_block_renders_after_pad_changed", async () => {
+    const { app, state } = await openShelf([padOf("note", AGENT, "plain")]);
+
+    await openPad("note");
+    expect(document.querySelector(".statechart-box")).toBeNull();
+
+    must(state.pads[0]).text = `plain\n\n\`\`\`statechart\n${JSON.stringify(chart)}\n\`\`\`\n`;
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "note" } });
+
+    await waitFor(() => expect(document.querySelector(".statechart-box")).not.toBeNull());
+    fireEvent.click(must(named("you type")));
+    expect(must(actors.at(-1)).getSnapshot().value).toBe("b");
+  });
+
   it("sc1_stepping_writes_nothing_and_keeps_the_source", async () => {
     await show(chart);
     fireEvent.click(must(named("you type")));
