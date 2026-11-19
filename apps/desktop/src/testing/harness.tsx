@@ -212,7 +212,9 @@ if (query.get("daemon") === "1") {
   }
 
   // U7499b: an empty read record lists the seed's Pads above the folds; only a Project with no record counts them read.
-  await padReadStorage(controls.app.opened.project!.path).write({});
+  const opened = controls.app.opened.project;
+
+  if (opened) await padReadStorage(opened.path).write({});
 
   window.__fake = controls;
   mount(controls.app);
