@@ -63,6 +63,8 @@ const schema = storageSchema("roundup:app-settings", v.object({
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
   // U7157c: the questions the user chose not to be asked again; an entry that is not a known key is dropped.
   suppressed: v.fallback(v.pipe(v.array(v.unknown()), v.transform(keys => questionKeys.filter(key => keys.includes(key)))), []),
+  // U7650a: whether a fixed tooltip never opens, opens once per icon, or opens every time.
+  iconNames: v.fallback(v.picklist(["hide", "once", "always"]), "once"),
   // U7489a: how many times each icon's fixed tooltip has opened, by icon name.
   tipShows: v.fallback(v.record(v.string(), v.pipe(v.number(), v.integer(), v.minValue(0))), {}),
   stateAlerts: v.fallback(

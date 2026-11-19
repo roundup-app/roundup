@@ -1,11 +1,15 @@
 import { fakeEmulators } from "../terminal/paneHarness";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { copy } from "./copy";
+import { saveAppSettings } from "../settings/preferences";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "./railFixture";
+
+// U7650a: each name opens twice here (hover, then focus), so every name shows.
+beforeEach(async () => { await saveAppSettings({ iconNames: "always" }); });
 
 afterEach(() => {
   cleanup();

@@ -3,7 +3,7 @@ import { parse } from "@babel/parser";
 import { traverseFast, isJSXElement } from "@babel/types";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { flush } from "solid-js";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
 import { CHORDS, ariaChord, type ChordName } from "../keys/chords";
 import { saveAppSettings } from "../settings/preferences";
@@ -21,6 +21,9 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 
 afterEach(cleanup);
+
+// U7650a: these tests open a name more than once, so every name shows.
+beforeEach(async () => { await saveAppSettings({ iconNames: "always" }); });
 
 // u474_icon_button_requires_a_name: tsc checks both sides without mounting invalid UI.
 const u474_icon_button_requires_a_name = () => {
