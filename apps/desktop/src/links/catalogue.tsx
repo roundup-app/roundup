@@ -84,7 +84,9 @@ export const inlineFor = (width: number, total: number): number => {
 /** LH8, LH9: the icons of a spec through `@json-render/solid`, six inline and a `+N` count that reveals the rest. */
 export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
   const [open, setOpen] = createSignal(false);
-  const [header, setHeader] = createSignal<HTMLElement>();
+  const [trigger, setTrigger] = createSignal<HTMLElement>();
+  // The ref runs before the trigger is in the DOM, so the header is found when the anchor is read.
+  const headerBox = { getBoundingClientRect: () => (trigger()?.closest(".links-header") ?? trigger())?.getBoundingClientRect() ?? new DOMRect() };
 
   type Icon = Component<{ size?: number; "aria-hidden"?: "true" }>;
 
@@ -105,9 +107,9 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       more: ctx => (
         <Popover.Root open={ctx.props.open} onOpenChange={({ open: next }) => setOpen(next)}>
           <Popover.Trigger render={trigger => (
-            <button {...trigger} ref={element => setHeader(element.closest<HTMLElement>(".links-header") ?? element)} type="button" class="links-count word" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</button>
+            <button {...trigger} ref={setTrigger} type="button" class="links-count word" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</button>
           )} />
-          <Popover.Content anchor={header() ?? null} side="left" align="center" sideOffset={0} class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
+          <Popover.Content anchor={headerBox} side="left" align="center" sideOffset={0} class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
         </Popover.Root>
       ),
     },

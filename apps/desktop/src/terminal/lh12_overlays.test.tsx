@@ -66,8 +66,17 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
 
   const entries = Array.from({ length: 6 }, (_, n) => ({ kind: "asked" as const, url: `https://example.test/${n}`, tooltip: `asked ${n}` }));
 
-  render(() => <LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {} }} shown={0} />);
-  fireEvent.click(screen.getByRole("button", { name: copy.moreName(8) }));
+  render(() => <div class="links-header"><LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {} }} shown={0} /></div>);
+  const count = screen.getByRole("button", { name: copy.moreName(8) });
+  const header = count.closest<HTMLElement>(".links-header");
+  const box = (left: number, width: number) => new DOMRect(left, 38, width, 32);
+
+  // The header is 200 px wide and the count 30: the reveal is placed against the header, so the popup reports the header's width.
+  if (!header) throw new Error("no header");
+
+  header.getBoundingClientRect = () => box(100, 200);
+  count.getBoundingClientRect = () => box(270, 30);
+  fireEvent.click(count);
 
   // The reveal opens left of the header on its row, so it covers neither the header's icons nor a row of text.
   const popover = await waitFor(() => {
@@ -80,4 +89,5 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
 
   expect(popover.getAttribute("data-side")).toBe("left");
   expect(popover.querySelectorAll("button").length).toBe(8);
+  await waitFor(() => expect(popover.style.getPropertyValue("--anchor-width")).toBe("200px"));
 });
