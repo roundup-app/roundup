@@ -268,6 +268,63 @@ async fn u4547e_reparenting_survives_reopen() {
     }
 }
 
+/// A12a: a reopen publishes no `working` or `idle` the program did not cause, and the reattached
+/// Agent's finish count stays put.
+#[tokio::test]
+async fn a12a_a_reopen_keeps_the_status_and_the_finish_count() {
+    // The launch log makes the fake program play SessionStart and idle, as the vendor does.
+    let logs = tempfile::tempdir().unwrap();
+    let launches = logs.path().join("launches");
+    let fake = [
+        (daemon::CORE_PERSIST, ""),
+        ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
+    ];
+    let mut project = daemon::start(&fake);
+    let c = project.client().await;
+    let mut events = project.subscribed().await;
+    let agent = project.spawn_agent(&c).await;
+    wait_until_idle(
+        &mut events,
+        std::slice::from_ref(&agent.id),
+        std::time::Instant::now() + Duration::from_secs(30),
+    )
+    .await
+    .unwrap();
+    let before = rail_tree(&c).await;
+    let was = before
+        .iter()
+        .find(|n| n.id == agent.id)
+        .unwrap()
+        .status()
+        .unwrap();
+    assert_eq!(was.kind, Kind::Idle);
+    drop(c);
+    project.restart(&fake);
+    let c = project.client().await;
+    let mut events = project.subscribed().await;
+    let after = rail_tree(&c).await;
+    let now = after
+        .iter()
+        .find(|n| n.id == agent.id)
+        .unwrap()
+        .status()
+        .unwrap();
+    assert_eq!(now.kind, Kind::Idle, "first Status is the Run's own");
+    assert_eq!(now.finished, was.finished);
+    // The program's retained title is read in its own time; give it room to speak.
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    while let Ok(Some(event)) =
+        tokio::time::timeout(Duration::from_millis(200), events.next_event()).await
+    {
+        if let EventData::AgentStatus(status) = event.data
+            && status.id == agent.id
+        {
+            assert_eq!(status.status.kind, Kind::Idle, "no working after reopen");
+            assert_eq!(status.status.finished, was.finished);
+        }
+    }
+}
+
 /// D1/D5/S3, A12a: App exit stops independently owned programs, including recovered ones.
 #[tokio::test]
 async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
