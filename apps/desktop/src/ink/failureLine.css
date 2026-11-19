@@ -83,6 +83,7 @@
   font-family: var(--font-mono);
   overflow-wrap: normal;
   overflow-x: auto;
+  overscroll-behavior: contain;
   white-space: normal;
   -webkit-user-select: text;
   user-select: text;
