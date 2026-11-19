@@ -247,7 +247,7 @@ describe("u7499 Pad folds", () => {
     fireEvent.input(field, { target: { value: "mine" } });
     fireEvent.keyDown(field, { key: "Enter" });
     await waitFor(() => expect(state.pads.some(each => each.name === "mine")).toBe(true));
-    app.emit({ actor: { kind: "user" }, name: "pad.changed", data: { name: "mine" } });
+    app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "pad.changed", data: { name: "mine" } });
     // Read at its creation: it folds as idle beside `a` instead of listing above the folds as new.
     await waitFor(() => expect(count(fold("idle"))).toBe(2));
     expect(rows()).toEqual([]);
