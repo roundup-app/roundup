@@ -43,8 +43,8 @@ export const showScrollbars = (element: HTMLElement): void => {
 /** Z3742a/U7543b: the library's own in-host mode wraps a host's children in a viewport element. Solid
  * inserts later children straight into the host, outside that wrapper (probed: after wrapping, a
  * second render put its nodes beside the viewport, so they never scrolled), so every Solid-owned
- * host keeps the host itself as the viewport and its bars in an external slot. The slot is the
- * host's next sibling, absolutely placed from the host's rect measured against the slot's own containing block (a
+ * host keeps the host itself as the viewport and its bars in an external slot. The slot joins the
+ * host's parent, absolutely placed from the host's rect measured against the slot's own containing block (a
  * fixed dialog host has no offsetParent), which scrolls with every ancestor, so the bar never
  * leaves its edge and nothing re-places it on scroll. The library owns visibility, drag, geometry
  * and its idle delay. See #3742/#4094. */
@@ -117,7 +117,7 @@ export const trackScrollbars = (doc: Document): void => {
 
       slot.className = "scrollbar-slot";
       slot.setAttribute("aria-hidden", "true");
-      element.after(slot);
+      element.parentNode?.appendChild(slot);
 
       const bars = OverlayScrollbars({ target: element, elements: { viewport: element }, scrollbars: { slot } }, {
         overflow: { x: x ? "scroll" : "hidden", y: y ? "scroll" : "hidden" },

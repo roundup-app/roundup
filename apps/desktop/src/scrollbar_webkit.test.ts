@@ -18,47 +18,35 @@ afterAll(async () => {
   await server?.close();
 });
 
-/** Every drawn scroll area that overflows in the current view, by the library's own host marker. */
-const overflowing = (page: Page) => page.evaluate(() => {
-  const marks: string[] = [];
+/** Marks a named area and the one bar slot beside it, and gives the area scrolling room when its seeded content fits. */
+const prepare = (page: Page, selector: string, mark: number) => page.evaluate(({ selector, mark }) => {
+  const area = document.querySelector<HTMLElement>(selector);
+  const [slot, ...others] = [...(area?.parentElement?.children ?? [])].filter((child) => child.classList.contains("scrollbar-slot"));
 
-  document.querySelectorAll<HTMLElement>("*").forEach((element) => {
-    const slot = element.nextElementSibling;
+  // Each named area is the only scroll host among its siblings, so the one slot beside it holds its bars.
+  if (!area || !slot || others.length > 0) return false;
 
-    if (!(slot instanceof HTMLElement) || !slot.classList.contains("scrollbar-slot") || slot.hidden) return;
+  area.setAttribute("data-u7543", String(mark));
+  slot.setAttribute("data-u7543-slot", String(mark));
 
-    if (element.clientHeight < 60 || element.checkVisibility() === false) return;
+  // A seeded view rarely overflows every area; give this one scrolling room so the same clauses read on all of them.
+  if (area.scrollHeight - area.clientHeight < 40) area.insertAdjacentHTML("beforeend", `<div aria-hidden="true" style="height:${area.clientHeight * 3}px;flex:none"></div>`);
 
-    // A seeded view rarely overflows every area; give each one scrolling room so the same clauses read on all of them.
-    if (element.scrollHeight - element.clientHeight < 40) element.insertAdjacentHTML("beforeend", `<div aria-hidden="true" style="height:${element.clientHeight * 3}px;flex:none"></div>`);
+  return true;
+}, { selector, mark });
 
-    // The library lets an area scroll only after it measures the room; an overflow:hidden area is scrolled by code, never by the wheel or a drag.
-    if (!/auto|scroll/.test(getComputedStyle(element).overflowY)) return;
+/** What a failure message needs to tell an engine miss from a test miss: the area's overflow and its slot. */
+const state = (page: Page, selector: string) => page.evaluate((selector) => {
+  const area = document.querySelector<HTMLElement>(selector);
 
-    // Only an area the user can reach: its centre hits itself or its own content.
-    const box = element.getBoundingClientRect();
-    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+  if (!area) return "not drawn";
 
-    if (!hit || !element.contains(hit) || box.bottom > innerHeight || box.top < 0) return;
+  const slots = [...(area.parentElement?.children ?? [])].filter((child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains("scrollbar-slot"));
 
-    // The wheel scrolls the innermost scroller under the pointer, so an area whose centre sits in a scrolling child is that child's to prove.
-    let inner: Element | null = hit;
+  return `overflowY ${getComputedStyle(area).overflowY}, scroll ${area.scrollHeight}/${area.clientHeight}, slots ${slots.map((slot) => `hidden=${slot.hidden} ${slot.getAttribute("style")}`).join(" | ") || "none"}`;
+}, selector);
 
-    while (inner && inner !== element && !(/auto|scroll/.test(getComputedStyle(inner).overflowY) && inner.scrollHeight > inner.clientHeight)) inner = inner.parentElement;
-
-    if (inner !== element) return;
-
-    // A host nested inside also took filler, and which of the two takes the wheel then depends on the engine: the inner one is proved by its own pass.
-    if ([...element.querySelectorAll(".scrollbar-slot")].some((slot) => slot.previousElementSibling instanceof HTMLElement && slot.previousElementSibling.clientHeight >= 60 && slot.previousElementSibling.checkVisibility())) return;
-
-    element.setAttribute("data-u7543", String(marks.length));
-    marks.push(element.className || element.tagName);
-  });
-
-  return marks;
-});
-
-const thumbOf = (mark: number) => `[data-u7543="${mark}"] ~ .scrollbar-slot .os-scrollbar-vertical .os-scrollbar-handle`;
+const thumbOf = (mark: number) => `[data-u7543-slot="${mark}"] .os-scrollbar-vertical .os-scrollbar-handle`;
 
 /** U7543a for one area: wheel it, read the thumb while it shows, then drag it. */
 const check = async (page: Page, mark: number, name: string) => {
@@ -123,14 +111,11 @@ const check = async (page: Page, mark: number, name: string) => {
   expect(dragged.top, `${name}: dragging the thumb down did not scroll down`).toBeGreaterThan(wheeled.top);
 };
 
-/** U7543a's areas the seeded scenes must each reach: a missing one fails, so a skipped area cannot pass. The Rail hides its own bar (U3530b), so it has none to prove. */
-const REQUIRED = ["shelf-area", "todo-detail", "pad-editor", "settings-content", "changes-body"];
-
 const longText = Array.from({ length: 60 }, (_, line) => `Line ${line} of a document that overflows its area.`).join("\n\n");
 
-/** Each scene is a seeded harness page and the steps that open the views U7543a names, so their hosts hold overflowing content. */
-const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
-  { query: "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40" },
+/** Each scene is a seeded harness page, the steps that open the views U7543a names, and the scroll areas it must prove: a missing one fails, so a skipped area cannot pass. The Rail hides its own bar (U3530b), so it has none to prove. */
+const SCENES: { query: string; open?: (page: Page) => Promise<void>; areas: string[] }[] = [
+  { query: "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", areas: [".ask-bar", ".shelf-area"] },
   {
     query: "/harness.html?seed=tree-40",
     open: async (page) => {
@@ -153,6 +138,7 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
       await page.keyboard.press("Enter");
       await page.waitForSelector(".todo-detail-title");
     },
+    areas: [".todo-detail"],
   },
   {
     query: "/harness.html?seed=tree-40",
@@ -163,6 +149,7 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
       await page.keyboard.press("Enter");
       await page.waitForSelector(".pad-editor");
     },
+    areas: [".pad-editor", ".shelf-area"],
   },
   {
     query: "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40",
@@ -170,6 +157,7 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
       await page.evaluate(() => window.dispatchEvent(new Event("open-app-settings")));
       await page.waitForSelector(".settings-view");
     },
+    areas: [".settings-content"],
   },
   {
     query: "/src/changes/u2540.html?dense",
@@ -181,40 +169,48 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
       });
       await page.click(".changes-icon");
       await page.waitForSelector(".changes-files li");
-      // This page mounts the App without main.tsx, so start the scrollbars it would have started.
-      await page.evaluate('import("/src/scrollHover.ts").then((scrollHover) => scrollHover.trackScrollbars(document))');
+      // This page mounts the App without main.tsx, so load the sheets and start the scrollbars it would have.
+      await page.evaluate('Promise.all([import("/src/sheets.ts"), import("/src/scrollHover.ts")]).then(([, scrollHover]) => scrollHover.trackScrollbars(document))');
     },
+    areas: [".changes-body"],
   },
 ];
 
-// U7543a: in every scroll area of each scene, the thumb stays on the area's edge, follows the wheel and drags the area.
+// U7543a: in every named scroll area of each scene, the thumb stays on the area's edge, follows the wheel and drags the area.
 it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async () => {
   const page = await engine.newPage({ viewport: { width: 1512, height: 950 }, colorScheme: "dark" });
-  const reached = new Set<string>();
+  const failures: string[] = [];
+  let count = 0;
 
   try {
-    for (const [scene, { query, open }] of SCENES.entries()) {
+    for (const [scene, { query, open, areas }] of SCENES.entries()) {
       await page.goto(new URL(query, server.resolvedUrls.local[0]).href);
       await page.waitForSelector(".rail-row");
       await page.waitForTimeout(1000);
       await open?.(page);
-      await page.waitForTimeout(1000);
 
-      // The first pass gives every area its room; the library measures it, and the second reads which areas then scroll.
-      await overflowing(page);
-      await page.waitForTimeout(500);
+      // Every area is checked and its failure kept, so one run names every area whose bar fails.
+      for (const selector of areas) {
+        const name = `scene ${scene} ${selector}`;
 
-      const marks = await overflowing(page);
+        count += 1;
+        const mark = count;
 
-      console.log("MARKS", scene, JSON.stringify(marks));
+        try {
+          await expect.poll(() => prepare(page, selector, mark), { message: `${name}: drawn with one bar slot beside it`, timeout: 10_000, interval: 200 }).toBe(true);
+          // The library lets an area scroll only after it measures the room; an overflow:hidden area is scrolled by code, never by the wheel or a drag.
+          await page.waitForFunction((selector) => {
+            const area = document.querySelector<HTMLElement>(selector);
 
-      for (const [index, name] of marks.entries()) {
-        await check(page, index, `scene ${scene} ${name}`);
-
-        for (const token of name.split(/\s+/)) reached.add(token);
+            return area !== null && /auto|scroll/.test(getComputedStyle(area).overflowY) && area.scrollHeight - area.clientHeight >= 40;
+          }, selector, { timeout: 10_000 });
+          await check(page, mark, name);
+        } catch (error) {
+          failures.push(`${name}: ${String(error instanceof Error ? error.message : error).split("\n")[0]} (${await state(page, selector)})`);
+        }
       }
     }
 
-    expect(REQUIRED.filter((area) => !reached.has(area)), "U7543a areas the test never reached").toEqual([]);
+    expect(failures, "U7543a areas whose bar failed").toEqual([]);
   } finally { await page.close(); }
 }, 180_000);
