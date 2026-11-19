@@ -81,7 +81,7 @@
 	},
 	"machine": {
 		"id": "check",
-		"version": "1",
+		"version": "2",
 		"initial": "building",
 		"states": {
 			"building": {
@@ -146,6 +146,44 @@
 			"reviewing": {
 				"invoke": {
 					"src": "review",
+					"onError": [
+						{
+							"target": "stuck"
+						}
+					]
+				},
+				"on": {
+					"approve": [
+						{
+							"target": "critiquing",
+							"guard": {
+								"type": "touches",
+								"params": {
+									"paths": [
+										"apps/desktop/src/**"
+									]
+								}
+							}
+						},
+						{
+							"target": "merging"
+						}
+					],
+					"request-changes": [
+						{
+							"target": "fixing"
+						}
+					],
+					"needs-owner": [
+						{
+							"target": "owner-review"
+						}
+					]
+				}
+			},
+			"critiquing": {
+				"invoke": {
+					"src": "critic",
 					"onError": [
 						{
 							"target": "stuck"

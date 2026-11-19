@@ -14,15 +14,3 @@ Request changes only for a real defect, each finding citing a file and line in t
 - an action that changes or deletes items the user did not choose, or a destructive action that skips its confirmation.
 
 Reproduce each finding on an ordinary path: the scenario's actions in order, with the App and Daemon answering normally. A finding that needs an injected failure, a held reply, a second writer or a component removed mid-edit, or that concerns a case the scenarios do not name, goes in an approve as a note. So do wording and taste.
-
-When the diff touches `apps/desktop/src`, also judge it as the design critic, against the owner's taste. Request changes for a clear break, naming the line it breaks:
-
-- an outline or box around a control or tab, except each group of Settings rows in one rounded inset box;
-- a hover background: hover changes only text or icon colour;
-- a radius anywhere but a floating panel (the bubble, menus, popovers) or a Settings row group;
-- a floating panel that is see-through or has no shadow;
-- a selected, focused or dragged row that differs from a plain row by more than one cue: one text colour or one selected ground;
-- an action placed among a row's state rather than at its trailing edge;
-- cut or garbled text, an unreachable control, or a screen-reader fault.
-
-Spacing, opacity steps, line-height and insets are notes, never a reason to request changes.

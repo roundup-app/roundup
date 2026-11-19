@@ -170,6 +170,15 @@
 			"skills": [
 				"hope:judge"
 			]
+		},
+		"critic": {
+			"file": "roles/critic.md",
+			"purpose": "review",
+			"skills": [
+				"hope:judge",
+				"taste-skill",
+				"review-animations"
+			]
 		}
 	},
 	"events": {
@@ -261,5 +270,17 @@
 	"commitIdentity": {
 		"name": "Saad Shahd",
 		"email": "dev.saad.shahd@gmail.com"
+	},
+	"alwaysPullRequest": true,
+	"defaultKind": "feature",
+	"undeclaredRunsAlone": false,
+	"conflictRebuilds": 1,
+	"reviewReads": {
+		"paths": [
+			"AGENTS.md",
+			"PRINCIPLES.md",
+			"GLOSSARY.md"
+		],
+		"maxBytes": 160000
 	}
 }
