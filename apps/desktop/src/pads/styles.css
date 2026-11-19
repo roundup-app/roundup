@@ -531,7 +531,7 @@ li[aria-selected="true"] svg {
 }
 
 .statechart-box.is-lit {
-  background: linear-gradient(var(--selected), var(--selected)), var(--gray-3);
+  background-image: linear-gradient(var(--selected), var(--selected));
 }
 
 .statechart-box.is-red {
