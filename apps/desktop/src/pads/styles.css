@@ -499,6 +499,12 @@ li[aria-selected="true"] svg {
   overscroll-behavior: contain;
 }
 
+.statechart-chart .visual-error {
+  margin: 0;
+  white-space: normal;
+  font-size: var(--text-small);
+}
+
 .statechart-canvas {
   position: relative;
 }
