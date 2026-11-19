@@ -38,6 +38,12 @@ export type RailTopology = ReturnType<typeof railTopology>;
 
 export const isWorkstream = (node: RailNode): boolean => node.kind === "workstream";
 
+/** U4547a, A7494a: a Mode is an Agent holding a nonblank Mode prompt, at the root or under its starter. */
+export const isMode = (node: RailNode): boolean => node.kind === "agent" && !!node.mode_prompt?.trim();
+
+/** U7594a: the rows whose fold arrow hides their children. */
+export const isFoldable = (node: RailNode): boolean => isWorkstream(node) || node.kind === "group" || isMode(node);
+
 /** U6119: an Agent whose parent is a Workstream is the Door's to handle, so it draws no unseen marker of its own. */
 export const isWorkstreamChild = (nodes: readonly RailNode[], node: RailNode): boolean =>
   node.kind === "agent" && node.parent !== null && nodes.some((each) => each.id === node.parent && isWorkstream(each));
