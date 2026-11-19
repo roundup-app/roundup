@@ -249,7 +249,6 @@ export const EditableText = (props: {
   const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void, yieldFocus?: () => void) => {
     const focus = captureFocus();
     queueMicrotask(() => { if (alive && !focus(focusField)) yieldFocus?.(); });
-    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure });
 
     const retain = (selectionChanged = false) => {
       const selected = selection();
@@ -261,6 +260,8 @@ export const EditableText = (props: {
 
       return kept;
     };
+
+    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure });
 
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
