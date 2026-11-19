@@ -35,6 +35,9 @@ impl Agents {
         ctx: &Ctx,
         p: contracts::agent::SetAlertLevelParams,
     ) -> Result<(), RpcError> {
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden("an Extension may not set alert levels"));
+        }
         let choice: contracts::agent::SetAlertLevelParams = p;
         if Path::new(&choice.project) != self.project_dir() {
             return Err(RpcError::forbidden(

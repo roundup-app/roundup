@@ -4,6 +4,9 @@ use contracts::workstream::AutoParams;
 
 impl Agents {
     pub(super) fn set_auto(&self, ctx: &Ctx, choice: AutoParams) -> Result<(), RpcError> {
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden("an Extension may not change Auto"));
+        }
         let mut rail = self.shared.rail();
         let node = rail.node(crate::rail::agent_id(&choice.id)?)?;
         if node.kind() != NodeKind::Workstream {

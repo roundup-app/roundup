@@ -211,7 +211,7 @@ async fn a4452c_failed_recording_retries_without_another_physical_write() {
 }
 
 #[tokio::test]
-async fn a4452c_agent_cannot_restart_or_edit_the_mode_prompt() {
+async fn a4452c_agent_cannot_restart_a_mode() {
     let run = mode("User's saved text").await;
     let agent = rpc::Client::connect(&run.daemon.socket).await.unwrap();
     agent
@@ -225,10 +225,6 @@ async fn a4452c_agent_cannot_restart_or_edit_the_mode_prompt() {
         (
             "agent.restartMode",
             json!({"id":run.child,"request":"agent-1"}),
-        ),
-        (
-            "agent.setModePrompt",
-            json!({"id":run.child,"prompt":"Agent text"}),
         ),
     ] {
         let error = agent.request(method, params).await.unwrap_err();
@@ -584,40 +580,6 @@ async fn a7494a_move_still_refuses_to_nest_a_mode() {
         assert!(refused.is_err(), "{id} under {parent}");
     }
     assert_eq!(row(&run, &run.child).await["parent"], starter);
-}
-
-#[tokio::test]
-async fn a7494a_only_the_user_edits_a_nested_modes_prompt() {
-    let mut run = mode("Planner words").await;
-    let (starter, agent) = nested(&mut run, "User's saved text").await;
-    for caller in [&agent, &{
-        let me = rpc::Client::connect(&run.daemon.socket).await.unwrap();
-        me.request(
-            "daemon.identify",
-            json!({"actor":{"kind":"agent","id":run.child,"parent":starter}}),
-        )
-        .await
-        .unwrap();
-        me
-    }] {
-        let error = caller
-            .request(
-                "agent.setModePrompt",
-                json!({"id":run.child,"prompt":"Agent text"}),
-            )
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::FORBIDDEN, "{error}");
-    }
-    assert_eq!(
-        row(&run, &run.child).await["mode_prompt"],
-        "User's saved text"
-    );
-    // The starter's Reach covers it: it can stop its nested Mode.
-    agent
-        .request("agent.stop", json!({"id":run.child}))
-        .await
-        .unwrap();
 }
 
 #[tokio::test]

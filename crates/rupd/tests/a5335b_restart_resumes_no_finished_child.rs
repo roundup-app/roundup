@@ -1,5 +1,5 @@
-//! A5335b through a real Daemon: after a restart an Agent's resume of a child with no run is
-//! `CONFLICT`, so no Attempt starts for a finished child.
+//! A5335b through a real Daemon: after a restart no Terminal starts for a finished child (AP1: only
+//! an Agent's call resumes it).
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -44,7 +44,7 @@ fn a5335b_a_restart_resumes_no_finished_child() {
         .build()
         .unwrap();
     let daemon = start();
-    let (door, child) = runtime.block_on(async {
+    let (_door, child) = runtime.block_on(async {
         let user = Client::connect(&daemon.socket).await.unwrap();
         let door = user
             .request(
@@ -72,21 +72,14 @@ fn a5335b_a_restart_resumes_no_finished_child() {
 
     let daemon = start();
     runtime.block_on(async {
-        let agent = Client::connect(&daemon.socket).await.unwrap();
-        agent
-            .request(
-                "daemon.identify",
-                json!({"actor":{"kind":"agent","id":door,"parent":null}}),
-            )
-            .await
+        let user = Client::connect(&daemon.socket).await.unwrap();
+        let tree = user.request("rail.tree", ()).await.unwrap();
+        let node = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == child)
             .unwrap();
-        let refused = agent
-            .request("agent.resume", json!({"id":child}))
-            .await
-            .unwrap_err();
-        assert!(
-            refused.to_string().contains("only the user resumes it"),
-            "{refused}"
-        );
+        assert!(node["terminal_id"].is_null(), "{node}");
     });
 }

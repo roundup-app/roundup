@@ -221,7 +221,7 @@ async fn u5501_non_user_calls_cannot_change_any_level() {
     }
     let before = levels(&c).await;
     let head = c.request("events.subscribe", Value::Null).await.unwrap();
-    for kind in [ActorKind::Agent, ActorKind::Ext] {
+    for kind in [ActorKind::Ext] {
         let non_user = p.client().await;
         non_user
             .request(
