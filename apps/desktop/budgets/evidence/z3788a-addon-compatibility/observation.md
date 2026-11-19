@@ -1,23 +1,49 @@
-# Z3788a addon compatibility before adoption
+# Z3788a addon compatibility on the 2026-11-16 xterm.js beta build
 
-All four requested addons coexist with patched xterm 6.0.0, patched Fit 0.11.0 and WebGL 0.19.0 in isolated headless Chromium. The probe passes 40 checks with DOM, WebGL and an actual WebGL context loss followed by DOM fallback. This completes a pre-adoption compatibility investigation; it does not deliver the App features. Keep #3853 open.
+Observed 2026-11-19 for Issue #7542, on the xterm build PR #7541 put on main. All four requested addons coexist with patched xterm 6.1.0-beta.338, patched Fit 0.12.0-beta.334, patched Image 0.10.0-beta.333 and WebGL 0.20.0-beta.331 in isolated headless Chromium 147 on macOS. The probe is unchanged from the October run (`probeHash` in `environment.json` is equal) and passes 40 of 40 checks with DOM, WebGL and an actual WebGL context loss followed by DOM fallback. A second fresh install and fresh profile also pass 40 of 40. Of the 40 result rows, 38 equal the October rows on xterm 6.0.0; the other two differ only in the user agent and the early DOM FIFO samples. The nine `@xterm/*` packages come from one xterm.js build (`c9cc4785d24c9fad658627d5a458350d0baf3f1d`, npm `beta` dist-tag, published 2026-11-16). This is an upgrade-compatibility record: it adds no App feature and changes no Terminal behaviour.
 
 | Capability | Observed |
 | --- | --- |
-| Search 0.16.0 | Two `needle` occurrences among 100 numbered lines; next/previous select distinct original rows, missing query fails, no input emitted. |
-| Serialize 0.14.0 | Exact retained buffer strings and cursor restored into a fresh emulator at the same 80×24 grid, including wrapped Unicode and red text; later output occurs once. |
-| Clipboard 0.2.0 | One exact Unicode provider write. Provider catches a rejected write and parsing continues. A read query returns an empty OSC reply; the native-read sentinel is never called and its secret is absent. |
-| Image 0.9.0 | SIXEL 24×12 and IIP PNG 32×16 decode through the real addon. Output and input continue after resize, scroll and renderer loss. |
+| Search 0.17.0-beta.332 | Two `needle` occurrences among 100 numbered lines; next/previous select distinct original rows (buffer rows 4 and 94), missing query fails, no input emitted. |
+| Serialize 0.15.0-beta.332 | Exact retained buffer strings and cursor restored into a fresh emulator at the same 80×24 grid (1336 serialized bytes), including wrapped Unicode and red text; later output occurs once. |
+| Clipboard 0.3.0-beta.336 | One exact Unicode provider write. Provider catches a rejected write and parsing continues. A read query returns an empty OSC reply; the native-read sentinel is never called and its secret is absent. |
+| Image 0.10.0-beta.333 | SIXEL 24×12 and IIP PNG 32×16 decode through the real addon. Output and input continue after resize, scroll and renderer loss. |
 | Explicit image cache cap | 1 MB, 262144 pixels/image, 1 MiB protocol limits, size reports disabled. Twelve 256×256 PNG images saturate the FIFO at 0.786432 MB; every recorded usage stays below 1 MB. Disposing each Terminal clears addon storage. |
-| Repository patches | Both xterm CSS and Fit patches applied to isolated npm packages. Public Fit dimensions remain available. Runtime dependencies are unchanged. |
+| Repository patches | The xterm (CSS and `xterm.mjs`), Fit and Image patches apply to isolated npm packages with `patch -p1`, exit 0, no rejects. The patched files are byte-identical by sha256 to those in `apps/desktop/node_modules/@xterm/*` (`installedHashesMatchApp`). Public Fit dimensions remain available (110×30). |
+| Install | `npm ls` shows one xterm copy: every addon resolves `@xterm/xterm@6.1.0-beta.338`. Registry integrity of all seven xterm packages equals the integrity in `pnpm-lock.yaml`. |
 
-The WebGL row uses Chromium's ANGLE SwiftShader software renderer, not a GPU or WKWebView claim. The image observer checks decoded canvases through the addon's public API; it does not judge visible image rendering. The clipboard provider is an explicit fixture, not Tauri: no native write or native clipboard permission pass is claimed. The read sentinel makes unexpected use of the browser's default provider observable. The provider's catch belongs in the existing Terminal clipboard-failure owner when integrated; addon source chains a rejected provider promise without a rejection handler.
+| Addon | Checks | DOM | WebGL | Passed |
+| --- | --- | --- | --- | --- |
+| Search 0.17.0-beta.332 | 10 | 5 | 5 | 10 |
+| Serialize 0.15.0-beta.332 | 6 | 3 | 3 | 6 |
+| Clipboard 0.3.0-beta.336 | 6 | 3 | 3 | 6 |
+| Image 0.10.0-beta.333 | 12 | 6 | 6 | 12 |
+| Fit (patched) 0.12.0-beta.334 | 2 | 1 | 1 | 2 |
+| WebGL (active canvas, context loss, DOM fallback) 0.20.0-beta.331 | 2 | 0 | 2 | 2 |
+| xterm input after the above 6.1.0-beta.338 | 2 | 1 | 1 | 2 |
+| Total | 40 | 19 | 21 | 40 |
 
-The cap measures the addon's public image storage, not total resident memory. Decode buffers, WebGL atlases, canvas backing stores and WASM memory are outside that number. Ten idle Agents' extra RSS remains unmeasured, so this is no rule-7 pass. Production entry/static closure, lazy Terminal and transitive WASM bytes likewise require paired production builds after integration; tarball sizes are not substituted.
+The WebGL rows use Chromium's ANGLE SwiftShader software renderer (`environment.json` holds its unmasked renderer string), not a GPU or WKWebView claim. The image observer checks decoded canvases through the addon's public API; it does not judge visible image rendering. The clipboard provider is an explicit fixture, not Tauri: no native write or native clipboard permission pass is claimed. The read sentinel makes unexpected use of the browser's default provider observable. The provider's catch belongs in the existing Terminal clipboard-failure owner; the minified source of Clipboard 0.3.0-beta.336 still chains a rejected provider promise without a rejection handler. The probe does not load addon-ligatures, addon-unicode11 or the App's emulator wiring; CI's Terminal tests judge those.
+
+The cap measures the addon's public image storage, not total resident memory. Decode buffers, WebGL atlases, canvas backing stores and WASM memory are outside that number. Ten idle Agents' extra RSS remains unmeasured, so this is no rule-7 pass. This is a compatibility probe, not a latency measurement.
+
+## Production bytes
+
+Two production builds on one macOS host (Vite 8.3.5, Node v22.18.0), one at a time: main `d53b12807` before #7541 (xterm 6.1.0-beta.336) and main `a7ef7ef0b` with #7541 (xterm 6.1.0-beta.338). The second build ran on the pre-merge branch commit of #7541, whose git tree (`6f886abcfef2`) is the tree of `a7ef7ef0b`. Node gzip level 9, recursive static imports, each emitted JS file counted once. `pnpm --filter desktop check:startup` exits 0 at both against the unchanged `startup.json` ceiling of 1,000,000 gzip bytes.
+
+| Revision | Entry chunk gzip | Entry chunk raw | Eager closure gzip | Eager closure raw | Lazy Terminal gzip | Lazy Terminal raw | WASM |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| main `d53b12807` (before #7541) | 199,177 | 612,649 | 566,737 | 1,650,837 | 231,107 | 830,573 | none |
+| main `a7ef7ef0b` (with #7541) | 199,180 | 612,649 | 566,740 | 1,650,837 | 273,356 | 1,016,331 | none |
+| Change | +3 | 0 | +3 | 0 | +42,249 | +185,758 | |
+
+The entry chunk is the file `index.html` loads; the eager closure is `check:startup`'s figure: that chunk plus every statically imported chunk (68 files at both revisions). The two entry chunks differ only in the hashed names of the emulator and TerminalPreview lazy chunks they import: raw size is identical and the 3 gzip bytes are name entropy. The scenario's strict 409,600-byte gzip ceiling is exceeded at both revisions (566,737 and 566,740); that oversize predates this change and is recorded, not presented as a pass. No xterm module is eager (`check:startup` fails an eager `@xterm/` module).
+
+The lazy Terminal chunk grows by 42,249 gzip bytes, all outside the eager closure and loaded with Terminal use. The build's per-module rendered bytes (`release-modules.json`, indicative, not additive to the minified chunk) put the growth in addon-webgl (+131,377) and addon-ligatures (+160,187, the UMD bundle `apps/desktop/vite.config.ts` aliases to because the 0.11.0-beta.332 ESM bundle imports `node:diagnostics_channel`), partly offset by smaller search, unicode11 and clipboard bundles; xterm itself moves -682. `runtime-bytes.json` holds file lists, hashes and the per-package figures. These are macOS bytes; the October Linux figures are not comparable.
 
 ## Reproduce
 
-Use Node 22.23.3, pnpm 10.14.0 and repository agent-browser 0.27.0. `probe-lock.json` pins all isolated packages; `packages.json` records registry publication dates and integrity, and `environment.json` records base/source/installed hashes. Run only in a dedicated headless browser with a fresh profile.
+Use Node 22 (observed v22.18.0, macOS arm64), pnpm 10.14.0 and repository agent-browser 0.27.0. `probe-lock.json` pins all isolated packages; `packages.json` records registry publication dates and integrity, and `environment.json` records base/source/installed hashes. Run only in a dedicated headless browser with a fresh profile.
 
 From the repository root:
 
@@ -34,10 +60,12 @@ const lock = JSON.parse(fs.readFileSync(`${dir}/package-lock.json`, 'utf8'));
 fs.writeFileSync(`${dir}/package.json`, JSON.stringify({private:true,type:'module',dependencies:lock.packages[''].dependencies}));
 JS
 npm ci --prefix "$probe_dir" --ignore-scripts
-patch -d "$probe_dir/node_modules/@xterm/xterm" -p1 < patches/@xterm__xterm@6.0.0.patch
-patch -d "$probe_dir/node_modules/@xterm/addon-fit" -p1 < patches/@xterm__addon-fit@0.11.0.patch
+patch -d "$probe_dir/node_modules/@xterm/xterm" -p1 < patches/@xterm__xterm@6.1.0-beta.338.patch
+patch -d "$probe_dir/node_modules/@xterm/addon-fit" -p1 < patches/@xterm__addon-fit@0.12.0-beta.334.patch
+patch -d "$probe_dir/node_modules/@xterm/addon-image" -p1 < patches/@xterm__addon-image@0.10.0-beta.333.patch
 cp "$evidence/probe.js.txt" "$probe_dir/probe.js"
 cp "$evidence/index.html.txt" "$probe_dir/index.html"
+npm ls --prefix "$probe_dir" @xterm/xterm
 (cd "$probe_dir" && ./node_modules/.bin/vite --host 127.0.0.1 --port 5238 --strictPort)
 ```
 
@@ -61,74 +89,18 @@ process.exit(result.exit);
 JS
 ```
 
-Stop only that Vite server, then remove only the temporary directories this reproduction created. Browser-close or server-cleanup failure is a setup result (exit 2), never a pass. Run the commands with shell error checking: any install, patch, launch, extraction or JSON error is setup failure (exit 2). The final result validator returns 0 for all capability checks passing, 1 for a failed completed capability check, or 2 for a setup/parse timeout/incomplete action. This is a compatibility probe, not a latency or production-byte measurement; it makes no before/after budget claim.
+Stop only that Vite server, then remove only the temporary directories this reproduction created. Browser-close or server-cleanup failure is a setup result (exit 2), never a pass. Run the commands with shell error checking: any install, patch, launch, extraction or JSON error is setup failure (exit 2). The final result validator returns 0 for all capability checks passing, 1 for a failed completed capability check, or 2 for a setup/parse timeout/incomplete action.
 
-`initial-result.json` retains the failed first observer: canvas identity was wrongly treated as image identity, and context loss queried the link-layer canvas instead of the WebGL canvas. The corrected probe identifies decoded images by distinct dimensions and finds the actual WebGL context. These were observer failures (exit 2), not evidence against the libraries. The final probe's source and hash accompany its raw result. A second fresh `npm ci` and dedicated fresh browser profile pass all 40 checks (`reproduced-result.json`). Complete outputs differ only in the first three DOM FIFO samples by 0.003312 MB; scaled image caches can be populated during rendering. Both converge to 0.786432 MB and stay below the same cap. `reproduction.json` records that full-result inequality honestly; no byte-identical reproduction is claimed.
+`result.json` is the first run. `reproduced-result.json` is a second run from a fresh `npm ci` and a fresh browser profile; `reproduction.json` records that its complete output is not equal to the first. They differ only in the second and third DOM FIFO samples (0.5308 and 0.792944 against 0.527488 and 0.789632 MB), by 0.003312 MB each: scaled image caches can be populated during rendering. Both converge to 0.786432 MB and stay below the same cap. No byte-identical reproduction is claimed.
 
 ## Reuse and integration
 
-The installed App already uses xterm 6.0.0, WebGL 0.19.0, Fit 0.11.0 and Unicode11 0.9.0. Its `emulator.ts` owns rendering/fit/context loss; `screens.ts` owns snapshot ordering and per-Terminal clipboard failures. This probe adds no runtime holder, parser, adapter or unused App dependency. No custom implementation is deleted because none of the four requested capabilities exists in the current browser emulator.
+PR #7541 moved every `@xterm/*` package in `apps/desktop` to the `beta` dist-tag build named above, pinned exactly, renamed and rebased the xterm, Fit and Image patches onto the new versions, and pointed the `@xterm/addon-ligatures` alias at its UMD bundle. It added no runtime holder, parser, adapter or unused dependency, and changed no Terminal source except one comment in `apps/desktop/src/terminal/imageHarness.ts` that names the renamed Image patch. Staying on the mixed pins main had before it (WebGL 0.19.0, Search 0.16.0, Unicode11 0.9.0, Clipboard 0.2.0, xterm 6.1.0-beta.336) fails the Issue's one-build outcome. The maintained alternative [@xterm/headless](https://github.com/xtermjs/xterm.js/tree/c9cc4785d24c9fad658627d5a458350d0baf3f1d/headless) runs in Node.js and has no DOM/WebGL image renderer or focused browser selection, so it cannot supply this browser acceptance; its newest beta is 6.1.0-beta.336 (`alternative.json`).
 
-Selected candidates are the [xterm addons published in the 6.0.0 release](https://github.com/xtermjs/xterm.js/releases/tag/6.0.0), 2025-12-22, with exact source/integrity evidence in `packages.json`. They expose the existing buffer and clipboard provider seams directly. The maintained alternative [@xterm/headless 6.0.0](https://github.com/xtermjs/xterm.js/tree/6.0.0/headless), also published 2025-12-22, runs in Node.js and has no DOM/WebGL image renderer or focused browser selection; it cannot supply this browser acceptance. Its registry metadata is in `alternative.json`. Browser Clipboard supplies copy but lacks terminal OSC parsing, search, serialization and inline image storage; granting its read capability would violate this acceptance. No alternative parser is introduced.
+## Terminal tests
 
-## Regression and remaining acceptance
+CI's `check` judges the pushed head. On this Mac the Terminal suite's browser tests `u2680c`, `u2680d`, `u3529b`, `u3707`, `u5515d` and `u5549c` fail on main before and after #7541 alike, and Playwright WebKit segfaults at launch (`u4649b`). These are environment failures; no local pass of those tests is claimed.
 
-All 29 existing tests pass in `u102_emulator.test.ts`, `u103_snapshot.test.tsx` and `u103_webgl_reflow.test.tsx`; `regression.json` retains identities/results. No product source or test changes, no new duplicate test, and no visible App change is claimed. Existing input, fit, selection, context-loss and snapshot ordering owners stay intact.
+## October record
 
-Remaining on #3853: integrate Find and query retention, serialize with authoritative Daemon snapshot offsets/reload recovery, route copy/failure through the real App clipboard owner, adopt bounded images lazily, prove native copy authority and ten-Agent memory, record production entry/lazy/WASM bytes, then make required real-Daemon captures. The Intervene journey, P1/P3/P9/P11 and D2/D5/D6 still require their App observers after integration. Z3788d's valid rendered list measurements remain separate; no virtualization is authorized or installed.
-
-`just ready` exits 0, including web/Rust lints, proofs, workflow checks, trailers, frozen checks and N7. The final report boundary lint also exits 0 after correcting two spelling matches. `validation.json` records these exits; merge-loss, vocabulary and whitespace checks pass.
-
-## Continued verification
-
-The replacement for closed PR #4312 starts at its final head `55ad4e5dfea0f156596623df9c5ad7b80cbf577e`, which already removed the unrelated recovery, styling and browser-test changes. A clean merge of main `02dd47127` leaves only this evidence directory in the diff; merge-loss passes. The original 13 evidence files were unchanged before this continuation.
-
-A fresh isolated installation, patched packages and fresh dedicated headless Chromium profile at 1512×950 reproduce all 40 checks (`continued-result.json`). All 29 existing emulator/snapshot/renderer-recovery tests pass again. The dedicated browser and probe server are closed. `continued-validation.json` records the revision pair and results. This does not extend the native, rendering, memory or production-byte claims above.
-
-After a further clean merge of main `eb7397cfb`, `just ready` exits 0: web/Rust lints, types, proofs and mutation checks, trailers, frozen checks, 36 workflow tests and N7 pass. App source still equals main, and merge-loss passes. The first verification caught escaped Unicode in the new JSON evidence; readable Unicode repairs it without changing decoded values. An interrupted lint left a temporary test fixture, removed before the complete passing rerun. Both repaired attempts are recorded in `continued-validation.json`.
-
-
-## Required check failures on main
-
-PR #4334 head `7dc58c64c` fails [check 40431297227](https://github.com/roundup-app/roundup/actions/runs/40431297227) in all seven web lanes. Main `eb7397cfb` independently fails [check 40430430021](https://github.com/roundup-app/roundup/actions/runs/40430430021) on the same behavioral cases. `git diff 7dc58c64c eb7397cfb -- apps/desktop/src` is empty. `continued-validation.json` records the exact common cases and the additional Pad-rename setup failure observed only in the PR run. This establishes a shared baseline failure; it does not establish one cause for all cases.
-
-The logs include waits for removed `.terminal-new`, `.pane-action` and `.measurement-action` controls, Pad/Shelf navigation that never reaches its target, drag/call assertions, focus failures and setup timeouts. A dependency-scan warning also names a missing temporary `u507-bound-layout.js`; no claim is made that it explains the other failures. PR #4312's review rejected including unrelated product and test repairs in this probe slice.
-
-| Existing observer group | Scoped repair prerequisite |
-| --- | --- |
-| terminal | [#4339](https://github.com/roundup-app/roundup/issues/4339) |
-| bubbles | [#4340](https://github.com/roundup-app/roundup/issues/4340) |
-| app | [#4341](https://github.com/roundup-app/roundup/issues/4341) |
-| todos | [#4342](https://github.com/roundup-app/roundup/issues/4342) |
-| rail | [#4343](https://github.com/roundup-app/roundup/issues/4343) |
-| timeline | [#4344](https://github.com/roundup-app/roundup/issues/4344) |
-| ui | [#4345](https://github.com/roundup-app/roundup/issues/4345) |
-| drawer | [#4346](https://github.com/roundup-app/roundup/issues/4346) |
-| ask | [#4347](https://github.com/roundup-app/roundup/issues/4347) |
-
-Each work order was checked with `python3 loop/orders.py check` before filing and is a native blocked-by dependency of #3853. Each orders repair of the original behavior without skipped assertions, longer timeouts, added retries or weaker gates. These are engineering prerequisites, with no user decision pending.
-
-A clean merge of main `bae255acb` keeps this PR's diff within the evidence directory and passes merge-loss. All 29 existing emulator, snapshot and renderer-recovery tests pass after that merge. The compatibility probe is unchanged and was not rerun in this fix. The required full `check` is still red until the separate baseline repairs land; local regression success does not replace it. Keep #3853 open.
-
-Fix-run `just ready` exits 0, including lints, types, proofs, frozen/trailer checks, all 36 workflow tests and N7. The boundary lint after the evidence edit, vocabulary, merge-loss and whitespace checks also exit 0. `pnpm install` completed before pushing. These local gates do not claim that the full web check is green.
-
-## OSC 52 adoption
-
-Commit `c695f8acb` integrates ClipboardAddon 0.2.0 inside the lazy emulator. Screens supplies the existing native clipboard write and failure owner. Copy output reaches that owner once; a rejected write leaves parsing usable and the next successful copy clears only that Terminal's clipboard failure. A read query returns an empty OSC reply without reading clipboard contents. All 35 focused emulator, snapshot, renderer-recovery and copy/paste tests pass; the two new cases failed before implementation. The fresh isolated compatibility probe also passes all 40 checks.
-
-## Completed OSC 52 slice
-
-The copy owner is supplied when each emulator is created, through Pane and the lazy loader. This removes the extra registration method. The lazy constructors' unused probe/renderer arguments and probe forwarding are deleted; every performance observer still uses the real emulator directly. Existing selection copy still ignores an empty selection, while an explicit empty OSC payload can clear the clipboard.
-
-| Observer | Result |
-| --- | --- |
-| Focused regression | 41 tests pass across emulator, snapshot, renderer recovery, copy/paste, clipboard failure and lazy replay suites. The final focused rerun passes 22 copy/failure/lazy tests. No test is cut or duplicated. |
-| Rendered | `just capture Z3788a` exits 0. Seven dark 1512×950 images cover tree-40, agents-10, conflict and a real Daemon; D2/D5/D6 pass throughout. Failure text is visible on the densest seed. The real-Daemon action also has a video. |
-| Real process | A bash process emits OSC 52 through rupd and its output subscription into the real emulator. The browser harness reports its explicit native-clipboard refusal, then displays subsequent process output. Its journal records zero unexpected Terminal input writes. This proves the failure path, not a native clipboard write. |
-| Production bytes | Same-host recursive static closure, Node gzip level 9: entry 419885 → 419867 bytes; incremental lazy Terminal closure 132276 → 134249. No WASM asset is emitted. `runtime-bytes.json` retains file lists and environment. The unchanged startup gate passes; the stricter 409600-byte target is exceeded on both baseline and head and remains unfinished on #3853. |
-
-The initial continuation measured 35 bytes of entry growth. The final copy injection and deletion of unused lazy probe forwarding meet no-growth without changing a budget. Two recording setup attempts failed: starting recording reset the selected page, then ffmpeg was missing. Starting recording before navigation and installing ffmpeg repairs the observer; the final capture command succeeds. Its archived source is `capture.py.txt`, run from the repository root. The test script was temporarily selected for `just capture` and restored. Images and video remain uncommitted under `artifacts/ux/Z3788a/`.
-
-Keep #3853 open for Find, serialization, images, ten-Agent RSS, the strict entry ceiling and virtualization measurements. No native timing, memory or native clipboard success is claimed. The user reports what they meet on the Mac; no user-only decision is pending.
-
-The broad related run was interrupted after reporting four U100 persistence failures and retries in unrelated suites; no complete related-suite pass is claimed. The isolated `u100_failed_first_tree_keeps_storage_until_a_successful_tree` passes on a fresh run, as do the focused Terminal observers above; CI judges the complete pushed head. The first lint invocation saw the temporary capture test script and reported two unreachable reporting tests; that script is restored. A spelling diagnostic in this report is corrected without changing lint policy.
+The October 2026 record (xterm 6.0.0, Fit 0.11.0, WebGL 0.19.0, Search 0.16.0, Serialize 0.14.0, Clipboard 0.2.0, Image 0.9.0; 40 of 40 on Linux) is in git history before this evidence replaced it. `capture.py.txt` is that slice's OSC 52 real-Daemon capture script, unchanged, not rerun here and not tied to a package version; `probe.js.txt` and `index.html.txt` are the probe and its page, unchanged.

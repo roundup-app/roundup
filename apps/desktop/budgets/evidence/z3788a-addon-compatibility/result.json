@@ -388,8 +388,8 @@
     {
       "detail": [
         0.265344,
-        0.527488,
-        0.789632,
+        0.5308,
+        0.792944,
         0.786432,
         0.786432,
         0.786432,
@@ -425,7 +425,7 @@
       "pass": true
     },
     {
-      "detail": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "detail": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
       "name": "webgl:active canvas",
       "pass": true
     },
