@@ -91,3 +91,36 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
   expect(popover.querySelectorAll("button").length).toBe(8);
   await waitFor(() => expect(popover.style.getPropertyValue("--anchor-width")).toBe("200px"));
 });
+
+it("lh14_the_open_reveal_intersects_no_text_row", async () => {
+  const popover = rule(links, ".app-popover.links-popover");
+  const header = rule(links, ".links-header");
+  const icon = px("var(--space-5)");
+  const entries = Array.from({ length: 6 }, (_, n) => ({ kind: "asked" as const, url: `https://example.test/${n}`, tooltip: `asked ${n}` }));
+
+  // One row of icons and padding, centred on the header's row, with no margin moving it: its box spans the header's row grown by the padding, inside the inset.
+  expect(prop(popover, "margin-block-start")).toBeUndefined();
+  expect(prop(popover, "margin")).toBeUndefined();
+  expect(prop(popover, "flex-wrap")).toBe("nowrap");
+
+  const height = icon + 2 * px(prop(popover, "padding") ?? "");
+  const top = px(prop(header, "inset-block-start") ?? "") + icon / 2 - height / 2;
+
+  expect(top).toBeGreaterThanOrEqual(0);
+  expect(top + height).toBeLessThanOrEqual(inset);
+
+  render(() => <div class="links-header"><LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {} }} shown={0} /></div>);
+  fireEvent.click(screen.getByRole("button", { name: copy.moreName(8) }));
+
+  const open = await waitFor(() => {
+    const found = document.querySelector<HTMLElement>(".links-popover");
+
+    if (!found) throw new Error("not open");
+
+    return found;
+  });
+
+  // Never below the header's row.
+  expect(open.getAttribute("data-side")).toBe("left");
+  expect(open.querySelectorAll("button").length).toBe(8);
+});
