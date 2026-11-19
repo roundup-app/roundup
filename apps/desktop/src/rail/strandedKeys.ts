@@ -1,6 +1,7 @@
 import type { registerKeys } from "../keys/registry";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { makeEventListener } from "@solid-primitives/event-listener";
+import { isFoldable } from "../state/railTopology";
 import { forgetClick, keyedRowIdAt, noteClick, strandedRow } from "./rows";
 
 type Deps = {
@@ -31,7 +32,7 @@ export const strandedRowKeys = (deps: Deps): Parameters<typeof registerKeys>[1] 
       const id = plain(press) ? keyedRowIdAt(press, deps.selected()) : undefined;
       const node = deps.nodes().find(candidate => candidate.id === id);
 
-      return node !== undefined && (node.kind === "workstream" || node.kind === "group") && deps.collapsed().has(node.id) === (press.key === "ArrowRight");
+      return node !== undefined && isFoldable(node) && deps.collapsed().has(node.id) === (press.key === "ArrowRight");
     }, run: press => {
       const id = keyedRowIdAt(press, deps.selected());
 
