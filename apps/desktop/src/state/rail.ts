@@ -24,6 +24,8 @@ import { outcomeOf, type AppSeam } from "../app/seam";
 /** U7498c: no answer is an unknown outcome, told as unconfirmed with no Retry; any other failure keeps its message. */
 const doorFailureLine = (error: Error): string => outcomeOf(error) === "unknown" ? unknownOutcomeLine(error) : error.message;
 
+const doorFailureOf = (error: Error, attempt: string | null) => ({ message: doorFailureLine(error), attempt, ...outcomeOf(error) === "unknown" && { unknown: true as const } });
+
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
@@ -599,9 +601,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const node = model.tree.find((each) => each.id === id);
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
-        const message = doorFailureLine(error);
-
-        setDoors(draft => { draft[id]!.failure = { message, attempt: doorAttempt(node), ...outcomeOf(error) === "unknown" && { unknown: true as const } }; }); commandFailure.show(message, id, "pane");
+        setDoors(draft => { draft[id]!.failure = doorFailureOf(error, doorAttempt(node)); }); commandFailure.show(doorFailureLine(error), id, "pane");
       }
     } finally {
       prepared?.dispose();
