@@ -49,6 +49,15 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
   const size = () => ({ maximised: shownMaximised(), toggle: toggleMaximise });
 
+  // U7638a: the window records that the item covers the Terminal; styles.css hides `.centre` on it (hidden, never unmounted, so the program keeps running and no resize is sent).
+  createEffect(() => [panel(), mainArea() && props.drawer.content() !== null] as const, ([element, covered]) => {
+    const window = element?.closest<HTMLElement>(".window");
+
+    if (covered) window?.setAttribute("data-main-area", "true");
+
+    return () => window?.removeAttribute("data-main-area");
+  });
+
   createEffect(() => props.drawer, drawer => drawer.bindSize(size));
 
   const [expandHost, setExpandHost] = createSignal<HTMLElement>();
@@ -203,7 +212,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         </IconButton>
       </div>
       <Show when={mounted()} keyed>
-        {(content) => <DrawerMaximisedContext value={shownMaximised}><DrawerExpandContext value={mainArea() ? null : setExpandHost}>{content()}</DrawerExpandContext></DrawerMaximisedContext>}
+        {(content) => <DrawerMaximisedContext value={shownMaximised}><DrawerExpandContext value={setExpandHost}>{content()}</DrawerExpandContext></DrawerMaximisedContext>}
       </Show>
     </aside>
   );
