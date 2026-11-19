@@ -186,7 +186,7 @@ describe("u17 Todo detail", () => {
   it("u17_leaving_a_field_untouched_after_another_actor_renamed_the_todo_calls_nothing_and_shows_their_title", async () => {
     const { app, store } = await openDrawerOf(/#5/);
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
-    const field = await within(drawer()).findByRole("textbox", { name: "Title" });
+    await within(drawer()).findByRole("textbox", { name: "Title" });
     store.todos = shelf().map((each) => (each.id === 5 ? { ...each, title: "their title" } : each));
     app.emit(todoEvent("todo.updated", todo(5)));
     await screen.findByRole("button", { name: /^Blocked #5 their title/ });

@@ -261,10 +261,9 @@ export const EditableText = (props: {
       return kept;
     };
 
-    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure });
-
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
+    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure });
     const select = () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); };
 
     const input = () => { if (!left) retain(); };
@@ -272,7 +271,6 @@ export const EditableText = (props: {
     const submit = async (destination?: EventTarget | null) => {
       if (left) return;
       left = true;
-
       const { saved, expected: expectedNow } = await saver.settled();
 
       if (read() === saved && !started.recovered) {
@@ -336,7 +334,6 @@ export const EditableText = (props: {
       if (event.key === "Escape") {
         event.preventDefault(); event.stopPropagation();
 
-        // A body Esc puts the pre-edit text back; a name keeps its draft.
         if (props.multiline) void saver.revert();
         else if (read() !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
@@ -374,12 +371,9 @@ export const EditableText = (props: {
       cancel(false);
     };
 
-    const cancel = (restore = true) => {
-      binding?.keep();
-      setEditing(null);
+    const cancel = (restore = true) => { binding?.keep(); setEditing(null);
 
-      if (restore) queueFocus(() => shown()?.focus());
-    };
+ if (restore) queueFocus(() => shown()?.focus()); };
 
     createEffect(editing, started => {
       if (!started || !input) return;
@@ -447,10 +441,9 @@ export const EditableText = (props: {
       // Crepe dismisses block menus in capture; a no-match slash query has already
       // hidden its menu. Preserve rich drafts, but let an untouched empty body
       // return to Add notes (U3732).
-      if (event.key === "Escape" && !(started && started.form.base === "" && !started.recovered && handle?.getText() === "")) { event.preventDefault(); event.stopPropagation();
+      if (event.key === "Escape" && !(started && started.form.base === "" && !started.recovered && handle?.getText() === "")) { event.preventDefault(); event.stopPropagation(); }
 
- if (started) key?.(event); }
-      else if (started) key?.(event);
+      if (started) key?.(event);
       else if (event.key === "Enter") { event.preventDefault(); startWith(); }
     }}><Loading><PadRichEditor item="todo" text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
       onChange={() => binding?.change()}
