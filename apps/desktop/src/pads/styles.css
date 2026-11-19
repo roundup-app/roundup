@@ -466,7 +466,7 @@ li[aria-selected="true"] svg {
 }
 
 .walk-outline .walk-item[data-button],
-.walk-outline .walk-item[data-button] *,
+.walk-item[data-button] *,
 .walk-outline .walk-fold[data-button] {
   font-family: var(--font-ui);
 }
