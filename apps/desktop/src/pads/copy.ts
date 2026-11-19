@@ -1,4 +1,5 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
+import { copy as changesCopy } from "../changes/copy";
 
 export const copy = {
   resuming: sharedCopy.resuming,
@@ -27,6 +28,18 @@ export const copy = {
   exportMd: sharedCopy.exportMd,
   delete: sharedCopy.delete,
   padChanged: "Pad changed",
+  addNote: changesCopy.addNote,
+  padNote: "Note on selection",
+  padNoteText: changesCopy.note,
+  padNoteQuote: "Selected text",
+  padNotes: "Pad notes",
+  saveNote: sharedCopy.save,
+  cancelNote: sharedCopy.close,
+  removeNote: "Remove note",
+  sendNoteTo: (name: string) => `Send note: ${name}`,
+  retrySendNoteTo: (name: string) => `Retry send: ${name}`,
+  sendingNote: sharedCopy.sending,
+  pickReceiver: "Send note to",
   foldLabel: sharedCopy.foldLabel,
   newPad: sharedCopy.newWord,
   changedPad: "Changed since you read it",
