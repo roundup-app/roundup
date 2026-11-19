@@ -44,7 +44,8 @@ export const padOf = (name: string, _actor: Actor, text = ""): Pad => ({
   text,
   updated_at: 0,
   revision: 1,
-  home: null, visibility: "shown" as const,
+  home: null,
+  visibility: "shown" as const,
 });
 
 export const CONFLICT = -32003;

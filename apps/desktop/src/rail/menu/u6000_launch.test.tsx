@@ -129,7 +129,7 @@ it.each([
 it("u6000b_no_row_shows_starting_after_the_program_is_up_or_a_failure", async () => {
   const mounted = await mountRail([workstream("ws")]);
 
-  mounted.app.handlers["agent.spawn"] = () => { throw new Error("refused"); };
+  mounted.app.handlers["agent.spawn"] = () => { throw new RpcError(-32602, "refused"); };
 
   await settled();
   chord("n");

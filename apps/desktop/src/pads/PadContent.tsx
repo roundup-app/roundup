@@ -225,8 +225,8 @@ const PadBody = (props: {
         return;
       }
 
-      // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
-      const sending = cycle.send({ kind: "back" });
+      // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline. An unseen outside edit stays a conflict.
+      const sending = cycle.send(deleted() && pad().text !== origin() ? { kind: "back", unseen: { actor: "unknown", version: cycle.next() } } : { kind: "back" });
 
       if (sameContent(current, pad())) return;
 

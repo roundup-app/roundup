@@ -1,6 +1,6 @@
 import "./styles.css";
 import { createEffect, Show, untrack } from "solid-js";
-import { RpcError } from "../app/seam";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { dismissable, RecoveryButtons } from "../ink/recovery";
 import { FloatingLine } from "../ink/FloatingLine";
 import { focusCentre, queueFocus } from "../keys/focus";
@@ -11,8 +11,6 @@ import { useConnectedProject } from "../state/connectedProject";
 import type { Tally } from "../state/continuation";
 import type { ToastQueue } from "../toasts/queue";
 import { copy } from "./copy";
-
-const reason = (error: Error): string => copy.rpcFailure(error instanceof RpcError ? error.code : 0);
 
 const lineOf = ({ resumed, failed }: Tally): string => {
   if (failed > 0) return copy.resumedSome(resumed, resumed + failed);
@@ -34,7 +32,7 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
   const unchecked = dismissable(() => {
     const error = work.readFailure();
 
-    return error === null ? null : copy.checkFailed(reason(error));
+    return error === null ? null : copy.checkFailed(unknownOutcomeLine(error));
   });
 
   const pending = () => work.shown(id());
@@ -42,7 +40,7 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
   const failed = (): string | null => {
     const error = work.failure(id());
 
-    return error === null ? null : reason(error);
+    return error === null ? null : unknownOutcomeLine(error);
   };
 
   const message = () => pending() ? failed() : unchecked.message();

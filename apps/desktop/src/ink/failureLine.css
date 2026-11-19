@@ -14,11 +14,13 @@
 }
 
 .failure-line,
-.ink[data-kind="error"] {
+.ink[data-kind="error"],
+.ink[data-kind="notice"] {
   animation: failure-arrive var(--duration-reduced) var(--easing-out);
 }
 
-.ink[data-kind="error"]:not(button) {
+.ink[data-kind="error"]:not(button),
+.ink[data-kind="notice"]:not(button) {
   color: var(--grey);
 }
 
@@ -73,4 +75,13 @@
   gap: var(--space-2);
   margin: 0;
   font-size: var(--text-small);
+}
+
+/* HM7589a: a shell command in a failure sits on its own line in the mono face, selectable, breaking at spaces and after slashes so none of it is hidden. */
+.ink-command {
+  display: block;
+  font-family: var(--font-mono);
+  white-space: normal;
+  -webkit-user-select: text;
+  user-select: text;
 }

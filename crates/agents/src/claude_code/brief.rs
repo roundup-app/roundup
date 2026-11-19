@@ -89,7 +89,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "pad_create",
-        "start a Pad; yours start `internal`, so pass `visibility: \"shown\"` when the user should read it, and name it for what the reader learns",
+        "start a Pad; yours start `internal`, so pass `visibility: \"shown\"` for the user, and name what the reader learns",
     ),
     (
         "pad_setVisibility",
@@ -537,6 +537,8 @@ Drawings: a drawing lives only in a Pad, as a fenced `excalidraw` block; a Messa
 For a flow or a sequence, write Mermaid flowchart or sequence source as the block's body and place no coordinates. \
 For a free sketch Mermaid cannot lay out, such as a screen or a box-and-arrow map, write the skeleton form: a shape with a `label`, an arrow with `start` and `end` ids. \
 Draw only when the drawing explains structure or flow faster than a table; at most about 12 shapes; one idea per drawing; labels in plain words.
+
+Statecharts: when a flow has rules worth checking, check it with the hunch statechart skill and write a fenced `statechart` block in the Pad, in plain words, with the fields `summary`, `writtenBy`, `rules`, `states`, `start`, `steps` and `stopped`. Turn the checker's state dump into the block with a script, never by hand, and merge states that show the same, read the same and allow the same moves before you write the block; the merged and full graphs must allow the same moves and turn the same states red. Without the hunch statechart skill, write no statechart block and draw a Mermaid diagram as Drawings says.
 
 ";
 

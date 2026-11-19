@@ -1,5 +1,8 @@
 import type { Event } from "@contracts/Event";
-import { outcomeOf } from "./seam";
+import { copy } from "./copy";
+import { INTERNAL_CODE, outcomeOf, RpcError } from "./seam";
+
+const MISSING_CORE = /herdr-core is not installed\..*$/s;
 
 /** The message of a failed call, or `null` when it succeeded. Anything that is not an Error is a bug and escapes. */
 export const failureOf = async <Result>(call: () => Promise<Result>): Promise<string | null> => {
@@ -27,4 +30,25 @@ export const changeFailureOf = async <Result>(call: () => Promise<Result>): Prom
   } catch (thrown) {
     return outcomeOf(thrown) === "failed" && thrown instanceof Error ? thrown.message : null;
   }
+};
+
+/** U7498c: what a call with no answer says, from the copy table by code: completion is unconfirmed, never a failure and never an invitation to repeat it. */
+export const unknownOutcomeLine = (error: Error): string => {
+  if (!(error instanceof RpcError)) return copy.rpcFailure(0);
+
+  // HM7589a: the one internal failure whose cause the user can fix says so; any other keeps the fixed copy (HM7589b).
+  const named = error.code === INTERNAL_CODE ? MISSING_CORE.exec(error.message) : null;
+
+  return named === null ? copy.rpcFailure(error.code) : named[0];
+};
+
+const INSTALL_COMMAND = /^(herdr-core is not installed\. Install it with: )(curl \S+ \S+ \| sh)$/;
+
+/** HM7589a: the missing-core message split into its lead and the install command, or `null` for any other message. */
+export const missingCoreParts = (message: string): { lead: string; command: string } | null => {
+  const found = INSTALL_COMMAND.exec(message);
+
+  const [, lead, command] = found ?? [];
+
+  return lead === undefined || command === undefined ? null : { lead, command };
 };

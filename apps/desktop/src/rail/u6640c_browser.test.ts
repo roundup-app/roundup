@@ -22,13 +22,22 @@ run("u6640c_a_tooltip_box_clears_the_row_below_its_target", async () => {
   await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row').length > 1`);
 
   // U7413a: a universal icon (Collapse, Stop) shows no name tooltip; Play keeps its name.
-  const target = await page.call<{ x: number; y: number }>(`() => {
-    const icon = 'button[data-button="icon"]:has(svg.lucide-play)';
+  const icon = 'button[data-button="icon"]:has(svg.lucide-play)';
+
+  const at = await page.call<{ x: number; y: number }>(`() => {
     const rows = [...document.querySelectorAll('.rail-row')];
-    const row = rows.find((r, i) => i < rows.length - 1 && r.querySelector(icon));
+    const row = rows.find((r, i) => i < rows.length - 1 && r.querySelector(${JSON.stringify(icon)}));
     row.dataset.u6640c = "target";
     rows[rows.indexOf(row) + 1].dataset.u6640c = "below";
-    const b = row.querySelector(icon).getBoundingClientRect();
+    const b = row.getBoundingClientRect();
+    return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  }`);
+
+  // U7488b: a row's actions reveal on hover, so the pointer rests on the row before Play is measured.
+  await page.hover(at.x, at.y);
+
+  const target = await page.call<{ x: number; y: number }>(`() => {
+    const b = document.querySelector('[data-u6640c="target"]').querySelector(${JSON.stringify(icon)}).getBoundingClientRect();
     return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
   }`);
 

@@ -1,11 +1,11 @@
 import "./styles.css";
 import ChevronDown from "@lucide/solid/icons/chevron-down";
 import ChevronUp from "@lucide/solid/icons/chevron-up";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createMemo, createSignal, onCleanup, Show } from "solid-js";
 import { isDoor } from "../state/doorNode";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";
-import { LinksView, specOf } from "./catalogue";
+import { inlineFor, LinksView, specOf } from "./catalogue";
 import { copy } from "./copy";
 
 /**
@@ -36,6 +36,23 @@ export const LinksHeader = (props: { active: () => boolean }) => {
     return kept && kept.revision === revision() ? kept.open : door()?.status?.kind !== "working";
   };
 
+  // LH13: the header is one row inside the inset, so the icons that do not fit the pane's width fold into the count.
+  const [width, setWidth] = createSignal(Infinity);
+
+  const watch = (el: HTMLElement) => {
+    if (typeof ResizeObserver === "undefined") return;
+
+    // The ref runs before the element is attached, so its pane is read a microtask later.
+    const observer = new ResizeObserver(() => setWidth(el.parentElement?.clientWidth || Infinity));
+
+    queueMicrotask(() => { if (el.parentElement) observer.observe(el.parentElement); });
+    onCleanup(() => observer.disconnect());
+  };
+
+  const spec = (id: string) => specOf(links.read(id));
+
+  const total = (id: string) => (links.read(id)?.entries.length ?? 0) + 2;
+
   const folder = () => door()?.worktree?.path ?? project.path;
 
   const env = {
@@ -51,8 +68,8 @@ export const LinksHeader = (props: { active: () => boolean }) => {
   return (
     <Show when={props.active() && door()}>
       {node => (
-        <div class="links-header" role="group" aria-label={copy.region} data-open={open() ? "" : undefined} data-agent={node().id}>
-          <Show when={open()}><LinksView spec={specOf(links.read(node().id))} env={env} /></Show>
+        <div ref={watch} class="links-header" role="group" aria-label={copy.region} data-open={open() ? "" : undefined} data-agent={node().id}>
+          <Show when={open()}><LinksView spec={spec(node().id)} env={env} shown={inlineFor(width(), total(node().id))} /></Show>
           <IconButton class="links-handle" aria-label={open() ? copy.collapse : copy.expand} aria-expanded={open() ? "true" : "false"} onClick={() => setToggled({ revision: revision(), open: !open() })}>
             <Show when={open()} fallback={<ChevronDown size={14} aria-hidden="true" />}><ChevronUp size={14} aria-hidden="true" /></Show>
           </IconButton>

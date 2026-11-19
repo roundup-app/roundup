@@ -22,6 +22,9 @@ struct Stored {
     /// DCL3c: the background work open when the Daemon last looked.
     #[serde(default)]
     background: Option<claude_code::background::Retained>,
+    /// A12a: the Status last published for the Run, so a reopen starts from it.
+    #[serde(default)]
+    status: Option<Status>,
 }
 
 impl Agents {
@@ -51,6 +54,7 @@ impl Agents {
             inbox: Some(self.launcher.socket_path(id).map_err(RpcError::internal)?),
             socket: rpc::socket_path().ok(),
             background: None,
+            status: None,
         })
         .map_err(RpcError::internal)?;
         let dir = file
@@ -174,6 +178,9 @@ impl Agents {
         if let Some(kept) = stored.background {
             fold.observe(Observation::Resumed(kept));
         }
+        if let Some(status) = stored.status {
+            fold.observe(Observation::Restored(status));
+        }
         let run = Run::reattached(
             fold,
             stored.attempt.clone(),
@@ -235,6 +242,21 @@ impl Shared {
             .ok()
             .and_then(|body| serde_json::from_slice::<Stored>(&body).ok())
             .is_some_and(|stored| stored.input_started)
+    }
+
+    /// A12a: keep the Status last published beside the verified owner, fenced to its Attempt.
+    pub(super) fn save_status(
+        &self,
+        id: &str,
+        attempt: &str,
+        status: &Status,
+    ) -> Result<(), RpcError> {
+        self.update_owner(id, attempt, |stored| {
+            stored.status.as_ref() != Some(status) && {
+                stored.status = Some(status.clone());
+                true
+            }
+        })
     }
 
     /// DCL3c: keep the open background work beside the verified owner, fenced to its Attempt.

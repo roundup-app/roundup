@@ -29,8 +29,8 @@ export type SaveEvent =
   /** The text now equals the Pad's, by choosing theirs or by a settled write. */
   | { kind: "settled" }
   | { kind: "gone"; byMe: boolean }
-  /** The same incarnation is listed again, as after an undo of the delete. */
-  | { kind: "back" };
+  /** The same incarnation is listed again, as after an undo of the delete. `unseen`: an outside edit the field has not seen, which a deleted save meets as a conflict. */
+  | { kind: "back"; unseen?: { actor: Actor | "unknown"; version: number } };
 
 type Handlers = { [K in SaveEvent["kind"]]: (save: Save, event: Extract<SaveEvent, { kind: K }>) => Save };
 
@@ -86,7 +86,7 @@ export const step = (save: Save, event: SaveEvent): Save => {
   }
 
 
-  if (event.kind === "back") return { kind: "clean" };
+  if (event.kind === "back") return event.unseen ? { kind: "conflict", ...event.unseen } : { kind: "clean" };
 
   return event.kind === "gone" ? { kind: "deleted", byMe: save.byMe || event.byMe } : save;
 };

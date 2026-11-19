@@ -41,6 +41,7 @@ import { usePadList } from "./padList";
 import type { PadMark } from "./padRead";
 import { createFolds, type FoldedPads } from "./padFolds";
 import { FoldContent } from "../ui/FoldRow";
+import { createRowReveal } from "../ui/rowReveal";
 import type { PadList } from "./padList";
 
 /** The Pad name a retention failure keeps: Copy it, or discard it. */
@@ -324,13 +325,13 @@ const PadRows = (props: {
 
   const foldRows = (fold: "internal" | "idle") => (
     <Show when={props.folded()[fold].length > 0}>
-      <button type="button" class="rail-fold pad-fold row-wash row-wash-inert" data-fold={fold} aria-expanded={props.isFoldOpen(fold) ? "true" : "false"}
+      <button type="button" class="pad-fold row-wash row-wash-inert" data-fold={fold} aria-expanded={props.isFoldOpen(fold) ? "true" : "false"}
         onClick={() => props.toggleFold(fold)}
         onKeyDown={event => {
           if (event.key === "ArrowRight" && !props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
           else if (event.key === "ArrowLeft" && props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
         }}>
-        <FoldContent count={props.folded()[fold].length} group={fold} />
+        <FoldContent stem="pad-fold" count={props.folded()[fold].length} group={fold} />
         <Icon name="right" />
       </button>
       <Show when={props.isFoldOpen(fold)}>
@@ -425,9 +426,11 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; mark: PadMark
   })));
 
   const nameCut = createCutTitle(() => pad.name);
+  const reveal = createRowReveal(() => props.isSelected(pad.incarnation));
 
   return (
           <ShelfRow
+            {...reveal}
             ref={props.parts?.ref}
             data-pad={pad.name}
             onClick={event => {

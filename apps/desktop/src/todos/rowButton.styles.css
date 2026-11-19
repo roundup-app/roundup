@@ -299,8 +299,10 @@ input.todo-tick {
   position: relative;
   z-index: 1;
 }
-:is(.shelf-row, .rail-row, .rail-leaf):focus-within .row-controls,
-:is(.shelf-row, .rail-row, .rail-leaf, .pad-row-head)[data-selected="true"] .row-controls { opacity: 1; pointer-events: auto; }
+.row-controls,
+.row-icons { opacity: 0; pointer-events: none; }
+/* U7488b: one reveal for Rail, Shelf, Todo and Pad rows; hover, focus within and selection all set `data-reveal` (rowReveal.ts). */
+[data-reveal="shown"] :is(.row-controls, .row-icons) { opacity: 1; pointer-events: auto; }
 .todo-row [data-group-toggle] { opacity: 0; pointer-events: none; }
 .todo-row:focus-within [data-group-toggle],
 .todo-row[data-selected="true"] [data-group-toggle] { opacity: 1; pointer-events: auto; }

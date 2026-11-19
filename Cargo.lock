@@ -5646,6 +5646,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "vt100",
+ "which",
 ]
 
 [[package]]
