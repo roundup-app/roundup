@@ -224,10 +224,8 @@ const PadBody = (props: {
         return;
       }
 
-      // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
-      // An outside edit that arrived before the delete is in `pad()` and not in the field: the undo leaves it a conflict, never "Saved".
-      const unseen = deleted() && pad().text !== origin() ? { actor: "unknown" as const, version: cycle.next() } : undefined;
-      const sending = cycle.send(unseen ? { kind: "back", unseen } : { kind: "back" });
+      // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline. An unseen outside edit stays a conflict.
+      const sending = cycle.send(deleted() && pad().text !== origin() ? { kind: "back", unseen: { actor: "unknown", version: cycle.next() } } : { kind: "back" });
 
       if (sameContent(current, pad())) return;
 
