@@ -158,7 +158,7 @@ export const Pads = (props: {
     });
 
   const shown = shownPads(connected, list);
-  const groups = createMemo(() => padGroups(connected, shown())); const { walked, of, read: padRead } = createFolds(groups, connected.now);
+  const groups = createMemo(() => padGroups(connected, shown())); const { walked, of, read: padRead } = createFolds(groups, connected.now, list);
   const selection = createSelection(() => walked().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
   const bulk = createBulkDelete({

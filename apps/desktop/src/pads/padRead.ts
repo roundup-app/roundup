@@ -3,7 +3,7 @@ import * as v from "valibot";
 import type { Pad } from "@contracts/pad/Pad";
 import { useConnectedProject, type ConnectedProject } from "../state/connectedProject";
 import { storageSchema, storedValue } from "../state/storage";
-import { usePadList } from "./padList";
+import { usePadList, type PadList } from "./padList";
 
 /** U7499b: the Revision of each Pad (by incarnation) the user last read, per original Project. */
 const readSchema = storageSchema("roundup:pad-read", v.record(v.string(), v.pipe(v.string(), v.regex(/^\d+$/))));
@@ -78,9 +78,8 @@ const make = (path: string): Shared => {
 };
 
 /** The Project's read record, kept by the App as unread finishes are (U3566); no RPC reads or writes it. */
-export const usePadRead = (): PadRead => {
+export const usePadRead = (list: PadList = usePadList()): PadRead => {
   const connected = useConnectedProject();
-  const list = usePadList();
   const entry = shared.get(connected) ?? make(connected.project.path);
 
   shared.set(connected, entry);

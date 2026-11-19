@@ -174,6 +174,8 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
   } else {
     const row = await waitFor(() => {
+      // A Pad the user has read sits in a closed fold (U7499a); opening the folds lists it.
+      for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) fireEvent.click(fold);
       const row = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
       expect(row).toBeDefined();
 

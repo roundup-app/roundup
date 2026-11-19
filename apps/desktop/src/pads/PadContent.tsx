@@ -86,6 +86,8 @@ const PadBody = (props: {
   onFailureCleared?: (() => void) | undefined;
   /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
   onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
+  /** The Pad as the user's own save left it. */
+  onSaved?: ((pad: Pad) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
@@ -330,6 +332,8 @@ const PadBody = (props: {
       if (sent.kind === "refused") return refuse(sent.error);
 
       const next = sent.result;
+      // U7499b: a save is the user's own write, so it counts as read.
+      props.onSaved?.(next);
       const before = cycle.save();
       cycle.send({ kind: "applied", version, current: currentDraft() === next.text });
       actionFailure.clear();
@@ -587,6 +591,7 @@ export const PadDrawer = (props: {
           onLateFailure={props.onLateFailure}
           onFailureCleared={props.onFailureCleared}
           onAcknowledged={props.onAcknowledged}
+          onSaved={padRead.record}
         />
       )}
     </ItemDrawer>

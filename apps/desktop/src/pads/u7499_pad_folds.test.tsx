@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import type { Pad } from "@contracts/pad/Pad";
 import { afterEach, describe, expect, it } from "vitest";
-import { AGENT, openShelf, padOf } from "./padsFixture";
+import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
 import { padReadStorage } from "./padRead";
+import { agent, workstream } from "../testing/nodes";
+import { mountRail, settled } from "../rail/railFixture";
 
 afterEach(cleanup);
 
@@ -137,5 +139,143 @@ describe("u7499 Pad folds", () => {
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
     connected.drawer.close();
     await waitFor(() => expect(count(fold("idle"))).toBe(2));
+  });
+
+  it("u7499a_the_pads_fold_row_is_the_rails_fold_row", async () => {
+    // What a user perceives of a fold row: its accessible name and `aria-expanded`, after a click and after Right and Left.
+    const walk = async (find: () => HTMLElement) => {
+      const seen = () => [find().getAttribute("aria-expanded"), find().textContent?.replace(/\s+/g, "")];
+      const trail = [seen()];
+
+      fireEvent.click(find());
+      await waitFor(() => expect(find().getAttribute("aria-expanded")).toBe("true"));
+      trail.push(seen());
+      fireEvent.keyDown(find(), { key: "ArrowLeft" });
+      await waitFor(() => expect(find().getAttribute("aria-expanded")).toBe("false"));
+      trail.push(seen());
+      fireEvent.keyDown(find(), { key: "ArrowRight" });
+      await waitFor(() => expect(find().getAttribute("aria-expanded")).toBe("true"));
+      trail.push(seen());
+
+      return trail;
+    };
+
+    await openShelf([pad("read-one")], false, false, "/p", { now: NOW, read: { "fixture-read-one": "1" } });
+    const pads = await walk(() => fold("idle"));
+    cleanup();
+
+    await mountRail([workstream("stream"), agent("child", "done", "done", { parent: "stream", final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } })]);
+    await settled();
+    const rail = await walk(() => screen.getByRole("treeitem", { name: /idle/ }));
+
+    expect(pads).toEqual(rail);
+  });
+
+  it("u7499a_arrow_keys_skip_a_closed_fold", async () => {
+    // Home order: a (above), b (folded, read), c (above).
+    await openShelf([pad("a"), pad("b"), pad("c")], false, false, "/p", { now: NOW, read: { "fixture-b": "1" } });
+    const selected = () => document.activeElement?.closest("[data-pad]")?.getAttribute("data-pad");
+
+    nameOf("a").focus();
+    fireEvent.keyDown(nameOf("a"), { key: "ArrowDown" });
+    await waitFor(() => expect(selected()).toBe("c"));
+    fireEvent.click(fold("idle"));
+    await waitFor(() => nameOf("b"));
+    fireEvent.keyDown(nameOf("c"), { key: "ArrowDown" });
+    await waitFor(() => expect(selected()).toBe("b"));
+  });
+
+  it("u7499a_reorder_sends_before_from_the_full_home_order", async () => {
+    // Home order: a (folded, read), b (above), c (folded, read), d (above).
+    const read = { "fixture-a": "1", "fixture-c": "1" };
+    const { app } = await openShelf([pad("a"), pad("b"), pad("c"), pad("d")], false, false, "/p", { now: NOW, read });
+
+    expect(rows()).toEqual(["b", "d"]);
+    nameOf("d").focus();
+    fireEvent.keyDown(nameOf("d"), { key: "ArrowUp", code: "ArrowUp", altKey: true });
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.reorder")).toHaveLength(1));
+    // `d` takes `b`'s slot in the full order a, b, c, d, so it lands before `c`, a folded Pad the tab never listed.
+    expect(app.calls.filter(call => call.method === "pad.reorder")[0]?.params).toMatchObject({ name: "d", before: "c" });
+  });
+
+  it("u7499b_a_save_records_the_revision", async () => {
+    const { connected } = await openShelf([pad("note", { revision: 1 })], false, false, "/p", { now: NOW, read: { "fixture-note": "0" } });
+
+    const field = await openPad("note");
+
+    expect(connected.drawer.content()).not.toBeNull();
+    // The save bumps the Revision to 2, and the record takes it.
+
+    fireEvent.input(field, { target: { value: "typed" } });
+    await waitFor(() => expect(padReadStorage("/p").read()).toEqual({ "fixture-note": "2" }), { timeout: 5000 });
+  });
+
+  it("u7499b_a_write_seen_while_open_counts_as_read_on_leaving", async () => {
+    const { app, state, connected } = await openShelf([pad("watched", { revision: 2 })], false, false, "/p", { now: NOW, read: { "fixture-watched": "1" } });
+
+    fireEvent.dblClick(nameOf("watched"));
+    await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
+    state.pads = state.pads.map(each => ({ ...each, revision: 3, updated_at: NOW }));
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "watched" } });
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.list").length).toBeGreaterThan(1));
+    connected.drawer.close();
+    await waitFor(() => expect(padReadStorage("/p").read()).toEqual({ "fixture-watched": "3" }));
+    expect(mark("changed")).toBe(0);
+  });
+
+  it("u7499b_the_first_list_counts_every_pad_as_read", async () => {
+    await openShelf([pad("a"), pad("b", { revision: 3 })], false, false, "/first", { now: NOW, read: null });
+    await waitFor(() => expect(padReadStorage("/first").read()).toEqual({ "fixture-a": "1", "fixture-b": "3" }));
+  });
+
+  it("u7499b_a_later_pad_missing_from_the_record_is_unread", async () => {
+    const { app, state } = await openShelf([pad("a")], false, false, "/later", { now: NOW, read: null });
+
+    await waitFor(() => expect(padReadStorage("/later").read()).toEqual({ "fixture-a": "1" }));
+    state.pads = [...state.pads, pad("agents-new")];
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "agents-new" } });
+    await waitFor(() => expect(rows()).toEqual(["agents-new"]));
+    expect(mark("new")).toBe(1);
+  });
+
+  it("u7499b_a_pad_the_user_creates_is_read", async () => {
+    const { app, state } = await openShelf([pad("a")], false, false, "/mine", { now: NOW, read: { "fixture-a": "1" } });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
+    const field = await screen.findByLabelText<HTMLInputElement>("Pad name");
+
+    fireEvent.input(field, { target: { value: "mine" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(state.pads.some(each => each.name === "mine")).toBe(true));
+    app.emit({ actor: { kind: "user" }, name: "pad.changed", data: { name: "mine" } });
+    // Read at its creation: it folds as idle beside `a` instead of listing above the folds as new.
+    await waitFor(() => expect(count(fold("idle"))).toBe(2));
+    expect(rows()).toEqual([]);
+    expect(mark("new")).toBe(0);
+  });
+
+  it("u7499b_a_recreated_name_is_unread", async () => {
+    const { app, state } = await openShelf([pad("same")], false, false, "/again", { now: NOW, read: { "fixture-same": "1" } });
+
+    state.pads = [{ ...pad("same"), incarnation: "second-life" }];
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "same" } });
+    await waitFor(() => expect(rows()).toEqual(["same"]));
+    expect(mark("new")).toBe(1);
+  });
+
+  it("u7499b_the_open_pad_never_moves_while_open", async () => {
+    const { app, state, connected } = await open();
+
+    fireEvent.click(fold("idle"));
+    await waitFor(() => nameOf("already-read"));
+    fireEvent.dblClick(nameOf("already-read"));
+    await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
+    expect(rows()).toContain("already-read");
+    // Writes and a later age past 7 days would fold it; it stays while the Drawer shows it.
+    state.pads = state.pads.map(each => each.name === "already-read" ? { ...each, revision: 2, updated_at: NOW - 9 * DAY } : each);
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "already-read" } });
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.list").length).toBeGreaterThan(1));
+    expect(rows()).toContain("already-read");
+    expect(count(fold("idle"))).toBe(1);
   });
 });
