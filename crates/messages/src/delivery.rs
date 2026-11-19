@@ -186,7 +186,7 @@ async fn apply_status(
         )
     } else {
         (
-            kind == Kind::Done,
+            false,
             matches!(kind, Kind::Idle | Kind::Blocked) || at_prompt(kind, label),
         )
     };
@@ -438,8 +438,19 @@ pub fn ended(node: &RailNode) -> bool {
             .is_some_and(|s| s.kind == Kind::Done || (s.kind == Kind::Error && !terminal))
 }
 
+/// AP2: a finished (`done`) Agent still receives Messages and holds them for its next turn; every
+/// other ending applies B9.
+fn finished(node: &RailNode) -> bool {
+    node.status().is_some_and(|s| s.kind == Kind::Done)
+}
+
+/// Whether the node's ending closes its Messages (B9): `ended` but for a finished Agent (AP2).
+pub fn closes(node: &RailNode) -> bool {
+    ended(node) && !finished(node)
+}
+
 fn permanently_ended(node: &RailNode) -> bool {
-    ended(node) && node.terminal_id().is_none()
+    closes(node) && node.terminal_id().is_none()
 }
 
 /// A reattached Terminal restarts its Status counter, so pending bindings must not wait
@@ -490,7 +501,7 @@ fn reconcile_node(
         Ending {
             end: if permanently_ended(node) {
                 End::Gone
-            } else if ended(node) {
+            } else if closes(node) {
                 End::Closed
             } else {
                 End::Live

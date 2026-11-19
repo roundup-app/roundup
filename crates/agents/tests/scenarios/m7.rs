@@ -83,17 +83,6 @@ async fn m7_a_door_stops_its_subagent() {
 }
 
 #[tokio::test]
-async fn m7_a_door_cannot_stop_another_workstreams_agent() {
-    let w = World::new().await;
-
-    let result = w
-        .call(agent(&w.door), "agent.stop", json!({"id": w.other}))
-        .await;
-
-    assert_eq!(code_of(result), code::FORBIDDEN);
-}
-
-#[tokio::test]
 async fn m7_an_agent_cannot_stop_or_remove_itself() {
     let w = World::new().await;
 
@@ -137,11 +126,6 @@ async fn m7_a_workstream_an_agent_created_is_in_its_reach() {
     w.call(agent(&w.child), "agent.stop", json!({"id": under}))
         .await
         .unwrap();
-    // Another Agent's Reach does not hold it.
-    let result = w
-        .call(agent(&w.sibling), "rail.remove", json!({"id": id}))
-        .await;
-    assert_eq!(code_of(result), code::FORBIDDEN);
     w.call(agent(&w.child), "rail.remove", json!({"id": id}))
         .await
         .unwrap();
@@ -149,14 +133,28 @@ async fn m7_a_workstream_an_agent_created_is_in_its_reach() {
 }
 
 #[tokio::test]
-async fn m7_a_sibling_subagent_is_outside_reach() {
+async fn ap4_an_agent_acts_outside_its_former_reach() {
     let w = World::new().await;
 
-    let result = w
-        .call(agent(&w.child), "agent.stop", json!({"id": w.sibling}))
+    w.call(agent(&w.child), "agent.stop", json!({"id": w.sibling}))
+        .await
+        .unwrap();
+    let own = w
+        .call(agent(&w.child), "agent.stop", json!({"id": w.child}))
         .await;
+    assert_eq!(code_of(own), code::FORBIDDEN);
 
-    assert_eq!(code_of(result), code::FORBIDDEN);
+    let pane =
+        w.f.tree()
+            .await
+            .into_iter()
+            .find(|n| n.base.id == w.child)
+            .and_then(|n| n.terminal_id())
+            .unwrap();
+    let write =
+        w.f.agents
+            .guard_terminal_read(&agent(&w.child), &pane, None, false);
+    assert_eq!(code_of(write.map(|()| Value::Null)), code::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -177,12 +175,12 @@ async fn m7_a_forbidden_call_changes_nothing_and_logs_no_touch() {
     let before = w.tree_ids().await;
 
     let result = w
-        .call(agent(&w.child), "rail.remove", json!({"id": w.other}))
+        .call(agent(&w.child), "rail.remove", json!({"id": w.child}))
         .await;
 
     assert_eq!(code_of(result), code::FORBIDDEN);
     assert_eq!(w.tree_ids().await, before);
-    assert!(w.touches_of(&format!("rail:{}", w.other)).is_empty());
+    assert!(w.touches_of(&format!("rail:{}", w.child)).is_empty());
     let unknown = w
         .call(agent(&w.child), "agent.stop", json!({"id": "9999"}))
         .await;
@@ -281,11 +279,6 @@ async fn m6_start_door_starts_it_once() {
         .await;
 
     assert_eq!(code_of(again), code::CONFLICT);
-    // A Workstream outside its Reach is not its to start.
-    let elsewhere = w
-        .call(agent(&w.child), "rail.startDoor", json!({"id": w.door}))
-        .await;
-    assert_eq!(code_of(elsewhere), code::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -305,47 +298,6 @@ async fn m6_a_parent_but_null_is_conflict_and_changes_nothing() {
     }
 
     assert_eq!(w.tree_ids().await, before);
-}
-
-#[tokio::test]
-async fn m7_a_run_outside_reach_starts_nothing() {
-    let w = World::new().await;
-    for caller in [&w.door, &w.sibling] {
-        let target = if caller == &w.door {
-            &w.other
-        } else {
-            &w.child
-        };
-        let before = serde_json::to_value(w.f.terminals.list().await).unwrap();
-        let mut events = w.f.bus.subscribe();
-        let err = w
-            .call(
-                agent(caller),
-                "agent.run",
-                json!({"id": target, "command": ["/bin/sh", "-c", "echo ran > forbidden-run"],
-                   "cwd": w.f.dir.path()}),
-            )
-            .await
-            .unwrap_err();
-
-        assert_eq!(err.code, code::FORBIDDEN);
-        let target_name =
-            w.f.tree()
-                .await
-                .into_iter()
-                .find(|node| &node.base.id == target)
-                .unwrap()
-                .base
-                .name;
-        assert!(err.message.contains(&target_name) && !err.message.contains(target));
-        assert_eq!(
-            serde_json::to_value(w.f.terminals.list().await).unwrap(),
-            before
-        );
-        assert!(w.touches_of(&format!("agent:{target}")).is_empty());
-        assert!(events.try_recv().is_err());
-        assert!(!w.f.dir.path().join("forbidden-run").exists());
-    }
 }
 
 #[tokio::test]
@@ -407,33 +359,6 @@ impl World {
             "order": {"kind": "work", "ask": "read the instructions", "done": "instructions read", "limits": []}
         })).await.unwrap();
         node["id"].as_str().unwrap().to_owned()
-    }
-}
-
-#[tokio::test]
-async fn m7_a_spawn_prompt_outside_reach_is_refused_without_effects() {
-    let w = World::new().await;
-    let target = w.prompt_child().await;
-    let foreign = w.f.workstream("foreign", None).await;
-    for caller in [&foreign, &w.other, &w.sibling] {
-        let before = w.touches.sequence().unwrap();
-        let mut events = w.f.bus.subscribe();
-        let err = w
-            .call(agent(caller), "agent.spawnPrompt", json!({"id": target}))
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::FORBIDDEN);
-        let target_name =
-            w.f.tree()
-                .await
-                .into_iter()
-                .find(|node| node.base.id == target)
-                .unwrap()
-                .base
-                .name;
-        assert!(err.message.contains(&target_name) && !err.message.contains(&target));
-        assert_eq!(w.touches.sequence().unwrap(), before);
-        assert!(events.try_recv().is_err());
     }
 }
 

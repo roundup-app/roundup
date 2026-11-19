@@ -37,7 +37,7 @@ Policy: the Request stage of `.agents/data/journey.md` still requires the Ask to
 H4612a preservation Checks on `origin/main` (the file and test/heading identify each holder):
 
 1. `scenarios/ask-bar.md`, A42; `crates/agents/tests/asks.rs`, `a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone`: one Workstream, original part and placement identity; amend its startup fixture to emit H19's readiness observations.
-2. `scenarios/agent-lifecycle.md`, A4452a/A4452d; `crates/agents/tests/scenarios/steer.rs`, `a4452a_coordination_text_reaches_the_inbox` and `a4452d_agent_authored_text_never_types`: coordination remains inbox-only and is not gated by a star.
+2. `scenarios/agent-lifecycle.md`, A4452a/A4452d; `crates/agents/tests/scenarios/steer.rs`, `a4452a_coordination_text_reaches_the_inbox` (AP3 retired `a4452d_agent_authored_text_never_types`): coordination remains inbox-only and is not gated by a star.
 3. `scenarios/agent-lifecycle.md`, A4452b; `crates/agents/tests/scenarios/naming.rs`, `a4452b_first_user_message_is_the_users_words`: the user's first prompt remains their own.
 
 Applicable Gates/Observers: P1, does coordination write to the Terminal (Check 2); P4, does vendor interpretation escape the Adapter or add a seam (review the implementation against `AgentAdapter` in `crates/agents/src/lib.rs`); P9, does typing introduce unauthorized text or another turn (the exact-byte and one-submit observer above). All answers must be no. Policy: no new RPC, Message law, App surface, Mode restart behavior or direct keyboard gate is ordered.
@@ -62,7 +62,7 @@ H4702a preservation Checks on `origin/main` (file and test/function/heading iden
 
 1. `crates/agents/tests/scenarios/interrupt.rs`, `h13_an_interrupt_writes_one_esc_and_returns_when_the_title_shows_the_star`: working-Agent title acknowledgement returns `null`, with one Escape and idle Kind.
 2. `crates/agents/src/steer.rs`, `a2703a_interrupt_write_failure_uses_rail_name`: a failed physical write remains `UNKNOWN_OUTCOME` and uses the Rail name.
-3. `crates/agents/tests/scenarios/interrupt.rs`, `h13_only_the_user_or_a_doors_own_workstream_may_interrupt` and `h13_an_agent_that_is_not_working_is_not_running_and_no_byte_is_written`: Reach and non-running refusals retain zero input bytes.
+3. `crates/agents/tests/scenarios/interrupt.rs`, `h13_an_agent_may_not_interrupt_itself` and `h13_an_agent_that_is_not_working_is_not_running_and_no_byte_is_written`: Reach and non-running refusals retain zero input bytes.
 4. `crates/agents/tests/scenarios/interrupt.rs`, `h17_a_lost_acknowledgement_is_not_acked_and_nothing_else_is_written` and `h17_a_later_star_is_still_folded_as_a2_says`: a missing working-Agent acknowledgement stays uncertain, without retry or suppression of later Observations.
 5. `scenarios/agents.md`, A2; `crates/agents/src/claude_code/mod.rs`, `ClaudeCode::retitle` and `hook_status`: vendor observations determine Kind; a title alone does not dismiss native attention.
 

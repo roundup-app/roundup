@@ -8,6 +8,7 @@ use rpc::RpcError;
 use serde_json::Value;
 
 use crate::Shared;
+use crate::agent::Runs;
 
 /// M7, H21: the one Reach walk of Agent `m` over the Rail `nodes` and the ids it `created`.
 pub(crate) fn reach_of(
@@ -47,7 +48,7 @@ impl Shared {
     }
 
     /// M7: `NOT_FOUND` for an unknown node, then `FORBIDDEN` naming it when Agent `actor` has it
-    /// outside its Reach (itself too, unless `itself`). The user and an Extension have no limit.
+    /// is the Agent itself, unless `itself` (AP4: no other Reach limit). The user and an Extension have no limit.
     pub(crate) fn guard_reach(
         &self,
         actor: &Actor,
@@ -55,17 +56,13 @@ impl Shared {
         itself: bool,
     ) -> Result<(), RpcError> {
         self.rail().node(crate::rail::agent_id(id)?)?;
-        if actor.kind != contracts::ActorKind::Agent || (itself && actor.id == id) {
+        if actor.kind != contracts::ActorKind::Agent || itself || actor.id != id {
             return Ok(());
         }
-        if self.reach(&actor.id)?.contains(id) {
-            return Ok(());
-        }
-        let rail = self.rail();
+        // AP4: an Agent acts on any node but itself.
         Err(RpcError::forbidden(format!(
-            "{} is not in the Reach of {}",
-            rail.name_or_gone(id)?,
-            rail.name_or_gone(&actor.id)?
+            "{} may not act on itself",
+            self.rail().name_or_gone(id)?
         )))
     }
 
@@ -79,41 +76,22 @@ impl Shared {
         owner: Option<&str>,
         pane_readable: bool,
     ) -> Result<(), RpcError> {
-        if actor.kind != contracts::ActorKind::Agent {
+        let _ = pane_readable;
+        if actor.kind != contracts::ActorKind::Agent || owner.is_some() {
             return Ok(());
         }
-        let name = self.rail().name_or_gone(&actor.id)?;
-        let forbidden = || {
-            RpcError::forbidden(format!(
-                "terminal {terminal} is forbidden to {0}: not started by {0} or in its Reach",
-                name
-            ))
-        };
-        let nodes = self.rail().tree()?;
-        let Some(owner) = owner else {
-            // B54: an Agent's own pane is readable by an Agent that started it (in its Reach).
-            let pane = nodes
-                .iter()
-                .find(|node| node.terminal_id().as_deref() == Some(terminal));
-            return match pane {
-                Some(node) if pane_readable && self.reach(&actor.id)?.contains(&node.id) => Ok(()),
-                _ => Err(forbidden()),
-            };
-        };
-        if owner == actor.id || self.reach(&actor.id)?.contains(owner) {
-            return Ok(());
+        // AP4: an Agent's own pane stays refused.
+        let own = crate::rail::agent_id(&actor.id)
+            .ok()
+            .and_then(|id| self.rail().node(id).ok())
+            .and_then(|node| node.terminal_id());
+        if own.as_deref() == Some(terminal) {
+            return Err(RpcError::forbidden(format!(
+                "{} may not use its own Terminal",
+                self.rail().name_or_gone(&actor.id)?
+            )));
         }
-        let mut at = nodes.iter().find(|node| node.id == actor.id);
-        while let Some(node) = at {
-            if node.kind() == contracts::agent::NodeKind::Workstream && node.id == owner {
-                return Ok(());
-            }
-            at = node
-                .parent
-                .as_deref()
-                .and_then(|parent| nodes.iter().find(|n| n.id == parent));
-        }
-        Err(forbidden())
+        Ok(())
     }
 
     /// B53: a Show request may also name the pane of a node in the caller's Reach, which M13's read refuses as ownerless.
@@ -123,15 +101,7 @@ impl Shared {
         terminal: &str,
         owner: Option<&str>,
     ) -> Result<(), RpcError> {
-        let refused = match self.guard_terminal_read(actor, terminal, owner, false) {
-            Err(err) if err.code == rpc::code::FORBIDDEN => err,
-            other => return other,
-        };
-        let reach = self.reach(&actor.id)?;
-        let is_pane = self.rail().tree()?.iter().any(|node| {
-            node.terminal_id().as_deref() == Some(terminal) && reach.contains(&node.id)
-        });
-        if is_pane { Ok(()) } else { Err(refused) }
+        self.guard_terminal_read(actor, terminal, owner, false)
     }
 
     /// M14: `FORBIDDEN` when Agent `actor` may not set the Route in `params`: its `to` is the
@@ -139,28 +109,58 @@ impl Shared {
     /// caller or in its Reach. A Route the module itself refuses as `INVALID_PARAMS` (`to` the
     /// user, `from` equal to `to`) is left to it.
     pub(crate) fn guard_route(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
-        let (Some(from), Some(to)) = (params["from"].as_str(), params["to"].as_str()) else {
-            return Ok(());
-        };
-        if to == Actor::user().id || from == to {
-            return Ok(());
-        }
-        if to == actor.id {
+        let to = params["to"].as_str();
+        if to == Some(actor.id.as_str()) && params["from"].as_str() != to {
             return Err(RpcError::forbidden(format!(
                 "{} may not set a Route to itself",
                 self.rail().name_or_gone(&actor.id)?
             )));
         }
-        let reach = self.reach(&actor.id)?;
-        for node in [from, to] {
-            if node != actor.id && !reach.contains(node) {
-                let rail = self.rail();
-                return Err(RpcError::forbidden(format!(
-                    "{} is neither {} nor in its Reach",
-                    rail.name_or_gone(node)?,
-                    rail.name_or_gone(&actor.id)?
-                )));
-            }
+        Ok(())
+    }
+}
+
+impl Shared {
+    /// A3564a, AP6: `FORBIDDEN` while the Agent whose Terminal is `terminal` waits on the user.
+    pub(crate) fn guard_not_waiting_terminal(&self, terminal: &str) -> Result<(), RpcError> {
+        self.guard_waiting(|run| run.terminal_id() == terminal)
+    }
+
+    /// AP6: `FORBIDDEN` while Agent `id` waits on the user.
+    pub(crate) fn guard_not_waiting(&self, id: &str) -> Result<(), RpcError> {
+        let terminal = match self.runs().slot(id) {
+            Some(crate::Slot::Running(run)) => Some(run.terminal_id().to_string()),
+            _ => None,
+        };
+        match terminal {
+            Some(terminal) => self.guard_not_waiting_terminal(&terminal),
+            None => Ok(()),
+        }
+    }
+
+    fn guard_waiting(&self, is_target: impl Fn(&crate::Run) -> bool) -> Result<(), RpcError> {
+        let waiting = {
+            let runs = self.runs();
+            runs.iter().find_map(|(agent, entry)| match &entry.slot {
+                crate::Slot::Running(run)
+                    if is_target(run)
+                        && run.view().status.as_ref().is_some_and(|status| {
+                            status.kind == Kind::NeedsYou
+                                && !crate::stop_asks(status.kind, &status.label)
+                        }) =>
+                {
+                    Some(*agent)
+                }
+                _ => None,
+            })
+        };
+        if let Some(agent) = waiting {
+            let name = self
+                .rail()
+                .name(crate::rail::agent_id(&agent.to_string())?)?;
+            return Err(RpcError::forbidden(format!(
+                "{name} waits on the user in its Terminal"
+            )));
         }
         Ok(())
     }
@@ -180,30 +180,7 @@ impl crate::Agents {
         if actor.kind != contracts::ActorKind::Agent {
             return self.shared.terminals.write(terminal, &bytes).await;
         }
-        let waiting = {
-            let runs = self.shared.runs();
-            runs.iter().find_map(|(agent, entry)| match &entry.slot {
-                crate::Slot::Running(run)
-                    if run.terminal_id() == terminal
-                        && run.view().status.as_ref().is_some_and(|status| {
-                            status.kind == Kind::NeedsYou
-                                && !crate::stop_asks(status.kind, &status.label)
-                        }) =>
-                {
-                    Some(*agent)
-                }
-                _ => None,
-            })
-        };
-        if let Some(agent) = waiting {
-            let name = self
-                .shared
-                .rail()
-                .name(crate::rail::agent_id(&agent.to_string())?)?;
-            return Err(RpcError::forbidden(format!(
-                "{name} waits on the user in its Terminal"
-            )));
-        }
+        self.shared.guard_not_waiting_terminal(terminal)?;
         self.shared.terminals.write_completed(terminal, bytes).await
     }
 }

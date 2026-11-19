@@ -213,15 +213,11 @@ async fn u3078g_resume_preserves_stop_holds_authority_and_attempts() {
         .request("agent.stop", json!({"id": other.report["author"]["id"]}))
         .await
         .unwrap();
-    let refused = other.resume("stopped").await.unwrap_err();
-    assert!(
-        refused.message.contains("not accepted"),
-        "{}",
-        refused.message
-    );
-    assert_eq!(other.messages().await, before);
+    // AP2: the stopped Agent is done, so the successor Message waits pending for its next turn.
+    let waiting = other.resume("stopped").await.unwrap();
+    assert!(waiting["decision"]["message"].is_number(), "{waiting}");
+    assert_eq!(other.messages().await.len(), before.len() + 1);
     assert_eq!(other.log("launches"), launches);
-    assert!(other.reconcile().await["actions"][0]["decision"].is_null());
 }
 
 #[tokio::test]

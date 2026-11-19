@@ -612,35 +612,6 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
     assert!(growth_kb < BUDGET_MB * 1024);
 }
 
-#[tokio::test]
-async fn m14_an_ownerless_terminal_is_forbidden_to_write() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-    let ownerless = user
-        .request(
-            "terminal.spawn",
-            json!({ "cwd": "/", "command": ["/bin/sh", "-c", "cat"], "env": {}, "cols": 80, "rows": 24 }),
-        )
-        .await
-        .unwrap();
-
-    let snapshot = || user.request("terminal.snapshot", json!({ "id": ownerless["id"] }));
-    let before = snapshot().await.unwrap();
-
-    let refused = as_a
-        .request(
-            "terminal.write",
-            json!({ "id": ownerless["id"], "data": "eAo=" }),
-        )
-        .await;
-
-    assert_eq!(m14_code(refused), rpc::code::FORBIDDEN);
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert_eq!(snapshot().await.unwrap(), before);
-}
-
 fn socket(project: &Project) -> PathBuf {
     project.dir.path().join("rupd.sock")
 }

@@ -773,10 +773,9 @@ async fn a5213_can_resume_matches_the_guard() {
     assert!(!f.can_resume(&tree, &running.id) && !f.can_resume(&tree, &bare));
 }
 
-/// A5335b: after a reopen an Agent's resume of a child that finished starts nothing; the user's
-/// own `agent.resume` still does.
+/// AP1: after a reopen an Agent's `agent.resume` of a finished child resumes its saved conversation.
 #[tokio::test]
-async fn a5335b_an_agent_cannot_resume_a_child_finished_before_a_restart() {
+async fn ap1_an_agent_resumes_a_finished_agent() {
     let f = Fixture::running("sleep 30");
     let door = f.workstream("Door", None).await;
     let node = f.spawn(Some(&door), None).await.unwrap();
@@ -784,27 +783,30 @@ async fn a5335b_an_agent_cannot_resume_a_child_finished_before_a_restart() {
         .await
         .unwrap();
     f.call("agent.stop", json!({"id": node.id})).await.unwrap();
-    let f = f.reopen();
-    let mut ctx = f.ctx();
-    ctx.actor = contracts::Actor {
-        kind: contracts::ActorKind::Agent,
-        id: door,
-        parent: None,
+    let f = Arc::new(f.reopen());
+    let before = f.attempt(&node.id).await;
+    let pending = {
+        let f = Arc::clone(&f);
+        let (id, door) = (node.id.clone(), door.clone());
+        tokio::spawn(async move {
+            f.agents
+                .call(&agent_ctx(&f, &door), "agent.resume", json!({"id": id}))
+                .await
+        })
     };
-    let err = f
-        .agents
-        .call(&ctx, "agent.resume", json!({"id": node.id}))
+    f.until_attempt_changed(&node.id, &before).await;
+    f.session_start(&node.id, CONVERSATION, "resume")
         .await
-        .unwrap_err();
-    assert_eq!(err.code, code::CONFLICT);
-    let after = f
-        .tree()
-        .await
-        .into_iter()
-        .find(|n| n.id == node.id)
         .unwrap();
-    assert_eq!(after.attempt(), node.attempt());
-    assert_eq!(after.terminal_id(), None);
+    let resumed: RailNode = serde_json::from_value(pending.await.unwrap().unwrap()).unwrap();
+    assert_eq!(resumed.id, node.id);
+    assert_ne!(
+        resumed
+            .attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some(before.as_str())
+    );
 }
 
 /// A5335c: with no saved conversation a resume is `CONFLICT` and starts no Terminal.
@@ -889,9 +891,9 @@ async fn working_job(f: &Fixture, door: &str) -> RailNode {
 }
 
 /// DCR2 (a), (b): after a restart an Agent's `agent_resume` without `mode` takes the Job the
-/// quit cut off, and refuses the reported Job and the stopped Job, starting no Attempt.
+/// quit cut off (AP1: a finished Job resumes too, see `ap1_an_agent_resumes_a_finished_agent`).
 #[tokio::test(flavor = "multi_thread")]
-async fn dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one() {
+async fn dcr2_resume_without_mode_takes_a_cut_off_job() {
     let f = Fixture::running("sleep 30");
     let door = f.workstream("Door", None).await;
     let cut = working_job(&f, &door).await;
@@ -912,23 +914,6 @@ async fn dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one
         })
         .unwrap();
     let f = Arc::new(f.reopen());
-    let ctx = agent_ctx(&f, &door);
-    for finished in [&reported, &stopped] {
-        let err = f
-            .agents
-            .call(&ctx, "agent.resume", json!({"id": finished.id}))
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::CONFLICT, "{err}");
-        let after = f
-            .tree()
-            .await
-            .into_iter()
-            .find(|n| n.id == finished.id)
-            .unwrap();
-        assert_eq!(after.attempt(), finished.attempt());
-        assert_eq!(after.terminal_id(), None);
-    }
     let before = f.attempt(&cut.id).await;
     let pending = {
         let f = Arc::clone(&f);
@@ -952,26 +937,6 @@ async fn dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one
             .map(contracts::agent::Ordinal::as_str),
         Some(before.as_str())
     );
-}
-
-/// DCR2 (c): a cut-off Job outside the caller's Reach is refused with the Reach error.
-#[tokio::test(flavor = "multi_thread")]
-async fn dcr2_resume_outside_reach_is_refused() {
-    let f = Fixture::running("sleep 30");
-    let door = f.workstream("Door", None).await;
-    let other = f.workstream("Other", None).await;
-    let job = working_job(&f, &other).await;
-    f.agents.mark_cut_off(|_| Ok(vec![])).unwrap();
-    let f = f.reopen();
-    let err = f
-        .agents
-        .call(&agent_ctx(&f, &door), "agent.resume", json!({"id": job.id}))
-        .await
-        .unwrap_err();
-    assert_eq!(err.code, code::FORBIDDEN, "{err}");
-    assert!(err.message.contains("Reach"), "{err}");
-    let after = f.tree().await.into_iter().find(|n| n.id == job.id).unwrap();
-    assert_eq!(after.attempt(), job.attempt());
 }
 
 #[tokio::test]
