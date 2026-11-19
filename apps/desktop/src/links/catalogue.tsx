@@ -14,6 +14,7 @@ import { z } from "zod";
 import type { LinkSet } from "@contracts/links/LinkSet";
 import type { ChordName } from "../keys/chords";
 import { IconButton } from "../ui/IconButton";
+import { Popover } from "../ui/Popover";
 import { copy } from "./copy";
 
 export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
@@ -30,7 +31,7 @@ const catalog = defineCatalog(schema, {
     tracker: icon,
     "dev-server": icon,
     asked: icon,
-    more: { props: z.object({ count: z.number(), open: z.boolean() }) },
+    more: { props: z.object({ count: z.number() }) },
   },
   actions: {},
 });
@@ -53,21 +54,40 @@ export const specOf = (set: LinkSet | undefined): Spec => {
   return { root: "header", elements };
 };
 
-/** LH9: the root's first six children, then a `more` count of the rest; all of them once the count is open. */
-const cut = (spec: Spec, open: boolean): Spec => {
+/** LH9: the root's first six children, then a `more` count whose popover holds the rest once open. */
+const cut = (spec: Spec, shown: number): Spec => {
   const head = spec.elements[spec.root];
   const ids = head?.children ?? [];
+  const inline = Math.min(SHOWN, shown);
 
-  if (!head || ids.length <= SHOWN) return spec;
+  if (!head || ids.length <= inline) return spec;
 
-  const more = { type: "more", props: { count: ids.length - SHOWN, open }, children: [] };
+  // LH13: the revealed rest are the count's children, drawn in a popover and never a second row of the header.
+  const more = { type: "more", props: { count: ids.length - inline }, children: ids.slice(inline) };
 
-  return { ...spec, elements: { ...spec.elements, [spec.root]: { ...head, children: [...(open ? ids : ids.slice(0, SHOWN)), "more"] }, more } };
+  return { ...spec, elements: { ...spec.elements, [spec.root]: { ...head, children: [...ids.slice(0, inline), "more"] }, more } };
+};
+
+/** LH13: how many icons fit inline in a pane of this width, the handle's and the count's slots kept; at most six (LH9). */
+const SLOT = 28;
+
+const GAP = 4;
+
+const PAD = 16;
+
+export const inlineFor = (width: number, total: number): number => {
+  const slots = Math.floor((width - PAD + GAP) / (SLOT + GAP)) - 1;
+
+  return total <= Math.min(SHOWN, slots) ? total : Math.max(0, Math.min(SHOWN, slots - 1));
 };
 
 /** LH8, LH9: the icons of a spec through `@json-render/solid`, six inline and a `+N` count that reveals the rest. */
-export const LinksView = (props: { spec: Spec; env: Env }) => {
+export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
   const [open, setOpen] = createSignal(false);
+  const [trigger, setTrigger] = createSignal<HTMLElement>();
+  const [content, setContent] = createSignal<HTMLElement>();
+  // The ref runs before the trigger is in the DOM, so the header is found when the anchor is read.
+  const headerBox = { getBoundingClientRect: () => (trigger()?.closest(".links-header") ?? trigger())?.getBoundingClientRect() ?? new DOMRect() };
 
   type Icon = Component<{ size?: number; "aria-hidden"?: "true" }>;
 
@@ -85,9 +105,16 @@ export const LinksView = (props: { spec: Spec; env: Env }) => {
       tracker: iconOf(Ticket, (env, url) => env.open(url)),
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
-      more: ctx => <IconButton class="links-count" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)} aria-expanded={ctx.props.open ? "true" : "false"} onClick={() => setOpen(now => !now)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</IconButton>,
+      more: ctx => (
+        <Popover.Root open={open()} onOpenChange={({ open: next }) => setOpen(next)} initialFocusEl={() => content()?.querySelector("button")} finalFocusEl={() => trigger()}>
+          <Popover.Trigger render={trigger => (
+            <IconButton {...trigger} ref={setTrigger} class="links-count" aria-label={open() ? copy.lessName : copy.moreName(ctx.props.count)}>{open() ? copy.less : `+${ctx.props.count}`}</IconButton>
+          )} />
+          <Popover.Content ref={setContent} anchor={headerBox} side="left" align="center" sideOffset={0} class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
+        </Popover.Root>
+      ),
     },
   });
 
-  return <JSONUIProvider registry={registry}><Renderer spec={cut(props.spec, open())} registry={registry} /></JSONUIProvider>;
+  return <JSONUIProvider registry={registry}><Renderer spec={cut(props.spec, props.shown ?? SHOWN)} registry={registry} /></JSONUIProvider>;
 };
