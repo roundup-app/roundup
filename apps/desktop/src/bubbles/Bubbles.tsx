@@ -253,7 +253,8 @@ export const Bubbles = (props: {
       const parent = host.parentElement;
       setBar(parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
       const stack = parent?.getBoundingClientRect();
-      const { boxes: siblings, watched: nextEdges } = clearances(parent);
+      const { boxes, watched: nextEdges } = clearances(parent);
+      const siblings = boxes();
 
       for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
 
@@ -280,9 +281,14 @@ export const Bubbles = (props: {
 
     if (host.parentElement) watched.observe(host.parentElement);
 
-    // Portal hosts and sibling controls may mount without changing the stack's size.
+    // Portal hosts and sibling controls may mount without changing the stack's size. A watched edge reports its own resize, so only a new bar or edge measures again: a measure here forces layout mid-task.
     const arrivals = new MutationObserver((records) => {
-      if (records.some((record) => !host.contains(record.target))) sync();
+      if (!records.some((record) => !host.contains(record.target))) return;
+      const parent = host.parentElement;
+      const { watched: next } = clearances(parent);
+      const moved = (parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined) !== untrack(bar);
+
+      if (moved || next.length !== edges.length || next.some((edge, index) => edge !== edges[index])) sync();
     });
 
     if (host.parentElement) arrivals.observe(host.parentElement, { childList: true, subtree: true });
@@ -778,3 +784,4 @@ export const Bubbles = (props: {
         onDiscard={draft => { drafts.discard(draft.revision); setEditing(null); }} />
     </div>;
 };
+

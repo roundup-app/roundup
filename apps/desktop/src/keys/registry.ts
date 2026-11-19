@@ -1,7 +1,7 @@
 import { leaderKeys, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { rowKey } from "../ui/RowCollection";
 import { strayKey } from "./stray";
-import { createSignal, flush, onCleanup, untrack } from "solid-js";
+import { createMemo, createRoot, createSignal, flush, onCleanup, untrack } from "solid-js";
 import { CHORDS, LEADER, chordsOf, defaultKeys, TEXT_FIELDS } from "./chords";
 import type { ActionValues, Chord, LeaderKey } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
@@ -95,18 +95,19 @@ export const questionAsked = (): (() => void) => {
 /** NA10: whether a native question is waiting for the user. */
 export const questionPending = (): boolean => questions > 0;
 
-/** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
-export const modalOpen = (): boolean => {
+/** The most recently mounted active modal layer. One memo, so a registration that leaves it unchanged reruns none of its readers. */
+const topModal = createRoot(() => createMemo(() => {
   layers();
 
-  return [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
-};
+  return [...registrations].filter(({ scope }) => scope.kind === "layer" && scope.modal && scope.active()).at(-1)?.scope;
+}));
+
+/** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
+export const modalOpen = (): boolean => topModal() !== undefined;
 
 /** Whether the most recently mounted active modal excludes this control's owner, including through a Portal. */
 export const modalOutside = (owner: HTMLElement | undefined): boolean => {
-  layers();
-
-  const modal = [...registrations].filter(({ scope }) => scope.kind === "layer" && scope.modal && scope.active()).at(-1)?.scope;
+  const modal = topModal();
 
   return modal?.kind === "layer" && (!owner || !modal.element()?.contains(owner));
 };

@@ -143,13 +143,19 @@ const boxesOf = (elements: Iterable<Element>): DOMRect[] => [...elements].flatMa
   return box.width > 0 && box.height > 0 ? [box] : [];
 });
 
-/** What the Bubble layer must stay clear of under `parent`, and every element whose size moves that edge: the bar and the Terminal tabs when they hold controls, else the hint line, resource strip and thread composer. */
+/** What the Bubble layer must stay clear of under `parent`, and every element whose size moves that edge: the bar and the Terminal tabs when they hold controls, else the hint line, resource strip and thread composer. Only `boxes` measures. */
 export const clearances = (parent: Element | null | undefined) => {
   const below = [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
   const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []].filter(element => element.querySelector("button, input, [role=tab]"));
-  const boxes = boxesOf(controls);
 
-  return { boxes: boxes.length ? boxes : boxesOf(below), watched: [...controls, ...below] };
+  return {
+    boxes: (): DOMRect[] => {
+      const boxes = boxesOf(controls);
+
+      return boxes.length ? boxes : boxesOf(below);
+    },
+    watched: [...controls, ...below],
+  };
 };
 
 /**
