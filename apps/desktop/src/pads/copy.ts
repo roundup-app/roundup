@@ -27,6 +27,9 @@ export const copy = {
   exportMd: sharedCopy.exportMd,
   delete: sharedCopy.delete,
   padChanged: "Pad changed",
+  foldLabel: sharedCopy.foldLabel,
+  newPad: sharedCopy.newWord,
+  changedPad: "Changed since you read it",
   padDeleted: (name: string) => `Pad ${name} was deleted`,
   padSourceMappingFailed: "Pad not saved: edited blocks did not match the source.",
   changedBy: "Changed by ",
@@ -95,5 +98,10 @@ export const copy = {
   walkBack: "Back",
   walkNext: "Next",
   walkFinish: "Finish",
+  walkOverview: sharedCopy.overview,
+  walkOutline: "Steps",
+  walkHint: "← → to move",
   walkCount: (step: number, steps: number) => `${step} of ${steps}`,
+  /** @prose */
+  walkFolded: (step: number, steps: number, title: string) => `Step ${step} of ${steps} · ${title}`,
 } as const;

@@ -270,6 +270,7 @@ type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwn
     : K extends "Event" ? WithoutOpenEvent<Before[K]> | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
       : K extends "project/Requested" ? RenameRequest
       : K extends "RpcErrorData" ? Before[K] | { kind: "start-failed"; path: string; id: string; cause: string }
+      : K extends "pad/CreateParams" ? Before[K] & { visibility?: import("./generated/agent/RailVisibility").RailVisibility }
       : K extends "project/OpenParams" ? Before[K] & { machine?: string | null }
       : K extends "project/ProjectSettings" ? Before[K] & { machine: string | null }
       : K extends "agent/StartDoorParams" ? Before[K] & { prompt?: string }
@@ -282,14 +283,20 @@ type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends Selector
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
   : K extends "rail.startDoor" ? { params: BeforeRpcMethods[K]["params"] & { prompt?: string }; result: BeforeRpcMethods[K]["result"] }
   : K extends "terminal.spawn" ? { params: BeforeRpcMethods[K]["params"] & { unset: string[] }; result: BeforeRpcMethods[K]["result"] }
+  : K extends "pad.create" ? { params: BeforeRpcMethods[K]["params"] & { visibility?: import("./generated/agent/RailVisibility").RailVisibility }; result: BeforeRpcMethods[K]["result"] }
   : K extends "project.get" ? { params: BeforeRpcMethods[K]["params"]; result: BeforeRpcMethods[K]["result"] & { machine: string | null } }
   : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"] & { machine?: string | null }; result: { path: string } }
   : BeforeRpcMethods[K] };
 
+// U7610a adds `counts` to ChangedFile.
 // U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.
 // RO5 replaces the flat RailNode with a union discriminated on `kind`; its fields are pinned in the Daemon's tests.
 type WithGroups<T> = [T] extends [Before["agent/RailNode"]]
   ? ([Before["agent/RailNode"]] extends [T] ? import("./generated/agent/RailNode").RailNode : T)
+  : [T] extends [Before["pad/Pad"]]
+  ? ([Before["pad/Pad"]] extends [T] ? import("./generated/pad/Pad").Pad : T)
+  : [T] extends [Before["agent/ChangedFile"]]
+  ? ([Before["agent/ChangedFile"]] extends [T] ? import("./generated/agent/ChangedFile").ChangedFile : T)
   : [T] extends [Before["agent/NodeKind"]]
   ? ([Before["agent/NodeKind"]] extends [T] ? T | "group" : T)
   : T extends object ? { [K in keyof T]: WithGroups<T[K]> } : T;

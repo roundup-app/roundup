@@ -207,7 +207,7 @@ async fn h11_an_agent_that_ends_while_a_steer_waits_is_not_found() {
 }
 
 #[tokio::test]
-async fn a4452d_agent_authored_text_never_types() {
+async fn ap3_an_agent_steer_is_typed_into_any_agent() {
     let f = Arc::new(frozen(Fixture::running(RECORD), Duration::from_secs(30)));
     let workstream = f.workstream("team", None).await;
     let child = f.spawn(Some(&workstream), None).await.unwrap();
@@ -224,25 +224,178 @@ async fn a4452d_agent_authored_text_never_types() {
         ..f.ctx()
     };
     let params = json!({"id": child.id, "text": "go"});
-    for stranger in [
-        from(ActorKind::Agent, "999"),
-        from(ActorKind::Ext, &workstream),
-    ] {
-        let err = f
-            .agents
-            .call(&stranger, "agent.prompt", params.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::FORBIDDEN);
-    }
+    let err = f
+        .agents
+        .call(
+            &from(ActorKind::Ext, &workstream),
+            "agent.prompt",
+            params.clone(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::FORBIDDEN);
     assert_eq!(read(&typed(&f)), "");
 
-    // A4452d: a Door's own text goes to the inbox, and no byte is typed.
-    let door = from(ActorKind::Agent, &workstream);
-    f.agents.call(&door, "agent.prompt", params).await.unwrap();
-    assert_eq!(f.inbox().len(), 1);
-    assert_eq!(f.inbox()[0].0, child.id);
+    // AP3: an Agent outside the target's ancestry types as the user does.
+    let stranger = from(ActorKind::Agent, "999");
+    let call = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move { f.agents.call(&stranger, "agent.prompt", params).await })
+    };
+    until_typed(&f, paste("go").len()).await;
+    signal(&f, &child.id, "UserPromptSubmit").await;
+    call.await.unwrap().unwrap();
+    assert!(f.inbox().is_empty());
+    assert!(read(&typed(&f)).contains("go"));
+}
+
+#[tokio::test]
+async fn ap3_an_agent_steer_of_a_finished_agent_resumes_it() {
+    const CONVERSATION: &str = "11111111-1111-1111-1111-111111111111";
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    let attempt = f.attempt(&node.id).await;
+    let start = |source: &'static str| json!({"hook_event_name": "SessionStart", "session_id": CONVERSATION, "source": source});
+    f.call(
+        "agent.signal",
+        json!({"id": node.id, "attempt": attempt, "payload": start("startup")}),
+    )
+    .await
+    .unwrap();
+    f.call("agent.stop", json!({"id": node.id})).await.unwrap();
+    let f = Arc::new(f.reopen());
+    let before = f.attempt(&node.id).await;
+    let stranger = Ctx {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "999".into(),
+            parent: None,
+        },
+        ..f.ctx()
+    };
+    let call = {
+        let (f, id) = (Arc::clone(&f), node.id.clone());
+        tokio::spawn(async move {
+            f.agents
+                .call(&stranger, "agent.prompt", json!({"id": id, "text": "go"}))
+                .await
+        })
+    };
+    f.until(|tree| {
+        tree.iter()
+            .find(|n| n.id == node.id)
+            .and_then(|n| n.attempt())
+            != contracts::agent::Ordinal::parse(&before)
+    })
+    .await;
+    assert_ne!(
+        f.attempt(&node.id).await,
+        before,
+        "the finished Agent did not resume"
+    );
+    call.abort();
+}
+
+#[tokio::test]
+async fn ap6_agent_prompt_to_a_needs_you_agent_types_nothing() {
+    let (f, id) = idle(BOUND).await;
+    let attempt = f.attempt(&id).await;
+    let payload = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash"});
+    f.call(
+        "agent.signal",
+        json!({"id": id, "attempt": attempt, "payload": payload}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(status_of(&f.tree().await, &id).kind, Kind::NeedsYou);
+    let stranger = Ctx {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "999".into(),
+            parent: None,
+        },
+        ..f.ctx()
+    };
+    let err = f
+        .agents
+        .call(&stranger, "agent.prompt", json!({"id": id, "text": "go"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::FORBIDDEN);
+    tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(read(&typed(&f)), "");
+}
+
+#[tokio::test]
+async fn ap5_an_agent_may_call_each_user_setting() {
+    let f = frozen(Fixture::running(RECORD), BOUND);
+    let agent = Ctx {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "999".into(),
+            parent: None,
+        },
+        ..f.ctx()
+    };
+    let call = |method: &'static str, params: Value| {
+        let (f, agent) = (&f, &agent);
+        async move { f.agents.call(agent, method, params).await }
+    };
+    let mode = call("agent.createMode", json!({"name": "team", "prompt": "one"}))
+        .await
+        .unwrap();
+    let mode_id = mode["id"].as_str().unwrap().to_owned();
+    call(
+        "agent.setModePrompt",
+        json!({"id": mode_id, "prompt": "two"}),
+    )
+    .await
+    .unwrap();
+    let tree = f.tree().await;
+    let node = tree.iter().find(|n| n.id == mode_id).unwrap();
+    assert_eq!(node.mode_prompt().as_deref(), Some("two"));
+
+    let owner = f.spawn(None, None).await.unwrap();
+    let child = f.spawn_as(&owner.id, None).await.unwrap();
+    let saved = call("agent.saveAsMode", json!({"id": child.id, "name": "saved"}))
+        .await
+        .unwrap();
+    assert_eq!(saved["name"], "saved");
+    let project = f
+        .dir
+        .path()
+        .parent()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    call(
+        "rail.setAlertLevel",
+        json!({"project": project, "id": child.id, "level": "quiet"}),
+    )
+    .await
+    .unwrap();
+    assert!(
+        serde_json::to_string(&f.tree().await)
+            .unwrap()
+            .contains("\"quiet\"")
+    );
+    let attempt = f.attempt(&owner.id).await;
+    f.call(
+        "agent.signal",
+        json!({"id": owner.id, "attempt": attempt, "payload": {"hook_event_name": "SessionStart", "session_id": "11111111-1111-1111-1111-111111111111", "source": "startup"}}),
+    )
+    .await
+    .unwrap();
+    f.call("agent.stop", json!({"id": owner.id})).await.unwrap();
+    let door = call("agent.makeWorkstream", json!({"id": owner.id}))
+        .await
+        .unwrap();
+    assert_eq!(door["id"], owner.id);
+    call("workstream.setAuto", json!({"id": owner.id, "auto": true}))
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    assert!(tree.iter().find(|n| n.id == owner.id).unwrap().auto());
 }
 
 #[tokio::test]
@@ -258,7 +411,7 @@ async fn a4452c_only_the_user_sets_the_mode_prompt() {
     let mode_id = mode["id"].as_str().unwrap().to_owned();
     let prompt = "  Review e\u{301} 🧭\nKeep spacing  ";
     let params = json!({"id": mode_id, "prompt": prompt});
-    for kind in [ActorKind::Agent, ActorKind::Ext] {
+    for kind in [ActorKind::Ext] {
         let ctx = Ctx {
             actor: Actor {
                 kind,

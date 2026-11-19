@@ -17,9 +17,10 @@ export const headingHitAreas = `Array.from(document.querySelectorAll('details[da
 // One CLI connection for the three setup commands; each still runs in order and a failed one stops the batch.
 export const opened = (path: string) => browser("batch", "--bail", "set viewport 1512 950", "set media dark", `open '${url(path)}'`);
 
-const focusPad = `(() => { document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name').focus(); return true; })()`;
+// pad-3 lists in a closed fold once read (U7499a), so the folds open until its row takes focus.
+const focusPad = `(() => { document.querySelectorAll('.pads-tab .pad-fold[aria-expanded=false]').forEach(fold => fold.click()); const row = document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name'); row?.focus(); return !!row && document.activeElement === row; })()`;
 
 // Focus the pad-3 row, open it and wait for the page condition in one CLI connection.
-export const openPad = (until: string) => batch([["eval", focusPad], ["press", "Enter"], ["wait", "--fn", until]]);
+export const openPad = (until: string) => batch([["wait", "--fn", focusPad], ["press", "Enter"], ["wait", "--fn", until]]);
 
 export const source = "Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\n\n<img src=x onerror=alert(1)>\n<script>alert(1)</script>\n[unsafe](javascript:alert(1))\n\n~~~text\nraw evidence\n~~~\n\n</details>";

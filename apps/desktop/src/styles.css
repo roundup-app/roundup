@@ -252,7 +252,12 @@ p {
 }
 
 .shelf-edge {
-  left: calc(-1 * var(--space-1));
+  left: 0;
+}
+
+/* The hit area lies on the Shelf's side of the hairline, so it never covers the centre's scroll thumb at the centre's trailing edge (U7543a). */
+.shelf-edge::before {
+  left: calc(-1 * var(--hairline-width));
 }
 
 .shelf-edge::after {
@@ -260,7 +265,7 @@ p {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(var(--space-1) - var(--hairline-width));
+  left: calc(-1 * var(--hairline-width));
   width: var(--hairline-width);
   background-color: var(--hairline);
 }

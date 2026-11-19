@@ -41,7 +41,7 @@ const comparison = { base: "original-base-commit", oldPath: path, newPath: path,
 
 app.handlers["agent.worktreeState"] = () => ({ ahead: 1, behind: 0, dirty: true });
 
-app.handlers["agent.changedFiles"] = () => ({ files: [{ path, line: 1, status: "modified" }, ...Array.from({ length: dense ? 499 : 1 }, (_, i) => ({ path: `src/file-${i}.ts`, status: "modified", line: 1 }))] });
+app.handlers["agent.changedFiles"] = () => ({ files: [{ path, line: 1, status: "modified", counts: dense ? { added: 10000, removed: 10000 } : { added: 2, removed: 2 } }, ...Array.from({ length: dense ? 499 : 1 }, (_, i) => ({ path: `src/file-${i}.ts`, status: "modified", line: 1, counts: { added: 1, removed: 1 } }))] });
 
 app.handlers["agent.compareFile"] = () => comparison;
 

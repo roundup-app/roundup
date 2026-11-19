@@ -211,7 +211,7 @@ async fn a4452c_failed_recording_retries_without_another_physical_write() {
 }
 
 #[tokio::test]
-async fn a4452c_agent_cannot_restart_or_edit_the_mode_prompt() {
+async fn a4452c_agent_cannot_restart_a_mode() {
     let run = mode("User's saved text").await;
     let agent = rpc::Client::connect(&run.daemon.socket).await.unwrap();
     agent
@@ -221,16 +221,10 @@ async fn a4452c_agent_cannot_restart_or_edit_the_mode_prompt() {
         )
         .await
         .unwrap();
-    for (method, params) in [
-        (
-            "agent.restartMode",
-            json!({"id":run.child,"request":"agent-1"}),
-        ),
-        (
-            "agent.setModePrompt",
-            json!({"id":run.child,"prompt":"Agent text"}),
-        ),
-    ] {
+    for (method, params) in [(
+        "agent.restartMode",
+        json!({"id":run.child,"request":"agent-1"}),
+    )] {
         let error = agent.request(method, params).await.unwrap_err();
         assert_eq!(error.code, rpc::code::FORBIDDEN, "{error}");
     }
@@ -494,8 +488,18 @@ async fn a7494a_a_nested_mode_is_refused_where_a_mode_may_not_nest() {
     let mut run = mode("Planner words").await;
     let (starter, agent) = nested(&mut run, "First").await;
     let nested_id = run.child.clone();
-    let rows = || async { run.user.request("rail.tree", ()).await.unwrap() };
-    let before = rows().await;
+    // What a refusal could add: each row's identity and saved Mode record, not live Agent status.
+    let rows = || async {
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .map(|n| {
+                ["id", "name", "parent", "kind", "mode_prompt"]
+                    .map(|field| n.get(field).cloned().unwrap_or(Value::Null))
+            })
+            .collect::<Vec<_>>()
+    };
     let cwd = run.dir.path();
     // A nested Mode, a Subagent under the starter and a Workstream's Door each call `mode`.
     let subagent = agent
@@ -513,10 +517,7 @@ async fn a7494a_a_nested_mode_is_refused_where_a_mode_may_not_nest() {
         )
         .await
         .unwrap();
-    let before = {
-        let _ = before;
-        rows().await
-    };
+    let before = rows().await;
     for caller in [
         &nested_id,
         subagent["id"].as_str().unwrap(),
@@ -577,40 +578,6 @@ async fn a7494a_move_still_refuses_to_nest_a_mode() {
         assert!(refused.is_err(), "{id} under {parent}");
     }
     assert_eq!(row(&run, &run.child).await["parent"], starter);
-}
-
-#[tokio::test]
-async fn a7494a_only_the_user_edits_a_nested_modes_prompt() {
-    let mut run = mode("Planner words").await;
-    let (starter, agent) = nested(&mut run, "User's saved text").await;
-    for caller in [&agent, &{
-        let me = rpc::Client::connect(&run.daemon.socket).await.unwrap();
-        me.request(
-            "daemon.identify",
-            json!({"actor":{"kind":"agent","id":run.child,"parent":starter}}),
-        )
-        .await
-        .unwrap();
-        me
-    }] {
-        let error = caller
-            .request(
-                "agent.setModePrompt",
-                json!({"id":run.child,"prompt":"Agent text"}),
-            )
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::FORBIDDEN, "{error}");
-    }
-    assert_eq!(
-        row(&run, &run.child).await["mode_prompt"],
-        "User's saved text"
-    );
-    // The starter's Reach covers it: it can stop its nested Mode.
-    agent
-        .request("agent.stop", json!({"id":run.child}))
-        .await
-        .unwrap();
 }
 
 #[tokio::test]

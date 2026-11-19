@@ -52,6 +52,8 @@ describe("u19 create", () => {
       { method: "pad.create", params: { name: "notes", text: null } },
     ]));
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual(selected === null ? [] : [{ name: "notes", home: AGENT.id }]));
+    // The user's own Pad is read at its creation, so it lists in the idle fold (U7499b).
+    fireEvent.click(await idleFold());
     await waitFor(() => expect(document.querySelectorAll('[data-pad="notes"]')).toHaveLength(1));
     expect(field).toHaveProperty("value", "");
     expect(document.activeElement).toBe(field);
@@ -229,7 +231,18 @@ it.each(["create", "move"])("u3735_failed_create_or_move_preserves_name_%s", asy
   expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
 
   if (step === "move") {
+    fireEvent.click(await idleFold());
     await screen.findByRole("button", { name: "exact name" });
     await connected.app.rpc("pad.list", null).then(pads => expect(pads).toMatchObject([{ name: "exact name", home: null }]));
   }
 });
+
+async function idleFold(): Promise<HTMLElement> {
+  return waitFor(() => {
+    const fold = document.querySelector<HTMLElement>('.pad-fold[data-fold="idle"]');
+
+    expect(fold).not.toBeNull();
+
+    return fold!;
+  });
+}

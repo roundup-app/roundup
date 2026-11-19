@@ -236,17 +236,25 @@ async fn x12_open_starts_the_login_shell_owned_by_the_workstream_with_no_rail_no
 }
 
 #[tokio::test]
-async fn x12_an_unknown_or_non_workstream_owner_is_refused() {
+async fn lh15_open_accepts_an_agent_as_owner() {
     let f = Fixture::running("sleep 30");
     let agent = f.spawn(None, None).await.unwrap();
+    let tree = f.tree().await;
+
+    let id = f.open(&agent.id).await.unwrap();
+
+    let terminal = f.listed(&id).await.expect("the Terminal is listed");
+    assert_eq!(terminal.owner.as_deref(), Some(agent.id.as_str()));
+    assert_eq!(f.tree().await, tree);
+}
+
+#[tokio::test]
+async fn lh15_an_unknown_owner_is_still_not_found() {
+    let f = Fixture::new();
 
     let unknown = f.open("999").await.unwrap_err();
-    let agent = f.open(&agent.id).await.unwrap_err();
 
-    assert_eq!(
-        (unknown.code, agent.code),
-        (code::NOT_FOUND, code::INVALID_PARAMS)
-    );
+    assert_eq!(unknown.code, code::NOT_FOUND);
     assert!(f.terminals.list().await.iter().all(|t| t.owner.is_none()));
 }
 

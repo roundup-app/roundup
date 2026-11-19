@@ -228,6 +228,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("pad.reorder", Policy { serial: Serial::Yes, ..PLAIN }),
     ("pad.restore", Policy { serial: Serial::Yes, ..PLAIN }),
     ("pad.setStorage", Policy { serial: Serial::Yes, ..PLAIN }),
+    ("pad.setVisibility", Policy { serial: Serial::Yes, ..PLAIN }),
     ("pad.write", Policy { serial: Serial::Yes, ..PLAIN }),
     ("project.compareRefs", PLAIN),
     ("project.get", PLAIN),

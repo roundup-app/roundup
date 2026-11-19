@@ -224,7 +224,7 @@ it("u3787b_numbered_assignment_captures_one_todo_and_owner: ninth Agent from key
 
 it("u3787b_menu_and_key_share_one_action: Pad Open from key captures the focused Pad", async () => {
   const { daemon } = await mountNavigation(false, 0);
-  const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null }));
+  const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const }));
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
   daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Focused" } });
   await showEverythingInApp(undefined, "Pads");
@@ -243,7 +243,7 @@ it("u3787b_menu_and_key_share_one_action: Pad Open from key captures the focused
 
 it("u3787b_menu_and_key_share_one_action: Pad Rename from key refuses its editing owner", async () => {
   const { daemon } = await mountNavigation(false, 0);
-  const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null }));
+  const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const }));
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
   daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Focused" } });
   await showEverythingInApp(undefined, "Pads");
@@ -360,7 +360,7 @@ it.each([
   { chord: "⌘E", key: "e", code: "KeyE", label: "Inline code", semantic: "code" },
 ])("u3787b_menu_and_key_share_one_action: Pad $label from key captures the editor selection", async ({ chord, key, code, semantic }) => {
   const { daemon } = await mountNavigation(true, 0);
-  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen untouched", updated_at: 0, revision: 1, home: null }];
+  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen untouched", updated_at: 0, revision: 1, home: null, visibility: "shown" as const }];
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
   daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
   await showEverythingInApp(undefined, "Pads");
@@ -396,7 +396,7 @@ it.each([
   { chord: "⌥⌘C", key: "ç", code: "KeyC", shiftKey: false, altKey: true, semantic: "pre" },
 ])("u3787b_menu_and_key_share_one_action: Pad block $chord from key captures the editor", async ({ chord, key, code, shiftKey, altKey, semantic }) => {
   const { daemon } = await mountNavigation(true, 0);
-  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen", updated_at: 0, revision: 1, home: null }];
+  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen", updated_at: 0, revision: 1, home: null, visibility: "shown" as const }];
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
   daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
   await showEverythingInApp(undefined, "Pads");

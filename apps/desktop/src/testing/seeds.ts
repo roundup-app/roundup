@@ -1,4 +1,5 @@
 import { descendantsOf } from "../state/railTopology";
+import { padReadStorage } from "../pads/padRead";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
@@ -157,6 +158,7 @@ const padsAt = (now: number): Pad[] =>
     updated_at: now,
     revision: 1,
     home: index % 2 === 1 ? "payments" : null,
+    visibility: "shown" as const,
   }));
 
 const exitCodeOf = (target: RailNode): number | null => {
@@ -617,6 +619,9 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
   const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "selection" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
   app.opened.project = name.startsWith("first-run") ? null : PROJECT;
+
+  // U7499b: an empty read record, so the seed's Pads are unread and list above the folds; only a Project with no record counts them read.
+  padReadStorage(PROJECT.path).write({});
 
   if (name === "menu-bar-10") {
     app.of(PROJECT.path);

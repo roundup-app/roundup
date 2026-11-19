@@ -73,7 +73,7 @@ impl Messages {
             )));
         }
         if let Some(status) = &receiver_status
-            && ended(status)
+            && closes(status)
         {
             return Err(Error::conflict(format!(
                 "{} cannot receive a Message: its Kind is {:?}",
@@ -150,8 +150,12 @@ impl Messages {
                                 && m.body != p.body
                         })
                         .collect();
-                    let weight = 1 + older.iter().map(|(_, other)| other.weight()).sum::<u32>();
-                    body = pushes::counted(&p.body, weight);
+                    // The push may already stand for changes it took over (an attention note).
+                    let weight = payload.weight()
+                        + older.iter().map(|(_, other)| other.weight()).sum::<u32>();
+                    if let [entry] = payload.entries() {
+                        body = pushes::counted(&digest::push_body(entry), weight);
+                    }
                     if let Payload::Digest { stands_for, .. } = &mut payload {
                         *stands_for = weight;
                     }

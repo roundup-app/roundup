@@ -73,6 +73,9 @@ importers:
       eslint-plugin-sonarjs:
         specifier: 4.2.2
         version: 4.2.2(eslint@10.14.0)
+      everystate:
+        specifier: 0.4.1
+        version: 0.4.1
       fallow:
         specifier: ^3.34.0
         version: 3.34.0
@@ -3856,6 +3859,11 @@ packages:
   eventsource@3.0.7:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
+
+  everystate@0.4.1:
+    resolution: {integrity: sha512-edqnujHaz9iTzuFskCa3IiU2evgh/dMnwkQofnW9rZ3tr7VYN7LGzHOxszPKD0MSr+VK1ssKDe4csHRNy8q64w==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
@@ -10436,6 +10444,8 @@ snapshots:
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.1.1
+
+  everystate@0.4.1: {}
 
   expect-type@1.4.0: {}
 

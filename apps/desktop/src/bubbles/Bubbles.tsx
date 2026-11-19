@@ -36,7 +36,7 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopol
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, clearances, defaultPlace, extentOf, placesStorage, reconciledPlaces, REVEAL_BUBBLE, shownFor, shownName,
+  arrived, clamped, clearances, defaultPlace, extentOf, placesStorage, reconciledPlaces, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
 import type { Place, Extent } from "./places";
 import { askOnce } from "../settings/warnings";
@@ -253,13 +253,13 @@ export const Bubbles = (props: {
       const parent = host.parentElement;
       setBar(parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
       const stack = parent?.getBoundingClientRect();
-      const { boxes: siblings, watched: nextEdges } = clearances(parent);
+      const { boxes, watched: nextEdges } = clearances(parent);
 
       for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
 
       for (const edge of nextEdges) if (!edges.includes(edge)) watched.observe(edge);
       edges = nextEdges;
-      const tops = siblings.map(box => box.top);
+      const tops = boxes().map(box => box.top);
       host.style.bottom = stack ? `${Math.max(0, stack.bottom - Math.min(stack.bottom, ...tops))}px` : "";
 
       const corner = host.getBoundingClientRect();
@@ -280,9 +280,9 @@ export const Bubbles = (props: {
 
     if (host.parentElement) watched.observe(host.parentElement);
 
-    // Portal hosts and sibling controls may mount without changing the stack's size.
+    // Portal hosts and sibling controls may mount without changing the stack's size. A watched edge reports its own resize, so only a new bar or edge measures again: a measure here forces layout mid-task.
     const arrivals = new MutationObserver((records) => {
-      if (records.some((record) => !host.contains(record.target))) sync();
+      if (records.some((record) => !host.contains(record.target)) && arrived(host.parentElement, untrack(bar), edges)) sync();
     });
 
     if (host.parentElement) arrivals.observe(host.parentElement, { childList: true, subtree: true });

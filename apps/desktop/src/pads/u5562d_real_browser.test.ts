@@ -43,7 +43,8 @@ realBrowserTest("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async
     await evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group] .shelf-group-control')) if (group.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
 
     const open = async () => {
-      await browser("wait", '.pads-tab [data-pad="Colour round trip"] .pad-name');
+      // The agent's Pad lists in a closed fold (U7499a).
+      await browser("wait", "--fn", `(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); return !!document.querySelector('.pads-tab [data-pad="Colour round trip"] .pad-name'); })()`);
       await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Colour round trip"] .pad-name').focus(); return true; })()`);
       await browser("press", "Enter");
       await browser("wait", ".drawer .pad-syntax-keyword");

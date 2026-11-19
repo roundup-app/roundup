@@ -41,13 +41,13 @@ use contracts::message::{
     SetRouteParams,
 };
 use contracts::{Actor, ActorKind, EventData, Kind, Verb};
-pub use delivery::ended;
 #[cfg(test)]
 use delivery::on_status;
 use delivery::{
     Ending, Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge,
     load_rail_nodes, reconcile, start_listener,
 };
+pub use delivery::{closes, ended};
 use dispatch::{is_receiver, item, require_user};
 pub use error::Error;
 use flight::confirm_ids;

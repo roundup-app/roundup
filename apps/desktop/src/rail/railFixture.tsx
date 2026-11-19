@@ -1,4 +1,5 @@
 // fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
+import type { RailStorage } from "../state/railStorage";
 import { ToastHost } from "../testing/toastHost";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
@@ -42,6 +43,7 @@ export const mountRail = async (
   pads: Pad[] = [],
   project = { name: "p", path: "/p" },
   setup?: (app: ReturnType<typeof createFakeApp>) => void,
+  storage?: RailStorage,
 ) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree;
@@ -51,7 +53,8 @@ export const mountRail = async (
   setup?.(app);
 
   const [now, setNow] = createSignal(NOW);
-  const connected = await connectProject(app, project, reducedMotion, now, daemonExit);
+  // oxlint-disable-next-line solid/reactivity -- as before: the Accessors are read inside the connected project
+  const connected = await connectProject(app, project, reducedMotion, now, daemonExit, storage);
 
   render(() => {
     connected.worktrees.watch(() => true);

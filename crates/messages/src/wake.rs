@@ -146,15 +146,16 @@ impl Messages {
             bus: self.inner.bus.clone(),
             touches: std::sync::Arc::clone(&self.inner.touches),
         };
+        let stands_for = 1 + crate::pushes::take_waiting(&self.inner, parent, &entry.name).await;
         let params = SendParams {
             to: parent.to_owned(),
             kind: MessageKind::Note,
-            body: crate::digest::push_body(entry),
+            body: crate::pushes::counted(&crate::digest::push_body(entry), stands_for),
             reply_to: None,
         };
         let payload = Payload::Digest {
             entries: vec![entry.clone()],
-            stands_for: 1,
+            stands_for,
         };
         self.send_message(&ctx, params, false, payload)
             .await

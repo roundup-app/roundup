@@ -61,6 +61,10 @@ fn pads_standalone(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
         M::up(include_str!("../../pads/migrations/003/up.sql")),
         M::up(include_str!("../../pads/migrations/004/up.sql")),
         M::up(include_str!("../../pads/migrations/005/up.sql")),
+        // P7499a: the Project's own migration adds the column the Pads crate now reads.
+        M::up(include_str!(
+            "../../storage/migrations/project/0059-pad-visibility.sql"
+        )),
     ])
     .to_latest(db)
     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))

@@ -4,6 +4,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::agent::RailVisibility;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Pad {
     /// Opaque never-reused creation identity within this Project; retain the Project too.
@@ -17,13 +19,26 @@ pub struct Pad {
     pub revision: u64,
     /// The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
     pub home: Option<String>,
+    /// `internal` Pads fold on the Pads tab (P7499a); nothing else treats them differently.
+    #[serde(default)]
+    pub visibility: RailVisibility,
 }
 
-/// Create a shared Pad.
+/// Create a shared Pad. An Agent's Pad starts `internal` unless `visibility` says otherwise; the user's starts `shown`.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CreateParams {
     pub name: String,
     pub text: Option<String>,
+    #[serde(default)]
+    #[specta(optional, type = RailVisibility)]
+    pub visibility: Option<RailVisibility>,
+}
+
+/// Set whether the Pads tab folds a Pad. Keeps Revision and `updated_at`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct SetVisibilityParams {
+    pub name: String,
+    pub visibility: RailVisibility,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]

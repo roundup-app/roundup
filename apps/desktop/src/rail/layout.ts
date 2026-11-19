@@ -1,7 +1,7 @@
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { RailSection } from "../state/railStorage";
-import { childrenOf, descendantsOf, indexed, isWorkstream, type RailSource } from "../state/railTopology";
+import { childrenOf, descendantsOf, indexed, isFoldable, isMode, isWorkstream, type RailSource } from "../state/railTopology";
 import { statusOf } from "./attention";
 import { byUrgency } from "../ink/glyph";
 
@@ -25,8 +25,7 @@ export type RailView = {
   selected?: string | null;
 };
 
-/** U4547a, A7494a: a Mode is an Agent holding a nonblank Mode prompt, at the root or under its starter. */
-export const isMode = (node: RailNode): boolean => node.kind === "agent" && !!node.mode_prompt?.trim();
+export { isMode };
 
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
 export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false, settled: (node: RailNode) => boolean = () => false): Kind[] =>
@@ -92,7 +91,7 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
 
   const rowsOfNode = (at: number, depth: number, trail: readonly boolean[]): RailRow[] => {
     const node = tree.nodes[at]!;
-    const collapsed = (isWorkstream(node) || node.kind === "group") && view.collapsed.has(node.id);
+    const collapsed = isFoldable(node) && view.collapsed.has(node.id);
     const below = collapsed ? [] : rowsOf(at, depth + 1, trail);
 
     const row: RailRow = {

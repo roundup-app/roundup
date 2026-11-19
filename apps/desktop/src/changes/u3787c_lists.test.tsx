@@ -5,7 +5,7 @@ import { mountControl } from "./harness";
 afterEach(cleanup);
 
 // Mounted inventory: the counted changed-files control of the selected Agent's Worktree.
-const FILES = ["alpha.ts", "bravo.ts", "charlie.ts", "delta.ts", "echo.ts"].map((path, at) => ({ path, status: "modified" as const, line: at + 1 }));
+const FILES = ["alpha.ts", "bravo.ts", "charlie.ts", "delta.ts", "echo.ts"].map((path, at) => ({ path, status: "modified" as const, line: at + 1, counts: null }));
 
 const open = async () => {
   const mounted = await mountControl(() => ({ files: FILES }));

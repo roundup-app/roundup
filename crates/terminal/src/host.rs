@@ -389,7 +389,18 @@ impl Terminals {
         };
         #[cfg(not(feature = "test-support"))]
         let (scratch, session) = (None, self.session.clone());
-        let argv = core_command(&core_bin.to_string_lossy(), &core_vars(scratch), &session);
+        let vars = core_vars(scratch);
+        // HM7589a: `env` would exit 127 for a core off `PATH`, which reads as a closed pipe.
+        if which::which_in(
+            core_bin,
+            vars.get("PATH"),
+            std::env::current_dir().unwrap_or_default(),
+        )
+        .is_err()
+        {
+            return Err(Error::core(&herdr::Error::Missing));
+        }
+        let argv = core_command(&core_bin.to_string_lossy(), &vars, &session);
         let mut command = tokio::process::Command::new("env");
         command.args(argv.iter().skip(1));
         let conn = herdr::Conn::spawn(command, CORE_TIMEOUT)

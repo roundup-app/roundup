@@ -99,6 +99,7 @@ export const CONTRACT = {
     "pad.reorder": "ff778cb8c3a4e469",
     "pad.restore": "d91511875333e67f",
     "pad.setStorage": "8c74d5bf421a56c9",
+    "pad.setVisibility": "e87c5e4a5edd2431",
     "pad.write": "199ebeaeca039911",
     "project.compareRefs": "ed4c48096b3c5dfb",
     "project.get": "9e13168ca3fdc9f9",

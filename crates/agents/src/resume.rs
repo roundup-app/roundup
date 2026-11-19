@@ -41,19 +41,6 @@ impl Agents {
             return Err(RpcError::conflict("a Group has no program to resume"));
         }
         models::check_permissions(&ctx.actor, permission_mode)?;
-        // A5335b, DCR1: a child with no run in this Daemon finished before it opened (a restart
-        // ends every Attempt) unless the quit cut it off mid-turn, so only the user starts a
-        // finished one again; an Agent's resume would spend tokens.
-        if ctx.actor.kind == contracts::ActorKind::Agent
-            && mode.is_none()
-            && self.shared.rail().node(crate::rail::agent_id(id)?)?.kind() == NodeKind::Agent
-            && !self.shared.rail().is_cut_off(crate::rail::agent_id(id)?)?
-            && !self.shared.runs().agent(id).is_some()
-        {
-            return Err(RpcError::conflict(format!(
-                "{id} finished before the Daemon restarted: only the user resumes it"
-            )));
-        }
         // A5213: a Workstream resumes its Door's conversation in the mode it last ran in.
         let mode = {
             let rail = self.shared.rail();

@@ -8,6 +8,8 @@ import { createFakeApp } from "../testing/fakeApp";
 import { storageIdle } from "../state/storage";
 import { agent, door, info, workstream } from "../testing/nodes";
 import { padHandlers, todoHandlers } from "../testing/stores";
+import { padReadStorage } from "../pads/padRead";
+import { findPadRow } from "../pads/padsFixture";
 import { todo } from "../todos/testHarness";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { showShelfTab } from "../testing/shelfTabs";
@@ -45,6 +47,9 @@ const open = async (first = false, nodes = [
 
   if (!first) { if (other) app.add("/other"); app.add("/p"); }
 
+  // U7499b: an empty read record, so the fake Daemon's Pads are unread and list above the folds.
+  padReadStorage("/p").write({});
+
   const daemon = first ? app : app.of("/p");
   daemon.handlers["rail.tree"] = () => nodes;
   daemon.handlers["terminal.list"] = () => [info("shell", { owner: "home", title: "shell" }), ...nodes.flatMap(node => node.terminal_id ? [info(node.terminal_id, { owner: node.id })] : [])];
@@ -52,7 +57,7 @@ const open = async (first = false, nodes = [
   daemon.handlers["terminal.resize"] = () => null;
   daemon.handlers["terminal.write"] = () => null;
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Work", home: "home" })] }, () => {}));
-  Object.assign(daemon.handlers, padHandlers({ pads: [{ incarnation: "notes-1", name: "notes", text: draft, updated_at: 0, revision: 1, home: "home" }], history: [] }, () => {}));
+  Object.assign(daemon.handlers, padHandlers({ pads: [{ incarnation: "notes-1", name: "notes", text: draft, updated_at: 0, revision: 1, home: "home", visibility: "shown" as const }], history: [] }, () => {}));
 
   if (other) app.of("/other").handlers["rail.tree"] = () => [agent("other-need", "needs-you", "Answer")];
   let connection: ConnectedProject | undefined;
@@ -249,6 +254,8 @@ it("u4692_jump_preserves_unsubmitted_input", async () => {
   await destination();
 
   showShelfTab("Pads");
+  // The Pad read in its Drawer lists in its closed fold once the Drawer leaves it (U7499a).
+  await findPadRow("notes");
   const reopened = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
   reopened.focus();
   fireEvent.keyDown(reopened, { key: "Enter", code: "Enter" });

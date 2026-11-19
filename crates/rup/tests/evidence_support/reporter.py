@@ -36,7 +36,6 @@ call('daemon.identify',{'actor':{'kind':'user','id':'you','parent':None}})
 bad.append(wire('message.acceptResult',{'project':project,'id':id,'report':report['report'],'evidence':'forged user'}))
 bad.append(wire('message.verifyResult',{'project':project,'id':id,'report':report['report'],'verdict':'passed'}))
 call('daemon.identify',{'actor':{'kind':'agent','id':id,'parent':None}})
-bad.append(wire('message.progress',{'project':project,'id':'1'}))
 if sys.argv[3]=='document':
  for t,nx in [('outline',''),('document',''),('diagram','Prepare the diagram'),('export','')]:
   b=(t+' r1').encode();open(os.path.join(project,'output.txt'),'wb').write(b)

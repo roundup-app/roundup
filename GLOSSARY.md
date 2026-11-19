@@ -111,7 +111,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Adopted Worktree (`agent.adopt`, `agent.adoptable`, `Worktree.adopted`) | same | — |
 | Prepared directory | same | — |
 | Worktree state | same | — |
-| Changed file | same | — |
+| Changed file (`ChangedFile`, `ChangedFile.counts`, `LineCounts`) | same | — |
 | Owned changes (`agent.ownedChanges`) | same | — |
 | Compare endpoint (`project.compareRefs`, `CompareEndpoint`) | same | — |
 | File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | same | — |
@@ -160,6 +160,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ref (`todo.addRef`, `todo.removeRef`, `todo.refs`, `refs`) | same | — |
 | Sketch | same | — |
 | Drawing | same | — |
+| Pad visibility (`Pad.visibility`, `pad.setVisibility`, `pad_setVisibility`, `SetVisibilityParams` in `contracts::pad`; the value is a `RailVisibility`) | shown, internal | — |
 | Pad source (`PadSource`, `source`) | same | — |
 | Pad incarnation (`incarnation`, `expectedIncarnation`, `expected_incarnation`) | same | — |
 | Pad rename (`pad.rename`, `RenameParams`, `new_name`, `newName`, `PadRenamed`, `previous_name`) | same | — |

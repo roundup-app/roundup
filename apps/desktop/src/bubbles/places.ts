@@ -143,13 +143,26 @@ const boxesOf = (elements: Iterable<Element>): DOMRect[] => [...elements].flatMa
   return box.width > 0 && box.height > 0 ? [box] : [];
 });
 
-/** What the Bubble layer must stay clear of under `parent`, and every element whose size moves that edge: the bar and the Terminal tabs when they hold controls, else the hint line, resource strip and thread composer. */
+/** What the Bubble layer must stay clear of under `parent`, and every element whose size moves that edge: the bar and the Terminal tabs when they hold controls, else the hint line, resource strip and thread composer. Only `boxes` measures. */
 export const clearances = (parent: Element | null | undefined) => {
   const below = [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
   const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []].filter(element => element.querySelector("button, input, [role=tab]"));
-  const boxes = boxesOf(controls);
 
-  return { boxes: boxes.length ? boxes : boxesOf(below), watched: [...controls, ...below] };
+  return {
+    boxes: (): DOMRect[] => {
+      const boxes = boxesOf(controls);
+
+      return boxes.length ? boxes : boxesOf(below);
+    },
+    watched: [...controls, ...below],
+  };
+};
+
+/** Whether `parent` holds a bar other than `bar`, or watched edges other than `edges`: only then must the layer measure again. Never measures. */
+export const arrived = (parent: Element | null | undefined, bar: Element | undefined, edges: readonly Element[]): boolean => {
+  const { watched } = clearances(parent);
+
+  return (parent?.querySelector(".resource-agent") ?? undefined) !== bar || watched.length !== edges.length || watched.some((edge, index) => edge !== edges[index]);
 };
 
 /**

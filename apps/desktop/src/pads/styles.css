@@ -396,15 +396,18 @@ li[aria-selected="true"] svg {
   margin-left: var(--space-2);
 }
 
-.pad-body[data-pad-width="narrow"] {
+.pad-body[data-pad-width="narrow"],
+.walk-main[data-pad-width="narrow"] {
   --pad-reading-width: var(--reading-width);
 }
 
-.pad-body[data-pad-width="wide"] {
+.pad-body[data-pad-width="wide"],
+.walk-main[data-pad-width="wide"] {
   --pad-reading-width: var(--reading-width-wide);
 }
 
-.pad-body[data-pad-width="full"] {
+.pad-body[data-pad-width="full"],
+.walk-main[data-pad-width="full"] {
   --pad-reading-width: 100%;
 }
 
@@ -418,25 +421,113 @@ li[aria-selected="true"] svg {
   order: 3;
 }
 
-/* PW1 to PW6: the walk of a Pad. */
+/* PW1 to PW10: the walk of a Pad, an outline beside one step drawn as the Pad draws it. */
 .walk {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--pad-reading-width, var(--reading-width));
-  align-self: center;
-  padding: var(--space-5) var(--reading-gutter);
+  padding: var(--space-5) 0;
   outline: none;
+}
+
+.walk[data-folded] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.walk-outline {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline: var(--space-4);
+}
+
+.walk[data-folded] .walk-outline {
+  border-bottom: var(--hairline-width) solid var(--hairline);
+  padding-inline: var(--reading-gutter);
+  padding-bottom: var(--space-2);
+}
+
+.walk-name {
+  margin: 0 0 var(--space-3);
+  color: var(--grey);
+  font-size: var(--text-small);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.walk-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.walk-outline .walk-item[data-button],
+.walk-item[data-button] *,
+.walk-outline .walk-fold[data-button] {
+  font-family: var(--font-ui);
+}
+
+.walk-outline .walk-item[data-button] {
+  display: flex;
+  align-items: baseline;
+  white-space: normal;
+  height: auto;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: start;
+  color: var(--grey);
+}
+
+.walk-outline .walk-item[data-button][aria-current="step"] {
+  color: inherit;
+  font-weight: 600;
+}
+
+.walk-mark {
+  flex: none;
+  inline-size: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.walk-item-title {
+  overflow-wrap: anywhere;
+}
+
+.walk-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .walk-step {
   flex: 1;
+  width: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+.walk-head,
+.walk-foot {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--pad-reading-width, var(--reading-width));
+  padding-inline: var(--reading-gutter);
+  font-size: var(--pad-text-body);
+}
+
+.walk-count,
+.walk-keys,
+.walk-foot [data-button] {
+  font-size: var(--text-body);
 }
 
 .walk-head {
@@ -462,17 +553,85 @@ li[aria-selected="true"] svg {
 }
 
 .walk-body {
+  box-sizing: border-box;
+  width: 100%;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+}
+
+/* PW10: the bottom edge fades while more of the step lies below. */
+.walk-body[data-more] {
+  mask-image: linear-gradient(to bottom, var(--ground) calc(100% - var(--space-6)), var(--transparent));
 }
 
 .walk-foot {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-4);
+}
+
+/* U7499a: one dot slot before the age on every row above the folds, so the dots line up down the list. */
+.pad-mark-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-1);
+  margin-inline-start: var(--space-2);
+}
+
+.pad-mark[data-mark="changed"] {
+  color: var(--amber);
+}
+
+/* U7499a: the fold row is a flex row, not `.rail-fold`'s two-column grid: its label starts where the Pad names do (the Pad row's leading padding, then an empty Glyph slot and the row gap) and the chevron trails on the same line. */
+.pad-fold {
+  position: relative;
+  min-height: var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  box-sizing: border-box;
+  padding-inline: var(--space-1) var(--rail-edge, var(--space-3));
+  color: var(--grey);
+  text-align: start;
+}
+
+.pad-fold:hover {
+  color: var(--text);
+}
+
+.pad-fold-content {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pad-fold-content::before {
+  content: "";
+  flex: none;
+  width: var(--space-4);
+}
+
+.pad-fold svg {
+  flex: none;
+  transition: transform var(--duration-instant) var(--easing-out);
+}
+
+.pad-fold[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.walk-keys {
+  flex: 1;
+  text-align: end;
+  color: var(--grey);
 }
 
 .visual-statechart {

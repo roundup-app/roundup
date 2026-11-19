@@ -17,7 +17,7 @@ it("u3787f_deep_link_preserves_identity_and_authority_same_named_pad_in_another_
   const name = "notes 雪";
   const firstText = "wrong Project";
   const secondText = "# Details\nExact second Project section";
-  const firstPad = { incarnation: "first-pad", name, text: firstText, updated_at: 0, revision: 1, home: null };
+  const firstPad = { incarnation: "first-pad", name, text: firstText, updated_at: 0, revision: 1, home: null, visibility: "shown" as const };
   const secondPad = { ...firstPad, incarnation: "second-pad", text: secondText };
   a.handlers["pad.read"] = () => firstPad;
   b.handlers["pad.read"] = () => secondPad;

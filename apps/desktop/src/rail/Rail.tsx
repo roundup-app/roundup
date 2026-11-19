@@ -1,4 +1,5 @@
 import { useTodoList } from "../todos/todoList";
+import { FoldContent } from "../ui/FoldRow";
 import { usePadList } from "../pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
@@ -787,7 +788,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
                           todos={todoCount(view().node.id)} selected={isSelected(view().node.id)}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorRetryable(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id) ? "true" : "false"} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
-                          rootDivider={branches().has(view().node.id) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
+                          rootDivider={view().depth === 0 && branches().has(view().node.id) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             copied.set(id, feedback);
 
@@ -819,12 +820,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <TreeItem value={view().key} class="rail-fold row-wash row-wash-inert" data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}
+                        <TreeItem value={view().key} class="rail-fold row-wash row-wash-inert" data-id={view().key} aria-label={copy.foldLabel(view())}
                           style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}
                           onClick={click => { if (!click.defaultPrevented) setUnfolded(open => toggled(open, view().key.slice(5))); }}
                           render={tabStop(() => false)}>
                           <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
-                          <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
+                          <FoldContent label={copy.foldLabel(view())} glyph={<KindGlyph kind={view().status} decorative />} />
                           <TreeItemIndicator><Icon name="right" /></TreeItemIndicator>
                         </TreeItem>
                       )}

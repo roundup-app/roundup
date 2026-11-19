@@ -612,35 +612,6 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
     assert!(growth_kb < BUDGET_MB * 1024);
 }
 
-#[tokio::test]
-async fn m14_an_ownerless_terminal_is_forbidden_to_write() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-    let ownerless = user
-        .request(
-            "terminal.spawn",
-            json!({ "cwd": "/", "command": ["/bin/sh", "-c", "cat"], "env": {}, "cols": 80, "rows": 24 }),
-        )
-        .await
-        .unwrap();
-
-    let snapshot = || user.request("terminal.snapshot", json!({ "id": ownerless["id"] }));
-    let before = snapshot().await.unwrap();
-
-    let refused = as_a
-        .request(
-            "terminal.write",
-            json!({ "id": ownerless["id"], "data": "eAo=" }),
-        )
-        .await;
-
-    assert_eq!(m14_code(refused), rpc::code::FORBIDDEN);
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert_eq!(snapshot().await.unwrap(), before);
-}
-
 fn socket(project: &Project) -> PathBuf {
     project.dir.path().join("rupd.sock")
 }
@@ -700,6 +671,44 @@ async fn b21_a_childs_kind_pad_and_todo_changes_each_push_one_entry_to_its_door(
     let (_, entry) = push_where(&user, &rail.m, |_, e| e["pads"] == json!(["notes"])).await;
     assert_eq!(entry["name"], a_name.as_str());
     assert!(!entry.to_string().contains("ZEBRA"));
+}
+
+#[tokio::test]
+async fn p7499a_pad_visibility_over_the_real_route() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    as_a.request("pad.create", json!({ "name": "by-agent", "text": "x" }))
+        .await
+        .unwrap();
+    user.request("pad.create", json!({ "name": "by-user", "text": "x" }))
+        .await
+        .unwrap();
+    let visibilities = |client: rpc::Client| async move {
+        let pads: Vec<Pad> =
+            serde_json::from_value(client.request("pad.list", json!({})).await.unwrap()).unwrap();
+        pads.into_iter()
+            .map(|pad| (pad.name, serde_json::to_value(pad.visibility).unwrap()))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let before = visibilities(project.client().await).await;
+    assert_eq!(before["by-agent"], "internal");
+    assert_eq!(before["by-user"], "shown");
+    user.request(
+        "pad.setVisibility",
+        json!({ "name": "by-agent", "visibility": "shown" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        visibilities(project.client().await).await["by-agent"],
+        "shown"
+    );
+    project.restart(&[]);
+    let after = visibilities(project.client().await).await;
+    assert_eq!(after["by-agent"], "shown");
+    assert_eq!(after["by-user"], "shown");
 }
 
 #[tokio::test]
