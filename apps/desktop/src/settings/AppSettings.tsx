@@ -33,6 +33,11 @@ import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 const SegmentGroup = <V extends string>(props: Parameters<typeof import("../ui/SegmentGroup").SegmentGroup<V>>[0]) =>
   <Deferred load={() => import("../ui/SegmentGroup")} label={props.label}>{module => <module.SegmentGroup {...props} />}</Deferred>;
 
+/** U7650a: Hide, Show once or Always show for the tooltips that only name an icon. */
+const IconNames = (props: { onFailure: (failure: string | null) => void }) => (
+  <SegmentGroup label={copy.iconNamesLabel} segments={[{ value: "hide", label: copy.iconNamesHide }, { value: "once", label: copy.iconNamesOnce }, { value: "always", label: copy.iconNamesAlways }]} value={appSettings().iconNames} onValueChange={choice => { if (choice === "hide" || choice === "once" || choice === "always") void chooseIconNames(choice).then(props.onFailure); }} />
+);
+
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
   const view = props.view ?? createSettingsView();
@@ -248,8 +253,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const lineHeightControl = () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint);
   const letterSpacingControl = () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint);
 
-const iconNamesControl = () => <SegmentGroup label={copy.iconNamesLabel} segments={[{ value: "hide", label: copy.iconNamesHide }, { value: "once", label: copy.iconNamesOnce }, { value: "always", label: copy.iconNamesAlways }]} value={appSettings().iconNames} onValueChange={choice => { if (choice === "hide" || choice === "once" || choice === "always") void chooseIconNames(choice).then(setFailure); }} />;
-
   const controls = markControls({
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
@@ -401,7 +404,7 @@ const iconNamesControl = () => <SegmentGroup label={copy.iconNamesLabel} segment
         <section class={`settings-appearance-preview ${previewMode()}-theme`} aria-label={copy.appearancePreview} data-mode={previewMode()} data-scale={previewScale()}>
           <div class="settings-mode-preview">{copy.appearancePreviewSample}</div>
         </section>
-        {controls.focusMarkers()}{iconNamesControl()}
+        {controls.focusMarkers()}<IconNames onFailure={setFailure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Machines"><SettingsGroup hideHeading name={copy.settingsMachines}><MachinesSettings app={props.app} project={props.project} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
