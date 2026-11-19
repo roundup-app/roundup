@@ -3,15 +3,54 @@ import type { CanvasApi } from "./drawingBlock";
 import { mountDrawing } from "./drawingBlock";
 import type { MermaidApi } from "./mermaidBlock";
 import { mountMermaid } from "./mermaidBlock";
+import type { StatechartApi } from "./statechartBlock";
+import { mountStatechart } from "./statechartBlock";
 import type { VisualKind, VisualMount } from "./visualBlocks";
 
 /** Where each renderer comes from. A renderer's module is requested when the first block of its kind mounts, never for a Pad without one. */
 export type Renderers = {
   mermaid(): Promise<MermaidApi>;
   canvas(): Promise<CanvasApi>;
+  statechart(): Promise<StatechartApi>;
 };
 
 export const bundledRenderers: Renderers = {
+  statechart: async () => {
+    const [{ createMachine, createActor }, { default: ELK }] = await Promise.all([import("xstate"), import("elkjs/lib/elk.bundled.js")]);
+    const elk = new ELK();
+
+    return {
+      createMachine: (config) => {
+        // SAFETY: the config is a plain states map with string targets, which `createMachine` accepts.
+        const machine = createMachine(config as never);
+
+        return () => createActor(machine);
+      },
+      layout: async (ids, moves, box) => {
+        const graph = await elk.layout({
+          id: "root",
+          layoutOptions: { "elk.algorithm": "layered", "elk.direction": "DOWN", "elk.edgeRouting": "POLYLINE" },
+          children: ids.map((id) => ({ id, ...box })),
+          edges: moves.map(([id, from, to]) => ({ id, sources: [from], targets: [to] })),
+        });
+
+        const point = (at: { x: number; y: number }) => ({ x: at.x, y: at.y });
+
+        return {
+          width: (graph.width ?? 0) + 1,
+          height: (graph.height ?? 0) + 1,
+          boxes: Object.fromEntries((graph.children ?? []).map((child) => [child.id, { x: child.x ?? 0, y: child.y ?? 0 }])),
+          routes: Object.fromEntries(
+            (graph.edges ?? []).map((edge) => {
+              const section = edge.sections?.[0];
+
+              return [edge.id, section ? [point(section.startPoint), ...(section.bendPoints ?? []).map(point), point(section.endPoint)] : []];
+            }),
+          ),
+        };
+      },
+    };
+  },
   mermaid: async () => {
     const { default: mermaid } = await import("mermaid");
 
@@ -77,5 +116,6 @@ export const currentRenderers = () => renderers;
 export const visualKinds = () =>
   new Map<string, VisualKind>([
     ["mermaid", { textWhenFocused: true, mount: lazy(renderers.mermaid, mountMermaid) }],
+    ["statechart", { textWhenFocused: false, mount: lazy(renderers.statechart, mountStatechart) }],
     ["excalidraw", { textWhenFocused: false, mount: lazy(renderers.canvas, mountDrawing) }],
   ]);
