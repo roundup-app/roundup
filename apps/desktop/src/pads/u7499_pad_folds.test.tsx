@@ -111,6 +111,18 @@ describe("u7499 Pad folds", () => {
     await waitFor(() => expect(count(fold("internal"))).toBe(1));
   });
 
+  it("u7499b_a_pad_opened_from_an_open_fold_is_lifted_out_when_the_fold_closes", async () => {
+    const { connected } = await open();
+    fireEvent.click(fold("idle"));
+    await waitFor(() => nameOf("eight-days-old"));
+    fireEvent.dblClick(nameOf("eight-days-old"));
+    await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
+    fireEvent.click(fold("idle"));
+    await waitFor(() => expect(fold("idle").getAttribute("aria-expanded")).toBe("false"));
+    expect(rows()).toContain("eight-days-old");
+    expect(count(fold("idle"))).toBe(1);
+  });
+
   it("u7499b_each_way_of_opening_records_the_revision", async () => {
     await open();
     fireEvent.dblClick(nameOf("fresh-unread"));

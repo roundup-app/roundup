@@ -13,7 +13,7 @@ export type FoldedPads = {
   idle: Pad[];
 };
 
-/** U7499a, U7499b: the Pads above the folds and the two folds of one Home group, in the group's order. The open Pad stays where it sat when it opened (`pin`): in an open fold, or above the folds, until the Drawer leaves it. */
+/** U7499a, U7499b: the Pads above the folds and the two folds of one Home group, in the group's order. The open Pad stays where it sat when it opened (`pin`): in an open fold, or above the folds, until the Drawer leaves it; a closed pinned fold lifts it above the folds. */
 export const foldPads = (pads: readonly Pad[], read: PadRead, now: number, open: string | null, pin: "above" | "internal" | "idle" = "above"): FoldedPads => {
   const folded: FoldedPads = { above: [], internal: [], idle: [] };
 
@@ -50,7 +50,8 @@ export const createFolds = (groups: () => readonly { id: string; items: readonly
     const next = new Map<string, "above" | "internal" | "idle">();
 
     const result = new Map(groups().map(group => {
-      const fold = foldPads(group.items, read, now(), open, pinned?.where);
+      const pin = pinned?.where ?? "above";
+      const fold = foldPads(group.items, read, now(), open, pin === "above" || unfolded().includes(`${group.id}:${pin}`) ? pin : "above");
       const seen = (kind: "internal" | "idle", pads: readonly Pad[]) => pads.forEach(pad => next.set(pad.name, unfolded().includes(`${group.id}:${kind}`) ? kind : "above"));
 
       seen("internal", fold.internal);
