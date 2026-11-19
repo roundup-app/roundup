@@ -20,23 +20,33 @@ case " $* " in
     if [[ ${QA_SWEEP_BLANK:-0} == 1 ]]; then
       printf '{"success":true,"data":{"result":{"blank":true,"viewport":{"width":%s,"height":%s},"overflow":[],"drawer":null}}}\n' "$width" "$height"
     else
-      if [[ $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then drawer="{\"left\":$((width - 388)),\"right\":$width,\"width\":388}"; else drawer=null; fi
-      if [[ ${QA_SWEEP_OVERFLOW:-0} == 1 ]]; then overflow='["Drawer outside viewport"]'; else overflow='[]'; fi
-      centre_width=$((width - 252))
+      # box <left> <right> <top> <bottom> <visible>
+      box() { printf '{"left":%s,"right":%s,"top":%s,"bottom":%s,"width":%s,"height":%s,"visible":%s}' "$1" "$2" "$3" "$4" "$(($2 - $1))" "$(($4 - $3))" "$5"; }
+      state=$(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true)
+      rail_left=0 rail_right=120 shelf_visible=true
+      centre_left=120 centre_width=$((width - 252)) centre_bottom=$height centre_visible=true
+      drawer=null closed_visible=false overflow='[]'
+      if [[ ${QA_SWEEP_OVERFLOW:-0} == 1 ]]; then overflow='["Drawer outside viewport"]'; fi
       if [[ ${QA_SWEEP_HIDDEN_CENTRE:-0} == 1 ]]; then centre_width=0; fi
-      if [[ $drawer != null ]]; then centre_width=$((width - 388 - 120)); fi
-      if [[ ${QA_SWEEP_RESIZED_CENTRE:-0} == 1 && $drawer != null ]]; then centre_width=$((centre_width - 100)); fi
-      centre_left=120 centre_top=0 centre_height=$height
       if [[ ${QA_SWEEP_OFFSCREEN_CENTRE:-0} == 1 ]]; then centre_left=$((width + 10)); fi
-      if [[ ${QA_SWEEP_MOVED_CENTRE:-0} == 1 && $drawer != null ]]; then centre_left=130; fi
-      if [[ ${QA_SWEEP_SHORT_CENTRE:-0} == 1 && $drawer != null ]]; then centre_height=$((height - 100)); fi
-      if [[ ${QA_SWEEP_UNRESTORED_CENTRE:-0} == 1 && $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == closed ]]; then centre_left=130; fi
-      centre_right=$((centre_left + centre_width))
-      centre_visible=true
       if [[ ${QA_SWEEP_INVISIBLE_CENTRE:-0} == 1 ]]; then centre_visible=false; fi
-      closed_visible=false
-      if [[ ${QA_SWEEP_CLOSED_VISIBLE:-0} == 1 && $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == closed ]]; then closed_visible=true; fi
-      printf '{"success":true,"data":{"result":{"blank":false,"viewport":{"width":%s,"height":%s},"boxes":{"rail":{"left":0,"right":120,"top":0,"bottom":%s,"width":120,"height":%s,"visible":true},"centre":{"left":%s,"right":%s,"top":%s,"bottom":%s,"width":%s,"height":%s,"visible":%s},"shelf":{"left":%s,"right":%s,"top":0,"bottom":%s,"width":132,"height":%s,"visible":true}},"overflow":%s,"drawer":%s,"closedDrawerVisible":%s}}}\n' "$width" "$height" "$height" "$height" "$centre_left" "$centre_right" "$centre_top" "$centre_height" "$centre_width" "$centre_height" "$centre_visible" "$((width - 132))" "$width" "$height" "$height" "$overflow" "$drawer" "$closed_visible"
+      if [[ $state == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then
+        # U7638a: the item fills the main area above the Rail actions bar, and the Terminal stays under it, hidden.
+        drawer=$(box "$centre_left" "$((centre_left + centre_width))" 0 "$((height - 40))" true)
+        centre_visible=false
+        if [[ ${QA_SWEEP_SIDE_DRAWER:-0} == 1 ]]; then drawer=$(box "$((width - 388))" "$width" 0 "$((height - 40))" true); fi
+        if [[ ${QA_SWEEP_TERMINAL_SHOWN:-0} == 1 ]]; then centre_visible=true; fi
+        if [[ ${QA_SWEEP_RESIZED_CENTRE:-0} == 1 ]]; then centre_width=$((centre_width - 100)); fi
+        if [[ ${QA_SWEEP_MOVED_CENTRE:-0} == 1 ]]; then centre_left=130; fi
+        if [[ ${QA_SWEEP_SHORT_CENTRE:-0} == 1 ]]; then centre_bottom=$((height - 100)); fi
+        if [[ ${QA_SWEEP_SHELF_HIDDEN:-0} == 1 ]]; then shelf_visible=false; fi
+        if [[ ${QA_SWEEP_RAIL_MOVED:-0} == 1 ]]; then rail_left=10 rail_right=130; fi
+      elif [[ $state == closed ]]; then
+        if [[ ${QA_SWEEP_UNRESTORED_CENTRE:-0} == 1 ]]; then centre_left=130; fi
+        if [[ ${QA_SWEEP_TERMINAL_STAYS_HIDDEN:-0} == 1 ]]; then centre_visible=false; fi
+        if [[ ${QA_SWEEP_CLOSED_VISIBLE:-0} == 1 ]]; then closed_visible=true; fi
+      fi
+      printf '{"success":true,"data":{"result":{"blank":false,"viewport":{"width":%s,"height":%s},"boxes":{"rail":%s,"centre":%s,"shelf":%s},"overflow":%s,"drawer":%s,"closedDrawerVisible":%s}}}\n' "$width" "$height" "$(box "$rail_left" "$rail_right" 0 "$height" true)" "$(box "$centre_left" "$((centre_left + centre_width))" 0 "$centre_bottom" "$centre_visible")" "$(box "$((width - 132))" "$width" 0 "$height" "$shelf_visible")" "$overflow" "$drawer" "$closed_visible"
     fi
     ;;
   *" press Enter"*) printf open > "$QA_SWEEP_DRAWER" ;;
@@ -56,7 +66,7 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   jq -e '.head | length == 40' "$record" >/dev/null
   jq -e '.viewports == ["1280×400", "1280×800"]' "$record" >/dev/null
   printf 'u453_sweep_uses_supported_viewports_passed\n'
-  jq -e '.scenarios == ["L52", "U5", "U15", "U20"]' "$record" >/dev/null
+  jq -e '.scenarios == ["L52", "U15", "U20", "U111", "U7638a"]' "$record" >/dev/null
   [[ $(grep -c ' screenshot ' "$QA_SWEEP_CALLS") == 6 ]]
   grep -q 'focus.*pad-3' "$QA_SWEEP_CALLS"
   grep -q 'focus.*Todos' "$QA_SWEEP_CALLS"
@@ -65,7 +75,7 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   printf 'l66_a_sweep_that_reaches_its_end_is_complete_passed\n'
 
   rm -rf "$QA_SWEEP_OUT"
-  printf closed > "$QA_SWEEP_DRAWER"
+  rm -f "$QA_SWEEP_DRAWER"
   : > "$QA_SWEEP_CALLS"
   if QA_SWEEP_BLANK=1 "$root/loop/qa-sweep.sh"; then
     echo 'blank page returned green' >&2
@@ -76,7 +86,7 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   printf 'l52_blank_page_fails_with_a_record_passed\n'
 
   rm -rf "$QA_SWEEP_OUT"
-  printf closed > "$QA_SWEEP_DRAWER"
+  rm -f "$QA_SWEEP_DRAWER"
   if QA_SWEEP_BROWSER_FAIL=1 "$root/loop/qa-sweep.sh"; then
     echo 'browser error returned green' >&2
     exit 1
@@ -88,7 +98,7 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   printf 'l66_a_sweep_cut_off_by_a_browser_error_is_incomplete_passed\n'
 
   rm -rf "$QA_SWEEP_OUT"
-  printf closed > "$QA_SWEEP_DRAWER"
+  rm -f "$QA_SWEEP_DRAWER"
   if QA_SWEEP_NO_DRAWER=1 "$root/loop/qa-sweep.sh"; then
     echo 'missing Drawer returned green' >&2
     exit 1
@@ -97,24 +107,26 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   jq -e '.findings | any(.text | contains("Drawer state missing"))' "$record" >/dev/null
   printf 'l52_missing_drawer_fails_with_a_record_passed\n'
 
-  for defect in HIDDEN_CENTRE INVISIBLE_CENTRE OFFSCREEN_CENTRE RESIZED_CENTRE MOVED_CENTRE SHORT_CENTRE UNRESTORED_CENTRE CLOSED_VISIBLE; do
+  for defect in HIDDEN_CENTRE INVISIBLE_CENTRE OFFSCREEN_CENTRE RESIZED_CENTRE MOVED_CENTRE SHORT_CENTRE TERMINAL_SHOWN SIDE_DRAWER SHELF_HIDDEN RAIL_MOVED UNRESTORED_CENTRE TERMINAL_STAYS_HIDDEN CLOSED_VISIBLE; do
     rm -rf "$QA_SWEEP_OUT"
-    printf closed > "$QA_SWEEP_DRAWER"
+    rm -f "$QA_SWEEP_DRAWER"
     if env "QA_SWEEP_$defect=1" "$root/loop/qa-sweep.sh"; then
       echo "$defect returned green" >&2
       exit 1
     fi
     record=$(find "$QA_SWEEP_OUT" -name 'sweep-*.json' -print -quit)
     jq -e '.findings | length > 0' "$record" >/dev/null
-    if [[ $defect == RESIZED_CENTRE ]]; then
-      jq -e '[.findings[] | select(.text | contains("(U430)"))] | length > 0 and all(.text | contains("1280"))' "$record" >/dev/null
-      printf 'u430_the_sweep_checks_drawer_edges_only_at_supported_widths_passed\n'
-    fi
+    case $defect in
+      RESIZED_CENTRE|MOVED_CENTRE|SHORT_CENTRE|TERMINAL_SHOWN|SIDE_DRAWER|UNRESTORED_CENTRE|TERMINAL_STAYS_HIDDEN|CLOSED_VISIBLE) cited=U7638a ;;
+      SHELF_HIDDEN|RAIL_MOVED) cited=U111 ;;
+      *) cited= ;;
+    esac
+    if [[ -n $cited ]]; then jq -e --arg cited "($cited)" '.findings | any(.text | contains($cited))' "$record" >/dev/null; fi
     printf 'l52_%s_fails_with_a_record_passed\n' "$defect"
   done
 
   rm -rf "$QA_SWEEP_OUT"
-  printf closed > "$QA_SWEEP_DRAWER"
+  rm -f "$QA_SWEEP_DRAWER"
   if QA_SWEEP_OVERFLOW=1 "$root/loop/qa-sweep.sh"; then
     echo 'overflow returned green' >&2
     exit 1
