@@ -31,3 +31,14 @@
   overscroll-behavior: contain;
   z-index: var(--layer-popover);
 }
+
+/* LH13: the revealed icons are bare like the header's: the shared popover pill surface stays off at rest and on hover, and only the ink changes. The attribute selector outranks the shared recipe's `:is()` specificity. */
+.app-popover.links-popover button[data-button="icon"] {
+  --button-surface: transparent;
+}
+
+/* LH13: the count holds the width of `+N` open or closed, so the inline icons stay still as the reveal opens. */
+.links-header .links-count {
+  min-inline-size: 3ch;
+  text-align: center;
+}
