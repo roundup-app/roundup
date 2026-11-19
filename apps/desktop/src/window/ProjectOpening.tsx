@@ -40,6 +40,17 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
     }]);
   };
 
+  const causes = (request: ProjectRequest, error: Error, created: { path: string; id: string; stage: "start" } | undefined) => {
+    const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
+    const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
+    const cause = retained?.cause ?? error.message;
+
+    return {
+      resultCause: partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause,
+      message: partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause,
+    };
+  };
+
   const failed = (request: ProjectRequest, error: Error, created: { path: string; id: string; stage: "start" } | undefined, signal: AbortSignal): ActionReply => {
     const answered = (failure: { code: number; message: string }): ActionReply => ({ jsonrpc: "2.0", id: request.id, error: failure });
 
@@ -52,11 +63,7 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
 
     if (!(error instanceof Error)) throw error;
 
-    const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
-    const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
-    const cause = retained?.cause ?? error.message;
-    const resultCause = partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause;
-    const message = partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause;
+    const { message, resultCause } = causes(request, error, created);
 
     showFailure(request, message, false, signal);
 
