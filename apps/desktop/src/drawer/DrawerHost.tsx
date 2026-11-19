@@ -33,28 +33,35 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
   const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, undefined, undefined, () => props.drawer.surface()?.kind ?? "drawer", fillsCentre);
-  const maximiseSlide = createMaximiseSlide(panel, () => props.drawer.content() !== null && !props.reducedMotion());
+  // U7638a: a Todo or a Pad takes the main area at once, in place of the Terminal, with no slide and no size to toggle.
+  const mainArea = createMemo(() => fillsCentre(props.drawer.surface()?.kind));
+  const shownMaximised = createMemo(() => mainArea() || frame.maximised());
+  const maximiseSlide = createMaximiseSlide(panel, () => props.drawer.content() !== null && !props.reducedMotion() && !mainArea());
 
   const toggleMaximise = (source: ActivationSource) => {
+    if (mainArea()) return;
+
     const before = maximiseSlide.visibleWidth();
     maximiseSlide.cancel();
     frame.toggleMaximise(source);
     maximiseSlide.start(before, source === "key");
   };
 
-  createEffect(() => props.drawer, drawer => drawer.bindSize(() => ({ maximised: frame.maximised(), toggle: toggleMaximise })));
+  const size = () => ({ maximised: shownMaximised(), toggle: toggleMaximise });
+
+  createEffect(() => props.drawer, drawer => drawer.bindSize(size));
 
   const [expandHost, setExpandHost] = createSignal<HTMLElement>();
 
   const expand = () => (
-    <IconButton action="shelf.maximise" aria-label={frame.maximised() ? copy.restore : copy.maximise} onClick={event => toggleMaximise(activationSource(event))}>
+    <Show when={!mainArea()}><IconButton action="shelf.maximise" aria-label={frame.maximised() ? copy.restore : copy.maximise} onClick={event => toggleMaximise(activationSource(event))}>
       <Show when={frame.maximised()} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
-    </IconButton>
+    </IconButton></Show>
   );
 
   const [edgeHovered, setEdgeHovered] = createSignal(false);
   const isOpen = createMemo(() => props.drawer.content() !== null);
-  const instant = () => props.reducedMotion();
+  const instant = () => props.reducedMotion() || mainArea();
   const [settling, setSettling] = createSignal(false);
   let settleFrame: number | undefined;
   let revision = 0;
@@ -102,7 +109,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   createEffect(lifetime.exiting, (exiting, was) => { if (was && !exiting && !untrack(isOpen)) setMounted(null); });
 
   createEffect(
-    () => [props.drawer.content(), props.drawer.source(), props.reducedMotion()] as const,
+    () => [props.drawer.content(), props.drawer.source(), instant()] as const,
     ([content, source, reduced], previous) => {
       const current = ++revision;
       cancelAnimationFrame(settleFrame ?? 0);
@@ -130,11 +137,11 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   );
 
   // U3721b: the centre takes the Drawer's width once, when its slide ends; a width never interpolates.
-  const reserve = createMemo<boolean>(prev => lifetime.sliding() ? (prev ?? untrack(isOpen)) : isOpen());
+  const reserve = createMemo<boolean>(prev => mainArea() ? false : lifetime.sliding() ? (prev ?? untrack(isOpen)) : isOpen());
 
   onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 
-  const canMaximise = (focus: Element | null) => isOpen() && !!focus && !!panel()?.contains(focus) && !focus.closest('input, textarea, select, [contenteditable], .xterm, .pane-screen, [role=dialog], [role=menu]');
+  const canMaximise = (focus: Element | null) => isOpen() && !mainArea() && !!focus && !!panel()?.contains(focus) && !focus.closest('input, textarea, select, [contenteditable], .xterm, .pane-screen, [role=dialog], [role=menu]');
 
   registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
     chords: ["Escape"],
@@ -156,7 +163,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       inert={!isOpen()}
       data-open={String(isOpen())}
       data-maximised={String(frame.maximised())}
-      data-fill={String(frame.maximised() && fillsCentre(props.drawer.surface()?.kind))}
+      data-fill={String(mainArea())}
       data-mounted={String(mounted() !== null)}
       data-reserve={String(reserve())}
       data-motion={instant() ? "none" : "slide"}
@@ -196,7 +203,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         </IconButton>
       </div>
       <Show when={mounted()} keyed>
-        {(content) => <DrawerMaximisedContext value={frame.maximised}><DrawerExpandContext value={setExpandHost}>{content()}</DrawerExpandContext></DrawerMaximisedContext>}
+        {(content) => <DrawerMaximisedContext value={shownMaximised}><DrawerExpandContext value={mainArea() ? null : setExpandHost}>{content()}</DrawerExpandContext></DrawerMaximisedContext>}
       </Show>
     </aside>
   );
