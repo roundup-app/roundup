@@ -7,6 +7,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { OpenRequest } from "../window/nativeOpen";
 import { saveAppSettings } from "../settings/preferences";
+import { readFileSync } from "node:fs";
 import { walkSteps } from "./walkSteps";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
@@ -298,6 +299,11 @@ it("pw9_a_step_is_drawn_by_the_pads_readonly_editor_at_the_pad_width", async () 
     await saveAppSettings({ padWidth: width });
     await waitFor(() => expect(column()).toBe(width));
   }
+
+  // The column is the element carrying data-pad-width, so a width rule must match it for the setting to take effect.
+  const css = readFileSync("src/pads/styles.css", "utf8");
+
+  for (const width of ["narrow", "wide", "full"]) expect(css).toContain(`.walk-main[data-pad-width="${width}"]`);
 });
 
 it("pw10_a_long_step_scrolls_and_fades_while_more_is_below", async () => {

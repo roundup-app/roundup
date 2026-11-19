@@ -396,15 +396,18 @@ li[aria-selected="true"] svg {
   margin-left: var(--space-2);
 }
 
-.pad-body[data-pad-width="narrow"] {
+.pad-body[data-pad-width="narrow"],
+.walk-main[data-pad-width="narrow"] {
   --pad-reading-width: var(--reading-width);
 }
 
-.pad-body[data-pad-width="wide"] {
+.pad-body[data-pad-width="wide"],
+.walk-main[data-pad-width="wide"] {
   --pad-reading-width: var(--reading-width-wide);
 }
 
-.pad-body[data-pad-width="full"] {
+.pad-body[data-pad-width="full"],
+.walk-main[data-pad-width="full"] {
   --pad-reading-width: 100%;
 }
 
