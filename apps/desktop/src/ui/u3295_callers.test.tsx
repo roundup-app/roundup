@@ -3,7 +3,7 @@ import { createSignal, flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { Dialog } from "./Dialog";
 import { mountSwitcher, openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
-import { openDiff, openFile, COMPARISON } from "../changes/noteHarness";
+import { openDiff, openFile, COMPARISON, openChanges } from "../changes/noteHarness";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { NoteRecovery } from "../changes/NoteBatch";
 import { notesFor } from "../changes/notes";
@@ -97,7 +97,7 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull();
 
   if (kind === "worktree") {
-    fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
+    await openChanges();
     await openFile();
     fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   } else {

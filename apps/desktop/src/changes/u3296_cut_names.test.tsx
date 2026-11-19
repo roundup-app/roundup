@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountControl } from "./harness";
-import { openDiff, saveNote } from "./noteHarness";
+import { openDiff, saveNote, openChanges } from "./noteHarness";
 
 afterEach(() => {
   cleanup();
@@ -16,7 +16,7 @@ const layout = (width: number) => {
 
 const facts = async () => {
   await mountControl();
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
 
   return await waitFor(() => {
     const dds = [...document.querySelectorAll<HTMLElement>(".worktree-facts dd")];

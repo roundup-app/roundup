@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import { captureActions } from "../keys/registry";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
 
@@ -8,6 +9,19 @@ export const COMPARISON: FileComparison = { base: "base-commit", oldPath: "src/a
 
 /** The notes batch of the open panel: the Toast region's own list is not it. */
 export const noteList = () => screen.queryByRole("list", { name: copy.notes });
+
+/** The leader chord `C`: opens the Changes view for the selected Agent. */
+export const openChanges = async () => {
+  const action = await waitFor(() => {
+    const found = captureActions(document.body).find(each => each.value === "action:leader:C");
+
+    if (!found) throw new Error("leader.changes is not available");
+
+    return found;
+  });
+
+  action.run();
+};
 
 /** Opens the Changes view for the selected Agent and reads one file's diff in it (U7186c). */
 export const openFile = async (path = "src/a.ts") => {
@@ -18,7 +32,7 @@ export const openFile = async (path = "src/a.ts") => {
 export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
   const mounted = await mountControl(undefined, project, drafts);
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
-  mounted.connected.showView("changes");
+  await openChanges();
   await openFile();
 
   return mounted;

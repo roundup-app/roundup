@@ -1,3 +1,4 @@
+import { openChanges } from "./noteHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { treesLoaded } from "./ChangedTree";
@@ -9,7 +10,7 @@ it("u2539b_the_library_loads_on_first_open", async () => {
   await mountControl();
 
   expect(treesLoaded()).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
 
   await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
   expect(treesLoaded()).toBe(true);
@@ -23,7 +24,7 @@ it("u2539b_file_names_announce_status_old_path_and_deleted_action", async () => 
     { path: "modified.ts", status: "modified", line: 1, counts: null },
     { path: "untracked.ts", status: "untracked", line: 1, counts: null },
   ] }));
-  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
 
   await waitFor(() => {
     const root = document.querySelector("file-tree-container")?.shadowRoot;

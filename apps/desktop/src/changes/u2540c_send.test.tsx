@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, noteList, openDiff, openFile, saveNote } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges } from "./noteHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -160,7 +160,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   fireEvent.click(tab("api"));
   fireEvent.click(await screen.findByText("a", { selector: ".name" }));
   await screen.findByText("a", { selector: "[role=treeitem][aria-selected=true] .name" });
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
   await openFile();
   await saveNote(submitted);
   const original = app.of(path("api"));
@@ -174,14 +174,14 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   fireEvent.click(tab("web"));
   fireEvent.click(await screen.findByText("b", { selector: ".name" }));
   await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
   await openFile();
   await saveNote(other);
   refuse(new RpcError(-32003, "original Project refused"));
   fireEvent.click(tab("api"));
 
   await screen.findByText("a", { selector: "[role=treeitem][aria-selected=true] .name" });
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
   await screen.findByText("original Project refused");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect((await screen.findByLabelText<HTMLTextAreaElement>("Note", { selector: "textarea" })).value).toBe(newer);
@@ -189,7 +189,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   fireEvent.click(tab("web"));
 
   await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
   fireEvent.click(await screen.findByRole("button", { name: "Edit note 1" }));
   expect((await screen.findByLabelText<HTMLTextAreaElement>("Note", { selector: "textarea" })).value).toBe(other);
   expect(app.of(path("web")).calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -361,7 +361,7 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
 
   if (selected === "same") await waitFor(() => expect(notesFor(app, "/p").failure("a")).toBeNull());
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
-  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.queryByText("current refusal; retry") !== null).toBe(selected === "older");

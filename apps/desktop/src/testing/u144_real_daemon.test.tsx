@@ -19,7 +19,7 @@ import { createProjectDrafts, connectProject, ConnectedProjectContext } from "..
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { WorktreeControl } from "../changes/WorktreeControl";
-import { openFile } from "../changes/noteHarness";
+import { openFile, openChanges } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { notice, notices } from "./notices";
 import { ToastHost } from "./toastHost";
@@ -79,7 +79,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     for (const node of [first, second]) {
       connected.rail.select(node.id);
       flush();
-      fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+      await openChanges();
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
@@ -115,7 +115,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
         await connected.worktrees.refresh(node.id);
 
         if (phase !== "before inspection") {
-          fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+          await openChanges();
           await openFile("same.ts");
 
           if (phase === "with notes") {

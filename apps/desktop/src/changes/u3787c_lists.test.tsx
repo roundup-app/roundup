@@ -1,3 +1,4 @@
+import { openChanges } from "./noteHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountControl } from "./harness";
@@ -10,7 +11,7 @@ const FILES = ["alpha.ts", "bravo.ts", "charlie.ts", "delta.ts", "echo.ts"].map(
 const open = async () => {
   const mounted = await mountControl(() => ({ files: FILES }));
 
-  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
   await waitFor(() => expect(shadow()?.querySelectorAll("[data-item-path]").length).toBe(5));
   await waitFor(() => expect(focused()).toBeDefined());
 

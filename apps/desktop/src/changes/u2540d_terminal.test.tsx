@@ -6,7 +6,7 @@ import { ToastHost } from "../testing/toastHost";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "./WorktreeControl";
 import { STATE, WORKTREE } from "./harness";
-import { COMPARISON, openFile } from "./noteHarness";
+import { COMPARISON, openFile, openChanges } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -28,7 +28,7 @@ it("u2540d_close_returns_to_the_same_live_terminal", async () => {
   const terminal = emulators.get("t-a")!;
   app.emitOutput("t-a", "kept output");
   terminal.type(new TextEncoder().encode("unsent draft"));
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
+  await openChanges();
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
