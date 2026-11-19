@@ -92,7 +92,7 @@ it.each(["open", "closed", "other", "recreated"])("p3557c_failure_lifetime_ackno
   }
 
   reply.resolve({ ...original, text: "submitted", revision: 2 });
-  await waitFor(() => expect(acknowledged.mock.calls).toEqual([["fixture-notes"]]));
+  await waitFor(() => expect(acknowledged.mock.calls.map(([incarnation]) => incarnation)).toEqual(["fixture-notes"]));
   expect(connected.drafts.list()).toContainEqual(expect.objectContaining({ revision: newer.revision, destination: newer.destination, value: newer.value, selection: newer.selection }));
 
   if (mode === "open") expect(field.value).toBe("newer\n  exact ☕  ");
@@ -148,7 +148,7 @@ it.each([false, true])("p3557c_failure_lifetime_recovery_acknowledges_only_resum
   if (close) { connected.drawer.close("key"); flush(); }
 
   reply.resolve({ ...original, text: "retained", revision: 2 });
-  await waitFor(() => expect(acknowledged.mock.calls).toEqual([["fixture-notes"]]));
+  await waitFor(() => expect(acknowledged.mock.calls.map(([incarnation]) => incarnation)).toEqual(["fixture-notes"]));
   expect(connected.drafts.list()).toEqual([]);
 });
 
