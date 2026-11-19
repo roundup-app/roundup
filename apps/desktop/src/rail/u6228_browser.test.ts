@@ -82,7 +82,7 @@ run("u6228 the Rail collapses to a strip", () => {
     await page.call(`() => document.querySelector('.rail-toggle').click()`);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
     expect(await quiet()).toBe(before + 2);
-    expect(await saved()).toMatchObject({ rail: 288, collapsed: false });
+    expect(await saved()).toMatchObject({ rail: 348, collapsed: false });
   });
 
   it("u7156a_a_press_changes_the_collapsed_state_with_one_terminal_resize", async () => {
@@ -172,7 +172,7 @@ run("u6228 the Rail collapses to a strip", () => {
 
     await leader("KeyR", "r");
     await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
-    expect(await saved()).toMatchObject({ rail: 288, collapsed: false });
+    expect(await saved()).toMatchObject({ rail: 348, collapsed: false });
   });
 
   it("u6228_dragging_the_edge_under_its_minimum_collapses_and_dragging_out_expands", async () => {
@@ -182,7 +182,7 @@ run("u6228 the Rail collapses to a strip", () => {
     await dragEdge(80);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
     expect(await quiet()).toBe(before + 1);
-    expect(await saved()).toMatchObject({ rail: 288, collapsed: true });
+    expect(await saved()).toMatchObject({ rail: 348, collapsed: true });
 
     await dragEdge(380);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);

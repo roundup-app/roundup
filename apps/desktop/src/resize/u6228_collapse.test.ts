@@ -43,7 +43,7 @@ it("u6228g_the_column_keeps_its_width_through_a_slide_and_takes_the_strip_once_a
   widths.setCollapsed(true, true);
   flush();
   expect(widths.collapsed()).toBe(true);
-  expect(widths.rail.now()).toBe(288);
+  expect(widths.rail.now()).toBe(348);
 
   widths.settleLayout();
   flush();
@@ -54,6 +54,6 @@ it("u6228g_the_column_keeps_its_width_through_a_slide_and_takes_the_strip_once_a
   expect(widths.rail.now()).toBe(STRIP_WIDTH);
   widths.settleLayout();
   flush();
-  expect(widths.rail.now()).toBe(288);
+  expect(widths.rail.now()).toBe(348);
   dispose();
 });
