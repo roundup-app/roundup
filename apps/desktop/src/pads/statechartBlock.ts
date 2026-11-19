@@ -51,6 +51,21 @@ const boxSize = (label: string): Size => {
 /** The room a move's label takes beside its line: an estimate of its text at the small size, plus the label's padding. */
 const labelSize = (label: string): Size => ({ width: label.length * 7 + 8, height: 20 });
 
+type LayoutFailure = Error | string | undefined;
+
+/** The first line of a layout failure's message, empty when it has none. */
+const firstCauseLine = (failure: LayoutFailure) =>
+  (failure instanceof Error ? failure.message : (failure ?? "")).split("\n")[0]?.trim() ?? "";
+
+/** Replace the chart frame's content with the layout failure's cause in words. */
+const showLayoutFailure = (frame: HTMLElement, failure: LayoutFailure) => {
+  const cause = firstCauseLine(failure);
+  const line = element("p", "visual-error", cause ? copy.statechartLayout(cause) : copy.statechartLayoutUnknown);
+
+  line.setAttribute("role", "alert");
+  frame.replaceChildren(line);
+};
+
 /** The block's object, or the first failure in words. */
 export const readStatechart = (text: string): { chart: Statechart } | { cause: string } => {
   let json: unknown;
@@ -357,6 +372,9 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
 
       frame.replaceChildren(canvas);
       update();
+    })
+    .catch((failure: LayoutFailure) => {
+      if (live) showLayoutFailure(frame, failure);
     });
 
   return () => {

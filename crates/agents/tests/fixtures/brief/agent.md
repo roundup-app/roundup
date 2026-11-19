@@ -124,6 +124,8 @@ When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_appen
 
 Drawings: a drawing lives only in a Pad, as a fenced `excalidraw` block; a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one. For a flow or a sequence, write Mermaid flowchart or sequence source as the block's body and place no coordinates. For a free sketch Mermaid cannot lay out, such as a screen or a box-and-arrow map, write the skeleton form: a shape with a `label`, an arrow with `start` and `end` ids. Draw only when the drawing explains structure or flow faster than a table; at most about 12 shapes; one idea per drawing; labels in plain words.
 
+Statecharts: when a flow has rules worth checking, check it with the hunch statechart skill and write a fenced `statechart` block in the Pad, in plain words, with the fields `summary`, `writtenBy`, `rules`, `states`, `start`, `steps` and `stopped`. Turn the checker's state dump into the block with a script, never by hand, and merge states that show the same, read the same and allow the same moves before you write the block; the merged and full graphs must allow the same moves and turn the same states red. Without the hunch statechart skill, write no statechart block and draw a Mermaid diagram as Drawings says.
+
 ## Places
 
 When the user must look at a Bench tab or flip a setting, hand the link and change nothing yourself: `roundup://shelf/<tab>?project=<key>` for a Bench tab (`todos` or `pads`), `roundup://settings/<page>?project=<key>#<control>` for a setting (the fragment is optional). Take `<key>` from `daemon.ping`'s `projectKey`, as in every link. A click only moves the user there; you never change a setting.
