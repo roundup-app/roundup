@@ -135,15 +135,15 @@ describe("u17 Todo detail", () => {
   });
 
 
-  it("u17_double_clicking_the_title_edits_it_and_leaving_calls_todo_update_once", async () => {
+  it("u17_double_clicking_the_title_edits_it_and_enter_calls_todo_update_once", async () => {
     const { app } = await openDrawerOf(/#5/);
     app.handlers["todo.update"] = () => blocked();
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
     const field = await within(drawer()).findByRole("textbox", { name: "Title" });
 
     fireEvent.input(field, { target: { value: "session cache" } });
-    await leaveTitle();
-    await leaveTitle();
+    fireEvent.keyDown(field, { key: "Enter" });
+    fireEvent.keyDown(field, { key: "Enter" });
 
     await waitFor(() => expect(callsTo(app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 5, title: "session cache", body: null, expected_change: 2 } }]));
   });
@@ -201,9 +201,10 @@ describe("u17 Todo detail", () => {
     const { app } = await openDrawerOf(/#5/);
     app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32602, "title is empty"));
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
-    fireEvent.input(await within(drawer()).findByRole("textbox", { name: "Title" }), { target: { value: "typed" } });
+    const typed = await within(drawer()).findByRole("textbox", { name: "Title" });
+    fireEvent.input(typed, { target: { value: "typed" } });
 
-    await leaveTitle();
+    fireEvent.keyDown(typed, { key: "Enter" });
 
     await screen.findByRole("alert", { name: /title is empty/ });
     expect(within(drawer()).getByRole("textbox", { name: "Title" })).toHaveProperty("value", "typed");

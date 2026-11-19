@@ -6,6 +6,7 @@ import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import { Editable } from "../ui/Editable";
 import { copy } from "./copy";
+import { createBodySaver } from "./bodySaver";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
@@ -248,12 +249,7 @@ export const EditableText = (props: {
   const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void, yieldFocus?: () => void) => {
     const focus = captureFocus();
     queueMicrotask(() => { if (alive && !focus(focusField)) yieldFocus?.(); });
-    // A body saves as the user types, so what the Daemon holds and the change it expects move with each acknowledged save.
-    const { commit: send, latest } = props;
-    let saved = started.form.base;
-    let expectedNow = started.form.expected_change;
-    let inflight: Promise<void> | undefined;
-    let dirty = false;
+    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure });
 
     const retain = (selectionChanged = false) => {
       const selected = selection();
@@ -276,7 +272,7 @@ export const EditableText = (props: {
       if (left) return;
       left = true;
 
-      await inflight;
+      const { saved, expected: expectedNow } = await saver.settled();
 
       if (read() === saved && !started.recovered) {
         setEditing(null);
@@ -335,62 +331,13 @@ export const EditableText = (props: {
       else refuse(sent, retryFocus);
     };
 
-    /** One save at a time; a change made while one runs goes in the next, so the Daemon ends with the last text. */
-    const autosave = async (): Promise<void> => {
-      if (left || expectedNow === null) return;
-
-      if (inflight) { dirty = true;
-
- return; }
-
-      const value = read();
-
-      if (value === saved) return;
-      const expected = expectedNow;
-
-      inflight = (async () => {
-        retain();
-        draft.save();
-        const sent = await draft.send(() => applying(() => send(value, expected)));
-
-        if (!alive) return;
-
-        if (sent.kind === "applied") {
-          saved = value;
-          setFailure(null); props.onSaved?.();
-          expectedNow = (await latest?.().catch(() => null)) ?? expectedNow;
-        } else if (sent.kind === "refused" || sent.kind === "unknown") setFailure(sentFailure(sent));
-      })();
-
-      await inflight;
-      inflight = undefined;
-
-      if (dirty) { dirty = false; await autosave(); }
-    };
-
-    /** Esc puts back the body as this edit found it, and saves that. */
-    const revert = async () => {
-      left = true;
-      setEditing(null);
-      queueFocus(() => shown()?.focus());
-      await inflight;
-
-      if (saved === started.form.base || expectedNow === null || !alive) return;
-      const expected = expectedNow;
-      draft.save();
-      const sent = await draft.send(() => applying(() => send(started.form.base, expected)));
-
-      if (alive && sent.kind === "applied") { setFailure(null); props.onSaved?.(); } else if (alive && (sent.kind === "refused" || sent.kind === "unknown")) setFailure(sentFailure(sent));
-    };
-
     key = event => {
-      if (event.key === "Escape" && props.multiline) {
-        event.preventDefault(); event.stopPropagation();
-        void revert();
-      } else if (event.key === "Escape") {
+      if (event.key === "Escape") {
         event.preventDefault(); event.stopPropagation();
 
-        if (read() !== started.form.base || started.recovered) retain();
+        // A body Esc puts the pre-edit text back; a name keeps its draft.
+        if (props.multiline) void saver.revert();
+        else if (read() !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
         queueFocus(() => shown()?.focus());
       } else if (event.key === "Enter" && !props.multiline) {
@@ -412,7 +359,7 @@ export const EditableText = (props: {
     // Explicit Save authorizes restored work; restoration alone never resumes blur submission.
     save = submit;
 
-    return { retain, change: () => { retain(); void autosave(); }, blur, select, input, submit, release: () => { left = true; }, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
+    return { retain, change: () => { retain(); void saver.run(); }, blur, select, input, submit, release: () => { left = true; }, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
   };
 
   const TitleField = () => {

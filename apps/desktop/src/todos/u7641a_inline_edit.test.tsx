@@ -32,7 +32,8 @@ const openDrawer = async () => {
 it("u7641a_double_click_renames_a_todo_and_a_pad_in_place", async () => {
   const { app } = await mountTodos([item()], true);
   const row = (await screen.findAllByRole("button", { name: /#5/ })).find(candidate => candidate.className !== "word") ?? fail("no row");
-  app.handlers["todo.getHistory"] = () => ({ changes: [{ seq: 2 }] });
+  // SAFETY: the handler needs only the change list the Drawer reads; the other History fields are unused here.
+  app.handlers["todo.getHistory"] = () => ({ changes: [{ seq: 2 }], unread: 0 }) as never;
   app.handlers["todo.update"] = () => item();
 
   fireEvent.dblClick(row);

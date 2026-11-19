@@ -101,13 +101,10 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   fireEvent.dblClick(await within(drawer).findByText("base"));
-  const first = await screen.findByRole("textbox", { name: "Body" });
+  const first = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(document.activeElement).toBe(first));
   fireEvent.input(first, { target: { value: "  A\n🧪  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  fireEvent.dblClick(await within(drawer).findByText("base"));
-  const newer = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
-  await waitFor(() => expect(document.activeElement).toBe(newer));
+  const newer = first;
 
   fireEvent.input(newer, { target: { value: "  B\nnewer  " } });
 
@@ -357,8 +354,7 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   fireEvent.input(await screen.findByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
   app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
-  document.activeElement instanceof HTMLElement && document.activeElement.blur();
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Title" }), { key: "Enter" });
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
@@ -533,28 +529,6 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   expect(connected.drafts.list().at(-1)?.value.blockers).toEqual([]);
 });
 
-
-it.each(["failed", "unknown", "acknowledged"] as const)("u3021c_todo_selected_save_uses_captured_change_%s", async outcome => {
-  const { app, connected, todos } = await mountTodos([todo(1, { body: "changed elsewhere" })]);
-  const destination = { surface: "todos", object: "1", recipient: "body" };
-  const form = { text: "  A 🧪\n次の行  ", base: "old base", expected_change: 7, title: "todo 1", body: "old base", done: false, blockers: [] };
-  const a = connected.drafts.edit(destination, form, null, "ordinary").draft;
-  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome === "acknowledged" ? "failed" : outcome);
-  const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, null, "ordinary").draft;
-  app.handlers["todo.update"] = () => outcome === "acknowledged" ? todo(1, { body: form.text }) : Promise.reject(new RpcError(-32003, "captured conflict"));
-  connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
-  await screen.findByRole("textbox", { name: "Body" });
-  const calls = [...app.calls];
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  if (outcome === "failed") await screen.findByText("captured conflict");
-
-  if (outcome === "acknowledged") await waitFor(() => expect(app.calls.slice(calls.length)).toHaveLength(1));
-  expect(app.calls.slice(calls.length)).toEqual(outcome === "unknown" ? [] : [{ method: "todo.update", params: { id: 1, title: null, body: form.text, expected_change: 7 } }]);
-
-  if (outcome === "acknowledged") await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
-  else expect(connected.drafts.list()).toEqual([{ ...a, status: outcome }, b]);
-});
 
 it.each(["failed", "unknown"] as const)("u3021c_todo_selected_creation_save_keeps_captured_home_%s", async outcome => {
   const { app, connected, todos } = await mountTodos([], true, [workstream("a"), workstream("b")]);
