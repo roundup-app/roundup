@@ -15,7 +15,8 @@ afterAll(async () => {
 
 /** The longest stretch the page's main thread ran without yielding while the Changes list opened. */
 const longestBlock = async (type: BrowserType) => {
-  const engine: Browser = await type.launch(type === chromium ? { executablePath: chromePath() } : {});
+  const executablePath = type === chromium ? chromePath() : undefined;
+  const engine: Browser = await (executablePath === undefined ? type.launch() : type.launch({ executablePath }));
 
   try {
     const page = await engine.newPage();
