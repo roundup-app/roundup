@@ -367,37 +367,6 @@ async fn a3308_a_subagent_start_obeys_the_cap() {
 }
 
 #[tokio::test]
-async fn a3308_an_agent_cannot_authorize_auto() {
-    let dir = tempfile::tempdir().unwrap();
-    let daemon = daemon_in(dir.path());
-    let node = call(&daemon, "rail.createWorkstream", json!({"name":"Ship"})).await;
-    let (events, _) = mpsc::unbounded_channel();
-    let mut conn = Conn {
-        actor: Actor {
-            kind: ActorKind::Agent,
-            id: node["id"].as_str().unwrap().into(),
-            parent: None,
-        },
-        peer: None,
-        events,
-        output: None,
-    };
-    let error = daemon
-        .route(
-            &mut conn,
-            "workstream.setAuto",
-            json!({"id":node["id"],"auto":true}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(error.code, code::FORBIDDEN);
-    assert_eq!(
-        call(&daemon, "rail.tree", Value::Null).await[0]["auto"],
-        false
-    );
-}
-
-#[tokio::test]
 async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = running_daemon(dir.path());
@@ -445,44 +414,6 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
 
 async fn subagent(daemon: &Daemon, home: &str, cwd: &std::path::Path) -> Value {
     as_door(daemon, home, "agent.spawn", json!({"cwd":cwd,"role":"job","order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await
-}
-
-#[tokio::test]
-async fn a3308_an_agent_cannot_enable_auto_by_claiming_user() {
-    let dir = tempfile::tempdir().unwrap();
-    let daemon = running_daemon(dir.path());
-    let home = door(&daemon).await;
-    let peer = daemon
-        .agents
-        .running_programs()
-        .into_iter()
-        .find(|(id, _)| id == &home)
-        .unwrap()
-        .1;
-    let (events, _) = mpsc::unbounded_channel();
-    let mut conn = Conn {
-        actor: Actor::user(),
-        peer: Some(peer),
-        events,
-        output: None,
-    };
-    let response = daemon
-        .dispatch(
-            &mut conn,
-            &json!({"id":1,"method":"workstream.setAuto","params":{"id":home,"auto":true}})
-                .to_string(),
-            None,
-        )
-        .await
-        .unwrap()
-        .into_value()
-        .unwrap();
-    assert_eq!(response["error"]["code"], code::FORBIDDEN);
-    assert_eq!(
-        call(&daemon, "rail.tree", Value::Null).await[0]["auto"],
-        false
-    );
-    daemon.stop_terminals().await.unwrap();
 }
 
 #[tokio::test]

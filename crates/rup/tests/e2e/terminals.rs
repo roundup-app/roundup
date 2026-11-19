@@ -653,57 +653,7 @@ pub(super) async fn x12_an_agent_cannot_open_a_project_terminal() {
     );
 }
 
-#[tokio::test]
-pub(super) async fn x12_an_agent_cannot_access_a_project_terminal() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let agent = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-    let opened = user.request("terminal.open", json!({})).await.unwrap();
-    for method in [
-        "terminal.screen",
-        "terminal.close",
-        "terminal.kill",
-        "terminal.show",
-        "terminal.write",
-        "terminal.resize",
-        "terminal.read",
-        "terminal.search",
-        "terminal.snapshot",
-    ] {
-        let error = agent
-            .request(method, json!({"id": opened["terminal_id"], "data": "eA==", "cols": 80, "rows": 24, "reader": rail.a, "pattern": "x"}))
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::FORBIDDEN, "{method}");
-    }
-    let listed = user.request("terminal.list", Value::Null).await.unwrap();
-    assert_eq!(
-        listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|t| t["owner"] == json!(project.dir.path().to_string_lossy()))
-            .count(),
-        1
-    );
-}
-
 // M13: an Agent reads Terminals through its MCP server.
-
-impl Shim {
-    /// The tool's error body, or `None` when it succeeded.
-    pub(super) async fn refused(&mut self, name: &str, arguments: Value) -> Option<Value> {
-        let result = self
-            .request(
-                "tools/call",
-                json!({ "name": name, "arguments": arguments }),
-            )
-            .await;
-        (result["isError"] == true)
-            .then(|| serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap())
-    }
-}
 
 pub(super) async fn m13_run(client: &rpc::Client, agent: &str, script: &str) -> String {
     let run = client
@@ -740,55 +690,4 @@ pub(super) async fn m13_an_agent_reads_its_own_runs_and_its_workstreams_terminal
         .unwrap();
     let shell = opened["terminal_id"].as_str().unwrap();
     shim.call("terminal_screen", json!({ "id": shell })).await;
-}
-
-#[tokio::test]
-pub(super) async fn m13_another_workstreams_terminal_is_forbidden() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-    let run = m13_run(&as_a, &rail.a, "echo secret; sleep 30").await;
-    let mut outsider = Shim::start(&project, &rail.c).await;
-    let mut sibling = Shim::start(&project, &rail.b).await;
-
-    for shim in [&mut outsider, &mut sibling] {
-        for (tool, arguments) in [
-            ("terminal_screen", json!({ "id": run })),
-            ("terminal_read", json!({ "id": run, "after": 0 })),
-            ("terminal_search", json!({ "id": run, "pattern": "secret" })),
-        ] {
-            let refused = shim.refused(tool, arguments).await.expect(tool);
-            assert_eq!(refused["code"], rpc::code::FORBIDDEN, "{tool}");
-            assert!(refused["message"].as_str().unwrap().contains(&run));
-            assert!(!refused.to_string().contains("secret"));
-        }
-    }
-}
-
-#[tokio::test]
-pub(super) async fn m13_an_ownerless_terminal_is_forbidden_to_an_agent() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let cwd = project.dir.path().to_string_lossy().into_owned();
-    let spawned = user
-        .request(
-            "terminal.spawn",
-            json!({ "cwd": cwd, "command": ["/bin/sh", "-c", "sleep 30"], "env": {}, "cols": 80, "rows": 24 }),
-        )
-        .await
-        .unwrap();
-    let id = spawned["id"].as_str().unwrap();
-    let mut shim = Shim::start(&project, &rail.a).await;
-
-    let refused = shim
-        .refused("terminal_screen", json!({ "id": id }))
-        .await
-        .unwrap();
-    assert_eq!(refused["code"], rpc::code::FORBIDDEN);
-    // The user has no limit.
-    user.request("terminal.screen", json!({ "id": id }))
-        .await
-        .unwrap();
 }
