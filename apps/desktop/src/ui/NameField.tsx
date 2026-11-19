@@ -36,7 +36,7 @@ export const NameField = (props: {
   const [ready, setReady] = createSignal(restored.success || read === undefined);
   onCleanup(drafts.editor(destination));
 
-  const loading = untrack(ready) ? Promise.resolve() : read!().then(value => { setVersion(value); setReady(true); }).catch(error => {
+  const loading = read === undefined || untrack(ready) ? Promise.resolve() : read().then(value => { setVersion(value); setReady(true); }).catch(error => {
     if (!(error instanceof Error)) throw error;
     props.fail(error.message);
   });
@@ -63,7 +63,8 @@ export const NameField = (props: {
     if (value === "") return props.close();
     // Enter is the owner's own send, so a recovered name goes too.
     draft.save();
-    const sent = await draft.send(() => applying(() => commit(value, base, version())));
+    const expected = version();
+    const sent = await draft.send(() => applying(() => commit(value, base, expected)));
 
     if (sent.kind === "refused") props.fail(sent.error.message);
     else if (field.isConnected && sent.kind === "applied" && draft.draft()?.status !== "draft") { props.fail(null); props.close(); }
