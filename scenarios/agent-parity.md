@@ -1,0 +1,30 @@
+# An Agent does what the user does (AP)
+
+Module: `crates/agents` (resume, dispatch, reach, convert, auto), `crates/messages` (send). Ids: AP1–AP6. Work order: #7627. Amends A5335b, A4452d, DCR2, M7, M16 and B-send's ended-receiver refusal; adds no RPC method and no public type.
+
+Policy: an Agent may do anything the user can do in roundup. P9 already lets roundup start an Agent on an Agent's tool call. The one exception protects the user's input: no Agent types into a Terminal while the Agent there waits on the user (a question or permission prompt, A3564a). Out of scope: the "only the user" rules for Model, Effort and permission mode (P8, M12), Rail grouping and renames, conversation import, and start attribution; each keeps its rule.
+
+## Checks on main
+
+1. `crates/agents/src/resume.rs`, `Agents::resume_saved`: refuses an Agent's `agent_resume` without `mode` when the child has no run and was not cut off (A5335b, DCR1).
+2. `crates/messages/src/send.rs`: refuses a Message to a receiver whose Status is ended with `CONFLICT`.
+3. `crates/agents/src/dispatch.rs`: an Agent's `agent_prompt` text goes to the target's inbox as a Message and is never typed (A4452d).
+4. `crates/agents/src/reach.rs`, `guard_reach`: the Reach of an Agent; `Agents::write_terminal` refuses an Agent's bytes while the Terminal's Agent is `needs-you` (A3564a).
+5. `crates/agents/src/convert.rs` and `crates/agents/src/auto.rs`, and `rail_set_alert_level` in `crates/agents/src/dispatch.rs`: each refuses a non-user actor with `FORBIDDEN` ("only the user …").
+6. `crates/agents/tests/scenarios/m7.rs`, `m7_a_sibling_subagent_is_outside_reach`: holds Reach today.
+
+**AP1 an Agent resumes any Agent.** Given a finished Agent that no quit cut off, and an Agent actor calling `agent_resume` without `mode`, then its saved conversation resumes at once as for the user (A22), with no `CONFLICT`. A child with no saved conversation is still `CONFLICT` (A5335c). A Daemon restart still starts no finished Agent (A5335b's restart observer), since no Agent called. Tests: `ap1_an_agent_resumes_a_finished_agent` (`crates/agents/tests/scenarios/resume.rs`); `a5335b_a_restart_resumes_no_finished_child` stays green; the DCR2 test `dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one` is edited so (b) expects the resume.
+
+**AP2 an Agent messages an ended Agent.** Given a receiver whose Status is `done`, when an Agent or the user sends it a Message, then the Message is accepted and held in its inbox for its next turn, as for any idle receiver; it starts no program and types nothing (P9). Laws M1 to M10 (`scenarios/proofs.md`) hold: receipt finality, order and replay are unchanged, and `proofs/messages` and `docs/messages.md` agree. Tests: `ap2_a_message_to_a_done_agent_is_accepted` (`crates/messages/src/send.rs` tests).
+
+**AP3 an Agent steers any Agent as the user does.** Given an Agent actor calling `agent_prompt` on an Agent it did not start, when the target is not `needs-you`, then the text is typed into its Terminal byte for byte as a Steer by the user is (H11); when the target is finished, it resumes first (AP1) and the text is its next prompt. When the target is `needs-you`, the call is refused with `FORBIDDEN` and no byte is typed (AP6). Amends A4452d: an Agent's Steer is typed. Tests: `ap3_an_agent_steer_is_typed_into_any_agent` and `ap3_an_agent_steer_of_a_finished_agent_resumes_it` (`crates/agents/tests/scenarios/steer.rs`); `a4452d_agent_authored_text_never_types` is replaced by them.
+
+**AP4 an Agent acts on any node.** Given an Agent actor and a node it did not start, which is not its descendant and not in a Workstream it created, when it calls a method on it, then the call runs as the user's would. `guard_reach` and its error go, as the Reach error in DCR2(c) and the M7 and M16 restrictions do; the user has no limit today (`m7_the_user_has_no_reach_limit`). Self-stop stays forbidden, and a write to the caller's own Terminal stays refused. Tests: `ap4_an_agent_acts_outside_its_former_reach` (`crates/agents/tests/scenarios/m7.rs`), which replaces `m7_a_sibling_subagent_is_outside_reach`, `m7_a_run_outside_reach_starts_nothing` and `dcr2_resume_outside_reach_is_refused`; `m16_door_actions_keep_reach_restrictions` is retired.
+
+**AP5 an Agent converts, saves a Mode, creates a Mode, sets a Mode prompt, and sets Auto and alert levels.** Given an Agent actor, when it calls each of `convert`, `save mode`, `create mode`, `set mode prompt`, `set auto` and `rail.setAlertLevel`, then the call does what the user's does, with no `FORBIDDEN`. Tests: `ap5_an_agent_may_call_each_user_setting` (`crates/agents/tests/scenarios/`), a table over the six calls checking the effect.
+
+**AP6 no Agent types into a waiting Terminal.** Given a Terminal whose Agent is `needs-you` with a question or permission prompt (not a stop ask), when an Agent actor calls `terminal.write` or `agent_prompt` for it, then the call is `FORBIDDEN`, no byte reaches the Terminal, and the user's writes always pass (A3564a). This guard stays whatever AP1 to AP5 remove. Tests: A3564a's existing tests stay green, and `ap6_agent_prompt_to_a_needs_you_agent_types_nothing` (`crates/agents/tests/scenarios/steer.rs`).
+
+## Gates
+
+Applies P9 and P11: AP1 to AP3 start or type only on an Agent's tool call, never from a notice or a restart, and AP6 protects the user's unfinished input. The implementing PR edits `PRINCIPLES.md` P9 so it says an Agent may start, message and steer any Agent, and the sentence `its text always becomes a Message` leaves A4452d. It also names the Message laws it touches (AP2). This specification changes no App surface, so no visual Check applies. Implementation splits into child Issues: AP1 and AP2, then AP3, then AP4 and AP5, each with its scenario and doc edits.
