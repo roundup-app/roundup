@@ -21,6 +21,7 @@
     "@anthropic-ai/claude-code": "2.1.300",
     "@ast-grep/cli": "0.51.0",
     "@copilotkit/aimock": "1.45.1",
+    "@moo.md/hum": "0.13.0",
     "@oxlint/plugins": "1.86.0",
     "eslint-plugin-solid": "0.19.0",
     "eslint-plugin-sonarjs": "4.2.2",
