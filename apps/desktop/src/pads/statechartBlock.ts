@@ -357,6 +357,13 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
 
       frame.replaceChildren(canvas);
       update();
+    })
+    .catch((failure: Error) => {
+      if (!live) return;
+      const line = element("p", "visual-error", copy.statechartLayout(failure.message));
+
+      line.setAttribute("role", "alert");
+      frame.replaceChildren(line);
     });
 
   return () => {

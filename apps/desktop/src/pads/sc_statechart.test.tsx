@@ -65,12 +65,12 @@ const chart: Statechart = {
   stopped: "The check stopped at one outside edit.",
 };
 
-const show = async (value: Statechart) => {
+const show = async (value: Statechart, ready = ".statechart-box") => {
   const text = JSON.stringify(value);
 
   await openShelf([padOf("note", AGENT, `intro\n\n\`\`\`statechart\n${text}\n\`\`\`\n`)]);
   await openPad("note");
-  await waitFor(() => expect(document.querySelector(".statechart-box")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(ready)).not.toBeNull());
 };
 
 const must = <Item,>(item: Item | null | undefined): Item => {
@@ -269,6 +269,18 @@ describe("sc statechart block", () => {
     fireEvent.click(must(named("you type")));
     fireEvent.click(must(named("Details")));
 
+    expect(document.querySelector(".ProseMirror")?.textContent).toContain(JSON.stringify(chart));
+  });
+
+  it("sc8_a_failed_layout_shows_its_cause_and_the_moves_still_step", async () => {
+    useRenderers({ ...bundledRenderers, statechart: async () => ({ ...api, layout: async () => Promise.reject(new Error("bad graph")) }) });
+    await show(chart, ".statechart-chart .visual-error");
+
+    expect(textOf(".statechart-chart .visual-error")).toBe(copy.statechartLayout("bad graph"));
+    expect(document.querySelector(".statechart-box")).toBeNull();
+    fireEvent.click(must(named("you type")));
+    expect(must(actors.at(-1)).getSnapshot().value).toBe("b");
+    expect(moves()).toEqual(["you wait"]);
     expect(document.querySelector(".ProseMirror")?.textContent).toContain(JSON.stringify(chart));
   });
 });
