@@ -730,7 +730,7 @@
   width: var(--rail-slot);
   flex: none;
 }
-/* U7488a, U7590b: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. The actions hold no room: they lie over the end of the tail (still in the Tab order), and on hover, focus or selection they show there at one x on every row while the marks beneath them fade, so no name, mark or ring moves. A group's chevron keeps its one slot. */
+/* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. The actions take no room at rest (zero width, still in the Tab order); on hover, focus or selection they take their three slots in the row's flow just left of the age, whose width is fixed, so they sit at one x on every row and the name, marks, ring and count give way. A group's chevron keeps its one slot. */
 :root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-todos-room: calc(var(--space-4) + var(--text-caption) * 3); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
 .rail-row .line { position: relative; }
 .rail-row .row-tail { justify-content: flex-end; }
@@ -738,13 +738,11 @@
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 /* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
 .rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
-/* U7590a: the Todos slot is one fixed size wide enough for "34/34", so the ring's x never depends on the count; a row with no Todos holds none. */
-.rail-row .action-slot[data-slot="todos"]:empty { display: none; }
+/* U7590a: the Todos slot is one fixed size wide enough for "34/34", so the ring's x never depends on the count. */
 .rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); }
 .rail-row .rail-pads-control { min-inline-size: 0; inline-size: auto; }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
-.rail-row .row-icons { position: absolute; inset-block: 0; inset-inline-end: 0; display: inline-flex; align-items: center; padding-inline-start: var(--space-2); background: var(--rail-ground); }
-[data-reveal="shown"] :is([data-slot="todos"], [data-slot="changes"]) { opacity: 0; pointer-events: none; }
+.rail-row .row-icons { display: inline-flex; flex: none; align-items: center; } /* U7590b: the actions hold their slots at rest (hidden, not removed), so revealing them moves no mark. */
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */

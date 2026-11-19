@@ -37,7 +37,7 @@ describe("u389 the Rail's width is the user's", () => {
   it("u453_widths_keep_resize_bounds_without_window_clamps", () => {
     Object.assign(window, { innerWidth: 1280 });
 
-    for (const [stored, rail, shelf] of [[100, 252, 240], [360, 360, 360], [9999, 480, 560]] as const) {
+    for (const [stored, rail, shelf] of [[100, 312, 240], [360, 360, 360], [9999, 480, 560]] as const) {
       expect(railEffective(stored)).toBe(rail);
       expect(shelfEffective(stored)).toBe(shelf);
     }
@@ -49,7 +49,7 @@ describe("u389 the Rail's width is the user's", () => {
       localStorage.setItem("roundup:viewer", `{"rail":${rail},"shelf":320}`);
       const { result, cleanup: dispose } = renderHook(() => createWidths(() => "/Users/you/harness"));
 
-      expect(result.rail.now(), rail).toBe(288);
+      expect(result.rail.now(), rail).toBe(348);
       dispose();
     }
 

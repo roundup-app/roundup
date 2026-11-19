@@ -26,7 +26,7 @@ const load = async (seed: string) => {
   await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row .row-age').length > 3`);
 };
 
-const slots = `() => [...document.querySelectorAll('.rail-tree .rail-row')].map(r => ({ slot: r.querySelector('.action-slot[data-slot="todos"]')?.getBoundingClientRect(), age: r.querySelector('.row-age')?.getBoundingClientRect() })).filter(r => r.slot && r.slot.width > 0).map(r => r.age.left - r.slot.left)`;
+const slots = `() => [...document.querySelectorAll('.rail-tree .rail-row .action-slot[data-slot="todos"]')].map(s => s.getBoundingClientRect().left)`;
 
 const marks = (index: number) => `() => {
   const box = e => { if (!e) return null; const b = e.getBoundingClientRect(); return { left: b.left, width: b.width }; };
@@ -47,7 +47,7 @@ run("u7590a_the_ring_x_is_equal_across_counts", async () => {
 
   const lefts = await page.call<number[]>(slots);
 
-  expect(lefts.length).toBeGreaterThan(0);
+  expect(lefts.length).toBeGreaterThan(3);
 
   for (const left of lefts) expect(Math.abs(left - (lefts[0] ?? Number.NaN))).toBeLessThanOrEqual(1);
 }, 60_000);
