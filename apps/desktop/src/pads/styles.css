@@ -497,7 +497,6 @@ li[aria-selected="true"] svg {
 .statechart-chart {
   overflow: auto;
   overscroll-behavior: contain;
-  max-height: var(--pad-editor-height);
 }
 
 .statechart-canvas {
@@ -528,11 +527,11 @@ li[aria-selected="true"] svg {
   overflow: hidden;
   text-align: center;
   font-size: var(--text-small);
-  background: var(--sunken);
+  background: var(--surface);
 }
 
 .statechart-box.is-lit {
-  background: var(--selected);
+  background: linear-gradient(var(--selected), var(--selected)), var(--surface);
 }
 
 .statechart-box.is-red {
@@ -543,7 +542,7 @@ li[aria-selected="true"] svg {
   position: absolute;
   transform: translate(-50%, -50%);
   padding: 0 var(--space-1);
-  background: var(--sunken);
+  background: var(--ground);
   font-size: var(--text-small);
   white-space: nowrap;
 }

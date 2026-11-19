@@ -27,6 +27,7 @@ const api: StatechartApi = {
     height: 100,
     boxes: Object.fromEntries(ids.map((id, at) => [id, { x: at * 10, y: 0 }])),
     routes: Object.fromEntries(moves.map(([key]) => [key, [{ x: 0, y: 0 }, { x: 5, y: 5 }]])),
+    labels: Object.fromEntries(moves.map(([key]) => [key, { x: 2, y: 2 }])),
   }),
 };
 

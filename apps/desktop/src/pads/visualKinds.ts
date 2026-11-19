@@ -36,10 +36,17 @@ export const bundledRenderers: Renderers = {
 
         const point = (at: { x: number; y: number }) => ({ x: at.x, y: at.y });
 
+        const labelAt = (edge: { labels?: { x?: number; y?: number; width?: number; height?: number }[] }) => {
+          const label = edge.labels?.[0];
+
+          return { x: (label?.x ?? 0) + (label?.width ?? 0) / 2, y: (label?.y ?? 0) + (label?.height ?? 0) / 2 };
+        };
+
         return {
           width: (graph.width ?? 0) + 1,
           height: (graph.height ?? 0) + 1,
           boxes: Object.fromEntries((graph.children ?? []).map((child) => [child.id, { x: child.x ?? 0, y: child.y ?? 0 }])),
+          labels: Object.fromEntries((graph.edges ?? []).map((edge) => [edge.id, labelAt(edge)])),
           routes: Object.fromEntries(
             (graph.edges ?? []).map((edge) => {
               const section = edge.sections?.[0];
