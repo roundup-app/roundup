@@ -79,4 +79,5 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
   });
 
   expect(popover.getAttribute("data-side")).toBe("bottom");
-  expect(popover.querySelectorAll("button").length).toBe(8);});
+  expect(popover.querySelectorAll("button").length).toBe(8);
+});
