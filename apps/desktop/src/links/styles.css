@@ -26,5 +26,6 @@
   inline-size: max-content;
   max-inline-size: 100%;
   overflow-x: auto;
+  overscroll-behavior: contain;
   z-index: var(--layer-popover);
 }
