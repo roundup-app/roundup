@@ -2,6 +2,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
+import { RpcError } from "../app/seam";
 import { mountRailAndPane } from "../terminal/paneHarness";
 import { agent, event, workstream } from "../testing/nodes";
 import { chooseFooter, mountRail, railCallsTo } from "./railFixture";
@@ -146,7 +147,7 @@ describe("u33 spawn with a prompt", () => {
   it("u33_a_failed_call_shows_the_error_line_and_keeps_the_fields_text", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => {
-      throw new Error("no workstream");
+      throw new RpcError(-32602, "no workstream");
     };
 
     chord("n");

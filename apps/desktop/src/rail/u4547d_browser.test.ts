@@ -20,12 +20,13 @@ it("u4547d_rendered_restart_and_refusal_keep_the_mode_reachable", async () => {
   await lane.until(`document.querySelector(${JSON.stringify(row)}) !== null`);
   await lane.browser("focus", row);
   await lane.capture("U4547d", "stopped-mode");
-  await lane.evaluate(`(() => {
+  await lane.evaluate(`(async () => {
+    const { RpcError } = await import('/src/app/seam.ts');
     const restart = window.__fake.app.handlers['agent.restartMode'];
     let refused = false;
     let started;
     window.__fake.app.handlers['agent.restartMode'] = params => {
-      if (!refused) { refused = true; throw new Error('Mode Agent could not start. Restore Claude, then retry.'); }
+      if (!refused) { refused = true; throw new RpcError(-32602, 'Mode Agent could not start. Restore Claude, then retry.'); }
       return started ??= restart(params);
     };
     return true;

@@ -6,7 +6,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
 import { createSignal, flush } from "solid-js";
-import type { DaemonExit } from "../app/seam";
+import { RpcError, type DaemonExit } from "../app/seam";
 import { agent, workstream } from "../testing/nodes";
 import { chooseFooter, mountRail, railCallsTo } from "./railFixture";
 
@@ -122,7 +122,7 @@ it("u5555_unavailable_creation_cannot_run_from_the_menu", async () => {
 it.each(["pointer", "Enter", " "])("u5629_open_and_escape_keep_the_failed_start_%s", async opening => {
   const m = await mountRail([workstream("g")]);
   m.rail.select("g");
-  m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
+  m.app.handlers["agent.spawn"] = () => { throw new RpcError(-32602, "Spawn refused. Check setup and retry."); };
 
   fireEvent.keyDown(document, { key: "n", metaKey: true });
   const failure = await waitFor(() => notice("alert"));
@@ -162,7 +162,7 @@ it("u5629_retry_after_escape_repeats_only_the_failed_start", async () => {
   const tree: RailNode[] = [workstream("g")];
   const m = await mountRail(tree);
   m.rail.select("g");
-  m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
+  m.app.handlers["agent.spawn"] = () => { throw new RpcError(-32602, "Spawn refused. Check setup and retry."); };
 
   fireEvent.keyDown(document, { key: "n", metaKey: true });
   await waitFor(() => notice("alert"));
@@ -194,7 +194,7 @@ it("u5629_dismiss_after_escape_clears_only_feedback", async () => {
   const m = await mountRail([workstream("g")]);
   m.rail.select("g");
   const draft = m.connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "g" }, { text: " unfinished draft " }, null, "ordinary").draft;
-  m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
+  m.app.handlers["agent.spawn"] = () => { throw new RpcError(-32602, "Spawn refused. Check setup and retry."); };
 
   fireEvent.keyDown(document, { key: "n", metaKey: true });
   await waitFor(() => notice("alert"));

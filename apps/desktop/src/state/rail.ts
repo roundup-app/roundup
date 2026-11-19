@@ -15,11 +15,16 @@ import type { StatusEvent } from "@contracts/agent/StatusEvent";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { attemptAfter, doorAttempt, doorTerminalId, isDoor, type DoorNode } from "./doorNode";
 import { defaultWorkstreamName } from "./defaultName";
-import { railTopology, type RailTopology } from "./railTopology";
-import { ancestorsOf, isWorkstream } from "./railTopology";
+import { ancestorsOf, isWorkstream, railTopology, type RailTopology } from "./railTopology";
 import type { RailSection, RailStorage, ResumptionStorage } from "./railStorage";
 import { handleEvent, type EventHandlers, type Events } from "../app/events";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { outcomeOf, type AppSeam } from "../app/seam";
+
+/** U7498c: no answer is an unknown outcome, told as unconfirmed with no Retry; any other failure keeps its message. */
+const doorFailureLine = (error: Error): string => outcomeOf(error) === "unknown" ? unknownOutcomeLine(error) : error.message;
+
+const doorFailureOf = (error: Error, attempt: string | null) => ({ message: doorFailureLine(error), attempt, ...outcomeOf(error) === "unknown" && { unknown: true as const } });
 
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
@@ -80,6 +85,8 @@ export type RailState = {
   /** True while a `rail.startDoor` call for Workstream `id` is pending. */
   doorPending(id: string): boolean;
   doorFailure(id: string): string | null;
+  /** True when Door `id`'s last start failed for certain; an unknown outcome keeps its line but offers Start, never Retry. */
+  doorRetryable(id: string): boolean;
   startDoor(id: string): Promise<void>;
   /** DCL1a: asks the Daemon for one delivery pass for Agent `id`; resolves `null` once it ran, else the failure message. */
   retryDelivery(id: string): Promise<string | null>;
@@ -349,7 +356,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const { resumed, record: recordResumption, sync: syncResumptions } = createResumed(resumptions?.read() ?? {});
 
-  const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
+  const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null; unknown?: true } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
   const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id), terminals);
   const [dismissedKeys, setDismissedKeys] = createSignal<ReadonlySet<string>>(new Set(dismissals?.read() ?? []));
@@ -563,7 +570,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   /** A24: the call's answer, or a rejection once `DOOR_START_BOUND_MS` passes without one. */
   const boundedStart = (id: string, size?: Size): Promise<RailNode> => {
     const { promise: expiry, reject } = Promise.withResolvers<never>();
-    const timer = setTimeout(() => reject(new Error(copy.theDoorDidNotStartInTimeRetry)), DOOR_START_BOUND_MS);
+    const timer = setTimeout(() => reject(new Error(unknownOutcomeLine(new Error()))), DOOR_START_BOUND_MS);
 
     return Promise.race([app.rpc("rail.startDoor", { id, ...size }), expiry]).finally(() => clearTimeout(timer));
   };
@@ -594,8 +601,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const node = model.tree.find((each) => each.id === id);
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
-        setDoors(draft => { draft[id]!.failure = { message: error.message, attempt: doorAttempt(node) }; });
-        commandFailure.show(error.message, id, "pane");
+        setDoors(draft => { draft[id]!.failure = doorFailureOf(error, doorAttempt(node)); }); commandFailure.show(doorFailureLine(error), id, "pane", null, outcomeOf(error) === "unknown");
       }
     } finally {
       prepared?.dispose();
@@ -671,6 +677,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     launching: id => pending().some(each => each.kind === "launch" && each.id === id),
     doorPending: (id) => doors[id]?.pending ?? false,
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
+    doorRetryable: (id) => doors[id]?.failure != null && !doors[id]!.failure!.unknown,
     startDoor,
     resumeTurn: id => app.rpc("message.send", { to: id, kind: "note", body: copy.resumeNote, replyTo: null }).then(() => null, (error: Error) => error.message),
     retryDelivery: id => app.rpc("message.retryDelivery", { id }).then(() => null, (error: Error) => error.message),

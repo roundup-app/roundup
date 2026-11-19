@@ -61,8 +61,8 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
               </Checkbox>
             </Show>
             <p class="feedback-versions">{session.versions()}</p>
-            <DialogFailure message={session.failure()} dismiss={() => session.setFailure(null)} />
-            <StatusNote text={session.failure() ? null : session.blocked() ?? session.noShotLine()} />
+            <DialogFailure message={session.failure() ?? session.unconfirmed()} notice={!session.failure() && !!session.unconfirmed()} dismiss={() => { session.setFailure(null); session.setUnconfirmed(null); }} />
+            <StatusNote text={session.failure() || session.unconfirmed() ? null : session.blocked() ?? session.noShotLine()} />
             <div class="app-dialog-actions">
               <Dialog.CloseTrigger type="button" data-button="quiet">
                 {copy.close}

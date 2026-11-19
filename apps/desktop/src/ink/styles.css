@@ -58,7 +58,8 @@ p.ink .icon {
 
 
 
-p.ink[role="alert"] {
+p.ink[role="alert"],
+p.ink[data-kind="notice"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
