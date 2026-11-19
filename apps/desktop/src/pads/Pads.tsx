@@ -331,7 +331,7 @@ const PadRows = (props: {
           if (event.key === "ArrowRight" && !props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
           else if (event.key === "ArrowLeft" && props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
         }}>
-        <FoldContent stem="pad-fold" count={props.folded()[fold].length} group={fold} />
+        <FoldContent stem="pad-fold" label={copy.foldLabel(props.folded()[fold].length, fold)} />
         <Icon name="right" />
       </button>
       <Show when={props.isFoldOpen(fold)}>
@@ -342,6 +342,8 @@ const PadRows = (props: {
     </Show>
   );
 
+  const allFoldRows = () => (["internal", "idle"] as const).map(foldRows);
+
   return (
     <>
       <Sortable.Root class="shelf-list" role="list" ids={props.folded().above.map(each => each.pad.name)} onOrderChange={onOrderChange} onDrag={props.onDrag}>
@@ -351,8 +353,7 @@ const PadRows = (props: {
           )}
         </For>
       </Sortable.Root>
-      {foldRows("internal")}
-      {foldRows("idle")}
+      {allFoldRows()}
     </>
   );
 };

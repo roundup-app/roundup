@@ -1,5 +1,5 @@
 import type { TreeItemData } from "@ui-sdk/solid/tree";
-import { foldLabel } from "../ui/FoldRow";
+import { copy } from "./copy";
 import { isWorkstream } from "../state/railTopology";
 import type { RailRow } from "./layout";
 
@@ -13,7 +13,7 @@ export const railItems = (rows: readonly RailRow[]): TreeItemData[] => {
       row.kind === "fold"
         ? {
             value: row.key,
-            label: foldLabel(row.count, row.group),
+            label: copy.foldLabel(row),
             children: [],
           }
         : isWorkstream(row.node) || row.node.kind === "group"

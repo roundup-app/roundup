@@ -104,6 +104,7 @@ export const copy = {
   workstreamsHead: "WORKSTREAMS",
   rail: sharedCopy.rail,
   doneCount: sharedCopy.doneCount,
+  foldLabel: (row: { count: number; group: "internal" | "idle" }) => `${row.count}${row.group === "internal" ? " internal" : " idle"}`,
   askingTheDoor: "Asking…",
   addWorkstreamWord: sharedCopy.addWorkstreamWord,
   name: sharedCopy.name,

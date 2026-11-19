@@ -174,14 +174,22 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     const { connected, pads, revision } = recovery;
     connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
   } else {
-    const row = await waitFor(() => {
-      // A Pad the user has read sits in a closed fold (U7499a); opening the folds lists it.
-      for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) fireEvent.click(fold);
-      const row = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
-      expect(row).toBeDefined();
+    const find = () => [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
 
-      return row!;
+    // A Pad the user has read sits in a closed fold (U7499a); opening the folds lists it, and the list redraws its rows once more before it settles.
+    const opened = new Set<Element>();
+
+    const listed = () => waitFor(() => {
+      for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) if (!opened.has(fold)) { opened.add(fold); fireEvent.click(fold); }
+      expect(find()).toBeDefined();
     });
+
+    // A Pad the Drawer just left moves to its fold a tick after the row is first found, so the list is read again once it has settled.
+    await listed();
+    await new Promise(resolve => setTimeout(resolve));
+    await listed();
+
+    const row = find()!;
 
     for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
       const control = group.querySelector<HTMLElement>(".shelf-group-control");
