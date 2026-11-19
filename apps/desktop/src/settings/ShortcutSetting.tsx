@@ -21,7 +21,7 @@ const fallbackOf = (field: keyof typeof ROWS) => field === "quickAdd" ? "meta+sh
 type Mode = { kind: "record"; name: string } | { kind: "find" };
 
 /** U5239a to U5239e: one row per named action with its keys, a key to record for each, a lookup by key and the overrides saved to a file. */
-export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app?: App | undefined; onFailure: (message: string | null) => void }) => {
+export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app?: App | undefined; project: () => string | null; onFailure: (message: string | null) => void }) => {
   const [mode, setMode] = createSignal<Mode | null>(null);
   const [failed, setFailed] = createSignal<{ at: string; message: string } | null>(null);
   const [found, setFound] = createSignal<string | null>(null);
@@ -90,14 +90,16 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const beginRecord = (name: string) => begin({ kind: "record", name });
 
   const save = async () => {
-    if (!props.app) return;
+    const project = props.project();
+
+    if (!props.app || project === null) return;
 
     props.onFailure(null);
 
     try {
       const path = await props.app.chooseSavePath("shortcuts.json");
 
-      if (path !== null) await props.app.forProject("").rpc("shortcuts.export", { path, keys: overrides() });
+      if (path !== null) await props.app.forProject(project).rpc("shortcuts.export", { path, keys: overrides() });
     } catch (error) {
       props.onFailure(error instanceof Error ? error.message : String(error));
     }
@@ -107,10 +109,10 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     <div class="settings-field">
       <div class="settings-shortcut">
         <button data-button="quiet" type="button" aria-pressed={mode()?.kind === "find" ? "true" : "false"} onClick={begin({ kind: "find" })}>{mode()?.kind === "find" ? copy.recordShortcut : copy.findKey}</button>
-        <BusyButton kind="quiet" disabled={Object.keys(overrides()).length === 0} busyLabel={copy.saving} onClick={() => save()}>{copy.saveToFile}</BusyButton>
+        <BusyButton kind="quiet" disabled={Object.keys(overrides()).length === 0 || props.project() === null} busyLabel={copy.saving} onClick={() => save()}>{copy.saveToFile}</BusyButton>
       </div>
     </div>
-    <StatusNote text={found()} />
+    <StatusNote text={found() ?? (props.project() === null ? copy.openProjectFirst : null)} />
     <For each={ACTION_ROWS}>{row => row.name === "todo.capture"
       ? <><ShortcutSetting field="quickAdd" {...props} /><ShortcutSetting field="quickAddAnywhere" {...props} /></>
       : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)}

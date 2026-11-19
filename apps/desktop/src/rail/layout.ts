@@ -25,8 +25,8 @@ export type RailView = {
   selected?: string | null;
 };
 
-/** U4547a: a Mode is a root Agent holding a nonblank Mode prompt. */
-export const isMode = (node: RailNode): boolean => node.kind === "agent" && node.parent === null && !!node.mode_prompt?.trim();
+/** U4547a, A7494a: a Mode is an Agent holding a nonblank Mode prompt, at the root or under its starter. */
+export const isMode = (node: RailNode): boolean => node.kind === "agent" && !!node.mode_prompt?.trim();
 
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
 export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false, settled: (node: RailNode) => boolean = () => false): Kind[] =>

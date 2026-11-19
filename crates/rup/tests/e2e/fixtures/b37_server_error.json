@@ -5,7 +5,7 @@
         "userMessage": "[digest] B37 child is needs-you"
       },
       "response": {
-        "content": "Received the needs-you note after the server error."
+        "content": "Received the note after the server error."
       }
     },
     {

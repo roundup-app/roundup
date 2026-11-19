@@ -25,7 +25,6 @@ pub use links::Call as LinksCall;
 pub use placement::Call as PlacementCall;
 pub use stop::Call as StopCall;
 pub mod plugins;
-pub mod skill_setup;
 mod skills;
 mod status_label;
 mod stop;

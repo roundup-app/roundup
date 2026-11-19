@@ -675,6 +675,9 @@ fn unanswered(method: &str, bound: Duration) -> RpcError {
 }
 
 pub(crate) fn not_open(path: &str) -> RpcError {
+    if path.is_empty() {
+        return RpcError::conflict("Open a Project first");
+    }
     RpcError::conflict(format!("no Project is open at {path}"))
 }
 
