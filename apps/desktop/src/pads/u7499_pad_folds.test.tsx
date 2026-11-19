@@ -99,14 +99,14 @@ describe("u7499 Pad folds", () => {
     expect(mark("new")).toBe(1);
   });
 
-  it("u7499b_a_pad_opened_from_a_closed_fold_lists_above_the_folds", async () => {
+  it("u7499b_a_pad_opened_from_an_open_fold_keeps_its_row_and_fold", async () => {
     const { connected } = await open();
     fireEvent.click(fold("internal"));
     await waitFor(() => nameOf("hidden-by-agent"));
     fireEvent.dblClick(nameOf("hidden-by-agent"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
-    await waitFor(() => expect(rows()).toContain("hidden-by-agent"));
-    expect(foldOrNull("internal")).toBeNull();
+    expect(count(fold("internal"))).toBe(1);
+    expect(nameOf("hidden-by-agent")).not.toBeNull();
     connected.drawer.close();
     await waitFor(() => expect(count(fold("internal"))).toBe(1));
   });
@@ -270,12 +270,10 @@ describe("u7499 Pad folds", () => {
     await waitFor(() => nameOf("already-read"));
     fireEvent.dblClick(nameOf("already-read"));
     await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
-    expect(rows()).toContain("already-read");
-    // Writes and a later age past 7 days would fold it; it stays while the Drawer shows it.
+    // Opened from an open fold, it keeps its row and fold while the Drawer shows it.
     state.pads = state.pads.map(each => each.name === "already-read" ? { ...each, revision: 2, updated_at: NOW - 9 * DAY } : each);
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "already-read" } });
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.list").length).toBeGreaterThan(1));
-    expect(rows()).toContain("already-read");
-    expect(count(fold("idle"))).toBe(1);
+    expect(count(fold("idle"))).toBe(2);
   });
 });

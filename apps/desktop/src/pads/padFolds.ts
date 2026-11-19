@@ -13,17 +13,17 @@ export type FoldedPads = {
   idle: Pad[];
 };
 
-/** U7499a, U7499b: the Pads above the folds and the two folds of one Home group, in the group's order. The open Pad stays above the folds. */
-export const foldPads = (pads: readonly Pad[], read: PadRead, now: number, open: string | null): FoldedPads => {
+/** U7499a, U7499b: the Pads above the folds and the two folds of one Home group, in the group's order. The open Pad stays above the folds, except one opened from an open fold, which keeps its row there until the Drawer leaves it. */
+export const foldPads = (pads: readonly Pad[], read: PadRead, now: number, open: string | null, isFoldOpen: (fold: "internal" | "idle") => boolean = () => false): FoldedPads => {
   const folded: FoldedPads = { above: [], internal: [], idle: [] };
 
   for (const pad of pads) {
     const mark = read.mark(pad);
 
-    if (pad.name === open) folded.above.push({ pad, mark });
-    else if (pad.visibility === "internal") folded.internal.push(pad);
-    else if (mark === null || now - pad.updated_at >= IDLE_AFTER_MS) folded.idle.push(pad);
-    else folded.above.push({ pad, mark });
+    const fold = pad.visibility === "internal" ? "internal" : mark === null || now - pad.updated_at >= IDLE_AFTER_MS ? "idle" : null;
+
+    if (fold === null || (pad.name === open && !isFoldOpen(fold))) folded.above.push({ pad, mark });
+    else folded[fold].push(pad);
   }
 
   return folded;
@@ -35,7 +35,7 @@ export const createFolds = (groups: () => readonly { id: string; items: readonly
   const [unfolded, setUnfolded] = createSignal<readonly string[]>([]);
   const toggleFold = (key: string) => setUnfolded(open => open.includes(key) ? open.filter(each => each !== key) : [...open, key]);
 
-  const folded = createMemo(() => new Map(groups().map(group => [group.id, foldPads(group.items, read, now(), read.open())] as const)));
+  const folded = createMemo(() => new Map(groups().map(group => [group.id, foldPads(group.items, read, now(), read.open(), fold => unfolded().includes(`${group.id}:${fold}`))] as const)));
 
   const walked = createMemo(() => groups().flatMap(group => {
     const fold = folded().get(group.id);
