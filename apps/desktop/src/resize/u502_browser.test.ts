@@ -30,7 +30,7 @@ afterAll(async () => {
   await page?.close();
 });
 
-const EDGES = { rail: { label: "Resize Rail", panel: ".rail", min: 252, max: 480, reset: 288 }, shelf: { label: "Resize Bench", panel: ".shelf", min: 240, max: 560, reset: 320 } } as const;
+const EDGES = { rail: { label: "Resize Rail", panel: ".rail", min: 312, max: 480, reset: 348 }, shelf: { label: "Resize Bench", panel: ".shelf", min: 240, max: 560, reset: 320 } } as const;
 
 type Edge = (typeof EDGES)[keyof typeof EDGES];
 
@@ -82,38 +82,38 @@ run("u502 resize edges use the shared Splitter", () => {
     await tabTo(EDGES.rail);
     expect(await page.call<string>(`() => document.activeElement.getAttribute("role") + "/" + document.activeElement.getAttribute("aria-orientation")`)).toBe("separator/vertical");
     await page.press("ArrowRight", "ArrowRight");
-    await settled(EDGES.rail, 304);
+    await settled(EDGES.rail, 364);
     expect(await commits()).toBe(1);
     await page.press("ArrowLeft", "ArrowLeft");
-    await settled(EDGES.rail, 288);
+    await settled(EDGES.rail, 348);
     expect(await commits()).toBe(2);
-    expect(await value(EDGES.rail)).toBe(288);
+    expect(await value(EDGES.rail)).toBe(348);
   });
 
   it("u502_rail_reset_limits_and_persistence", async () => {
     await load(1280);
     await tabTo(EDGES.rail);
     await page.press("ArrowRight", "ArrowRight", SHIFT);
-    await settled(EDGES.rail, 352);
+    await settled(EDGES.rail, 412);
     await page.press("End", "End");
     await settled(EDGES.rail, 480);
     // U6228: Home takes the Rail below its minimum, which collapses it to the strip.
     await page.press("Home", "Home");
     await settled(EDGES.rail, 56);
     await page.press("Enter", "Enter");
-    await settled(EDGES.rail, 288);
+    await settled(EDGES.rail, 348);
     await page.press("End", "End");
     await settled(EDGES.rail, 480);
 
     const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('[aria-label="Resize Rail"]').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: 200 }; }`);
 
     await page.doubleClick(at.x, at.y);
-    await settled(EDGES.rail, 288);
+    await settled(EDGES.rail, 348);
     await page.press("ArrowRight", "ArrowRight");
-    await settled(EDGES.rail, 304);
+    await settled(EDGES.rail, 364);
     await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 800);
     await page.until(`() => Boolean(document.querySelector('[aria-label="Resize Rail"]'))`);
-    await settled(EDGES.rail, 304);
+    await settled(EDGES.rail, 364);
   });
 
   it("u502_shelf_keys_and_visibility", async () => {
@@ -138,7 +138,7 @@ run("u502 resize edges use the shared Splitter", () => {
   it("u502_drag_commit_and_cancel", async () => {
     await load(1280);
     await drag(EDGES.rail, 72, "release");
-    await settled(EDGES.rail, 360);
+    await settled(EDGES.rail, 420);
     expect(await commits()).toBe(1);
     await drag(EDGES.rail, 900, "release");
     await settled(EDGES.rail, 480);
@@ -173,7 +173,7 @@ run("u502 resize edges use the shared Splitter", () => {
     const resizes = () => page.call<number>(`() => window.__fake.app.calls.filter((call) => call.method === "terminal.resize").length`);
 
     // Each drag refits the Terminal once, after the release, never while the button is pressed.
-    for (const [edge, by, width] of [[EDGES.rail, 72, 360], [EDGES.shelf, -100, 420]] as const) {
+    for (const [edge, by, width] of [[EDGES.rail, 72, 420], [EDGES.shelf, -100, 420]] as const) {
       await frames();
 
       const before = await resizes();

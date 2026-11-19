@@ -188,7 +188,7 @@
 /* The name fills remaining space so a queue badge cannot pull trailing actions inward. */
 .line:has(.queue-badge) .name {
   flex: 1;
-  min-width: 4ch;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
