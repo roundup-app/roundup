@@ -254,13 +254,12 @@ export const Bubbles = (props: {
       setBar(parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
       const stack = parent?.getBoundingClientRect();
       const { boxes, watched: nextEdges } = clearances(parent);
-      const siblings = boxes();
 
       for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
 
       for (const edge of nextEdges) if (!edges.includes(edge)) watched.observe(edge);
       edges = nextEdges;
-      const tops = siblings.map(box => box.top);
+      const tops = boxes().map(box => box.top);
       host.style.bottom = stack ? `${Math.max(0, stack.bottom - Math.min(stack.bottom, ...tops))}px` : "";
 
       const corner = host.getBoundingClientRect();
