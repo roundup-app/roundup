@@ -1,11 +1,10 @@
-import { rpcFailure } from "../app/rpcFailure";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   title: sharedCopy.resumeUnfinished,
   resume: sharedCopy.resume,
   dismiss: sharedCopy.dismissFailure,
-  rpcFailure,
+  rpcFailure: sharedCopy.rpcFailure,
   /** @prose */
   stopped: "This Agent stopped mid-work before the restart.",
   resuming: sharedCopy.resuming,

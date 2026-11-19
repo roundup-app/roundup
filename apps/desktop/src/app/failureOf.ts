@@ -1,5 +1,5 @@
 import type { Event } from "@contracts/Event";
-import { rpcFailure } from "./rpcFailure";
+import { copy } from "./copy";
 import { outcomeOf, RpcError } from "./seam";
 
 /** The message of a failed call, or `null` when it succeeded. Anything that is not an Error is a bug and escapes. */
@@ -32,4 +32,4 @@ export const changeFailureOf = async <Result>(call: () => Promise<Result>): Prom
 
 /** U7498c: what a call with no answer says, from the copy table by code: completion is unconfirmed, never a failure and never an invitation to repeat it. */
 export const unknownOutcomeLine = (error: Error): string =>
-  rpcFailure(error instanceof RpcError ? error.code : 0);
+  copy.rpcFailure(error instanceof RpcError ? error.code : 0);
