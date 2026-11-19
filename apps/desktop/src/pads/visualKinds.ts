@@ -29,7 +29,7 @@ export const bundledRenderers: Renderers = {
       layout: async (ids, moves, box) => {
         const graph = await elk.layout({
           id: "root",
-          layoutOptions: { "elk.algorithm": "layered", "elk.direction": "DOWN", "elk.edgeRouting": "POLYLINE" },
+          layoutOptions: ELK_OPTIONS,
           children: ids.map((id) => ({ id, ...box })),
           edges: moves.map(([id, from, to]) => ({ id, sources: [from], targets: [to] })),
         });
@@ -85,6 +85,10 @@ export const bundledRenderers: Renderers = {
     };
   },
 };
+
+const ELK_PAIRS: [string, string][] = [["algorithm", "layered"], ["direction", "down"], ["edgeRouting", "polyline"]];
+
+const ELK_OPTIONS: Record<string, string> = Object.fromEntries(ELK_PAIRS.map(([key, value]) => [`elk.${key}`, key === "algorithm" ? value : value.toUpperCase()]));
 
 const lazy = <Api>(load: () => Promise<Api>, mount: (api: Api) => VisualMount): VisualMount => (host, context) => {
   let release: (() => void) | undefined;

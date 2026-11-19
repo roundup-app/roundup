@@ -203,7 +203,12 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
   const credit = element("p", "statechart-credit", copy.statechartCredit(chart.writtenBy));
   const rules = element("div", "statechart-rules");
 
-  for (const rule of chart.rules) rules.append(element("p", `statechart-rule is-${rule.verdict}`, copy.statechartRule(rule.name, rule.verdict)));
+  for (const rule of chart.rules) {
+    const line = element("p", "statechart-rule", copy.statechartRule(rule.name, rule.verdict));
+
+    line.classList.add(["is", rule.verdict].join("-"));
+    rules.append(line);
+  }
 
   const frame = element("div", "statechart-chart");
   const boxes = new Map<string, HTMLElement>();
