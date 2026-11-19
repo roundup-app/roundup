@@ -69,7 +69,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   await add(4, 200);
   // Reopen to observe the opening fold rather than evicting live rows.
   await browser("click", ".drawer .close");
-  await browser("wait", '.drawer[data-mounted="false"]');
+  await browser("wait", "--fn", "document.querySelector('.drawer')?.dataset.mounted === 'false'");
   await browser("focus", '[data-todo="1"] .todo-row-button');
   await browser("press", "Enter");
   await browser("wait", ".todo-comment-field");
@@ -102,7 +102,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   await capture("draft");
   await evaluate("window.__fake.app.handlers['todo.comment'] = () => { throw new Error('Comment could not be sent. Your exact draft is retained; retry when the connection returns.'); }; window.__fake.app.handlers['todo.readHistory'] = () => { throw new Error('History could not be marked read. Retry history to keep the unread boundary.'); }; true");
   await browser("click", ".drawer .close");
-  await browser("wait", '.drawer[data-mounted="false"]');
+  await browser("wait", "--fn", "document.querySelector('.drawer')?.dataset.mounted === 'false'");
   await browser("focus", '[data-todo="1"] .todo-row-button');
   await browser("press", "Enter");
   await browser("wait", ".todo-comment-field");

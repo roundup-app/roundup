@@ -18,7 +18,7 @@ it("u7310d_toast_leaves_the_drawer_head_clickable", { retry: 0, timeout: 150_000
   await browser("press", "Escape");
   await browser("wait", ".todo-detail-title p");
 
-  // The failure stays up while the pointer works the Drawer's head, then its Activity and comment block at the end of the scroll, at the default size and filled.
+  // The failure stays up while the pointer works the Drawer's head, then its Activity and comment block at the end of the scroll, in the main area.
   const field = ".drawer .todo-comment-field";
   const history = ".drawer .todo-history-line";
   const expanded = () => evaluate<string>(`document.querySelector('${history}').getAttribute('aria-expanded')`);
@@ -39,19 +39,14 @@ it("u7310d_toast_leaves_the_drawer_head_clickable", { retry: 0, timeout: 150_000
     expect(await evaluate("!!document.querySelector('.app-toast [role=alert]')")).toBe(true);
   };
 
-  // The rig remembers the filled size; the default size comes first.
-  await browser("click", '.drawer [aria-label="Restore"]');
-  await browser("wait", '.drawer[data-fill="false"]');
   await workDrawer();
   await browser("fill", field, "kept comment");
   await evaluate(`window.__fake.failNext(-32003, 'Comment could not be sent. Keep this draft and retry.${diskFull}', 'todo.comment'); true`);
   await browser("click", '.drawer [aria-label="Comment"]');
   await browser("wait", "--fn", "[...document.querySelectorAll('.app-toast')].some(card => card.textContent.includes('Comment could not be sent'))");
-  await browser("click", '.drawer [aria-label="Maximise"]');
-  await browser("wait", '.drawer[data-fill="true"]');
   await workDrawer();
   await browser("click", '.drawer [aria-label="Comment"]');
   await browser("wait", "--fn", "[...document.querySelectorAll('.drawer .todo-comment-body')].some(el => el.textContent === 'kept comment')");
   await browser("click", ".drawer .close");
-  await browser("wait", '.drawer[data-open="false"]');
+  await browser("wait", "--fn", "document.querySelector('.drawer')?.dataset.open === 'false'");
 });

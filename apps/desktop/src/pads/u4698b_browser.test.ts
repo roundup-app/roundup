@@ -90,13 +90,6 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
   await browser("wait", ".drawer .ProseMirror");
   await settle();
 
-  if (output) {
-    await browser("click", '.drawer [aria-label="Restore"]');
-    await settle();
-    await browser("click", '.drawer [aria-label="Maximise"]');
-    await settle();
-  }
-
   if (captureDir("U5560a")) {
     await browser("click", "#shelf-tab-pads");
     await settle();
@@ -107,7 +100,7 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
     await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
 
-    expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(1);
+    expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(0);
 
     if (captureDir("U5560a")) {
       for (const choice of ["Narrow", "Wide", "Full"]) {
@@ -149,14 +142,6 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
       await settle();
     }
 
-    await browser("click", '.drawer [aria-label="Restore"]');
-    await settle();
-    expect(await evaluate("document.querySelector('.drawer').dataset.maximised")).toBe("false");
-
-    await capture(`minimised-${width}`);
-
-    await browser("click", '.drawer [aria-label="Maximise"]');
-    await settle();
     expect(await evaluate("document.querySelector('.pad-head-name').textContent")).toBe(name);
 
   }
@@ -208,12 +193,6 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
     await settle();
     await capture(`todo-after-editor-${width}`);
     expect(await evaluate("document.querySelectorAll('.pad-width-control [role=radiogroup]').length")).toBe(0);
-    await browser("click", '.drawer [aria-label="Restore"]');
-    await settle();
-    await capture(`todo-collapsed-${width}`);
-    await browser("click", '.drawer [aria-label="Maximise"]');
-    await settle();
-
   }
 });
 
@@ -502,14 +481,6 @@ it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns
 
   await openTodo();
   await save("todo-expanded");
-  await browser("click", '.drawer [aria-label="Restore"]');
-  await settle();
-  await browser("focus", ".drawer .ProseMirror");
-  await save("todo-minimised");
-  await browser("click", '.drawer [aria-label="Maximise"]');
-  await settle();
-  await browser("focus", ".drawer .ProseMirror");
-  await save("todo-reexpanded");
   await browser("click", ".drawer .close");
   await settle();
   await browser("click", "#shelf-tab-pads");
@@ -522,12 +493,6 @@ it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns
   await settle();
   await browser("focus", ".drawer .ProseMirror");
   await save("pad-expanded");
-  await browser("click", '.drawer [aria-label="Restore"]');
-  await settle();
-  await browser("focus", ".drawer .ProseMirror");
-  await save("pad-minimised");
-  await browser("click", '.drawer [aria-label="Maximise"]');
-  await settle();
   await browser("focus", ".drawer .ProseMirror");
   await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.', 'pad.write'); true");
   await browser("press", "Control+End");

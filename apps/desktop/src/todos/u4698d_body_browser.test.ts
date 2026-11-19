@@ -8,7 +8,7 @@ const { browser, evaluate, settle, openDocument } = documentBrowser();
 it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_and_keeps_a_refused_draft_%sx%s", { retry: 0, timeout: 90_000 }, async (width, height) => {
   await openDocument(width, height);
   await browser("click", ".drawer .ProseMirror");
-  await browser("wait", '.drawer .todo-detail-body .word');
+  await browser("wait", '.drawer .todo-detail-body .top-bar-item');
   await browser("focus", '.drawer .ProseMirror');
   await browser("press", process.platform === "darwin" ? "Meta+A" : "Control+A");
   await browser("wait", "--fn", "window.getSelection()?.isCollapsed === false");

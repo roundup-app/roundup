@@ -171,7 +171,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       aria-label={copy.drawer}
       inert={!isOpen()}
       data-open={String(isOpen())}
-      data-maximised={String(frame.maximised())}
+      data-maximised={String(shownMaximised())}
       data-fill={String(mainArea())}
       data-mounted={String(mounted() !== null)}
       data-reserve={String(reserve())}
