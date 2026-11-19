@@ -26,7 +26,7 @@ const load = async (seed: string) => {
   await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row .row-age').length > 3`);
 };
 
-const slots = `() => [...document.querySelectorAll('.rail-tree .rail-row .action-slot[data-slot="todos"]')].map(s => s.getBoundingClientRect().left)`;
+const slots = `() => [...document.querySelectorAll('.rail-tree .rail-row .action-slot[data-slot="todos"] > *')].map(s => s.getBoundingClientRect().left)`;
 
 const marks = (index: number) => `() => {
   const box = e => { if (!e) return null; const b = e.getBoundingClientRect(); return { left: b.left, width: b.width }; };
