@@ -16,14 +16,14 @@ export const projectMessageQueue = (queue: MessageQueue, name: string, shown: ()
 export const ToastQueueContext = createContext<MessageQueue | null>(null);
 
 /** A failure line: its message, Dismiss, recover action and extra controls. A status or notice is no toast (U7310d). */
-type FailureLine = Dismissible & { message: string | null | false | undefined; content?: JSX.Element; action?: JSX.Element; class?: string };
+type FailureLine = Dismissible & { message: string | null | false | undefined; content?: JSX.Element; action?: JSX.Element; class?: string; notice?: boolean | undefined };
 
 /** U7314h: a card's body: the whole message as its title, the line's text and its Retry and Dismiss. */
 export const MessageBody = (props: FailureLine) => (
   // The card is the only place a message wraps whole; its title holds the lines the text cuts.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass
   <div class={`message-body${props.class ? ` ${props.class}` : ""}`} title={props.message || undefined}>
-    <Show when={props.message}>{message => <ErrorLine message={message()} content={props.content} />}</Show>
+    <Show when={props.message}>{message => <ErrorLine message={message()} content={props.content} notice={props.notice} />}</Show>
     <div class="message-actions">{props.action}<RecoveryButtons recover={props.recover} dismiss={props.dismiss} dismissIn={props.dismissIn} /></div>
   </div>
 );

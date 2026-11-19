@@ -126,6 +126,7 @@ export const copy = {
   openInEditor: sharedCopy.openInEditor,
   startingDoor: sharedCopy.startingDoor,
   doorDidNotStart: sharedCopy.doorDidNotStart,
+  doorUnconfirmed: sharedCopy.doorUnconfirmed,
   doorNotStarted: sharedCopy.doorNotStarted,
   doorStopped: sharedCopy.doorStopped,
   doorStoppedWithExit: sharedCopy.doorStoppedWithExit,

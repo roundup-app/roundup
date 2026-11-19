@@ -7,7 +7,7 @@ type Item = { kind: "rail"; id: string | null } | { kind: "terminal"; terminal: 
 
 /** P3557c: one failure line about at most one item. It goes when that item is gone, when a later save of it is acknowledged, or when dismissed; a failure with no item stays until `clear`. */
 export const createItemFailure = (exists: (item: string) => boolean, terminals: () => readonly Terminal[] = () => []) => {
-  const [state, setState] = createSignal<{ message: string; item: Item; surface: "rail" | "pane"; retry: (() => void) | null } | null>(null);
+  const [state, setState] = createSignal<{ message: string; item: Item; surface: "rail" | "pane"; retry: (() => void) | null; notice: boolean } | null>(null);
 
   const live = () => {
     const current = state();
@@ -26,9 +26,11 @@ export const createItemFailure = (exists: (item: string) => boolean, terminals: 
     message: () => live()?.message ?? null,
     surface: () => live()?.surface ?? null,
     retry: () => live()?.retry ?? null,
-    show: (message: string, item: string | null = null, surface: "rail" | "pane" = "rail", retry: (() => void) | null = null) => setState({ message, item: { kind: "rail", id: item }, surface, retry }),
+    /** U7498c: true when the line reports an unconfirmed outcome, not a failure. */
+    notice: () => live()?.notice ?? false,
+    show: (message: string, item: string | null = null, surface: "rail" | "pane" = "rail", retry: (() => void) | null = null, notice = false) => setState({ message, item: { kind: "rail", id: item }, surface, retry, notice }),
     /** Terminal and Rail ids are separate namespaces; retain the original incarnation even if the caller's facts change. */
-    showTerminal: (message: string, terminal: Terminal, surface: "rail" | "pane" = "pane", retry: (() => void) | null = null) => setState({ message, item: { kind: "terminal", terminal: { id: terminal.id, incarnation: terminal.incarnation } }, surface, retry }),
+    showTerminal: (message: string, terminal: Terminal, surface: "rail" | "pane" = "pane", retry: (() => void) | null = null) => setState({ message, item: { kind: "terminal", terminal: { id: terminal.id, incarnation: terminal.incarnation } }, surface, retry, notice: false }),
     /** An acknowledged save, or any success, of `item` clears only a failure about it. */
     acknowledge: (item: string | null) => setState(current => current?.item.kind === "rail" && current.item.id === item ? null : current),
     acknowledgeTerminal: (terminal: Terminal) => setState(current => current?.item.kind === "terminal" && current.item.terminal.id === terminal.id && current.item.terminal.incarnation === terminal.incarnation ? null : current),

@@ -601,7 +601,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const node = model.tree.find((each) => each.id === id);
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
-        setDoors(draft => { draft[id]!.failure = doorFailureOf(error, doorAttempt(node)); }); commandFailure.show(doorFailureLine(error), id, "pane");
+        setDoors(draft => { draft[id]!.failure = doorFailureOf(error, doorAttempt(node)); }); commandFailure.show(doorFailureLine(error), id, "pane", null, outcomeOf(error) === "unknown");
       }
     } finally {
       prepared?.dispose();

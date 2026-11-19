@@ -70,7 +70,7 @@ export const railCommand = async <R>(
   if (outcome.kind === "pending" && command.unknown)
     await command.unknown(outcome.error);
   else if (outcome.kind === "pending")
-    rail.commandFailure.show(unknownOutcomeLine(outcome.error), command.item ?? null, "rail", command.retryUnknown ?? null);
+    rail.commandFailure.show(unknownOutcomeLine(outcome.error), command.item ?? null, "rail", command.retryUnknown ?? null, true);
   else {
     const message =
       command.label === undefined

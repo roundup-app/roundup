@@ -16,6 +16,7 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
   const [name, setName] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = createSignal<string | null>(null);
 
   // The Rail unmounts this Dialog at once, which ends ui-sdk's own return of focus: the row takes it back here, as the opening prompt's Dialog does.
   const close = () => {
@@ -45,8 +46,14 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
 
     if (!(outcome.thrown instanceof Error)) throw outcome.thrown;
 
-    // An unknown outcome keeps the dialog busy: a second submit could save the Mode twice; the Rail read settles it.
-    if (outcome.kind === "pending") return setFailure(unknownOutcomeLine(outcome.error));
+    // An unknown outcome leaves the button disabled, not busy: a second submit could save the Mode twice; the Rail read settles it.
+    if (outcome.kind === "pending") {
+      setUnconfirmed(unknownOutcomeLine(outcome.error));
+      setBusy(false);
+
+      return;
+    }
+
     setFailure(outcome.error.message);
     setBusy(false);
   };
@@ -56,8 +63,8 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
       <Dialog.Title>{copy.saveAsModeTitle}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={name()} onInput={event => setName(event.currentTarget.value)} /></Field.Root>
-        <DialogFailure message={failure()} dismiss={() => setFailure(null)} />
-        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><BusyButton kind="primary" type="submit" busy={busy()} disabled={!name().trim()} busyLabel={copy.saving}>{copy.saveMode}</BusyButton></div>
+        <DialogFailure message={failure() ?? unconfirmed()} notice={failure() === null && unconfirmed() !== null} dismiss={() => { setFailure(null); setUnconfirmed(null); }} />
+        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><BusyButton kind="primary" type="submit" busy={busy()} disabled={!name().trim() || unconfirmed() !== null} busyLabel={copy.saving}>{copy.saveMode}</BusyButton></div>
       </form>
     </Dialog.Content>
   </Dialog.Root>;

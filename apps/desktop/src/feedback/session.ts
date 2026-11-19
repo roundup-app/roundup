@@ -48,6 +48,7 @@ export const createFeedbackSession = (props: {
   const [attach, setAttach] = createSignal(true);
   const [sending, setSending] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = createSignal<string | null>(null);
 
   const versions = () =>
     versionsText(opened()?.capture?.facts ?? null, check()?.herdrCore);
@@ -130,6 +131,7 @@ export const createFeedbackSession = (props: {
     setAttach(true);
     setSending(false);
     setFailure(null);
+    setUnconfirmed(null);
     setOpened(taken);
   };
 
@@ -147,6 +149,7 @@ export const createFeedbackSession = (props: {
   const canSend = () =>
     opened() !== null &&
     !sending() &&
+    unconfirmed() === null &&
     text().trim() !== "" &&
     check() !== null &&
     blocked() === null;
@@ -167,6 +170,7 @@ export const createFeedbackSession = (props: {
 
     setSending(true);
     setFailure(null);
+    setUnconfirmed(null);
 
     const outcome = await applying(() => app.rpc("feedback.send", params));
 
@@ -180,14 +184,19 @@ export const createFeedbackSession = (props: {
 
     if (!(outcome.thrown instanceof Error)) throw outcome.thrown;
 
-    // An unknown outcome says so and keeps `sending`, so no second submit files a duplicate.
-    const unknown = outcome.kind === "pending";
-    const message = unknown ? unknownOutcomeLine(outcome.error) : outcome.error.message;
+    // An unknown outcome says so, as a notice, and leaves Send disabled, not busy, so no second submit files a duplicate.
+    setSending(false);
 
-    if (opened() !== current) return notify({ kind: "error", name: unknown ? copy.notSent : message, line: unknown ? message : copy.notSent, open: () => null });
-    setFailure(message);
+    if (outcome.kind === "pending") {
+      const line = unknownOutcomeLine(outcome.error);
 
-    if (!unknown) setSending(false);
+      if (opened() !== current) return notify({ kind: "done", name: copy.unconfirmed, line, open: () => null });
+
+      return setUnconfirmed(line);
+    }
+
+    if (opened() !== current) return notify({ kind: "error", name: outcome.error.message, line: copy.notSent, open: () => null });
+    setFailure(outcome.error.message);
   };
 
   return {
@@ -199,6 +208,8 @@ export const createFeedbackSession = (props: {
     setAttach,
     sending,
     failure,
+    unconfirmed,
+    setUnconfirmed,
     setFailure,
     check,
     checkFailure,

@@ -71,6 +71,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
     const [start, setStart] = createSignal<Start>(startChoices()[1]!.value);
     const [after, setAfter] = createSignal<string>("");
     const [failure, setFailure] = createSignal<string | null>(null);
+    const [unconfirmed, setUnconfirmed] = createSignal<string | null>(null);
     const [pending, setPending] = createSignal(false);
     createEffect(createMemo(props.target), target => {
       if (target === null) return;
@@ -78,10 +79,11 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       setStart(startChoices()[1]!.value);
       setAfter("");
       setFailure(null);
+      setUnconfirmed(null);
     });
     const others = createMemo(() => todos.all().filter(todo => !todo.done && todo.id !== id()));
     const chosen = () => start() === "afterTodo" ? (others().find(todo => String(todo.id) === after())?.id ?? null) : null;
-    const ready = () => name().trim() !== "" && (start() !== "afterTodo" || chosen() !== null) && !pending();
+    const ready = () => name().trim() !== "" && (start() !== "afterTodo" || chosen() !== null) && !pending() && unconfirmed() === null;
 
     const createBlocked = () => name().trim() === "" ? copy.createNeedsName : start() === "afterTodo" && chosen() === null ? copy.createNeedsTodo : undefined;
 
@@ -95,10 +97,10 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       const request = { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) };
       const outcome = await applying(() => connected.app.rpc("todo.startWorkstream", request));
 
-      // An unknown outcome keeps the form busy: a second submit could start a second Workstream.
-      if (outcome.kind === "pending") return setFailure(unknownOutcomeLine(outcome.error));
-
       setPending(false);
+
+      // An unknown outcome disables Create without busy: a second submit could start a second Workstream.
+      if (outcome.kind === "pending") return setUnconfirmed(unknownOutcomeLine(outcome.error));
 
       if (outcome.kind === "refused") return setFailure(outcome.error.message);
 
@@ -122,7 +124,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
               <WaitFor todos={others()} value={after()} onPick={setAfter} />
             </div>
           </Show>
-          <DialogFailure message={failure()} dismiss={() => setFailure(null)} />
+          <DialogFailure message={failure() ?? unconfirmed()} notice={failure() === null && unconfirmed() !== null} dismiss={() => { setFailure(null); setUnconfirmed(null); }} />
           <div class="app-dialog-actions">
             <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
             <Tip kind="changing" disabled={ready()} text={createBlocked()}>{trigger =>

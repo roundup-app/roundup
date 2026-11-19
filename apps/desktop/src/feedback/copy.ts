@@ -25,5 +25,8 @@ export const copy = {
   /** @prose */
   openIssue: "Select to open it.",
   /** @prose */
+  /** @prose */
+  unconfirmed: "Feedback may not have been sent.",
+  /** @prose */
   notSent: "Your feedback was not sent.",
 } as const;

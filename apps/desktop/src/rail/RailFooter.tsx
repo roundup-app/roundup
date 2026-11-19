@@ -28,13 +28,13 @@ export const RailFooter = (props: {
   const draftLine = dismissable(() => retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null);
 
   /** The first failure the footer has, with how the owner recovers from that one. */
-  const line = (): { message: string | null } & Dismissible => {
+  const line = (): { message: string | null; notice?: boolean | undefined } & Dismissible => {
     const command = failure.surface() === "rail" ? failure.message() : null;
 
     if (command) {
       const retry = failure.retry();
 
-      return { message: command, dismiss: failure.clear, recover: retry ? { run: () => retry() } : undefined };
+      return { message: command, notice: failure.notice(), dismiss: failure.clear, recover: retry ? { run: () => retry() } : undefined };
     }
 
     if (storageLine.message()) return { message: storageLine.message() || null, dismiss: storageLine.dismiss };
@@ -50,6 +50,7 @@ export const RailFooter = (props: {
     class: "rail-command-notice",
     get message() { return line().message; },
     get content() { return newAgentFailure(); },
+    get notice() { return line().notice; },
     dismiss: () => line().dismiss(),
     get recover() { return line().recover; },
   });

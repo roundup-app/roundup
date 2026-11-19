@@ -77,7 +77,7 @@ it("u7498c_unknown_outcome_yields_unknown_copy_and_no_retry", async () => {
   for (const { name, code } of unknown) {
     shown.length = 0;
     await railCommand(rail, { call: () => Promise.reject(new RpcError(code, "thrown message")), label: "New Agent", retry });
-    expect(shown, name).toEqual([[copy.rpcFailure(code), null, "rail", null]]);
+    expect(shown, name).toEqual([[copy.rpcFailure(code), null, "rail", null, true]]);
     expect(await changeFailureOf(() => Promise.reject(new RpcError(code, "thrown message"))), name).toBeNull();
     expect(unknownOutcomeLine(new RpcError(code, "thrown message")), name).toBe(copy.rpcFailure(code));
   }
