@@ -6,6 +6,8 @@ import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { ToastQueue } from "../toasts/queue";
+import { applying } from "../app/pending";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { copy } from "./copy";
 import { versionsText } from "./facts";
 
@@ -46,6 +48,7 @@ export const createFeedbackSession = (props: {
   const [attach, setAttach] = createSignal(true);
   const [sending, setSending] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = createSignal<string | null>(null);
 
   const versions = () =>
     versionsText(opened()?.capture?.facts ?? null, check()?.herdrCore);
@@ -79,7 +82,7 @@ export const createFeedbackSession = (props: {
   const notify = (candidate: {
     name: string;
     line: string;
-    kind: "done" | "error";
+    kind: "done" | "error" | "idle";
     open: () => Promise<string | null> | string | null;
   }) => {
     const key = `feedback:${crypto.randomUUID()}`;
@@ -128,6 +131,7 @@ export const createFeedbackSession = (props: {
     setAttach(true);
     setSending(false);
     setFailure(null);
+    setUnconfirmed(null);
     setOpened(taken);
   };
 
@@ -145,6 +149,7 @@ export const createFeedbackSession = (props: {
   const canSend = () =>
     opened() !== null &&
     !sending() &&
+    unconfirmed() === null &&
     text().trim() !== "" &&
     check() !== null &&
     blocked() === null;
@@ -165,27 +170,33 @@ export const createFeedbackSession = (props: {
 
     setSending(true);
     setFailure(null);
+    setUnconfirmed(null);
 
-    try {
-      const issue = await app.rpc("feedback.send", params);
+    const outcome = await applying(() => app.rpc("feedback.send", params));
 
+    if (outcome.kind === "applied") {
       // A dialog cancelled meanwhile, or opened again since, is not this one's to close.
       if (opened() === current) setOpened(null);
-      filed(issue);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
+      filed(outcome.value);
 
-      if (opened() === current) {
-        setFailure(error.message);
-        setSending(false);
-      } else
-        notify({
-          kind: "error",
-          name: error.message,
-          line: copy.notSent,
-          open: () => null,
-        });
+      return;
     }
+
+    if (!(outcome.thrown instanceof Error)) throw outcome.thrown;
+
+    // An unknown outcome says so, as a notice, and leaves Send disabled, not busy, so no second submit files a duplicate.
+    setSending(false);
+
+    if (outcome.kind === "pending") {
+      const line = unknownOutcomeLine(outcome.error);
+
+      if (opened() !== current) return notify({ kind: "idle", name: copy.unconfirmed, line, open: () => null });
+
+      return setUnconfirmed(line);
+    }
+
+    if (opened() !== current) return notify({ kind: "error", name: outcome.error.message, line: copy.notSent, open: () => null });
+    setFailure(outcome.error.message);
   };
 
   return {
@@ -197,6 +208,8 @@ export const createFeedbackSession = (props: {
     setAttach,
     sending,
     failure,
+    unconfirmed,
+    setUnconfirmed,
     setFailure,
     check,
     checkFailure,

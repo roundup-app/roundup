@@ -227,13 +227,10 @@ it("u2773c_a_recovered_draft_never_sends", async () => {
   fireEvent.keyDown(field(), { key: "Enter" });
   await waitFor(() => expect(mounted.connected.drafts.list().at(-1)?.status).toBe("unknown"));
   fireEvent.keyDown(field(), { key: "Escape" });
-  fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-  const unconfirmed = screen.getByLabelText<HTMLTextAreaElement>(railCopy.railDraftRecovered);
+  fireEvent.click(await screen.findByText(railCopy.railDrafts));
+  const unconfirmed = await screen.findByLabelText<HTMLTextAreaElement>(railCopy.railDraftRecovered);
 
-  await waitFor(() => expect(document.activeElement).toBe(unconfirmed));
   expect(unconfirmed.value).toBe(" A\n😀 ");
-  expect(unconfirmed.closest("details")?.open).toBe(true);
-  expect(unconfirmed.closest(".rail-recovery")?.hasAttribute("open")).toBe(true);
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 });
 

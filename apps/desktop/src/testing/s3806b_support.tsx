@@ -3,6 +3,7 @@ import { expect, vi } from "vitest";
 import * as registry from "../keys/registry";
 import { createSignal, flush, untrack } from "solid-js";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
+import { copy as appCopy } from "../app/copy";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "./menuProbe";
 import { notice } from "./notices";
@@ -524,13 +525,16 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
       expect(connected.drafts.list()).toContainEqual(newer);
     }
   } else {
-    reply.reject(outcome === "unknown" ? new Error(`${row.label} rejected by the Daemon`) : new RpcError(row.label === "Agent with prompt" || row.label === "Remove" ? -32003 : -32000, `${row.label} rejected by the Daemon`));
-    await waitFor(() => expect(document.body.textContent).toContain(`${row.label} rejected by the Daemon`));
+    // U7498c: a spawn with no answer reads as unconfirmed, with no Retry; only a typed refusal shows the Daemon's message.
+    const unconfirmedSpawn = outcome === "unknown" && row.method === "agent.spawn";
+    const shown = unconfirmedSpawn ? appCopy.rpcFailure(0) : `${row.label} rejected by the Daemon`;
+    reply.reject(outcome === "unknown" ? new Error(`${row.label} rejected by the Daemon`) : new RpcError(row.method === "agent.spawn" || row.label === "Remove" ? -32003 : -32000, `${row.label} rejected by the Daemon`));
+    await waitFor(() => expect(document.body.textContent).toContain(shown));
 
     if (row.method === "agent.spawn") {
       if (row.owner === "App") {
         const alert = await waitFor(() => notice("alert"));
-        expect(alert.textContent).toContain(`${row.label} rejected by the Daemon`);
+        expect(alert.textContent).toContain(shown);
         expect(ofMethod()).toHaveLength(1);
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => call.method === row.method || call.method === "message.send" || call.method === "terminal.write") ?? []).toEqual([]);
@@ -539,6 +543,15 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
         await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect(ofMethod()).toHaveLength(1);
+      }
+
+      if (unconfirmedSpawn) {
+        expect(connected.rail.commandFailure.retry()).toBeNull();
+        expect(ofMethod()).toHaveLength(1);
+
+        if (submitted) await waitFor(() => expect(connected.drafts.list().find(entry => entry.revision === submitted.revision)).toMatchObject({ ...submitted, status: "unknown" }));
+
+        return;
       }
 
       const retry = document.querySelector(".rail-command-notice")!.querySelector("button");

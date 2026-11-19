@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
+import { RpcError } from "../app/seam";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 import { copy } from "./copy";
@@ -48,7 +49,7 @@ describe("u32 spawn shortcuts and pinned actions", () => {
   it("u32_a_failed_chord_spawn_shows_the_error_line", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => {
-      throw new Error("no workstream");
+      throw new RpcError(-32602, "no workstream");
     };
 
     chord("n");
