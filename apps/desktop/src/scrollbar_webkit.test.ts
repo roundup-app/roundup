@@ -110,8 +110,8 @@ const check = async (page: Page, mark: number, name: string) => {
 
   expect(Math.abs(handle.y - box.y - expected), `${name}: thumb offset ${handle.y - box.y} against ${expected}`).toBeLessThan(Math.max(3, room * 0.08));
 
-  // A splitter edge laid over the area's own edge takes the pointer first; that overlap is a splitter fault, not the bar's placement.
-  if (wheeled.covered) return;
+  // A thumb under another element cannot be dragged: that is the owner's "unusable" report, so it fails.
+  expect(wheeled.covered, `${name}: a splitter edge covers the thumb`).toBe(false);
 
   await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
   await page.mouse.down();
@@ -123,13 +123,16 @@ const check = async (page: Page, mark: number, name: string) => {
   expect(dragged.top, `${name}: dragging the thumb down did not scroll down`).toBeGreaterThan(wheeled.top);
 };
 
+/** U7543a's areas the seeded views must each reach: a missing one fails, so a skipped area cannot pass. */
+const REQUIRED = ["rail-scroll", "shelf-area", "todo-detail", "pad-editor", "settings-content", "changes-body"];
+
 // U7543a: in every scroll area of each view, the thumb stays on the area's edge, follows the wheel and drags the area.
 it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async () => {
   const page = await engine.newPage({ viewport: { width: 1512, height: 950 }, colorScheme: "dark" });
-  let checked = 0;
+  const reached = new Set<string>();
 
   try {
-    for (const query of ["seed=tree-40", "view=workstreams&items=1&seed=tree-40", "view=changes&seed=tree-40", "view=notes&seed=agents-10", "view=resources&seed=agents-10"]) {
+    for (const query of ["seed=tree-40", "view=workstreams&items=1&seed=tree-40", "view=changes&seed=tree-40", "view=notes&seed=agents-10", "view=resources&seed=agents-10", "view=settings&seed=tree-40"]) {
       await page.goto(new URL(`/harness.html?rest=1&${query}`, server.resolvedUrls.local[0]).href);
       await page.waitForSelector(".rail-row");
       await page.waitForTimeout(1000);
@@ -142,10 +145,11 @@ it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async
 
       for (const [index, name] of marks.entries()) {
         await check(page, index, `${query} ${name}`);
-        checked += 1;
+
+        for (const token of name.split(/\s+/)) reached.add(token);
       }
     }
 
-    expect(checked, "areas that overflow in the seeded views").toBeGreaterThanOrEqual(3);
+    expect(REQUIRED.filter((area) => !reached.has(area)), "U7543a areas the test never reached").toEqual([]);
   } finally { await page.close(); }
 }, 120_000);
