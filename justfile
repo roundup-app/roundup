@@ -382,7 +382,7 @@ perf-frames workload *args:
     cargo build --release -p perf
     ./target/release/perf-keystroke --frames --out target/perf-frames-{{workload}}.json {{args}}
 
-# P7547c: TLC on the Pad save model; fails on a rule violation or a stale padSave.dump.
+# P7547c: everystate on the Pad save model; fails on a rule violation or a stale padSave.dump.
 pad-save-model:
     python3 apps/desktop/src/pads/padSave.model.py --check
 
