@@ -58,14 +58,10 @@ it("u7205c_age_text_uses_short_units", () => {
   for (const [seconds, text] of table) expect(railAge(now - seconds * 1000, now)).toBe(text);
 });
 
-it("u7205e_attribution_is_an_icon_with_the_started_by_tooltip", async () => {
+it("u7488d_a_started_row_shows_no_started_by_icon", async () => {
   await mountRail([agent("a", "idle", "", { name: "alpha", start_attribution: { project: "p", agent: "s", agent_name: "Sound stack", project_name: "tools" } })]);
-  const row = itemOf("alpha");
-  const icon = find(row, ".attribution-icon");
 
-  expect(row.querySelector(".message-body")).toBeNull();
-  fireEvent.pointerEnter(icon, { pointerType: "mouse", clientX: 0, clientY: 0 });
-  await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(icon.getAttribute("aria-label")));
+  expect(itemOf("alpha").querySelector(".attribution-icon")).toBeNull();
 });
 
 it("u7205g_every_row_kind_uses_the_trailing_column", async () => {

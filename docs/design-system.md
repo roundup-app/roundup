@@ -248,7 +248,8 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | `x` | Project / Drawer / Draft / Terminal / Status — close or dismiss action | `header/ProjectTab.tsx`, close and copy failure; `drawer/DrawerHost.tsx`; `ink/ErrorLine.tsx`; `ui/IconButton.tsx`, `ExitButton`; `shelf/BulkDelete.tsx`, failure; `bubbles/Bubbles.tsx`; `bubbles/Bubble.tsx` |
 | `minus` | Terminal — minimise action | `bubbles/Bubble.tsx` |
 | `panel-left-close` / `panel-left-open` | Rail — fold / open the Rail (U7156b) | `rail/RailToggle.tsx`, through `ink/Icon.tsx` |
-| `left`, `dot`, `pause`, `clear` | No active `Icon` caller | `ink/Icon.tsx`, mapped exports only |
+| `pause` | Rail Agent row — stop action | `rail/RowIcons.tsx` |
+| `left`, `dot`, `clear` | No active `Icon` caller | `ink/Icon.tsx`, mapped exports only |
 | Kind Glyphs `○ ⊖ ◔ ◉ ⊗ ✓` | Kind / Glyph — idle, blocked, working, needs-you, error, done; D18 | `ink/KindGlyph.tsx`; consumers: `rail/Rail.tsx`, `rail/RailRow.tsx`, `ask/AskBar.tsx`, `ask/AskRows.tsx`, `todos/OpenRow.tsx`, `todos/Todos.tsx`, `todos/TodoDrawer.tsx`, `todos/TodoComments.tsx`, `drawer/DraftRecovery.tsx`, `importer/ImportPanel.tsx`, `switcher/Switcher.tsx`, `toasts/queue.tsx`, `inbox/Inbox.tsx`, `inbox/InboxRow.tsx` |
 | `●` | Unseen — unread result / Terminal output | `header/ProjectTab.tsx`; `rail/RailRow.tsx`; `bubbles/Bubbles.tsx`, both tab presentations; `sharedCopy.ts`, `unseenMark` |
 | `↑`, `✓ ✗ … — ! ⚠ ?`, PR number and stale text, `—` | Worktree state — ahead, CI, PR, stale or unavailable | `rail/RailRow.tsx`, worktree chips; `rail/copy.ts`, Worktree formatters |
