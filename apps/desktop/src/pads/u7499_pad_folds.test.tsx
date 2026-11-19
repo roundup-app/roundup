@@ -276,4 +276,15 @@ describe("u7499 Pad folds", () => {
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.list").length).toBeGreaterThan(1));
     expect(count(fold("idle"))).toBe(2);
   });
+
+  it("u7499b_an_unread_pad_opened_above_the_folds_stays_there_with_its_fold_open", async () => {
+    const { connected } = await open();
+
+    fireEvent.click(fold("idle"));
+    await waitFor(() => nameOf("already-read"));
+    fireEvent.dblClick(nameOf("fresh-unread"));
+    await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
+    expect(count(fold("idle"))).toBe(2);
+    expect(document.querySelector(".shelf-list > [data-pad='fresh-unread'], .shelf-list [data-pad='fresh-unread']")).not.toBeNull();
+  });
 });
