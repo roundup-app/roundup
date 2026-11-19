@@ -226,10 +226,10 @@ it("u3800a_one_drag_fixture", async () => {
   const before = await read<unknown[]>(writes);
   await feed("drop");
   expect(await read<unknown[]>(writes)).toEqual(before);
-  await feed("drop", ["/Users/me/My Pics/it's.png", "/Users/me/two.txt"]);
+  await feed("drop", ["/Users/me/My Pics/it's.txt", "/Users/me/two.txt"]);
   await browser("wait", "--fn", `${writes}.length === ${before.length + 1}`);
   expect((await read<{id:string; text:string}[]>(writes)).slice(before.length)).toEqual([
-    {id:"t-migrate",text:"'/Users/me/My Pics/it'\\''s.png' '/Users/me/two.txt' "},
+    {id:"t-migrate",text:"'/Users/me/My Pics/it'\\''s.txt' '/Users/me/two.txt' "},
   ]);
   expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(0);
   await read(`(() => {window.__fake.app.dropFiles({phase:'drop',paths:['/tmp/no.txt'],x:-1,y:-1});return true})()`);
