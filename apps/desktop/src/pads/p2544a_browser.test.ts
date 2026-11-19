@@ -124,6 +124,8 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   const edited = `Reviewed ${visualSource}`;
   await expect.poll(source, { timeout: 30_000 }).toBe(edited);
   await browser("click", ".drawer .close");
+  // The Pad was read in its Drawer, so it returns in a closed fold (U7499a).
+  await browser("eval", "document.querySelectorAll('.pad-fold[aria-expanded=\"false\"]').forEach(fold => fold.click())");
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
   await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
   await browser("press", "Enter");

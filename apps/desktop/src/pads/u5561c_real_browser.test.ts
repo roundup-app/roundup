@@ -54,6 +54,8 @@ finally:
 
     const openPad = async () => {
       if (!await read("!!document.querySelector('.pad-name')")) await browser("click", ".pads-tab .shelf-group-control");
+      // A Pad the user has read sits in a closed fold (U7499a).
+      await read("document.querySelectorAll('.pad-fold[aria-expanded=\"false\"]').forEach(fold => fold.click()) ?? true");
       await wait("!!document.querySelector('.pad-name')");
       await browser("focus", ".pad-name");
       await browser("press", "Enter");
