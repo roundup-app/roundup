@@ -1,4 +1,4 @@
-/* U7211a: the line floats over one Terminal row (Pane's `over`), on its own ground like any overlay line. */
+/* U7211a: the line floats over the Terminal's top inset (Pane's `over`), on its own ground like any overlay line. */
 .floating-line.resume-bar {
   padding-inline: var(--space-2);
 }

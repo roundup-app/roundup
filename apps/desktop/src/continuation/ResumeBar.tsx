@@ -21,9 +21,9 @@ const lineOf = ({ resumed, failed }: Tally): string => {
 };
 
 /**
- * U7211a to U7211c: the one slim line floating over one row of the Terminal (Pane's `over`). It says so when the shown Project's
+ * U7211a to U7211c: the one slim line in the Terminal's top inset (Pane's `over`). It says so when the shown Project's
  * selected Agent has unfinished work the user has not dismissed, with Resume and Dismiss, and stays empty and hidden otherwise; showing it
- * resizes nothing (U3807, U4590) and Pane keeps it off the cursor's row (U7192). It never resumes by itself. `⌘K U` and the command
+ * resizes nothing (U3807, U4590) and lies within the inset, off every row (LH12). It never resumes by itself. `⌘K U` and the command
  * list resume every Agent's, while one has some, and a Toast says how many resumed. A failed resume, or a failed read of
  * unfinished work, shows as a Toast with its retry and Dismiss (U7314g); the line is only the notice and holds no failure.
  */

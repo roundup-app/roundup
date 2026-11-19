@@ -3,7 +3,7 @@ import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import { queueFocus } from "../keys/focus";
 import type { ProjectsState } from "../state/projects";
-import { RpcError, type ActionRequest, type ActionReply, type AppSeam } from "../app/seam";
+import { outcomeOf, RpcError, type ActionRequest, type ActionReply, type AppSeam } from "../app/seam";
 import { withAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
 
@@ -12,7 +12,7 @@ type ProjectRequest = Extract<ActionRequest, { method: "project.open" | "project
 type Confirmation =
   | { kind: "confirmation"; request: ProjectRequest; sourceName: string; choose: (open: boolean) => void }
   | { kind: "opening"; request: ProjectRequest }
-  | { kind: "failure"; request: ProjectRequest; message: string; dismiss: () => void };
+  | { kind: "failure"; request: ProjectRequest; message: string; unknown: boolean; dismiss: () => void };
 
 /** One FIFO of request-bound decisions, owned by the App rather than the selected Project. */
 export const createProjectOpening = (projects: ProjectsState, forProject: (path: string) => AppSeam) => {
@@ -29,6 +29,45 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
 
       throw failure;
     }
+  };
+
+  const showFailure = (request: ProjectRequest, message: string, unknown: boolean, signal: AbortSignal) => {
+    if (signal.aborted) return;
+
+    setPending(all => [...all, {
+      kind: "failure", request, message, unknown,
+      dismiss: () => setPending(all => all.filter(item => item.request !== request)),
+    }]);
+  };
+
+  const causes = (request: ProjectRequest, error: Error, created: { path: string; id: string; stage: "start" } | undefined) => {
+    const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
+    const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
+    const cause = retained?.cause ?? error.message;
+
+    return {
+      resultCause: partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause,
+      message: partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause,
+    };
+  };
+
+  const failed = (request: ProjectRequest, error: Error, created: { path: string; id: string; stage: "start" } | undefined, signal: AbortSignal): ActionReply => {
+    const answered = (failure: { code: number; message: string }): ActionReply => ({ jsonrpc: "2.0", id: request.id, error: failure });
+
+    // U7498b: a launch after the row exists that may have happened is unknown, never failed.
+    if (created && request.method === "project.start" && outcomeOf(error) === "unknown") {
+      showFailure(request, copy.projectStartUnknown(request.params.name), true, signal);
+
+      return answered({ code: -32004, message: copy.projectStartUnknownReply(created.path, created.id) });
+    }
+
+    if (!(error instanceof Error)) throw error;
+
+    const { message, resultCause } = causes(request, error, created);
+
+    showFailure(request, message, false, signal);
+
+    return answered({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(request.params.path, resultCause) });
   };
 
   const answer = async (request: ProjectRequest, signal: AbortSignal): Promise<ActionReply> => {
@@ -105,18 +144,7 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
-      const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
-      const cause = retained?.cause ?? error.message;
-      const resultCause = partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause;
-      const message = partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause;
-
-      if (!signal.aborted) setPending(all => [...all, {
-        kind: "failure", request, message,
-        dismiss: () => setPending(all => all.filter(item => item.request !== request)),
-      }]);
-
-      return reply({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(params.path, resultCause) });
+      return failed(request, error, created, signal);
     } finally {
       setPending(all => all.filter(item => item.request !== request || item.kind === "failure"));
     }
@@ -155,9 +183,9 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
  return current.kind === "failure" ? current : undefined; };
 
       return <Dialog.Content class="app-dialog-form project-opening">
-        <Dialog.Title>{pending().kind === "failure" ? copy.openProjectFailed : copy.openProjectTitle}</Dialog.Title>
+        <Dialog.Title>{failure()?.unknown ? copy.openProjectUnknown : pending().kind === "failure" ? copy.openProjectFailed : copy.openProjectTitle}</Dialog.Title>
         <Dialog.Description>
-          <Show when={confirmation()} fallback={<Show when={failure()}>{failure => <>{failure().message} {copy.openProjectRetry}</>}</Show>}>
+          <Show when={confirmation()} fallback={<Show when={failure()}>{failure => <>{failure().message}{failure().unknown ? "" : ` ${copy.openProjectRetry}`}</>}</Show>}>
             {confirmation => untrack(() => copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName))}
           </Show>
           <span class="project-opening-path">{pending().request.params.path}</span>
