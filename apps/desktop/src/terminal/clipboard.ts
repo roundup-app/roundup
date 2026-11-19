@@ -73,7 +73,7 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
 
       if (reason !== undefined && !(reason instanceof Error)) throw reason;
 
-      failures.set(id, "clipboard", reason instanceof Error ? clipboardFailure("paste", reason) : null);
+      failures.set(id, "clipboard", reason instanceof Error ? clipboardFailure("drop", reason) : null);
       pastePaths(id, settled.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])));
     });
   };

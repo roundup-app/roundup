@@ -39,6 +39,7 @@ export const copy = {
   paste: "Paste",
   clipboardDataUnavailable: "Clipboard data is unavailable.",
   clipboardRetry: "Try again, or copy the content in its source app again.",
+  dropRetry: "Drop a PNG, JPEG, GIF or WebP image under 20 MiB.",
   clipboardCopyRetry: "Try again, or select text and use the context menu.",
   copy: sharedCopy.copy,
   daemonExit: (exit: string) => `Disconnected: ${exit}`,
