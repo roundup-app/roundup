@@ -29,7 +29,7 @@ const openDrawer = async () => {
   return mounted;
 };
 
-it("u7641a_double_click_renames_a_todo_and_a_pad_in_place", async () => {
+it("u7641a_double_click_renames_a_todo_in_place", async () => {
   const { app } = await mountTodos([item()], true);
   const row = (await screen.findAllByRole("button", { name: /#5/ })).find(candidate => candidate.className !== "word") ?? fail("no row");
   // SAFETY: the handler needs only the change list the Drawer reads; the other History fields are unused here.

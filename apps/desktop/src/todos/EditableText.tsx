@@ -165,8 +165,6 @@ export const EditableText = (props: {
   const draft = createDraftField(connected.drafts, draftDestination, formSchema, untrack(() => props.revision === undefined ? undefined : { revision: props.revision }));
   const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
 
-  const freshForm = () => formFrom(props.todo, props.name, props.captured());
-
   /** What opening an edit now gives: the form to edit, or why the retained work cannot be reopened. */
   const opening = (): { failure: string; editing: null } | { failure: null; editing: Editing } => {
     captureFocus(true);
@@ -177,7 +175,7 @@ export const EditableText = (props: {
     const parsed = draft.value();
 
     if (saved && !parsed.success) return { failure: copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"), editing: null };
-    const form = saved && parsed.success ? parsed.output : freshForm();
+    const form = saved && parsed.success ? parsed.output : formFrom(props.todo, props.name, props.captured());
 
     return { failure: null, editing: { form, text: form.text, recovered: saved !== undefined, selection: saved?.selection ?? null } };
   };

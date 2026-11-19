@@ -312,12 +312,16 @@ const Input = (props: InputProps): JSX.Element => {
 
 export const Editable = { Root, Context, Area, Preview, Input };
 
-const nameSchema = v.strictObject({ text: v.string(), base: v.string(), version: v.nullable(v.string()) });
+const nameSchema = v.strictObject({ text: v.string(), base: v.string(), version: v.optional(v.nullable(v.string()), null) });
 
 /** Row edits keep their original object and version through navigation and a refused save. */
 export const NameField = (props: {
   object: string;
   name: string;
+  /** The draft surface; Rail names keep their own. */
+  surface?: string;
+  /** A Rail name takes no title class. */
+  plain?: boolean;
   version: () => Promise<string | null>;
   commit: (text: string, base: string, version: string | null) => Promise<void>;
   close: (restore?: boolean) => void;
@@ -326,7 +330,7 @@ export const NameField = (props: {
   const { drafts, project } = useConnectedProject();
   // The field is made for one row and the name it has now: it reads both once.
   const [object, current] = untrack(() => [props.object, props.name] as const);
-  const destination = { surface: "row-name", object, recipient: null };
+  const destination = { surface: untrack(() => props.surface) ?? "row-name", object, recipient: null };
   drafts.validate(destination.surface, nameSchema);
   const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
   const restored = untrack(records).at(-1);
@@ -386,7 +390,7 @@ export const NameField = (props: {
 
   // This editor restores its own selection; the editable's deferred select-all would overwrite it.
   return <Editable.Root edit selectOnFocus={false} value={text()} submitMode="none" class="row-name-editor" onValueChange={({ value }) => setText(value)}>
-    <Editable.Input spellcheck="false" autocorrect="off" autocapitalize="off" type="text" class="shelf-title field-inline" aria-label={copy.name} aria-invalid={conflict() ? "true" : undefined} aria-busy={!ready() || pending() ? "true" : "false"} ref={field => {
+    <Editable.Input spellcheck="false" autocorrect="off" autocapitalize="off" type="text" class={`${props.plain ? "" : "shelf-title "}field-inline`} aria-label={copy.name} aria-invalid={conflict() ? "true" : undefined} aria-busy={!ready() || pending() ? "true" : "false"} ref={field => {
       // A native listener: the stop must also reach document-level key handlers, which a delegated one cannot.
       makeEventListener(field, "keydown", event => {
         event.stopPropagation();

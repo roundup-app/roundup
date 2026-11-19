@@ -1,16 +1,13 @@
 import { alertLevel } from "./alertLevel";
 import { createCopyFeedback } from "../ui/CopyButton";
-import { applying } from "../app/pending";
-import { captureFocus, queueFocus } from "../keys/focus";
-import { StatusNote } from "../ink/MountedLine";
+import { NameField as NameFieldShared } from "../ui/Editable";
 import { openOnRelease } from "../ui/contextMenu";
-import * as v from "valibot";
 import { isDoor } from "../state/doorNode";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
-import { Show, createMemo, onCleanup, untrack } from "solid-js";
+import { Show, createMemo, onCleanup } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { IconButton } from "../ui/IconButton";
 import { TreeItem } from "@ui-sdk/solid/tree";
@@ -34,83 +31,11 @@ import type { NodeRow } from "./layout";
 import type { RailTopology } from "../state/railTopology";
 import { PadsControl } from "./pads/AgentPads";
 import { ChangesIcon } from "../changes/ChangesIcon";
-import { createDraftField } from "../state/draftField";
 import { createRowReveal } from "../ui/rowReveal";
 
-const nameSchema = v.object({ text: v.string(), base: v.string() });
-
-const caretOf = (field: HTMLInputElement) => ({ start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" });
-
-const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: (restore?: boolean) => void }) => {
-  const connected = useConnectedProject();
-  // The field renames the row it opened on through the handler it was given.
-  const { id, rename } = untrack(() => ({ id: props.node.id, rename: props.onCommit }));
-  const destination = { surface: "rail-name", object: id, recipient: null };
-  const draft = createDraftField(connected.drafts, destination, nameSchema);
-  const current = draft.draft;
-
-  const value = () => {
-    const text = current()?.value.text;
-
-    return v.is(v.string(), text) ? text : props.node.name;
-  };
-
-  const capture = (field: HTMLInputElement) => draft.keep({ text: field.value, base: String(current()?.value.base ?? props.node.name) }, caretOf(field));
-
-  const conflict = () => current() !== undefined && current()?.status !== "pending" && current()?.value.base !== props.node.name;
-
-  const commit = async (field: HTMLInputElement) => {
-    if (conflict()) return;
-    capture(field);
-    const name = value().trim();
-
-    if (name === "") {
-      props.onCancel();
-
-      return;
-    }
-
-    // Enter is the owner's own send, so a recovered name goes too.
-    draft.save();
-    const sent = await draft.send(() => applying(() => rename(name)));
-
-    if (sent.kind === "applied" && current()?.status !== "draft") props.onCancel();
-    else if (sent.kind === "refused") props.onFailure(copy.failed(copy.rename, sent.error.message));
-  };
-
-  return <>
-    <input spellcheck="false" autocorrect="off" autocapitalize="off"
-      type="text"
-      class="field-inline"
-      aria-label={copy.name}
-      aria-invalid={conflict() || current()?.status === "failed" ? "true" : undefined}
-      value={value()}
-      ref={(field) => {
-        captureFocus(true);
-        queueFocus(() => {
-        field.focus();
-        const selection = current()?.selection;
-
-        if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
-        else field.select();
-      }); }}
-      onInput={(event) => capture(event.currentTarget)}
-      onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") capture(event.currentTarget); }}
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(key) => {
-        // ui-sdk's tree item takes every key from inside its row; the field keeps its own.
-        key.stopPropagation();
-
-        if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
-
-        if (key.key === "Escape") { key.preventDefault(); props.onCancel(); }
-      }}
-      onBlur={() => props.onCancel(false)}
-    />
-    <StatusNote text={conflict() ? copy.railDraftConflict : null} />
-  </>;
-};
-
+const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: (restore?: boolean) => void }) =>
+  <NameFieldShared object={props.node.id} name={props.node.name} surface="rail-name" plain version={() => Promise.resolve(null)}
+    commit={text => props.onCommit(text)} close={props.onCancel} fail={message => { if (message !== null) props.onFailure(copy.failed(copy.rename, message)); }} />;
 
 /** The worktree facts a row carries: ahead count, CI, pull request, or that they are unavailable. */
 const WorktreeChips = (props: { id: string }) => {
