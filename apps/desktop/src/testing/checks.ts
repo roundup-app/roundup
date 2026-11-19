@@ -291,7 +291,7 @@ const d2 = (page: Page): Measure =>
     // U7637a: a Pad in an open fold carries its depth in --todo-depth, as a nested Todo does.
     const padDepth = el instanceof HTMLElement && el.matches(".pad-inset[data-pad]") ? Number(el.style.getPropertyValue("--todo-depth") || 0) : 0;
 
-    const padPadding = padDepth > 0 ? (px(page.token("space-2") ?? "") ?? NaN) + padDepth * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
+    const padPadding = padDepth > 0 ? (px(page.token("space-1") ?? "") ?? NaN) + padDepth * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
 
     const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
     const chip = el.matches("kbd.key-chip");
@@ -515,7 +515,7 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
 // U353: a text field answers with a caret, so D6's hover and cursor and D7's pressed style do not apply to it.
-const pressable = (page: Page) => clickTargets(page).filter((el) => !el.matches('textarea, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range]), select, [contenteditable="true"], [role="treeitem"]:not([tabindex]), [data-dnd-dragging], [data-dnd-dragging] *'));
+const pressable = (page: Page) => clickTargets(page).filter((el) => !el.matches('textarea, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range]), select, [contenteditable="true"], [role="treeitem"]:not([tabindex]), .shelf-row.pad-inset[role="treeitem"], [data-dnd-dragging], [data-dnd-dragging] *'));
 
 // D6: each click target has hover, keyboard reachability and a 24 px hit area.
 // U4685 region paint follows actual focus; its presence and stable geometry are rendered observations.
