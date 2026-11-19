@@ -24,7 +24,6 @@ export const copy = {
   keep: sharedCopy.keep,
   newWorkstreamTitle: sharedCopy.newWorkstreamTitle,
   worktreeReadUnavailable: sharedCopy.worktreeReadUnavailable,
-  theDoorDidNotStartInTimeRetry: "It did not start in time. Retry.",
   askNoAcknowledgement: "not found yet",
   importDefaultPrompt: "Find active and recent Claude Code conversations in this Project",
   importAgentName: sharedCopy.importAgentName,

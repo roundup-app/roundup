@@ -13,6 +13,7 @@ export const storageCopy = {
 
 export const copy = {
   retrying: sharedCopy.retrying,
+  rpcFailure: sharedCopy.rpcFailure,
   captureOff: (cause: string) => `Quick capture could not start. ${cause}`,
   resources: sharedCopy.resources,
   switchProject: sharedCopy.switchProject,
