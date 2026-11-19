@@ -39,8 +39,11 @@ const BOX = { width: 132, height: 44, maxWidth: 176, line: 16, pad: 12 };
 
 /** A state's box: its label at the small size wrapped at the widest box, grown in height to hold every line. */
 const boxSize = (label: string): Size => {
-  const width = Math.min(BOX.maxWidth, Math.max(BOX.width, label.length * 7 + 16));
-  const lines = Math.ceil((label.length * 7) / (width - 16));
+  const text = [...label].reduce((sum, char) => sum + (/[\u2e80-\uffff]/.test(char) ? 14 : /[A-Z]/.test(char) ? 11 : 7), 0);
+  const width = Math.min(BOX.maxWidth, Math.max(BOX.width, text + 16));
+  const fit = Math.ceil(text / (width - 16));
+  // Word wrapping wastes some of each line, so a wrapped label gets one line of slack.
+  const lines = fit > 1 ? fit + 1 : fit;
 
   return { width, height: Math.max(BOX.height, lines * BOX.line + BOX.pad) };
 };
