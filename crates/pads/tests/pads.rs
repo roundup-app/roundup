@@ -8,6 +8,8 @@ mod export_images;
 mod homes;
 #[path = "pads/sections.rs"]
 mod sections;
+#[path = "pads/visibility.rs"]
+mod visibility;
 use contracts::{Actor, ActorKind, EventData, Verb};
 use pads::{PadDeletion, PadSourceState, Pads, source, source_state};
 use provenance::Touches;

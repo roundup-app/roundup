@@ -483,3 +483,8 @@ async fn u5501_public_mcp_and_cli_offer_no_level_write() {
     );
     let _ = shim.client.cancel().await;
 }
+
+#[test]
+fn p7499a_the_method_list_offers_a_tool_and_a_command() {
+    assert!(expected_tools().contains(&"pad_setVisibility".to_string()));
+}

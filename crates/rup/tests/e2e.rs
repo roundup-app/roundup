@@ -703,6 +703,44 @@ async fn b21_a_childs_kind_pad_and_todo_changes_each_push_one_entry_to_its_door(
 }
 
 #[tokio::test]
+async fn p7499a_pad_visibility_over_the_real_route() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    as_a.request("pad.create", json!({ "name": "by-agent", "text": "x" }))
+        .await
+        .unwrap();
+    user.request("pad.create", json!({ "name": "by-user", "text": "x" }))
+        .await
+        .unwrap();
+    let visibilities = |client: rpc::Client| async move {
+        let pads: Vec<Pad> =
+            serde_json::from_value(client.request("pad.list", json!({})).await.unwrap()).unwrap();
+        pads.into_iter()
+            .map(|pad| (pad.name, serde_json::to_value(pad.visibility).unwrap()))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let before = visibilities(project.client().await).await;
+    assert_eq!(before["by-agent"], "internal");
+    assert_eq!(before["by-user"], "shown");
+    user.request(
+        "pad.setVisibility",
+        json!({ "name": "by-agent", "visibility": "shown" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        visibilities(project.client().await).await["by-agent"],
+        "shown"
+    );
+    project.restart(&[]);
+    let after = visibilities(project.client().await).await;
+    assert_eq!(after["by-agent"], "shown");
+    assert_eq!(after["by-user"], "shown");
+}
+
+#[tokio::test]
 async fn b19_a_childs_pads_reach_the_door_once_and_terminal_output_never() {
     let project = start(&[]);
     let user = project.client().await;

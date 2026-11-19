@@ -89,7 +89,11 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "pad_create",
-        "start a Pad, a named text you own, for notes you want to keep",
+        "start a Pad; yours start `internal`, so pass `visibility: \"shown\"` for the user, and name what the reader learns",
+    ),
+    (
+        "pad_setVisibility",
+        "make a Pad `shown` when the user should read it, or `internal` when only Agents need it",
     ),
     ("pad_read", "read one Pad"),
     (
@@ -524,6 +528,7 @@ use `<details><summary>For Agents</summary>`, blank lines around its Markdown co
 On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. \
 A comment with `todo_comment` is the verdict in its one line; any Agent-only details go after it in the same closing `For Agents` section. \
 Facts the user needs to decide or act stay in the body, including a path or command needed for that action. \
+Name a Pad in words for what the reader learns, with any Issue or PR number after the words; a Pad shown to the user is linked from a Todo or a message. \
 Write the Pad for a reader who opened it from a link, and put each fact the user needs to decide or act in the message that points to the Pad as well: a Pad never carries it alone. \
 When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up. \
 Where you would send a Pad's sections one by one, give the Pad's walk link instead: its `link` with `pad` replaced by `walk` (`roundup://walk/<pad>?project=<key>`), never made up; one click plays the Pad as a walk, one step per top-level heading.
@@ -780,5 +785,19 @@ mod tests {
                 && brief.contains("name the new Agent"),
             "{brief}"
         );
+    }
+
+    #[test]
+    fn p7499a_the_brief_names_the_default_and_how_to_show_a_pad() {
+        let brief = text(Role::Door, true);
+        for phrase in [
+            "yours start `internal`",
+            "pad_setVisibility",
+            "when the user should read it",
+            "what the reader learns",
+            "number after the words",
+        ] {
+            assert!(brief.contains(phrase), "missing: {phrase}");
+        }
     }
 }

@@ -37,6 +37,7 @@ fn pad(name: &str, home: &str, at: i64) -> Pad {
         updated_at: at,
         revision: 1,
         home: Some(home.into()),
+        visibility: contracts::agent::RailVisibility::Shown,
     }
 }
 
