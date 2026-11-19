@@ -230,6 +230,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     onUpdateProgress: () => () => {},
     showContextMenu: async (items) => probeMenu(items),
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
+    saveDroppedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
     selectOutput,
     subscribe: (onEvent, params) =>

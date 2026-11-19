@@ -51,6 +51,7 @@ pub(crate) fn invoke_handler<R: Runtime>()
         list_editors,
         alert::state_alert,
         save_pasted_image,
+        save_dropped_image,
         feedback::feedback_capture,
         menu_bar::set_menu_bar,
         menu::select_project_menu,
@@ -388,6 +389,12 @@ fn save_pasted_image(request: tauri::ipc::Request<'_>) -> Result<String, RpcErro
         .unwrap_or_default();
 
     paste::save_in_cache(media_type, bytes).map(|path| path.display().to_string())
+}
+
+/// Copies a dropped image file into the pasted-image folder, since only this App may open a dragged screenshot thumbnail (U7659a).
+#[tauri::command]
+fn save_dropped_image(path: String) -> Result<String, RpcError> {
+    paste::save_dropped_in_cache(std::path::Path::new(&path)).map(|copy| copy.display().to_string())
 }
 
 /// The three removal answers have distinct authority; a native failure grants none.

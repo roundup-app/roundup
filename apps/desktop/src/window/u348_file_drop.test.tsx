@@ -198,10 +198,10 @@ describe("u348 dragging files shows targets, a lingering drag opens one, a drop 
   it("u348_a_drop_on_a_workstream_row_pastes_into_its_door", async () => {
     const { app, made } = await mount({ api: TREE });
 
-    app.dropFiles(drop(100, rowY("w1"), "/p/Shot.PNG"));
+    app.dropFiles(drop(100, rowY("w1"), "/p/Shot.TXT"));
 
     await waitFor(() => expect(selected()).toBe("w1"));
-    await waitFor(() => expect(made.get("t-w1")!.pasted).toEqual(["'/p/Shot.PNG' "]));
+    await waitFor(() => expect(made.get("t-w1")!.pasted).toEqual(["'/p/Shot.TXT' "]));
   });
 
   it("u348_a_drop_elsewhere_does_nothing", async () => {
