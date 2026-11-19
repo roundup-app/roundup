@@ -72,6 +72,7 @@ export const copy = {
   mermaid: (value1: CopyValue) => `Mermaid: ${value1}`,
   statechart: (value1: CopyValue) => `Statechart: ${value1}`,
   /** @prose */
+  statechartLayoutUnknown: "The chart could not be drawn.",
   statechartLayout: (cause: string) => `The chart could not be drawn: ${cause}`,
   statechartNotJson: "The block is not JSON.",
   statechartField: (path: string) => `"${path}" is missing or has the wrong shape.`,
