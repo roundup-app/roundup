@@ -364,6 +364,8 @@ Work order: [#7310](https://github.com/roundup-app/roundup/issues/7310). The own
 
 **U7310h each paragraph takes its own direction.** Given a Todo whose title, body and a comment are Arabic, and a Pad with Arabic and English paragraphs, then each title, paragraph, list item, heading, table cell and comment starts on the side its first strong character reads from, and its end punctuation sits at its end. Policy, design critic.
 
+**U7642a the comment box shows no circle.** Requested by the owner (2026-11-19, #7642): the circle left of an open Todo's comment box stood for the author and did nothing. Given an open Todo, then its comment box draws no circle or other author mark, and its field starts at the left edge the circle took; the field, its placeholder, send and U2773a drafts are as before. Policy, design critic: capture at 1512×950, light and dark, of an open Todo's comment box. No test asserts the absence.
+
 ## Agent text reads the same everywhere (#7312)
 
 Work order: [#7312](https://github.com/roundup-app/roundup/issues/7312). The owner approved the design on 2026-11-17 (Pad "Reading design: Todos, comments and Pads"). These scenarios build on U7310a–h, U5561a–c, U5562a–c and Q10. Q5561 in `scenarios/plain-text.md` owns the Brief's writing rule.
