@@ -1,6 +1,8 @@
 import type { Event } from "@contracts/Event";
 import { copy } from "./copy";
-import { outcomeOf, RpcError } from "./seam";
+import { INTERNAL_CODE, outcomeOf, RpcError } from "./seam";
+
+const MISSING_CORE = /herdr-core is not installed\..*$/s;
 
 /** The message of a failed call, or `null` when it succeeded. Anything that is not an Error is a bug and escapes. */
 export const failureOf = async <Result>(call: () => Promise<Result>): Promise<string | null> => {
@@ -31,5 +33,11 @@ export const changeFailureOf = async <Result>(call: () => Promise<Result>): Prom
 };
 
 /** U7498c: what a call with no answer says, from the copy table by code: completion is unconfirmed, never a failure and never an invitation to repeat it. */
-export const unknownOutcomeLine = (error: Error): string =>
-  copy.rpcFailure(error instanceof RpcError ? error.code : 0);
+export const unknownOutcomeLine = (error: Error): string => {
+  if (!(error instanceof RpcError)) return copy.rpcFailure(0);
+
+  // HM7589a: the one internal failure whose cause the user can fix says so; any other keeps the fixed copy (HM7589b).
+  const named = error.code === INTERNAL_CODE ? MISSING_CORE.exec(error.message) : null;
+
+  return named === null ? copy.rpcFailure(error.code) : named[0];
+};

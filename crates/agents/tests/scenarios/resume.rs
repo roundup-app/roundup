@@ -973,3 +973,27 @@ async fn dcr2_resume_outside_reach_is_refused() {
     let after = f.tree().await.into_iter().find(|n| n.id == job.id).unwrap();
     assert_eq!(after.attempt(), job.attempt());
 }
+
+#[tokio::test]
+async fn hm7589a_spawn_without_herdr_core_names_it() {
+    let f = Fixture::running("sleep 30");
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let f = f.reopen_without_core();
+
+    let spawned = f.spawn(None, None).await.unwrap_err();
+    let resumed = f.resume(&node.id).await.unwrap_err();
+
+    for err in [spawned, resumed] {
+        assert!(
+            err.message.contains("herdr-core is not installed"),
+            "{}",
+            err.message
+        );
+        assert!(
+            err.message
+                .contains("curl -fsSL https://releases.herdr.dev/core/install.sh | sh"),
+            "{}",
+            err.message
+        );
+    }
+}
