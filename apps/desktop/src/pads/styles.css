@@ -561,3 +561,131 @@ li[aria-selected="true"] svg {
   color: var(--grey);
 }
 
+
+.visual-statechart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.statechart-rules {
+  display: flex;
+  flex-direction: column;
+}
+
+.statechart-rules .statechart-rule {
+  margin: 0;
+}
+
+.statechart-rule.is-broken {
+  color: var(--red);
+}
+
+.statechart-chart {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.statechart-canvas {
+  position: relative;
+}
+
+.statechart-canvas svg {
+  position: absolute;
+  inset: 0;
+}
+
+.statechart-line {
+  fill: none;
+  stroke: var(--grey);
+}
+
+.statechart-head {
+  fill: var(--grey);
+}
+
+.statechart-box {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-size: var(--text-small);
+  line-height: var(--line-menu);
+  background: var(--gray-3);
+}
+
+.statechart-box.is-lit {
+  background-image: linear-gradient(var(--selected), var(--selected));
+}
+
+.statechart-box.is-red {
+  color: var(--red);
+}
+
+.statechart-arrow {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0 var(--space-1);
+  background: var(--ground);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
+.statechart-reason {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.statechart-bar {
+  margin: 0;
+  color: var(--red);
+}
+
+.statechart-controls,
+.statechart-move-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.statechart-moves-title {
+  margin: 0;
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.statechart-arrow[aria-disabled="true"] {
+  color: var(--disabled);
+}
+
+.visual-statechart [aria-expanded]::before {
+  content: "▸ ";
+}
+
+.visual-statechart [aria-expanded="true"]::before {
+  content: "▾ ";
+}
+
+.statechart-values {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.statechart-values dd {
+  margin: 0;
+}
+
+.statechart-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

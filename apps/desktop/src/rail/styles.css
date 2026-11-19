@@ -129,7 +129,7 @@
 .rail-row .row-age {
   flex: none;
   box-sizing: border-box;
-  inline-size: 6ch;
+  inline-size: var(--rail-age-room);
   text-align: end;
   white-space: nowrap;
   color: var(--grey);
@@ -139,7 +139,7 @@
 }
 .rail-row :is(.row-slot, .row-state, .row-tail) { flex: none; }
 .rail-row .row-slot { display: inline-flex; align-items: center; justify-content: center; inline-size: var(--space-4); color: var(--grey); }
-.rail-row :is(.machine-icon, .attribution-icon) { display: inline-flex; align-items: center; cursor: default; }
+.rail-row .machine-icon { display: inline-flex; align-items: center; cursor: default; }
 .rail-row .machine-icon[data-offline] { color: var(--red); }
 .rail-row .name { flex: 1 1 0; }
 
@@ -333,9 +333,24 @@
   --button-inline: 0;
   --button-lead: 0;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
   font-size: var(--text-caption);
+  color: var(--grey);
 }
+/* U7488c: the ring is two stroked circles; `--ring-ratio` is the done share, drawn as the fill's dash. */
+.todo-ring {
+  flex: none;
+  display: block;
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  transform: rotate(-90deg);
+}
+.todo-ring-track, .todo-ring-fill { fill: none; stroke-width: var(--stroke-width); }
+.todo-ring-track { stroke: var(--progress-track); }
+.todo-ring-fill { stroke: var(--accent); stroke-dasharray: var(--ring-ratio) 1; }
+.todo-ring-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .rail-fold button {
   min-height: var(--space-6);
@@ -424,11 +439,6 @@
  .rail-row .line {
     --rail-gap: var(--space-3);
   }
-}
-
-/* U378: a Workstream's actions keep one even gap; an Agent's group keeps U426's room for the name. */
-.rail-row[data-branch] .row-icons {
-  gap: var(--space-1);
 }
 
 /* Each content row owns its inset independently of the shared wash. */
@@ -629,34 +639,9 @@
 /* U4707: the 32px Token leaves no column left of the glyph, so the chevron takes the glyph's place only while the pointer or keyboard is on it; selection and focus keep the glyph. */
 .rail-row .rail-chevron { left: calc(var(--rail-inset) + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
 .rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .row-state { opacity: 0; }
-.rail-row .row-icons {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  position: relative;
-  padding-inline-end: var(--rail-gap);
-  background-color: var(--sunken);
-  background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
-  opacity: 0;
-  pointer-events: none;
-}
-.rail-row .row-icons::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 100%;
-  width: var(--space-4);
-  background: inherit;
-  mask-image: linear-gradient(to right, var(--transparent), var(--text)); /* taste-skill-ignore: existing row-action edge mask preserves readable names. */
-  pointer-events: none;
-}
-.rail-row[data-id]:not(:hover, :focus-within) .row-controls { opacity: 0; pointer-events: none; }
-.rail-row:is(:hover, :focus-within) :is(.row-icons, .row-controls) {
-  opacity: 1;
-  pointer-events: auto;
-}
-.rail-row[data-lifted="true"]:is(:hover, :focus-within) :is(.row-icons, .row-controls) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
-.rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
+.rail-row .row-icons { display: inline-flex; align-items: center; flex: none; }
+.rail-row[data-lifted="true"] :is(.row-icons, .row-controls, [data-slot="changes"]) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
+.rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 
 .rail-leaf[data-leaf="todo"] { padding-inline-start: 0; grid-template-columns: var(--indent) minmax(0, 1fr); }
@@ -741,25 +726,20 @@
   width: var(--rail-slot);
   flex: none;
 }
-/* U7205c: what hover, focus or selection reveals (quick actions, Pads) overlays the name's end and reserves no room at rest, so a name that fits the visible row is never cut. Only the group chevron, visible at rest, keeps its slot. */
-.rail-row .row-tail {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: calc(var(--rail-edge) + 6ch + var(--rail-gap));
-  inline-size: 0;
-  min-inline-size: 0;
-  justify-content: flex-end;
-}
-.rail-row .row-tail:has(.rail-group-chevron) {
-  position: relative;
-  inset: auto;
-  inline-size: var(--rail-slot);
-  min-inline-size: var(--rail-slot);
-}
-.rail-row .row-controls {
-  background-color: var(--sunken);
-  background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
-}
+/* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. The actions take no room at rest (zero width, still in the Tab order); on hover, focus or selection they take their three slots in the row's flow just left of the age, whose width is fixed, so they sit at one x on every row and the name, marks, ring and count give way. A group's chevron keeps its one slot. */
+:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
+.rail-row .line { position: relative; }
+.rail-row .row-tail { justify-content: flex-end; }
+.rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
+.rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
+.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"], [data-slot="restart"]):empty { display: none; } /* A mark slot and the leading restart slot collapse when empty; run and more keep their width, so the run slot sits at one x. */
+/* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
+.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
+.rail-row .action-slot[data-slot="todos"] { inline-size: auto; min-inline-size: 0; }
+.rail-row .rail-pads-control { min-inline-size: 0; inline-size: auto; }
+.rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
+.rail-row .row-icons { display: inline-flex; flex: none; align-items: center; overflow: hidden; inline-size: 0; position: absolute; } /* At rest, and on a row with no action, the group leaves the flow, so it takes neither width nor the line's gap. */
+[data-reveal="shown"].rail-row .row-icons:has(.action-slot:not(:empty)) { inline-size: auto; position: static; }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */

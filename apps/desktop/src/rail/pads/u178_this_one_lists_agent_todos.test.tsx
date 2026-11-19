@@ -1,6 +1,6 @@
 import { DisplayClockContext } from "../../state/clock";
 import { ToastHost } from "../../testing/toastHost";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@contracts/Actor";
@@ -66,18 +66,14 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
   it("u178_the_control_is_named_by_what_it_holds", async () => {
     await mount(TREE, [todo(2, { home: "w1", creator: by("a1") }), todo(3, { home: "w1", creator: by("a2") })], [padOf("n")]);
 
-    const named = async (row: string, name: string) => {
-      const button = await waitFor(() => within(document.querySelector(`.rail-row[data-id="${row}"]`)!).getByRole("button", { name }));
+    // U7488c: the count is visible, so the control shows no hover name; its accessible name stays.
+    for (const row of ["a1", "a2"]) {
+      const button = await waitFor(() => within(document.querySelector(`.rail-row[data-id="${row}"]`)!).getByRole("button", { name: "1 todos" }));
 
       fireEvent.keyDown(document, { key: "Tab" });
       button.focus();
-      await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(name));
       button.blur();
-      await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
-    };
-
-    await named("a1", "1 todos");
-    await named("a2", "1 todos");
+    }
   });
 
 

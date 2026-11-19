@@ -62,6 +62,14 @@ export const liftAndEscape = async (selector: string, at: { x: number; y: number
 /** U7276b: the press moves 20 px away and back before the release, so the release lands on the control and its own click can act. */
 export const expectControlPressNeverDrags = async ({ seed, open, target }: { seed: string; open: (() => Promise<void>) | null; target: string }) => {
   await harness(seed, open, target);
+
+  // U7488b: a row's actions reveal on hover, so the pointer rests on the row before the control is measured.
+  const row = await read<{ x: number; y: number } | null>(`(() => {
+    const b = document.querySelector(${JSON.stringify(target)}).closest('.rail-row')?.getBoundingClientRect();
+    return b ? { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) } : null;
+  })()`);
+
+  if (row) await browser("mouse", "move", String(row.x), String(row.y));
   const at = await pointIn(target, null);
   await browser("mouse", "move", String(at.x), String(at.y));
   await browser("mouse", "down");

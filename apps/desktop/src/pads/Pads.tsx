@@ -38,6 +38,7 @@ import { OwnerGroups } from "../shelf/OwnerGroups";
 import { Sortable } from "../ui/sortable";
 import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
+import { createRowReveal } from "../ui/rowReveal";
 import type { PadList } from "./padList";
 
 /** The Pad name a retention failure keeps: Copy it, or discard it. */
@@ -386,9 +387,11 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
   })));
 
   const nameCut = createCutTitle(() => pad.name);
+  const reveal = createRowReveal(() => props.isSelected(pad.incarnation));
 
   return (
           <ShelfRow
+            {...reveal}
             ref={props.parts.ref}
             data-pad={pad.name}
             onClick={event => {
