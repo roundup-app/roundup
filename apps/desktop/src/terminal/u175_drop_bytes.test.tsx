@@ -48,6 +48,8 @@ const dropOnRealEmulator = async (bracketed: boolean) => {
 
   if (bracketed) await new Promise<void>((resolve) => emulators.get("t-a")!.write(new TextEncoder().encode("\x1b[?2004h"), resolve));
 
+  // U7659a copies a dropped image first; the copy is named as the drop was, so the framing is what this test sees.
+  app.savedDroppedPaths.set(PATH, PATH);
   app.dropFiles({ phase: "drop", paths: [PATH], x: 50, y: 50 });
   await vi.waitFor(() => expect(callsTo(app, "terminal.write").length).toBeGreaterThan(0));
   await new Promise<void>((resolve) => emulators.get("t-a")!.write(new Uint8Array(), resolve));

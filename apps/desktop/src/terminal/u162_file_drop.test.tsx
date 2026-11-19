@@ -244,11 +244,11 @@ describe("u162 drop files on a Bubble", () => {
   it("u162_a_drop_over_a_bubble_pastes_into_its_terminal_once", async () => {
     const { app, emulators } = await mountBubble();
 
-    app.dropFiles(drop(["/p/it's a file.png"], INSIDE_BUBBLE));
+    app.dropFiles(drop(["/p/it's a file.txt"], INSIDE_BUBBLE));
 
     const elsewhere = [...emulators.made].filter(([id]) => id !== "1").flatMap(([, emulator]) => emulator.pasted);
 
-    expect(emulators.made.get("1")!.pasted).toEqual([`'/p/it'\\''s a file.png' `]);
+    expect(emulators.made.get("1")!.pasted).toEqual([`'/p/it'\\''s a file.txt' `]);
     expect(elsewhere).toEqual([]);
   });
 

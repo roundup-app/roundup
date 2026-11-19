@@ -155,6 +155,7 @@ export const SEAM_COMMANDS = [
   "open_in_editor",
   "list_editors",
   "save_pasted_image",
+  "save_dropped_image",
   "plugin:clipboard-manager|write_text",
   "show_context_menu",
   "plugin:window-bar|set_window_title",
@@ -324,6 +325,8 @@ export type App = {
   onUpdatesChanged(listener: (facts: UpdateFacts) => void): Unsubscribe;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
   savePastedImage(image: PastedImage): Promise<string>;
+  /** Copies a dropped image file (png, jpg, jpeg, gif, webp) into the same cache folder and resolves the copy's absolute path (U7659a). Rejects FORBIDDEN for another extension, a directory or a file over 20 MiB, and writes nothing then. */
+  saveDroppedImage(path: string): Promise<string>;
   /** Pops the macOS system menu at `x`, `y` (window CSS pixels) and resolves the chosen item's id, or `null` when it closes with no choice (U2694a). */
   showContextMenu(items: MenuItem[], x: number, y: number): Promise<string | null>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */

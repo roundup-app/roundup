@@ -11,7 +11,7 @@ import type { Screens } from "./screens";
  */
 export const createFileDrop = (
   connected: Pick<ConnectedProject, "app" | "daemonExit">,
-  screens: () => Pick<Screens, "emulatorFor" | "exited" | "pastePaths">,
+  screens: () => Pick<Screens, "emulatorFor" | "exited" | "pasteDropped">,
   terminal: () => string | null,
   body: () => HTMLElement | undefined,
 ): Accessor<boolean> => {
@@ -48,7 +48,7 @@ export const createFileDrop = (
 
     if (drop.phase === "drop") {
       screens().emulatorFor(id).focus();
-      screens().pastePaths(id, drop.paths);
+      screens().pasteDropped(id, drop.paths);
     }
   }));
 
