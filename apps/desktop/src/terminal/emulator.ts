@@ -8,6 +8,7 @@ import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { attachLinkGestures } from "./linkGestures";
 import { terminalTokens, loadDefaultFaces, loadEffectiveFont, remeasure } from "./fonts";
 import { attachNativeMenu } from "./nativeMenu";
+import { paintSelection } from "./selectionPaint";
 import { arabicRuns, loadWebgl } from "./renderer";
 import type { Renderer, RendererAddon } from "./renderer";
 import { keepSelection } from "./reflowSelection";
@@ -367,7 +368,7 @@ export const createXtermEmulators = (
         if (event.button === 0 && /^https?:\/\/\S/i.test(uri)) linkListener({ kind: "url", url: uri });
       },
     };
-    within(() => onCleanup(attachLinkGestures(terminal, element, printed => linkListener(printed))));
+    within(() => { onCleanup(attachLinkGestures(terminal, element, printed => linkListener(printed))); onCleanup(paintSelection(terminal)); });
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
 
