@@ -154,6 +154,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Owner (`owner`, Todos only; Pads use Home) | same | assignee |
 | Priority (`Priority`, `priority`) | Priority | — |
 | Updated at (`updated_at`) | a Todo's last-change time | — |
+| PR link (`Todo.pr`) | Pull request | — |
+| PR check (`PrCheck`, `todo.checkPr`, `todo.checkPrs`, `todo.prChecked`) | same | — |
 | Delegate Board | same | — |
 | Busy until | "free now", "busy until <HH:MM>" | — |
 | Comment (`todo.comment`, `todo_comment`) | same | — |
