@@ -533,6 +533,8 @@ For a flow or a sequence, write Mermaid flowchart or sequence source as the bloc
 For a free sketch Mermaid cannot lay out, such as a screen or a box-and-arrow map, write the skeleton form: a shape with a `label`, an arrow with `start` and `end` ids. \
 Draw only when the drawing explains structure or flow faster than a table; at most about 12 shapes; one idea per drawing; labels in plain words.
 
+Statecharts: when a flow has rules worth checking, check it with the hunch statechart skill and write a fenced `statechart` block in the Pad, in plain words, with the fields `summary`, `writtenBy`, `rules`, `states`, `start`, `steps` and `stopped`. Turn the checker's state dump into the block with a script, never by hand, and merge states that show the same, read the same and allow the same moves before you write the block; the merged and full graphs must allow the same moves and turn the same states red. Without the hunch statechart skill, write no statechart block and draw a Mermaid diagram as Drawings says.
+
 ";
 
 /// PL3: the places a user can be sent to, as links the user clicks.

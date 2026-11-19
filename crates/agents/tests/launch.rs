@@ -908,3 +908,28 @@ fn mc49_a_restart_with_only_a_refused_file_adds_nothing() {
     let plain = door_brief(&s, &s.root.path().join("none.md"));
     assert_eq!(door_brief_refusing(&s, &launcher), plain);
 }
+
+#[test]
+fn sc11_the_brief_tells_an_agent_to_write_a_statechart_block_with_a_script() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        let line = text
+            .lines()
+            .find(|l| l.starts_with("Statecharts:"))
+            .expect("the brief holds a statechart line");
+        let drawings = text.find("\nDrawings:").unwrap();
+        assert!(text.find("\nStatecharts:").unwrap() > drawings);
+        for word in [
+            "hunch statechart skill",
+            "fenced `statechart` block",
+            "with a script, never by hand",
+            "merge states that show the same, read the same and allow the same moves",
+            "`summary`, `writtenBy`, `rules`, `states`, `start`, `steps` and `stopped`",
+            "allow the same moves and turn the same states red",
+            "write no statechart block and draw a Mermaid diagram",
+        ] {
+            assert!(line.contains(word), "{word}");
+        }
+    }
+}
