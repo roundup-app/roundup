@@ -10,4 +10,6 @@ export type CreateParams = {
 	owner?: Owner.Owner,
 	/**  U4698c: unset is no priority. */
 	priority?: todo$Priority.Priority | null,
+	/**  T7708a: a pull request number of the Project's repository, at least 1; omitted or `null` is unlinked. */
+	pr?: number | null,
 };

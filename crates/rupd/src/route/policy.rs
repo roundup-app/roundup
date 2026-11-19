@@ -281,6 +281,8 @@ static TABLE: &[(&str, Policy)] = &[
     ("terminal.write", Policy { actor: Actor::TerminalWriter, gate: Gate::TerminalWrite, ..PLAIN }),
     ("todo.addRef", Policy { gate: Gate::RefTarget, observes: true, serial: Serial::Yes, ..PLAIN }),
     ("todo.assign", Policy { gate: Gate::Owner, observes: true, serial: Serial::Yes, inputs: Inputs::Owner, ..PLAIN }),
+    ("todo.checkPr", Policy { observes: true, ..PLAIN }),
+    ("todo.checkPrs", Policy { observes: true, ..PLAIN }),
     ("todo.comment", Policy { observes: true, serial: Serial::Yes, ..PLAIN }),
     ("todo.comments", Policy { observes: true, serial: Serial::Yes, ..PLAIN }),
     ("todo.complete", Policy { observes: true, serial: Serial::Yes, ..PLAIN }),

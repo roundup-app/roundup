@@ -124,14 +124,15 @@ impl Store {
         creator: &Actor,
         owner: Option<&Actor>,
         priority: Option<Priority>,
+        pr: Option<u32>,
         after_touch: i64,
     ) -> Result<Todo, Error> {
         self.require_all(blockers)?;
         let created_at = now_ms().max(0);
         let tx = self.db.unchecked_transaction()?;
         tx.execute(
-            "INSERT INTO todos (title, body, created_at, updated_at, creator, owner, priority, pos)
-             VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
+            "INSERT INTO todos (title, body, created_at, updated_at, creator, owner, priority, pr, pos)
+             VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, ?7, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
             params![
                 title,
                 body,
@@ -140,7 +141,8 @@ impl Store {
                 owner.map(creator_json).transpose()?,
                 priority
                     .map(|value| serde_json::to_string(&value))
-                    .transpose()?
+                    .transpose()?,
+                pr
             ],
         )?;
         let id = u32::try_from(tx.last_insert_rowid()).map_err(Error::internal)?;
@@ -152,7 +154,7 @@ impl Store {
 
     pub(crate) fn get(&self, id: u32) -> Result<Todo, Error> {
         let mut todo = self.db.query_row(
-            "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority,
+            "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority, pr,
              EXISTS(SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
                     WHERE b.todo = todos.id AND o.done = 0)
              FROM todos WHERE id = ?1", [id], |r| Ok(todo_row(r)),
@@ -201,6 +203,7 @@ impl Store {
         title: Option<&str>,
         body: Option<&str>,
         priority: Option<Option<Priority>>,
+        pr: Option<Option<u32>>,
         expected_change: Option<u32>,
         after_touch: i64,
         actor: &Actor,
@@ -211,8 +214,8 @@ impl Store {
         self.require_change(id, expected_change)?;
         self.db
             .execute(
-                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body), priority = ?4 WHERE id = ?1",
-                params![id, title, body, priority.unwrap_or(current.priority).map(|value| serde_json::to_string(&value)).transpose()?],
+                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body), priority = ?4, pr = ?5 WHERE id = ?1",
+                params![id, title, body, priority.unwrap_or(current.priority).map(|value| serde_json::to_string(&value)).transpose()?, pr.unwrap_or(current.pr)],
             )
             ?;
         self.record_change(id, Some(before), after_touch, actor)?;
@@ -232,6 +235,36 @@ impl Store {
         tx.execute(
             "UPDATE todos SET done = ?2 WHERE id = ?1",
             params![id, done],
+        )?;
+        self.record_change(id, Some(before), after_touch, actor)?;
+        tx.commit()?;
+        self.get(id)
+    }
+
+    /// T7708c: the merge (PR number and `mergedAt`) that last completed the Todo, if one did.
+    pub(crate) fn merge_record(&self, id: u32) -> Result<Option<(u32, String)>, Error> {
+        let record: (Option<u32>, Option<String>) = self.db.query_row(
+            "SELECT merge_pr, merged_at FROM todos WHERE id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        Ok(record.0.zip(record.1))
+    }
+
+    /// T7708c: completes the Todo and records the merge that did it, in one transaction.
+    pub(crate) fn set_done_by_merge(
+        &self,
+        id: u32,
+        pr: u32,
+        merged_at: &str,
+        after_touch: i64,
+        actor: &Actor,
+    ) -> Result<Todo, Error> {
+        let before = values(&self.get(id)?);
+        let tx = self.db.unchecked_transaction()?;
+        tx.execute(
+            "UPDATE todos SET done = 1, merge_pr = ?2, merged_at = ?3 WHERE id = ?1",
+            params![id, pr, merged_at],
         )?;
         self.record_change(id, Some(before), after_touch, actor)?;
         tx.commit()?;
@@ -593,7 +626,7 @@ impl Store {
 fn list_in(db: &Connection) -> Result<Vec<Todo>, Error> {
     // T5642a: three executions replace 1 + 3N reads; only ids/indices accompany final Todos.
     let mut stmt = db.prepare(
-        "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority,
+        "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority, pr,
          EXISTS(SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
                 WHERE b.todo = todos.id AND o.done = 0)
          FROM todos ORDER BY pos, id",
@@ -639,9 +672,10 @@ fn todo_row(r: &rusqlite::Row<'_>) -> Result<Todo, Error> {
             r.get::<_, Option<String>>(8)?,
             r.get::<_, Option<String>>(9)?,
             r.get(10)?,
+            r.get(11)?,
         ))
     })()?;
-    let (id, title, body, done, created_at, updated_at, creator, home, owner, priority, blocked) =
+    let (id, title, body, done, created_at, updated_at, creator, home, owner, priority, pr, blocked) =
         row;
     Ok(Todo {
         id,
@@ -659,6 +693,7 @@ fn todo_row(r: &rusqlite::Row<'_>) -> Result<Todo, Error> {
             .transpose()?,
         blockers: Vec::new(),
         refs: Vec::new(),
+        pr,
     })
 }
 
@@ -708,6 +743,7 @@ impl super::Todos {
     pub(super) fn open_store(dir: &Path) -> Result<Self, OpenError> {
         Ok(Self {
             store: Mutex::new(Store::open(dir)?),
+            pr_reads: Mutex::default(),
         })
     }
 

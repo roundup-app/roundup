@@ -152,6 +152,8 @@ export const CONTRACT = {
     "terminal.write": "90c430ee23f85879",
     "todo.addRef": "57fe6e3d95a39a2e",
     "todo.assign": "cc38b1dba37ce6a9",
+    "todo.checkPr": "4561f07b8ab64956",
+    "todo.checkPrs": "698c391d9674b3f0",
     "todo.comment": "e1c1475b5bf30044",
     "todo.comments": "09d6f8bb6b856e1d",
     "todo.complete": "6b83648efdf86529",
