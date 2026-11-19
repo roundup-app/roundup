@@ -9,21 +9,16 @@ export const COMPARISON: FileComparison = { base: "base-commit", oldPath: "src/a
 /** The notes batch of the open panel: the Toast region's own list is not it. */
 export const noteList = () => screen.queryByRole("list", { name: copy.notes });
 
+/** Opens the Changes view for the selected Agent and reads one file's diff in it (U7186c). */
 export const openFile = async (path = "src/a.ts") => {
-  await waitFor(() => expectRow(path));
-  fireEvent.click(document.querySelector("file-tree-container")!.shadowRoot!.querySelector(`[data-item-path="${path}"]`)!, { composed: true });
-  fireEvent.click(screen.getByRole("button", { name: "View diff" }));
+  fireEvent.click(await screen.findByRole("button", { name: new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }));
   await screen.findByRole("button", { name: "Add note" });
-};
-
-const expectRow = (path: string) => {
-  if (!document.querySelector("file-tree-container")?.shadowRoot?.querySelector(`[data-item-path="${path}"]`)) throw new Error("file row not ready");
 };
 
 export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
   const mounted = await mountControl(undefined, project, drafts);
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
-  fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
+  mounted.connected.showView("changes");
   await openFile();
 
   return mounted;

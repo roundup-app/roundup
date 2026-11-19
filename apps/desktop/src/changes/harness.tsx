@@ -6,6 +6,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, NOW } from "../testing/nodes";
 import { ToastHost } from "../testing/toastHost";
+import { ChangesView } from "./ChangesView";
 import { WorktreeControl } from "./WorktreeControl";
 
 export const WORKTREE = { path: "/p/.roundup/a", branch: "roundup/a", base: "main" };
@@ -27,6 +28,7 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("plain", "working", "building")];
   app.handlers["agent.worktreeState"] = () => STATE;
   app.handlers["agent.changedFiles"] = () => changed();
+  app.handlers["agent.ownedChanges"] = async () => ({ groups: [{ repo: WORKTREE.path, branch: WORKTREE.branch, base: WORKTREE.base, files: (await changed()).files }] });
 
   const connected = await connectProject(app, { name: "p", path: project }, () => false, () => NOW, () => null, undefined, drafts);
 
@@ -39,6 +41,7 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
       <ToastHost>
         <ConnectedProjectContext value={connected}>
           <WorktreeControl />
+          <ChangesView />
         </ConnectedProjectContext>
       </ToastHost>
     );
