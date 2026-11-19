@@ -31,7 +31,7 @@ it; restart starts no Agent and writes no Terminal input.
 Reconciliation repairs the legacy closed receiver whose revision and closed revision are
 both `i64::MAX` only when the current Rail shows the same Attempt with a surviving Terminal,
 not an ended or retired receiver. Pending sentinel bindings become finite; delivered and
-dropped records stay final. Actual endings still apply B9 and refuse new sends.
+dropped records stay final. Actual endings still apply B9 and refuse new sends; Kind `done` is no ending (AP2).
 
 This corrects the Rust projection of M6 (conservation), M7 (actual ending), M9 (replay)
 and M10 (eligible-idle progress). Unknown Status projects to a busy live receiver,
@@ -88,7 +88,7 @@ For the current Attempt, a running Terminal at `idle` or at `error` after
 `StopFailure` is delivery-ready. Kind `error` alone is not evidence of ending.
 The Attempt identity and authoritative ending facts must be checked before
 projecting Status into model events; a Status observation cannot revive an ended
-Attempt. B9 still applies to `done`, an ended Attempt or receiver removal.
+Attempt. B9 applies to an ended Attempt or receiver removal; Kind `done` does not end the receiver (AP2): its Messages stay pending for its next turn.
 
 | Current receiver fact or action | Existing model interpretation |
 |---|---|
@@ -96,7 +96,7 @@ Attempt. B9 still applies to `done`, an ended Attempt or receiver removal.
 | New Message while already delivery-ready | `Send` with the current Route and sender; the ready state permits delivery immediately. |
 | Route `auto` or `drop` | `Send` makes the Message pending or drops it respectively; readiness bypasses neither Route. `UserDrop` drops a `pending` Message the user sent that has no in-flight record: it leaves the queue as `dropped` (reason `removed`) and nothing is typed (U3782). |
 | Current Attempt is not ready, or typing is refused as `Busy` | `Busy`: no Type effect; keep the batch pending. Rust undoes its pre-typing delivery record on refusal; the model's atomic record-and-Type step represents only accepted typing. A newer readiness revision supplies `Idle` again, including when its handler ran before the Busy completion: Rust re-reads authoritative readiness after rollback and retries only at a strictly newer revision of the same Attempt. An unchanged revision does not retry. |
-| Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `ReceiverExit`: drop pending Messages as receiver-gone in id order and refuse later sends. A later `Idle` cannot clear `gone`. Exception (DCL8): a Door still on the Rail ends only its Attempt; see below. |
+| Current Attempt actually ends, even with last Kind `error`; or receiver is removed (Kind `done` is no `ReceiverExit`, AP2) | `ReceiverExit`: drop pending Messages as receiver-gone in id order and refuse later sends. A later `Idle` cannot clear `gone`. Exception (DCL8): a Door still on the Rail ends only its Attempt; see below. |
 | Observation belongs to an older Attempt or a stale Status revision | No model event for the current receiver: neither `Idle` nor `ReceiverExit`. An older `StopFailure` cannot reopen an exited receiver or close a resumed Attempt. |
 
 A resumed Attempt has a new receiver generation; its predecessor's final Messages

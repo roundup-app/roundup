@@ -41,7 +41,7 @@ use contracts::message::{
     SetRouteParams,
 };
 use contracts::{Actor, ActorKind, EventData, Kind, Verb};
-pub use delivery::ended;
+pub use delivery::{closes, ended};
 #[cfg(test)]
 use delivery::on_status;
 use delivery::{
