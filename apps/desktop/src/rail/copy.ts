@@ -28,7 +28,6 @@ export const copy = {
   expandRail: "Expand the Rail",
   openUnreachable: () => sharedCopy.openDraft,
   retryUnreachable: () => sharedCopy.retryDoor,
-  startedBy: (agent: string, project: string) => `started by ${agent} (${project})`,
   create: sharedCopy.create,
   alerts: sharedCopy.alerts,
   alertLevels: { all: sharedCopy.allAlerts, default: sharedCopy.defaultChoice, quiet: "Quiet" },

@@ -41,6 +41,7 @@ import { usePadList } from "./padList";
 import type { PadMark } from "./padRead";
 import { createFolds, type FoldedPads } from "./padFolds";
 import { FoldContent } from "../ui/FoldRow";
+import { createRowReveal } from "../ui/rowReveal";
 import type { PadList } from "./padList";
 
 /** The Pad name a retention failure keeps: Copy it, or discard it. */
@@ -425,9 +426,11 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; mark: PadMark
   })));
 
   const nameCut = createCutTitle(() => pad.name);
+  const reveal = createRowReveal(() => props.isSelected(pad.incarnation));
 
   return (
           <ShelfRow
+            {...reveal}
             ref={props.parts?.ref}
             data-pad={pad.name}
             onClick={event => {
