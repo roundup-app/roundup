@@ -30,6 +30,7 @@ const drawing = '```excalidraw\n{"type":"excalidraw","version":2,"elements":[{"t
 describe("u148, u149 the open Drawer renders stored blocks", () => {
   it("u149_a_stored_drawing_renders_in_the_open_drawer", async () => {
     useRenderers({
+      ...bundledRenderers,
       mermaid: async () => ({ initialize: () => undefined, parse: async () => undefined, render: async () => ({ svg: "<svg></svg>" }) }),
       canvas: async () => ({
         Excalidraw: () => createElement("div", { "data-testid": "canvas" }),

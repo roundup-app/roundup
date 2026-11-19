@@ -50,6 +50,7 @@
     "@xterm/addon-webgl": "0.20.0-beta.331",
     "@xterm/xterm": "6.1.0-beta.338",
     "diff": "^9.0.0",
+    "elkjs": "0.9.3",
     "flatted": "3.4.4",
     "fuzzysort": "4.0.2",
     "marked": "16.4.2",
@@ -66,6 +67,7 @@
     "tinykeys": "^4.0.1",
     "tldts": "^7.4.16",
     "valibot": "^1.5.0",
+    "xstate": "5.33.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {

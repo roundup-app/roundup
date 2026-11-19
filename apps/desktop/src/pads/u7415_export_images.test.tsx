@@ -14,6 +14,7 @@ const drawing = '```excalidraw\n{"type":"excalidraw","version":2,"elements":[]}\
 
 const exportCall = async (text: string, requested: string[] = []) => {
   useRenderers({
+    ...bundledRenderers,
     mermaid: async () => {
       requested.push("mermaid");
 
