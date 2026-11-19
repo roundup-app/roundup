@@ -188,15 +188,15 @@ export const RailRowView = (props: {
   const cutName = createCutTitle(() => props.row.node.name);
 
   const isGroup = () => props.row.node.kind === "group";
-  const isContainer = () => workstream() || isGroup();
-  // U4547a: a Mode folds the Agents it started, as a Workstream folds its own.
+  // U4547a, U7594a: a Mode folds the Agents it started, as a Workstream folds its own.
   const folds = () => workstream() || isMode(props.row.node) && props.branch;
+  const isContainer = () => workstream() || isGroup();
 
   // U3800d: each derived value is a memo, so a move that changes none of them runs nothing below it.
-  const kind = createMemo((): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null));
+  const kind = createMemo((): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), props.row.collapsed !== null));
 
   /** DCL1, U6249d: the first Agent, the row's own, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. An open Workstream adds nothing: its child's own row shows the line. */
-  const unreachable = () => [props.row.node, ...(isContainer() && props.row.collapsed ? descendantsOf(props.topology, props.row.node.id) : [])].filter(isDoor).find(node => node.unreachable);
+  const unreachable = () => [props.row.node, ...(props.row.collapsed ? descendantsOf(props.topology, props.row.node.id) : [])].filter(isDoor).find(node => node.unreachable);
 
   const waiting = () => props.row.node.kind === "workstream" ? props.row.node.waiting : undefined;
   const door = () => isDoor(props.row.node) ? props.row.node : undefined;
@@ -279,7 +279,7 @@ export const RailRowView = (props: {
     handler(event as FocusEvent & { currentTarget: HTMLElement; target: Element });
   };
 
-  const unread = createMemo(() => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null));
+  const unread = createMemo(() => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), props.row.collapsed !== null));
   const level = createMemo(() => alertLevel(props.topology, props.row.node));
   const multiple = createMemo(() => props.multiple);
   const tabbable = createMemo(() => props.tabbable);

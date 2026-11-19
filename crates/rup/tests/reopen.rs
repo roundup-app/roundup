@@ -242,12 +242,18 @@ async fn u4547e_reparenting_survives_reopen() {
                 .unwrap()
                 .success()
         );
-        let status = daemon::next(&mut events, |data| match data {
-            EventData::AgentStatus(status) if status.id == id => Some(status.status),
-            _ => None,
-        })
-        .await;
-        assert_eq!(status.kind, Kind::NeedsYou);
+        // A reattached Agent starts `working` and reads its program's title in its own time
+        // (A12a), so an `idle` may still come first; the hook's `needs-you` must follow.
+        project
+            .next_named("the hook's needs-you", &mut events, |data| match data {
+                EventData::AgentStatus(status)
+                    if status.id == id && status.status.kind == Kind::NeedsYou =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
     assert_eq!(
         std::fs::read_to_string(launches).unwrap().lines().count(),

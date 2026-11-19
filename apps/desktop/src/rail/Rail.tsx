@@ -787,7 +787,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
                           todos={todoCount(view().node.id)} selected={isSelected(view().node.id)}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorRetryable(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id) ? "true" : "false"} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
-                          rootDivider={branches().has(view().node.id) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
+                          rootDivider={view().depth === 0 && branches().has(view().node.id) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             copied.set(id, feedback);
 
