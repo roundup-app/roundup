@@ -527,11 +527,11 @@ li[aria-selected="true"] svg {
   overflow: hidden;
   text-align: center;
   font-size: var(--text-small);
-  background: var(--surface);
+  background: var(--gray-3);
 }
 
 .statechart-box.is-lit {
-  background: linear-gradient(var(--selected), var(--selected)), var(--surface);
+  background: linear-gradient(var(--selected), var(--selected)), var(--gray-3);
 }
 
 .statechart-box.is-red {
