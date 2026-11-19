@@ -37,7 +37,7 @@ export const showsFailure = (error: Error): boolean =>
 
 /** U5991a: draws the row, calls the Daemon, reads the tree back and lifts the row; a refusal comes back unshown for a caller that settles its own draft. A non-Error rethrows. */
 const applyCommand = async <R>(
-  rail: RailState,
+  rail: Pick<RailState, "refresh" | "commandFailure">,
   command: RailCommand<R>,
 ): Promise<Applied<R>> => {
   const lift = command.draw?.();
@@ -59,7 +59,7 @@ const applyCommand = async <R>(
 
 /** U5172a, U5991a: the one place a Rail command draws its row, calls the Daemon, reads the tree back, then clears or shows its failure. */
 export const railCommand = async <R>(
-  rail: RailState,
+  rail: Pick<RailState, "refresh" | "commandFailure">,
   command: RailCommand<R>,
 ): Promise<Applied<R>> => {
   const outcome = await applyCommand(rail, command);

@@ -4,6 +4,7 @@ import { copy } from "../continuation/copy";
 import { outcomeOf, RpcError } from "./seam";
 import { changeFailureOf, unknownOutcomeLine } from "./failureOf";
 import { railCommand } from "../rail/railCommands";
+import { createItemFailure } from "../state/itemFailure";
 import type { RailState } from "../state/rail";
 import { clipboardFailure, readPaste } from "./clipboard";
 import { pasteEvent, imageFile } from "../testing/clipboard";
@@ -58,8 +59,17 @@ it("u7498c_unknown_outcome_yields_unknown_copy_and_no_retry", async () => {
   const unknown = codes.filter(({ code }) => outcomeOf(new RpcError(code, "thrown message")) === "unknown");
   const failed = codes.find(({ code }) => outcomeOf(new RpcError(code, "refused")) === "failed");
   const shown: unknown[][] = [];
-  // SAFETY: `railCommand` reads only `refresh` and `commandFailure`, both given here.
-  const rail = { refresh: async () => undefined, commandFailure: { acknowledge: () => undefined, show: (...args: unknown[]) => { shown.push(args); } } } as unknown as RailState;
+  const failure = createItemFailure(() => true);
+
+  const rail: Pick<RailState, "refresh" | "commandFailure"> = {
+    refresh: async () => undefined,
+    commandFailure: { ...failure, show: (...args: Parameters<typeof failure.show>) => { 
+      shown.push(args);
+
+      return failure.show(...args);
+    } },
+  };
+
   const retry = () => undefined;
 
   expect(unknown.length).toBeGreaterThan(0);
