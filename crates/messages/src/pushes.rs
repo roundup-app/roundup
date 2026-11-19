@@ -432,6 +432,29 @@ async fn push_locked(
     ledger.persist(inner, Some((meta, subagent)));
 }
 
+/// B34: an attention note sent at once is the newest word of its child, so the entries of that
+/// child still waiting for `door` are older than it. They leave the ledger here and the note
+/// carries their weight (B22(c)); left waiting, a later rollup would take a higher id and give the
+/// note's text way to a state the child has left.
+pub(crate) async fn take_waiting(inner: &Arc<Inner>, door: &str, name: &str) -> u32 {
+    let mut ledger = inner.pushes.lock().await;
+    let Some(slot) = ledger.metas.get_mut(door) else {
+        return 0;
+    };
+    let mut taken = 0;
+    slot.waiting.retain(|(_, entry, weight)| {
+        let older = entry.name == name;
+        if older {
+            taken += weight;
+        }
+        !older
+    });
+    if taken > 0 {
+        ledger.persist(inner, None);
+    }
+    taken
+}
+
 /// DTC2: a Door is about to take Messages, so the quiet entries waiting for it go out with them, as
 /// one rollup (B22) in the same inbox write. A busy ledger is a push in progress that sends its own.
 pub(crate) fn release_quiet<'a>(

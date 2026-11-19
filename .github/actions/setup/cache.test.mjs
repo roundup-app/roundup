@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -139,4 +139,44 @@ test('ci4018_other_paths_retain_cache_selection_and_save_rules', async () => {
       assert.equal(actual.inputs['save-if'], save);
     }
   }
+});
+
+test('test_ci7615a_tracer_packages_retry_a_failed_apt_call', async () => {
+  const step = parse(readFileSync(new URL('./action.yml', import.meta.url), 'utf8')).runs.steps.find(s => s.name === 'Start tracer packages');
+  assert.match(step.run, /Acquire::Retries=3/);
+  assert.match(step.run, /for attempt in 1 2 3 4/);
+  assert.match(step.run, /timeout 180/);
+  assert.match(step.run, /Dir::Cache::archives=\$1/);
+
+  const run = async failures => {
+    const dir = mkdtempSync(join(tmpdir(), 'ci7615a-'));
+    const bin = join(dir, 'bin');
+    execFileSync('mkdir', [bin]);
+    writeFileSync(join(bin, 'sudo'), '#!/bin/bash\nexec "$@"\n', { mode: 0o755 });
+    writeFileSync(join(bin, 'setsid'), '#!/bin/bash\nexec "$@"\n', { mode: 0o755 });
+    writeFileSync(join(bin, 'apt-get'), `#!/bin/bash
+[ "$1" = update ] && exit 0
+n=$(cat "$RUNNER_TEMP/calls" 2>/dev/null || echo 0); echo $((n+1)) >"$RUNNER_TEMP/calls"
+[ "$n" -lt ${failures} ] && { echo "E: 503 Service Unavailable" >&2; exit 100; }
+exit 0
+`, { mode: 0o755 });
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, HOME: dir, RUNNER_TEMP: dir };
+
+    try {
+      execFileSync('bash', ['-c', step.run], { env });
+      const status = join(dir, 'tracer.status');
+
+      for (let i = 0; i < 100 && !(existsSync(status) && readFileSync(status, 'utf8').trim()); i++) await new Promise(r => setTimeout(r, 50));
+
+      return [readFileSync(status, 'utf8').trim(), readFileSync(join(dir, 'calls'), 'utf8').trim(), readFileSync(join(dir, 'tracer.log'), 'utf8')];
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  assert.deepEqual((await run(1)).slice(0, 2), ['0', '2']);
+  const [status, calls, log] = await run(99);
+  assert.notEqual(status, '0');
+  assert.equal(calls, '4');
+  assert.match(log, /503/);
 });

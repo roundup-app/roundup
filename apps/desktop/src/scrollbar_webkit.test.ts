@@ -160,7 +160,8 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void>; areas: stri
     areas: [".settings-content"],
   },
   {
-    query: "/src/changes/u2540.html?dense",
+    // The plain page: `?dense` gives the row a 10,000-line rewrite to count on the main thread, which outlasts the click's 30 s wait in WebKit; `prepare` adds the overflow.
+    query: "/src/changes/u2540.html",
     open: async (page) => {
       // The page answers the diff reads only; the Rail's icon needs the owned-changes read, so give it one and nudge the Agent's status to refresh it.
       await page.evaluate(() => {
