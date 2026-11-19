@@ -194,7 +194,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
           { id: "add-pad", label: copy.pad, enabled: daemonExit() === null, run: () => connected.createIn("pad", node.id) },
           { id: "add-terminal", label: copy.addTerminalMenu, enabled: daemonExit() === null, run: () => connected.createIn("terminal", node.id) },
         ] },
-        { when: actions.kind === "workstream" && rail.exitOf(node) !== null && !connected.queue.entryOf(node.id), id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.launching(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } },
+        { when: actions.kind === "workstream" && rail.exitOf(node) !== null && !connected.queue.entryOf(node.id), id: "start", label: rail.doorRetryable(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.launching(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } },
       ]);
     },
     feedback: id => copied.get(id),
@@ -786,7 +786,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
                           topology={below()}
                           todos={todoCount(view().node.id)} selected={isSelected(view().node.id)}
                           actions={actionsOf(view().node)}
-                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id) ? "true" : "false"} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorRetryable(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id) ? "true" : "false"} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={branches().has(view().node.id) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             copied.set(id, feedback);

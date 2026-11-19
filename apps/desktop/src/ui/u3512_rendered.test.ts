@@ -39,7 +39,7 @@ it("u3512b_shared_dialog_keeps_focus_and_drafts", async () => {
   await lane.until("document.querySelector('.new-workstream').contains(document.activeElement)");
   expect(await lane.evaluate<string>(`document.querySelector('${field}').value`)).toBe("  exact 雪 é  ");
   await record("new-workstream");
-  await lane.evaluate("window.__fake.app.handlers['todo.startWorkstream'] = () => { throw new Error('The name was refused. Try another name.'); }");
+  await lane.evaluate("window.__fake.app.handlers['todo.startWorkstream'] = () => { throw window.__fake.refusal(-32003, 'The name was refused. Try another name.'); }");
   await lane.browser("click", '.new-workstream button[type="submit"]');
   await lane.until("!!document.querySelector('.new-workstream [role=alert]')");
   await record("new-workstream-failure");

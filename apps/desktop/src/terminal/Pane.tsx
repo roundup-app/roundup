@@ -33,7 +33,7 @@ import { doorTerminalId } from "../state/doorNode";
 import { centreState } from "./centreState";
 
 
-type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; recovery: Recovery };
+type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; notice?: boolean; recovery: Recovery };
 
 /** The one failure the pane shows, with what the user can do about it: each kind states its own dismissal and retry. */
 const paneNotice = ({ given, retry, rail, screens, terminal }: {
@@ -52,7 +52,7 @@ const paneNotice = ({ given, retry, rail, screens, terminal }: {
   if (command !== null) {
     const again = rail.commandFailure.retry();
 
-    return { kind: "command", message: command, recovery: { dismiss: rail.commandFailure.clear, recover: again ? { run: again } : undefined } };
+    return { kind: "command", message: command, notice: rail.commandFailure.notice(), recovery: { dismiss: rail.commandFailure.clear, recover: again ? { run: again } : undefined } };
   }
 
   const shown = terminal !== null && screens.viewedInBubble(terminal) ? null : screens.failure(terminal);
@@ -101,7 +101,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const doorState = createMemo(() => {
     const workstream = selected();
 
-    return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.launching(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
+    return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.launching(workstream.id), rail.doorFailure(workstream.id) !== null, rail.doorFailure(workstream.id) !== null && !rail.doorRetryable(workstream.id)) : null;
   });
 
   const terminalId = createMemo(() => doorTerminalId(selected()));
@@ -115,7 +115,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const notice = createMemo(() => paneNotice({ given: givenNotice, retry: props.retryNotice, rail, screens, terminal: terminalId() }));
 
   // U7314b: the pane's failure shows as a toast, so the Terminal keeps its size and place.
-  createMessageToast({ get message() { return notice()?.message; }, dismiss: () => notice()?.recovery.dismiss?.(), get recover() { return notice()?.recovery.recover; } });
+  createMessageToast({ get message() { return notice()?.message; }, dismiss: () => notice()?.recovery.dismiss?.(), get recover() { return notice()?.recovery.recover; }, get notice() { return notice()?.kind === "command" && notice()?.notice === true; } });
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   const [preparing, setPreparing] = createSignal(false);
@@ -316,7 +316,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
           {(state) => (
             <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<BusyButton kind="primary" class="word pane-action" busy={rail.launching(selected()!.id)} disabled={connected.daemonExit() !== null} busyLabel={copy.starting} onClick={() => rail.startDoor(selected()!.id)}>
                 <Icon name="play" />
-                {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
+                {rail.doorRetryable(selected()!.id) ? copy.retry : copy.start}
               </BusyButton>} />
             </div>
           )}

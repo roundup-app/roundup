@@ -299,7 +299,7 @@ it("u7210c_send_closes_the_dialog_and_the_notification_opens_the_issue", async (
 
 it("u7210c_a_failed_send_keeps_the_dialog_with_the_error_and_the_text", async () => {
   const { answer, sends, toasts } = await mount();
-  const failure = new RpcError(-32603, "gh: HTTP 401: Bad credentials");
+  const failure = new RpcError(-32002, "gh: HTTP 401: Bad credentials");
 
   answer(async () => {
     throw failure;
