@@ -40,10 +40,12 @@ export const showScrollbars = (element: HTMLElement): void => {
   idle.set(element, { timer: setTimeout(hide, IDLE_MS), until });
 };
 
-/** Z3742a: OverlayScrollbars 2.17 requires per-element initialization and cannot
- * host a native textarea thumb (zero height). External slots have no positioning
- * or ancestor clipping API. Retain discovery/placement for those native hosts;
- * the library owns visibility, drag, geometry and its idle delay. See #3742/#4094. */
+/** Z3742a/U7543b: the library's own in-host structure moves a host's children into wrapper
+ * elements, which breaks Solid-owned children; with the host as its own viewport the bar
+ * lives in the scrolling content and leaves with it. So every host keeps an external slot
+ * beside it in the same scrolling content (an ancestor's scroll carries both), placed from
+ * `getBoundingClientRect` on resize and DOM change. The library owns visibility, drag,
+ * geometry and its idle delay. See #3742/#4094. */
 export const trackScrollbars = (doc: Document): void => {
   const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; width: number; height: number }>();
   const roots = new Map<Document | ShadowRoot, MutationObserver>();
