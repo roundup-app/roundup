@@ -2,7 +2,7 @@
 
 U7517a, U7517b: in both cases the recording shows few frames over 16.7 ms, and no hop of the chain owns one except a single frame of the Claude Code case (claude redraw). Over three recordings, 10 frames over 16.7 ms fall inside the wheel input; 1 is attributed (claude redraw) and 9 are not attributable. None sits in xterm parse or xterm WebGL draw. Each of the 10 is 25 ms (two refreshes) and the case has 848 to 976 presented frames, so 2 to 5 frames in 850 to 980.
 Date: 2026-11-19, one Mac (Mac16,6, Apple M4 Max, macOS 26.0.1, 3024 x 1964 display at 120 Hz, a present every 8.33 ms), screen unlocked. Before each case the Mac's input had been idle for at least 120 s (140, 133 and 126 s), not counting this record's own wheel events.
-Commit: origin/main 511be199c (the #7566 merge). Build: debug `.app` from `tauri build --debug --bundles app` after `pnpm install --frozen-lockfile` and `pnpm -r build`, identifier `dev.roundup.app7517`, product name `roundup7517`, its own `ROUNDUP_DATA_DIR` and herdr-core session, launched under `env -i` with HOME, PATH, USER, LOGNAME, SHELL, LANG and TMPDIR only. The Rust sidecars (rupd, rup, terminal-owner) are debug builds. Renderer: `@xterm/xterm` 6.1.0-beta.338 with `@xterm/addon-webgl` 0.20.0-beta.331, both from `pnpm-lock.yaml`. Nothing was changed, swapped or tuned for the recording.
+Commit: origin/main 511be199c (the #7566 merge). Build: debug `.app` from `tauri build --debug --bundles app` after `pnpm install --frozen-lockfile` and `pnpm -r build`, identifier `dev.roundup.app7517`, product name `roundup7517`, its own `ROUNDUP_DATA_DIR` and herdr-core session, launched under `env -i` with HOME, PATH, USER, LOGNAME, SHELL, LANG and TMPDIR only. The bundle's Rust binaries (roundup, rup, rupd) are debug builds; herdr-core is the installed release binary, not built here. Renderer: `@xterm/xterm` 6.1.0-beta.338 with `@xterm/addon-webgl` 0.20.0-beta.331, both from `pnpm-lock.yaml`. Nothing was changed, swapped or tuned for the recording.
 Input: wheel input, not a trackpad. The cua-driver `scroll` tool posts wheel events (15 notches per call, 0.65 to 1.0 s per call, at one point in the Terminal) to the debug App's window in the background. Trackpad pixel scrolling and momentum were not driven.
 Recorder: `xcrun xctrace record --template 'Animation Hitches' --all-processes --time-limit 12s`, one trace per case run, with Time Profiler samples in the same trace. The first wheel call starts 3.5 to 3.7 s after the recorder, so the 2.6 to 2.9 s before it is a baseline with no input. Each scroll is 6 calls up then calls down (10 calls in case one, 9 in each case-two run), 8.3 to 8.6 s. The limit is 12 s, not the 10 s Loop control's later note asked for: case one was recorded before that note and case two repeated it.
 Case one: a zsh Terminal in the debug App after `seq 1 10000`: 10,000 lines in xterm's own scrollback. One run.
@@ -86,8 +86,8 @@ In all ten gaps a process outside the chain has more CPU than any hop (6 to 102 
 ## What the tables decide (U7517c)
 
 - No frame over 16.7 ms sits in xterm parse or xterm WebGL draw (0 of 10). No renderer A/B Issue follows from this record.
-- The one attributed frame sits in claude redraw (1 of 10). claude redraw is also the largest CPU hop of case two, 2.7 to 3.1 times the next (1727 to 1748 ms against 563 to 652 ms for xterm WebGL draw). By U7517c the next Issue is the fix in that layer. One frame is thin evidence; the CPU share is the stronger one.
-- The Daemon owns no frame. In case one it still used 214 ms of CPU in 8.3 s, 2.6% of a core, with no input for it to serve (U6368's bound is 2% at rest).
+- The one attributed frame sits in claude redraw (1 of 10), in the run with load 49 where claude was runnable and waiting 11 ms; the quiet run has none. claude redraw is also the largest CPU hop of case two in both runs, 2.7 to 3.1 times the next (1727 to 1748 ms against 563 to 652 ms for xterm WebGL draw). By U7517c the next Issue is the fix in that layer. One frame is thin evidence; the CPU share repeats.
+- The Daemon owns no frame. In case one it still used 214 ms of CPU in 8.3 s, 2.6% of a core, with no input for it to serve. U6368's Observer asks the Project's rupd to stay under 2% CPU at rest on the owner's Mac; this debug rupd under an all-processes recorder is not that measurement, so the figure is a lead, not a failure.
 - The measured loss is 2 to 5 frames of 25 ms per scroll, 0.2 to 0.6% of frames. It does not show the stagger the owner reports. Trackpad input, a streaming Agent and a longer scrollback are not covered.
 
 ## Cannot show
@@ -99,7 +99,7 @@ In all ten gaps a process outside the chain has more CPU than any hop (6 to 102 
 - Run 1 of case two counted 1 gap over 100 ms in its window. The export was deleted before gaps over 100 ms were listed, so its position is unknown. Run 2 lists them and has none.
 - The Instruments agent, the input driver and other sessions' work run in the same traces. The load figures are 1-minute averages at two instants, not per frame.
 - Case two scrolled a resumed session at rest. A working Agent that streams output while the user scrolls is not recorded.
-- The debug build's Rust sidecars are slower than release builds.
+- The debug roundup, rup and rupd are slower than release builds.
 
 ## Method notes
 
