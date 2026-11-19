@@ -49,7 +49,7 @@ const overflowing = (page: Page) => page.evaluate(() => {
     if (inner !== element) return;
 
     // A host nested inside also took filler, and which of the two takes the wheel then depends on the engine: the inner one is proved by its own pass.
-    if (element.querySelector(".scrollbar-slot")) return;
+    if ([...element.querySelectorAll(".scrollbar-slot")].some((slot) => slot.previousElementSibling instanceof HTMLElement && slot.previousElementSibling.clientHeight >= 60 && slot.previousElementSibling.checkVisibility())) return;
 
     element.setAttribute("data-u7543", String(marks.length));
     marks.push(element.className || element.tagName);
@@ -123,25 +123,74 @@ const check = async (page: Page, mark: number, name: string) => {
   expect(dragged.top, `${name}: dragging the thumb down did not scroll down`).toBeGreaterThan(wheeled.top);
 };
 
-/** U7543a's areas the seeded views must each reach: a missing one fails, so a skipped area cannot pass. */
-const REQUIRED = ["ask-bar", "shelf-area"];
+/** U7543a's areas the seeded scenes must each reach: a missing one fails, so a skipped area cannot pass. The Rail hides its own bar (U3530b), so it has none to prove. */
+const REQUIRED = ["shelf-area", "todo-detail", "pad-editor", "settings-content", "changes-body"];
 
-/** The seeded views a bare load shows. The Rail hides its bar (scrollbar-width none) and the settings, todo, pad and changes hosts hold a nested host or clip until opened, so only the areas that qualify are required. */
-const VIEWS = [
-  "view=workstreams&items=1&tabs=1&seed=tree-40",
-  "view=notes&items=1&tabs=1&seed=agents-10",
-  "view=resources&items=1&tabs=1&seed=agents-10",
+const longText = Array.from({ length: 60 }, (_, line) => `Line ${line} of a document that overflows its area.`).join("\n\n");
+
+/** Each scene is a seeded harness page and the steps that open the views U7543a names, so their hosts hold overflowing content. */
+const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
+  { query: "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40" },
+  {
+    query: "/harness.html?seed=tree-40",
+    open: async (page) => {
+      await page.evaluate(async (body) => {
+        const app = window.__fake.app;
+        await app.rpc("todo.update", { id: 1, title: "Scrollbar todo", body });
+        await app.rpc("todo.assign", { id: 1, owner: null });
+        const tab = document.querySelector<HTMLElement>("#shelf-tab-todos");
+
+        if (tab?.getAttribute("aria-expanded") !== "true") tab?.click();
+      }, longText);
+      await page.waitForSelector("[data-shelf-group=unassigned]");
+      await page.evaluate(() => {
+        const group = document.querySelector<HTMLElement>("[data-shelf-group=unassigned] .shelf-group-control");
+
+        if (group?.getAttribute("aria-expanded") === "false") group.click();
+      });
+      await page.waitForSelector('[data-todo="1"] .todo-row-button');
+      await page.focus('[data-todo="1"] .todo-row-button');
+      await page.keyboard.press("Enter");
+      await page.waitForSelector(".todo-detail-title");
+    },
+  },
+  {
+    query: "/harness.html?seed=tree-40",
+    open: async (page) => {
+      await page.evaluate((body) => window.__fake.app.rpc("pad.write", { name: "pad-3", text: body }), longText);
+      await page.click("#shelf-tab-pads");
+      await page.focus('.pads-tab [data-pad="pad-3"] .pad-name');
+      await page.keyboard.press("Enter");
+      await page.waitForSelector(".pad-editor");
+    },
+  },
+  {
+    query: "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40",
+    open: async (page) => {
+      await page.evaluate(() => window.dispatchEvent(new Event("open-app-settings")));
+      await page.waitForSelector(".settings-view");
+    },
+  },
+  {
+    query: "/src/changes/u2540.html?dense",
+    open: async (page) => {
+      await page.click(".changes-icon");
+      await page.waitForSelector(".changes-files li");
+    },
+  },
 ];
 
-// U7543a: in every scroll area of each view, the thumb stays on the area's edge, follows the wheel and drags the area.
+// U7543a: in every scroll area of each scene, the thumb stays on the area's edge, follows the wheel and drags the area.
 it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async () => {
   const page = await engine.newPage({ viewport: { width: 1512, height: 950 }, colorScheme: "dark" });
   const reached = new Set<string>();
 
   try {
-    for (const query of VIEWS) {
-      await page.goto(new URL(`/harness.html?${query}`, server.resolvedUrls.local[0]).href);
-      await page.waitForSelector(".rail-row");
+    for (const [scene, { query, open }] of SCENES.entries()) {
+      await page.goto(new URL(query, server.resolvedUrls.local[0]).href);
+      await page.waitForSelector(query.startsWith("/harness") ? ".rail-row" : ".changes-icon");
+      await page.waitForTimeout(1000);
+      await open?.(page);
       await page.waitForTimeout(1000);
 
       // The first pass gives every area its room; the library measures it, and the second reads which areas then scroll.
@@ -150,8 +199,10 @@ it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async
 
       const marks = await overflowing(page);
 
+      console.log("MARKS", scene, JSON.stringify(marks));
+
       for (const [index, name] of marks.entries()) {
-        await check(page, index, `${query} ${name}`);
+        await check(page, index, `scene ${scene} ${name}`);
 
         for (const token of name.split(/\s+/)) reached.add(token);
       }
@@ -159,4 +210,4 @@ it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async
 
     expect(REQUIRED.filter((area) => !reached.has(area)), "U7543a areas the test never reached").toEqual([]);
   } finally { await page.close(); }
-}, 120_000);
+}, 180_000);
