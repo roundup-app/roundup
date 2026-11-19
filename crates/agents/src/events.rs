@@ -17,6 +17,7 @@ impl Observation {
             Self::Finished(_) => "finished",
             Self::Failed(_) => "failed",
             Self::Resumed(_) => "resumed",
+            Self::Restored(_) => "restored",
             Self::Judged { .. } => "stop judged",
             Self::Delivered => "message delivery",
             Self::Interrupted => "interrupt",
@@ -525,6 +526,7 @@ impl Shared {
         actor: &Actor,
         status: Status,
     ) -> Result<(), RpcError> {
+        self.save_status(id, run.attempt(), &status)?;
         // U6248b: the raw Status moves the resume table before it is announced.
         let resume_moved = resume_wait::fold(&mut agent_facts.resume, &status, (self.clock)());
         let status = waiting_on(&status, agent_facts.wait);

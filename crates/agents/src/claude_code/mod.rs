@@ -672,6 +672,13 @@ impl ClaudeCode {
                 self.resume_background(kept);
                 None
             }
+            Observation::Restored(status) => {
+                self.status = Some(Status {
+                    finished: self.finished.to_string(),
+                    ..status
+                });
+                None
+            }
         };
         (status, completion_changed)
     }
