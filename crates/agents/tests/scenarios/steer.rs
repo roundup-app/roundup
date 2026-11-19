@@ -386,6 +386,7 @@ async fn ap5_an_agent_may_call_each_user_setting() {
     )
     .await
     .unwrap();
+    f.call("agent.stop", json!({"id": owner.id})).await.unwrap();
     let door = call("agent.makeWorkstream", json!({"id": owner.id}))
         .await
         .unwrap();
