@@ -128,7 +128,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
       <nav class="walk-outline" aria-label={copy.walkOutline}>
         <Show when={folded()} fallback={<><h2 class="walk-name">{props.name}</h2>{outline()}</>}>
           <Collapsible.Root open={listOpen()} onOpenChange={open => setListOpen(open)}>
-            <Collapsible.Trigger data-button="quiet" class="walk-fold">{copy.walkStep} {copy.walkCount(index() + 1, steps.length)} · {stepAt(index()).title}</Collapsible.Trigger>
+            <Collapsible.Trigger data-button="quiet" class="walk-fold">{copy.walkFolded(index() + 1, steps.length, stepAt(index()).title)}</Collapsible.Trigger>
             <Collapsible.Content>{outline()}</Collapsible.Content>
           </Collapsible.Root>
         </Show>

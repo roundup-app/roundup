@@ -453,7 +453,7 @@ li[aria-selected="true"] svg {
 .walk-name {
   margin: 0 0 var(--space-3);
   color: var(--grey);
-  font-size: var(--text-small, inherit);
+  font-size: var(--text-small);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
