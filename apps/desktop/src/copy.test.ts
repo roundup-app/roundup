@@ -95,6 +95,8 @@ const STRUCTURE = new Set([
   "layer",
   // U3794: tool names the Agent runtime sends and a selector for text fields are executable structure, not prose.
   "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
+  // ELK layout option values for the statechart Pad, never shown.
+  "DOWN", "POLYLINE",
   // U3517a: a console-only font fallback diagnostic, never rendered by the App.
   "Terminal font unavailable; using the fallback face",
   // U2749b: a development/test invariant, never App copy.
