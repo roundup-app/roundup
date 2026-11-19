@@ -17,14 +17,14 @@ export const load = async (query = "") => {
   );
 };
 
-export const app = async (base = false, mac = false, items = true) => {
+export const app = async (base = false, mac = false, items = true, renderer = "dom") => {
   const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
 
   const views = `tabs=1${process.env.ROUNDUP_CAPTURES ? "&view=workstreams" : ""}${items ? "&items=1" : ""}`;
 
   await batch(
     ["eval", "localStorage.clear()"],
-    ["open", url(mac ? `/src/terminal/u514.html?app&mac&seed=${seed}&renderer=dom&${views}` : `/harness.html?rest=1&seed=${seed}&renderer=dom&${views}`, base)],
+    ["open", url(mac ? `/src/terminal/u514.html?app&mac&seed=${seed}&renderer=${renderer}&${views}` : `/harness.html?rest=1&seed=${seed}&renderer=${renderer}&${views}`, base)],
     ["wait", "--fn", items ? "!!document.querySelector('.shelf-tabs')" : "!!document.querySelector('.rail-row') && !!document.querySelector('.terminal-new')"]
   );
 };
@@ -74,8 +74,8 @@ export const doubleAt = async (at: { x: number; y: number }) => {
   await wait("window.__doubleClicked === true");
 };
 
-export const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false, text = "alpha bravo charlie ".repeat(256), items = false) => {
-  await app(false, mac, items || !!process.env.ROUNDUP_CAPTURES);
+export const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false, text = "alpha bravo charlie ".repeat(256), items = false, renderer = "dom") => {
+  await app(false, mac, items || !!process.env.ROUNDUP_CAPTURES, renderer);
 
   if (where === "bubble" || where === "user") {
     if (where === "bubble") await selectRow("payments");

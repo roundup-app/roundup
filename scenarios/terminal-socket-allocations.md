@@ -80,12 +80,11 @@ a parser/serializer, or replace dispatch with a test-only successful decoder.
 Use the existing in-memory Terminal input support or a private frame/dispatch
 seam within ownership; no real PTY, child program or public RPC is added.
 
-**R5638d refusals precede write effects.** Given a caller resolved as an Agent
-while its connection claims user, when a write targets a Terminal outside that
-Agent's authority, then the existing forbidden result wins even if `data` is
-invalid base64, and no write effect occurs. Planned
-`r5638d_resolved_agent_cannot_write_as_user` asserts the effective actor, refusal
-code and zero input writes through production dispatch. Given an authorized
+**R5638d the resolved actor judges the write; refusals precede write effects.** Given a caller resolved as an Agent
+while its connection claims user, when it writes to a Terminal (AP4: an Agent has
+no Reach limit), then the write runs as that Agent, not as the user. Planned
+`r5638d_resolved_agent_writes_as_that_agent` asserts the effective actor, no
+error and one input write through production dispatch. Given an authorized
 caller, when params are absent, null, not an object, missing `id`/`data`, have a
 wrong field type, or have invalid base64, then dispatch returns `INVALID_PARAMS`
 and performs zero input writes; planned `r5638d_malformed_write_has_no_effect`

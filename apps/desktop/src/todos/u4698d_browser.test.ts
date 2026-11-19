@@ -95,19 +95,6 @@ it.each([[1512, 950, "menus"], [1280, 820, "menus"], [1512, 950, "document"], [1
       writeFileSync(join(output, `done-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
     }
 
-    await browser("click", '.drawer [aria-label="Restore"]');
-    await settle();
-
-    if (output) {
-    
-      await settle();
-      await browser("screenshot", join(output, `minimised-${width}.png`));
-      writeFileSync(join(output, `minimised-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
-    }
-
-    await browser("click", '.drawer [aria-label="Maximise"]');
-    await settle();
-
     await evaluate("window.__fake.app.rpc('todo.reopen', { id: 1 }); true");
     await browser("wait", '.drawer input[type="checkbox"]:not(:checked)');
   }

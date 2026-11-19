@@ -125,10 +125,6 @@ pub(super) fn d8_daemon_work(pid: u32) -> (u64, u64) {
     (threads, ticks)
 }
 
-pub(super) fn m14_code(result: Result<Value, rpc::RpcError>) -> i64 {
-    result.unwrap_err().code
-}
-
 #[tokio::test]
 pub(super) async fn m14_route_set_is_a_touch_by_the_agent() {
     let project = start(&[]);

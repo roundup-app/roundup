@@ -101,7 +101,7 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
         await capture(`${failed}-${expanded ? 'open' : 'closed'}-draft`);
         expect(await evaluate("document.querySelector('.todo-comment-field').value.startsWith('Unsent release notes')")).toBe(true);
         await browser("click", ".drawer .close");
-        await browser("wait", '.drawer[data-mounted="false"]');
+        await browser("wait", "--fn", "document.querySelector('.drawer')?.dataset.mounted === 'false'");
       }
     }
   } finally {

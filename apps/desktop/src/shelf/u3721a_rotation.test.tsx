@@ -4,8 +4,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
-import { RequestedApp } from "../testing/requestedApp";
-import { showEverythingInApp } from "../testing/showEverything";
 
 afterEach(async () => {
   cleanup();
@@ -74,22 +72,5 @@ describe("U3721a", () => {
 
     fireEvent.keyDown(tab, { key: "Escape" });
     await waitFor(() => expect(size()).toBe("closed"));
-  });
-
-  it("u3721a_the_leader_b_opens_the_focused_row_then_maximises_it_then_closes", async () => {
-    const { app } = seedApp("tree-40", 0);
-    const tree = await app.handlers["rail.tree"]?.(null) ?? [];
-
-    app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend");
-    render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-    await showEverythingInApp();
-    await waitFor(() => expect(document.querySelector(".shelf .todo-row-button[aria-pressed]")).not.toBeNull());
-    // SAFETY: the waitFor above found this row.
-    const row = document.querySelector<HTMLButtonElement>(".shelf .todo-row-button[aria-pressed]") as HTMLButtonElement;
-
-    row.focus();
-    leaderKey("KeyB", {}, row);
-    await waitFor(() => expect(size()).toBe("item"));
-    await steps(["full", "closed"]);
   });
 });

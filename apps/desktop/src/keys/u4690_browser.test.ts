@@ -176,7 +176,7 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
   }
 }, 60_000);
 
-it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
+it.each(["agent", "bubble", "pad-filled"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40", origin).href);
@@ -191,11 +191,6 @@ it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_sou
     await read(`document.querySelector('.shelf .pad-name').focus()`);
     await browser("press", "Enter");
     await wait(`!!document.querySelector('.pad-body button') && !!document.querySelector('.drawer .ProseMirror')`);
-
-    if (place === "pad-side") {
-      await browser("click", '.drawer button[aria-label="Restore"]');
-      await wait(`document.querySelector('.drawer').dataset.maximised === 'false'`);
-    }
 
     await read(`window.__padEditor = document.querySelector('.drawer .ProseMirror'); window.__padDraft = window.__padEditor.textContent`);
     await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);

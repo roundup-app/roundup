@@ -132,7 +132,9 @@ export const copy = {
   dontAskAgain: sharedCopy.dontAskAgain,
   resetWarnings: "Reset warnings",
   /** U7489c */
-  showIconNamesAgain: "Show icon names again",
+  iconNamesHide: "Hide",
+  iconNamesOnce: "Show once",
+  iconNamesAlways: "Always show",
   iconNamesLabel: "Icon names",
   resetWarningsLabel: "Skipped questions",
   /** @prose */

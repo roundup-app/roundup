@@ -575,16 +575,6 @@ async fn a2741a_only_committed_rpc_name_changes_are_exposed() {
     f.call("rail.rename", json!({"id":target,"name":"by-user"}))
         .await
         .unwrap(); // same name
-    let denied = f
-        .agents
-        .call(
-            &agent,
-            "rail.rename",
-            json!({"id":stranger.id,"name":"forbidden"}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(denied.code, code::FORBIDDEN, "unauthorized Agent");
     let missing = f
         .call("rail.rename", json!({"id":"999999","name":"missing"}))
         .await

@@ -90,7 +90,7 @@ it.each(["dark", "light"])("u7312c_reading_blocks_rendered_%s", { retry: 0, time
   await evaluate("document.querySelector('.todo-comments').scrollIntoView(); true");
   await capture("todo-comment");
   await browser("click", ".drawer .close");
-  await browser("wait", '.drawer[data-mounted="false"]');
+  await browser("wait", "--fn", "document.querySelector('.drawer')?.dataset.mounted === 'false'");
 
   await evaluate("(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
   await browser("wait", ".pads-tab [data-shelf-group]");

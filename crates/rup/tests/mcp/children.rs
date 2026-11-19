@@ -123,44 +123,8 @@ async fn b53_a_show_request_opens_the_terminal_and_reads_nothing() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
+async fn b53_show_of_an_unknown_id_is_not_found_and_absent_for_an_agent() {
     let fx = b53_fixture().await;
-    let cwd = fx.served.dir.path().to_string_lossy().into_owned();
-    let other = fx
-        .user
-        .request(
-            "rail.createWorkstream",
-            json!({"name": "other", "parent": null}),
-        )
-        .await
-        .unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    fx.user
-        .request("rail.startDoor", json!({"id": other}))
-        .await
-        .unwrap();
-    let stranger = fx
-        .user
-        .request(
-            "agent.spawn",
-            json!({"cwd": cwd, "prompt": null, "parent": other}),
-        )
-        .await
-        .unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
-    let foreign = tree
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|node| node["id"] == stranger.as_str())
-        .and_then(|node| node["terminal_id"].as_str())
-        .unwrap()
-        .to_owned();
     let mut events = rpc::Client::connect(&fx.served.socket()).await.unwrap();
     events
         .request("events.subscribe", Value::Null)
@@ -168,7 +132,6 @@ async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
         .unwrap();
     let door = spawn_shim(&fx.served.socket(), &fx.door).await;
 
-    let outside = door.call("terminal_show", json!({"id": foreign})).await;
     let unknown = door.call("terminal_show", json!({"id": "99999"})).await;
     let agent = spawn_shim(&fx.served.socket(), &fx.child).await;
     let offered = agent.client.list_all_tools().await.unwrap();
@@ -180,10 +143,6 @@ async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
         )
         .await;
 
-    assert_eq!(
-        serde_json::from_str::<Value>(&error_text(&outside)).unwrap()["code"],
-        rpc::code::FORBIDDEN
-    );
     assert_eq!(
         serde_json::from_str::<Value>(&error_text(&unknown)).unwrap()["code"],
         rpc::code::NOT_FOUND

@@ -6,8 +6,8 @@ impl Agents {
     /// live Agent restarts once on that conversation so it launches with the Door's Brief and
     /// tools; an exited one converts without a launch. A refusal leaves the node as it was.
     pub(super) async fn make_workstream(&self, ctx: &Ctx, id: &str) -> Result<RailNode, RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user converts an Agent"));
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden("an Extension may not convert an Agent"));
         }
         let _lifecycle = self.shared.door_lifecycle.read().await;
         let live = {
@@ -58,8 +58,8 @@ impl Agents {
         ctx: &Ctx,
         SaveAsModeParams { id, name }: SaveAsModeParams,
     ) -> Result<RailNode, RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user saves a Mode"));
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden("an Extension may not save a Mode"));
         }
         let name = name.trim();
         if name.is_empty() {
@@ -109,8 +109,8 @@ impl Agents {
             prompt,
         }: CreateModeParams,
     ) -> Result<RailNode, RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user creates a Mode"));
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden("an Extension may not create a Mode"));
         }
         let name = name.trim();
         if name.is_empty() || name.chars().count() > crate::name::MAX_CHARS {
@@ -152,8 +152,10 @@ impl Agents {
         ctx: &Ctx,
         ModePromptParams { id, prompt }: ModePromptParams,
     ) -> Result<(), RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user sets a Mode prompt"));
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden(
+                "an Extension may not set a Mode prompt",
+            ));
         }
         let prompt = prompt.as_deref().filter(|text| !text.trim().is_empty());
         if prompt.is_some_and(|text| text.chars().count() > contracts::agent::MODE_PROMPT_MAX) {

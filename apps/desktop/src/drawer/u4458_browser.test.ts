@@ -4,85 +4,6 @@ import { expect, it, vi } from "vitest";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 import type { LaneBrowser } from "../todos/laneBrowser";
-import { shelfBrowser } from "../shelf/u371Browser";
-
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
-
-const output = captureDir("U4458");
-
-const capture = async (name: string) => {
-  if (!output) return;
-  mkdirSync(output, { recursive: true });
-  await browser("screenshot", join(output, `${name}.png`));
-  writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
-};
-
-it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, timeout: 90_000 }, async () => {
-  await openShelf(output ? "tree-40" : "selection", 288, 320, 1280, "dark");
-  await browser("set", "viewport", "1280", "820");
-
-  if (output) {
-    await browser("record", "start", join(output, "pad-toggle.webm"));
-    await browser("wait", ".shelf-tabs");
-  }
-
-  // Recording starts a fresh page; apply the capture scheme to that page too.
-  await browser("set", "media", "dark");
-
-  for (const kind of ["pad", "todo"]) {
-    await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
-
-    if (kind === "todo") await evaluate(`(() => { const group = document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
-    const row = kind === "pad" ? ".shelf .pad-name" : ".shelf .todo-row-button";
-    await browser("wait", row);
-    await browser("batch", "--bail", `focus '${row}'`, "press Enter", `wait '${kind === "pad" ? ".drawer .ProseMirror" : ".drawer .todo-detail-title"}'`);
-    await settle();
-
-    if (kind === "pad") {
-      const before = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
-      await browser("batch", "--bail", "focus '.drawer .ProseMirror'", "press Control+End", "press m");
-      expect(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(before + "m");
-    }
-
-    // U4698a: the item opens filled; one click on the single expand control minimises it and one more fills again.
-    await evaluate("(() => { window.__u4458 = { centre: document.querySelector('.centre'), shelf: document.querySelector('.shelf'), field: document.querySelector('.drawer .ProseMirror, .drawer .todo-detail-title') }; return true; })()");
-    await capture(`${kind}-maximised`);
-    expect(await evaluate("document.querySelectorAll('.drawer button[aria-label=Restore], .drawer button[aria-label=Maximise]').length")).toBe(1);
-
-    await browser("click", '.drawer button[aria-label="Restore"]');
-    await settle();
-    await capture(`${kind}-normal`);
-    await browser("click", '.drawer button[aria-label="Maximise"]');
-    await settle();
-
-    if (output && kind === "pad") await browser("record", "stop");
-    expect(await evaluate(`(() => {
-      const before = window.__u4458;
-      return [document.querySelector('.centre') === before.centre, document.querySelector('.shelf') === before.shelf,
-        document.querySelector('.drawer').dataset.maximised, document.querySelector('.drawer').contains(before.field)];
-    })()`)).toEqual([true, true, "true", true]);
-
-    await browser("focus", '.drawer button[aria-label="Restore"]');
-    await browser("press", "m");
-    await settle();
-    expect(await evaluate("document.querySelector('.drawer').dataset.maximised")).toBe("false");
-    await browser("press", "Escape");
-    await settle();
-    expect(await evaluate("document.querySelector('.drawer').dataset.open")).toBe("false");
-  }
-
-  if (output) {
-    await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
-    await browser("wait", ".shelf .pad-name");
-    await browser("focus", ".shelf .pad-name");
-    await evaluate("window.__fake.app.handlers['pad.read'] = () => { throw new Error('disk is full. Free space and try again.'); }");
-    await browser("press", "Enter");
-    await browser("wait", ".drawer [role=alert]");
-    await settle();
-    await capture("pad-failure");
-  }
-});
-
 
 // Solid 2 reads lag writes until the microtask flush: two clicks in one task would each compute the Tree's next fold set from the same stale set, so the second undoes the first.
 const clickEach = (selector: string) => `(async () => { for (const el of document.querySelectorAll('${selector}')) { el.click(); await Promise.resolve(); } })()`;
@@ -246,8 +167,6 @@ it.concurrent.each(cases)(
       // A title on two lines pushes the editor toolbar down; the Toast stack must still leave Restore and Maximise clear.
       if (kind === "todo") await lane.evaluate("document.querySelector('.drawer .todo-detail-title p[tabindex]').textContent = 'a very long todo title that goes on and on past the width of the shelf column and wraps onto a second line of the Drawer head'");
 
-      // The previous iteration leaves the remembered size filled.
-      if (await lane.evaluate("document.querySelector('.drawer').dataset.fill !== 'true'")) await lane.browser("click", '.drawer button[aria-label=Maximise]');
       await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
 
       if (!shelf) {
@@ -257,16 +176,8 @@ it.concurrent.each(cases)(
 
       await shot(`${shelf}-filled`);
       await cycle(lane, true, shelf);
-      await lane.browser("click", '.drawer button[aria-label=Restore]');
-      await lane.until("!!document.querySelector('.drawer[data-maximised=false]')");
-      await shot(`${shelf}-minimised`);
-      await cycle(lane, false, shelf);
-      expect(await lane.evaluate("window.__cycle.nodes.includes(window.__covered.button)")).toBe(true);
 
       if (background.endsWith("settings")) expect(await lane.evaluate("window.__cycle.nodes.some(el => el.matches('.ask-input'))")).toBe(false);
-      await lane.browser("click", '.drawer button[aria-label=Maximise]');
-      await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
-      await shot(`${shelf}-filled-again`);
       await lane.browser("click", '.drawer button.close');
       await lane.until("!!document.querySelector('.drawer[data-open=false]')");
       await shot(`${shelf}-closed`);

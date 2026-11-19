@@ -43,9 +43,6 @@ it("u5560a_width_choice_lasts_for_the_open_pad", async () => {
   fireEvent.input(editor, { target: { value: "exact unfinished  \ntext" } });
   const text = editor.value;
   app.calls.length = 0;
-  fireEvent.click(screen.getByRole("button", { name: "Restore" }));
-  expect(screen.queryAllByRole("radio")).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
   await waitFor(() => expect(screen.getByRole("radio", { name: "Full" }).getAttribute("aria-checked")).toBe("true"));
   expect(screen.getByRole("textbox", { name: "Pad body" })).toBe(editor.querySelector("[contenteditable]"));
   expect(editor.value).toBe(text);
