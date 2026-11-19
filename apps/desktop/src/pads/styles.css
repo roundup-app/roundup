@@ -447,6 +447,7 @@ li[aria-selected="true"] svg {
 
 .walk[data-folded] .walk-outline {
   border-bottom: var(--hairline-width) solid var(--hairline);
+  padding-inline: var(--reading-gutter);
   padding-bottom: var(--space-2);
 }
 
@@ -464,12 +465,14 @@ li[aria-selected="true"] svg {
   gap: var(--space-1);
 }
 
-.walk-item,
-.walk-fold {
+.walk-outline .walk-item[data-button],
+.walk-outline .walk-item[data-button] *,
+.walk-outline .walk-fold[data-button],
+.walk-outline .walk-fold[data-button] * {
   font-family: var(--font-ui);
 }
 
-.walk-item {
+.walk-outline .walk-item[data-button] {
   display: flex;
   align-items: baseline;
   white-space: normal;
@@ -480,7 +483,7 @@ li[aria-selected="true"] svg {
   color: var(--grey);
 }
 
-.walk-item[aria-current="step"] {
+.walk-outline .walk-item[data-button][aria-current="step"] {
   color: inherit;
   font-weight: 600;
 }
@@ -518,6 +521,14 @@ li[aria-selected="true"] svg {
   box-sizing: border-box;
   width: 100%;
   max-width: var(--pad-reading-width, var(--reading-width));
+  padding-inline: var(--reading-gutter);
+  font-size: var(--pad-text-body);
+}
+
+.walk-count,
+.walk-keys,
+.walk-foot [data-button] {
+  font-size: var(--text-body);
 }
 
 .walk-head {
@@ -543,6 +554,8 @@ li[aria-selected="true"] svg {
 }
 
 .walk-body {
+  box-sizing: border-box;
+  width: 100%;
   flex: 1;
   min-height: 0;
   display: flex;
