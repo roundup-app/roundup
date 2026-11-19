@@ -482,8 +482,12 @@ li[aria-selected="true"] svg {
 }
 
 .statechart-rules {
+  display: flex;
+  flex-direction: column;
+}
+
+.statechart-rules p {
   margin: 0;
-  padding-left: var(--space-4);
 }
 
 .statechart-rule.is-broken {
@@ -512,6 +516,10 @@ li[aria-selected="true"] svg {
   stroke: var(--grey);
 }
 
+.statechart-head {
+  fill: var(--grey);
+}
+
 .statechart-box {
   position: absolute;
   box-sizing: border-box;
@@ -528,18 +536,25 @@ li[aria-selected="true"] svg {
 }
 
 .statechart-box.is-lit {
-  border-color: var(--text);
+  background: var(--selected);
 }
 
 .statechart-box.is-red {
   color: var(--red);
-  border-color: var(--red);
 }
 
 .statechart-arrow {
   position: absolute;
   transform: translate(-50%, -50%);
   padding: 0 var(--space-1);
+  background: var(--sunken);
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
+.statechart-reason {
+  color: var(--grey);
+  font-size: var(--text-small);
 }
 
 .statechart-bar {
@@ -564,4 +579,10 @@ li[aria-selected="true"] svg {
 
 .statechart-values dd {
   margin: 0;
+}
+
+.statechart-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }

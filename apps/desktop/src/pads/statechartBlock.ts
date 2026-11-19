@@ -116,6 +116,39 @@ const button = (label: string, onClick: () => void) => {
 
 const svgNS = "http://www.w3.org/2000/svg";
 
+/** The edges as an SVG whose role keeps the editor's 16 px icon rule off it; each polyline ends in an arrowhead. */
+const edgesSvg = (layout: Layout, moves: Move[]) => {
+  const svg = document.createElementNS(svgNS, "svg");
+
+  svg.setAttribute("width", String(layout.width));
+  svg.setAttribute("height", String(layout.height));
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("role", "graphics-document");
+
+  const defs = document.createElementNS(svgNS, "defs");
+  const marker = document.createElementNS(svgNS, "marker");
+  const head = document.createElementNS(svgNS, "path");
+
+  for (const [name, value] of Object.entries({ id: "statechart-head", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "8", markerHeight: "8", orient: "auto-start-reverse" })) marker.setAttribute(name, value);
+  head.setAttribute("d", "M0 0L10 5L0 10z");
+  head.setAttribute("class", "statechart-head");
+  marker.append(head);
+  defs.append(marker);
+  svg.append(defs);
+
+  for (const move of moves) {
+    const route = layout.routes[move.key] ?? [];
+    const line = document.createElementNS(svgNS, "polyline");
+
+    line.setAttribute("points", route.map((point) => `${point.x},${point.y}`).join(" "));
+    line.setAttribute("class", "statechart-line");
+    line.setAttribute("marker-end", "url(#statechart-head)");
+    svg.append(line);
+  }
+
+  return svg;
+};
+
 /** SC1 to SC5: the block as a chart the user steps, run by an XState machine. */
 export const mountStatechart = (api: StatechartApi): VisualMount => (host, { text }) => {
   host.classList.add("visual-statechart");
@@ -168,9 +201,9 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
 
   const summary = element("p", "statechart-summary", chart.summary);
   const credit = element("p", "statechart-credit", copy.statechartCredit(chart.writtenBy));
-  const rules = element("ul", "statechart-rules");
+  const rules = element("div", "statechart-rules");
 
-  for (const rule of chart.rules) rules.append(element("li", `statechart-rule is-${rule.verdict}`, copy.statechartRule(rule.name, rule.verdict)));
+  for (const rule of chart.rules) rules.append(element("p", `statechart-rule is-${rule.verdict}`, copy.statechartRule(rule.name, rule.verdict)));
 
   const frame = element("div", "statechart-chart");
   const boxes = new Map<string, HTMLElement>();
@@ -253,20 +286,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
     .layout(chart.states.map((state) => state.id), moves.map((move) => [move.key, move.from, move.to]), BOX)
     .then((layout) => {
       if (!live) return;
-      const svg = document.createElementNS(svgNS, "svg");
-
-      svg.setAttribute("width", String(layout.width));
-      svg.setAttribute("height", String(layout.height));
-      svg.setAttribute("aria-hidden", "true");
-
-      for (const move of moves) {
-        const route = layout.routes[move.key] ?? [];
-        const line = document.createElementNS(svgNS, "polyline");
-
-        line.setAttribute("points", route.map((point) => `${point.x},${point.y}`).join(" "));
-        line.setAttribute("class", "statechart-line");
-        svg.append(line);
-      }
+      const svg = edgesSvg(layout, moves);
 
       const canvas = element("div", "statechart-canvas");
 
@@ -288,7 +308,7 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
       for (const move of moves) {
         const route = layout.routes[move.key] ?? [];
         const mid = route[Math.floor(route.length / 2)] ?? { x: 0, y: 0 };
-        const arrow = button("→", () => play([move]));
+        const arrow = button(move.label, () => play([move]));
 
         arrow.className = "statechart-arrow";
         arrow.setAttribute("aria-label", move.label);
