@@ -41,3 +41,14 @@ export const unknownOutcomeLine = (error: Error): string => {
 
   return named === null ? copy.rpcFailure(error.code) : named[0];
 };
+
+const INSTALL_COMMAND = /^(herdr-core is not installed\. Install it with: )(curl \S+ \S+ \| sh)$/;
+
+/** HM7589a: the missing-core message split into its lead and the install command, or `null` for any other message. */
+export const missingCoreParts = (message: string): { lead: string; command: string } | null => {
+  const found = INSTALL_COMMAND.exec(message);
+
+  const [, lead, command] = found ?? [];
+
+  return lead === undefined || command === undefined ? null : { lead, command };
+};

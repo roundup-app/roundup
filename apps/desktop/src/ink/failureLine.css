@@ -77,13 +77,10 @@
   font-size: var(--text-small);
 }
 
-/* HM7589a: a shell command in a failure sits on its own line in the mono face, selectable, wrapping only at spaces. */
+/* HM7589a: a shell command in a failure sits on its own line in the mono face, selectable, breaking at spaces and after slashes so none of it is hidden. */
 .ink-command {
   display: block;
   font-family: var(--font-mono);
-  overflow-wrap: normal;
-  overflow-x: auto;
-  overscroll-behavior: contain;
   white-space: normal;
   -webkit-user-select: text;
   user-select: text;
