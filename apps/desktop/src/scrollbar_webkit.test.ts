@@ -174,8 +174,22 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void> }[] = [
   {
     query: "/src/changes/u2540.html?dense",
     open: async (page) => {
+      // The page answers the diff reads only; the Rail's icon needs the owned-changes read, so give it one and nudge the Agent's status to refresh it.
+      await page.evaluate(() => {
+        window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1 }] }] });
+        window.__fake.setStatus("agent-1", "idle", "idle");
+      });
       await page.click(".changes-icon");
       await page.waitForSelector(".changes-files li");
+      // Now the view is open, give it enough files to scroll.
+      await page.evaluate(() => {
+        window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: Array.from({ length: 60 }, (_, index) => ({ path: `src/file-${index}.ts`, status: "modified", line: 1 })) }] });
+        window.__fake.setStatus("agent-1", "working", "working");
+        window.__fake.setStatus("agent-1", "idle", "idle");
+      });
+      await page.waitForFunction(() => document.querySelectorAll(".changes-files li").length > 20);
+      // This page mounts the App without main.tsx, so start the scrollbars it would have started.
+      await page.evaluate('import("/src/scrollHover.ts").then((scrollHover) => scrollHover.trackScrollbars(document))');
     },
   },
 ];
@@ -188,7 +202,7 @@ it("u7543a_every_scroll_area_keeps_its_bar_on_the_edge_and_drags_with_it", async
   try {
     for (const [scene, { query, open }] of SCENES.entries()) {
       await page.goto(new URL(query, server.resolvedUrls.local[0]).href);
-      await page.waitForSelector(query.startsWith("/harness") ? ".rail-row" : ".changes-icon");
+      await page.waitForSelector(".rail-row");
       await page.waitForTimeout(1000);
       await open?.(page);
       await page.waitForTimeout(1000);
