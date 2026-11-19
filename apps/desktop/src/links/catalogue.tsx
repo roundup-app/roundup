@@ -104,7 +104,7 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       more: ctx => (
         <Popover.Root open={ctx.props.open} onOpenChange={({ open: next }) => setOpen(next)}>
           <Popover.Trigger render={trigger => (
-            <button {...trigger} type="button" data-button="icon" class="links-count word" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</button>
+            <button {...trigger} type="button" class="links-count word" aria-label={ctx.props.open ? copy.lessName : copy.moreName(ctx.props.count)}>{ctx.props.open ? copy.less : `+${ctx.props.count}`}</button>
           )} />
           <Popover.Content side="left" align="center" class="links-popover" aria-label={copy.moreName(ctx.props.count)}>{ctx.children}</Popover.Content>
         </Popover.Root>
