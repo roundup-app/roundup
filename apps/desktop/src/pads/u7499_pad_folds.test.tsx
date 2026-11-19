@@ -60,6 +60,17 @@ describe("u7499 Pad folds", () => {
     await waitFor(() => expect(rows().sort()).toEqual(["already-read", "eight-days-old", "fresh-unread", "hidden-by-agent"]));
   });
 
+  it("u7643a_a_fold_keeps_the_rows_that_stay_as_the_same_nodes", async () => {
+    await open();
+    const kept = document.querySelector('[data-pad="fresh-unread"]');
+    fireEvent.click(fold("idle"));
+    await waitFor(() => expect(rows()).toContain("eight-days-old"));
+    expect(document.querySelector('[data-pad="fresh-unread"]')).toBe(kept);
+    fireEvent.click(fold("idle"));
+    await waitFor(() => expect(rows()).toEqual(["fresh-unread"]));
+    expect(document.querySelector('[data-pad="fresh-unread"]')).toBe(kept);
+  });
+
   it("u7499a_folds_start_closed_and_counts_match", async () => {
     await open();
     expect(count(fold("internal"))).toBe(1);

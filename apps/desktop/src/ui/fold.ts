@@ -9,7 +9,7 @@ const folds = '[data-slot="tree-item"][data-branch], [data-slot="tree-indicator"
 const movers = '[role="treeitem"], .rail-row, .todo-row';
 
 /** What arrives through opacity. */
-const bodies = '[data-slot="tree-group"], [data-slot="collapsible-panel"], .shelf-group-body, .todo-group-body, .todo-group-content';
+const bodies = '[data-slot="tree-group"], [data-slot="collapsible-panel"], .shelf-group-body, .todo-group-body, .todo-group-content, .pad-fold-list';
 
 const tag = "data-layout";
 
