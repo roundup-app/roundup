@@ -331,7 +331,7 @@ const PadRows = (props: {
           else if (event.key === "ArrowLeft" && props.isFoldOpen(fold)) { event.preventDefault(); props.toggleFold(fold); }
         }}>
         <FoldContent count={props.folded()[fold].length} group={fold} />
-        <Icon name={props.isFoldOpen(fold) ? "down" : "right"} />
+        <Icon name="right" />
       </button>
       <Show when={props.isFoldOpen(fold)}>
         <div class="shelf-list" role="list">

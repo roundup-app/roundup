@@ -482,16 +482,40 @@ li[aria-selected="true"] svg {
   align-items: center;
   justify-content: center;
   width: var(--space-1);
+  margin-inline-start: var(--space-2);
 }
 
 .pad-mark[data-mark="changed"] {
   color: var(--amber);
 }
 
-.pad-fold {
+/* U7499a: the fold row is a flex row, not `.rail-fold`'s two-column grid: its label starts where the Pad names do (rail inset, Glyph, gap) and the chevron trails on the same line. */
+.rail-fold.pad-fold {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
   width: 100%;
+  box-sizing: border-box;
+  padding-inline: calc(var(--rail-inset, var(--space-4)) + var(--space-4) + var(--space-3)) var(--rail-edge, var(--space-3));
+  color: var(--grey);
   text-align: start;
+}
+
+.rail-fold.pad-fold:hover {
+  color: var(--text);
+}
+
+.pad-fold .rail-fold-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pad-fold svg {
+  flex: none;
+  transition: transform var(--duration-instant) var(--easing-out);
+}
+
+.pad-fold[aria-expanded="true"] svg {
+  transform: rotate(90deg);
 }
