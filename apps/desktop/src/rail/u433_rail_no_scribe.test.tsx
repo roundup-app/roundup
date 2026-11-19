@@ -6,7 +6,7 @@ import type { Pad } from "@contracts/pad/Pad";
 
 afterEach(cleanup);
 
-const notes: Pad = { incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: null };
+const notes: Pad = { incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const };
 
 describe("u433 the Rail", () => {
   it("u433_rail_shows_no_scribe_row", async () => {

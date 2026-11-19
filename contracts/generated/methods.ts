@@ -120,6 +120,7 @@ import type { RedoDeleteParams as pad_RedoDeleteParams } from "./pad/RedoDeleteP
 import type { RenameParams as pad_RenameParams } from "./pad/RenameParams";
 import type { ReorderParams as pad_ReorderParams } from "./pad/ReorderParams";
 import type { SetStorageParams as pad_SetStorageParams } from "./pad/SetStorageParams";
+import type { SetVisibilityParams as pad_SetVisibilityParams } from "./pad/SetVisibilityParams";
 import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
 import type { ImportCommitParams as project_ImportCommitParams } from "./project/ImportCommitParams";
 import type { ImportDiscoverParams as project_ImportDiscoverParams } from "./project/ImportDiscoverParams";
@@ -274,6 +275,7 @@ export type RpcMethods = {
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
   "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
   "pad.reorder": { params: pad_ReorderParams; result: pad_Pad };
+  "pad.setVisibility": { params: pad_SetVisibilityParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
   "pad.redoDelete": { params: pad_RedoDeleteParams; result: pad_Deletion };

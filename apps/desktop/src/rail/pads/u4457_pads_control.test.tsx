@@ -13,7 +13,7 @@ afterEach(cleanup);
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
-const padOf = (name: string): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null });
+const padOf = (name: string): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const });
 
 const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "working", "x", { name: "docs", order: 1 })];
 

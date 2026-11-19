@@ -3,9 +3,10 @@ use provenance::now_ms;
 use std::path::Path;
 use std::sync::Mutex;
 
+use contracts::agent::RailVisibility;
 use contracts::pad::{
     AppendParams, AppendSectionParams, CreateParams, ExportParams, MoveParams, Pad, PadName,
-    ReorderParams, SetStorageParams, WriteParams,
+    ReorderParams, SetStorageParams, SetVisibilityParams, WriteParams,
 };
 use contracts::{ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, OpenError};
@@ -31,6 +32,11 @@ impl Pads {
             updated_at: now_ms().max(0),
             revision: 1,
             home: None,
+            // P7499a: an Agent's Pad starts internal; the user's and an Extension's start shown.
+            visibility: p.visibility.unwrap_or(match ctx.actor.kind {
+                ActorKind::Agent => RailVisibility::Internal,
+                _ => RailVisibility::Shown,
+            }),
         };
         let store = self.store()?;
         let pad = store.atomically(|_tx| {
@@ -215,6 +221,22 @@ impl Pads {
             home: p.home,
             ..pad
         })
+    }
+
+    /// P7499a: any Actor sets it. Revision and `updated_at` stay; the same value is silent.
+    pub(super) async fn set_visibility(
+        &self,
+        ctx: &Ctx,
+        p: SetVisibilityParams,
+    ) -> Result<Pad, Error> {
+        let store = self.store()?;
+        let pad = get(&store, &p.name)?;
+        if pad.visibility == p.visibility {
+            return Ok(pad);
+        }
+        found(store.set_visibility(&pad.name, p.visibility), &pad.name)?;
+        wrote(ctx, &pad.name)?;
+        get(&store, &pad.name)
     }
 
     pub(super) async fn export(&self, ctx: &Ctx, p: ExportParams) -> Result<(), Error> {
