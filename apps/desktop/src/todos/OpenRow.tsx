@@ -2,7 +2,7 @@ import { applied } from "../app/pending";
 import { Age } from "../shelf/Age";
 import { OpenButton } from "../ink/OpenButton";
 import { createCopyFeedback } from "../ui/CopyButton";
-import { NameField } from "../ui/Editable";
+import { NameField } from "../ui/NameField";
 import { type Accessor, createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { Todo } from "@contracts/todo/Todo";

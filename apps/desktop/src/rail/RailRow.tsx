@@ -1,6 +1,6 @@
 import { alertLevel } from "./alertLevel";
 import { createCopyFeedback } from "../ui/CopyButton";
-import { NameField as NameFieldShared } from "../ui/Editable";
+import { NameField as NameFieldShared } from "../ui/NameField";
 import { openOnRelease } from "../ui/contextMenu";
 import { isDoor } from "../state/doorNode";
 import { useConnectedProject } from "../state/connectedProject";
@@ -34,7 +34,7 @@ import { ChangesIcon } from "../changes/ChangesIcon";
 import { createRowReveal } from "../ui/rowReveal";
 
 const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: (restore?: boolean) => void }) =>
-  <NameFieldShared object={props.node.id} name={props.node.name} surface="rail-name" plain version={() => Promise.resolve(null)}
+  <NameFieldShared object={props.node.id} name={props.node.name} surface="rail-name" plain
     commit={text => props.onCommit(text)} close={props.onCancel} fail={message => { if (message !== null) props.onFailure(copy.failed(copy.rename, message)); }} />;
 
 /** The worktree facts a row carries: ahead count, CI, pull request, or that they are unavailable. */

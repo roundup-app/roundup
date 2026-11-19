@@ -1,6 +1,6 @@
 import { applied } from "../app/pending";
 import { EmptyState } from "../ink/EmptyState";
-import { NameField } from "../ui/Editable";
+import { NameField } from "../ui/NameField";
 import { CopyButton } from "../ui/CopyButton";
 import { dismissable } from "../ink/recovery";
 import { createMessageToast, createMessageToasts } from "../ink/messageToast";
