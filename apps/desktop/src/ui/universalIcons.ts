@@ -1,5 +1,5 @@
 /** U7413a: icons whose meaning needs no name, so a hover tooltip on them shows only a key, never the name. The one list; callers name a role, never a copy of it. */
-export const UNIVERSAL_ICONS = ["close", "delete", "copy", "more", "expand"] as const;
+export const UNIVERSAL_ICONS = ["close", "delete", "copy", "more", "expand", "stop"] as const;
 
 export type UniversalIcon = typeof UNIVERSAL_ICONS[number];
 
