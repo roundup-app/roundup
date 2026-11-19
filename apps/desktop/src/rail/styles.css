@@ -731,7 +731,7 @@
   width: var(--rail-slot);
   flex: none;
 }
-/* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. On hover, focus or selection the action icons overlay only the end of the name, anchored to the tail's leading edge, so the marks and the age stay visible and no mark moves. A group's chevron keeps its one slot. */
+/* U7488a: names first. At rest the tail holds width only for the marks a row shows (Todos ring, changes count), and an empty mark slot holds none. On hover, focus or selection the action icons overlay the end of the name at one fixed offset from the row's right edge (the age's, ring's and changes' rooms), the same on every row; the tail keeps its width, so no mark moves. A group's chevron keeps its one slot. */
 :root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-todos-room: calc(var(--space-4) + var(--space-1) + var(--text-caption) * 3); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
 .rail-row .line { position: relative; }
 .rail-row .row-tail { justify-content: flex-end; }
@@ -742,7 +742,7 @@
 .rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
 .rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
-.rail-row .row-icons { position: absolute; inset-block: 0; inset-inline-end: 100%; background-color: var(--sunken); background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */ }
+.rail-row .row-icons { position: absolute; inset-block: 0; inset-inline-end: calc(var(--rail-age-room) + var(--rail-gap) + var(--rail-todos-room) + var(--rail-changes-room)); background-color: var(--sunken); background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */ }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
