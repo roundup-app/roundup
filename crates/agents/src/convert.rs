@@ -153,7 +153,9 @@ impl Agents {
         ModePromptParams { id, prompt }: ModePromptParams,
     ) -> Result<(), RpcError> {
         if ctx.actor.kind == ActorKind::Ext {
-            return Err(RpcError::forbidden("an Extension may not set a Mode prompt"));
+            return Err(RpcError::forbidden(
+                "an Extension may not set a Mode prompt",
+            ));
         }
         let prompt = prompt.as_deref().filter(|text| !text.trim().is_empty());
         if prompt.is_some_and(|text| text.chars().count() > contracts::agent::MODE_PROMPT_MAX) {

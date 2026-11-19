@@ -801,7 +801,10 @@ async fn ap1_an_agent_resumes_a_finished_agent() {
     let resumed: RailNode = serde_json::from_value(pending.await.unwrap().unwrap()).unwrap();
     assert_eq!(resumed.id, node.id);
     assert_ne!(
-        resumed.attempt().as_ref().map(contracts::agent::Ordinal::as_str),
+        resumed
+            .attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
         Some(before.as_str())
     );
 }

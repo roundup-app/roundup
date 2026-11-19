@@ -221,12 +221,10 @@ async fn a4452c_agent_cannot_restart_a_mode() {
         )
         .await
         .unwrap();
-    for (method, params) in [
-        (
-            "agent.restartMode",
-            json!({"id":run.child,"request":"agent-1"}),
-        ),
-    ] {
+    for (method, params) in [(
+        "agent.restartMode",
+        json!({"id":run.child,"request":"agent-1"}),
+    )] {
         let error = agent.request(method, params).await.unwrap_err();
         assert_eq!(error.code, rpc::code::FORBIDDEN, "{error}");
     }

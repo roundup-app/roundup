@@ -37,7 +37,7 @@ Policy: the Request stage of `.agents/data/journey.md` still requires the Ask to
 H4612a preservation Checks on `origin/main` (the file and test/heading identify each holder):
 
 1. `scenarios/ask-bar.md`, A42; `crates/agents/tests/asks.rs`, `a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone`: one Workstream, original part and placement identity; amend its startup fixture to emit H19's readiness observations.
-2. `scenarios/agent-lifecycle.md`, A4452a/A4452d; `crates/agents/tests/scenarios/steer.rs`, `a4452a_coordination_text_reaches_the_inbox` and `a4452d_agent_authored_text_never_types`: coordination remains inbox-only and is not gated by a star.
+2. `scenarios/agent-lifecycle.md`, A4452a/A4452d; `crates/agents/tests/scenarios/steer.rs`, `a4452a_coordination_text_reaches_the_inbox` (AP3 retired `a4452d_agent_authored_text_never_types`): coordination remains inbox-only and is not gated by a star.
 3. `scenarios/agent-lifecycle.md`, A4452b; `crates/agents/tests/scenarios/naming.rs`, `a4452b_first_user_message_is_the_users_words`: the user's first prompt remains their own.
 
 Applicable Gates/Observers: P1, does coordination write to the Terminal (Check 2); P4, does vendor interpretation escape the Adapter or add a seam (review the implementation against `AgentAdapter` in `crates/agents/src/lib.rs`); P9, does typing introduce unauthorized text or another turn (the exact-byte and one-submit observer above). All answers must be no. Policy: no new RPC, Message law, App surface, Mode restart behavior or direct keyboard gate is ordered.

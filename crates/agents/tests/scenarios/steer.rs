@@ -226,7 +226,11 @@ async fn ap3_an_agent_steer_is_typed_into_any_agent() {
     let params = json!({"id": child.id, "text": "go"});
     let err = f
         .agents
-        .call(&from(ActorKind::Ext, &workstream), "agent.prompt", params.clone())
+        .call(
+            &from(ActorKind::Ext, &workstream),
+            "agent.prompt",
+            params.clone(),
+        )
         .await
         .unwrap_err();
     assert_eq!(err.code, code::FORBIDDEN);
@@ -234,7 +238,10 @@ async fn ap3_an_agent_steer_is_typed_into_any_agent() {
 
     // AP3: an Agent outside the target's ancestry types as the user does.
     let stranger = from(ActorKind::Agent, "999");
-    f.agents.call(&stranger, "agent.prompt", params).await.unwrap();
+    f.agents
+        .call(&stranger, "agent.prompt", params)
+        .await
+        .unwrap();
     assert!(f.inbox().is_empty());
     assert!(read(&typed(&f)).contains("go"));
 }
