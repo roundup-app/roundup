@@ -737,11 +737,11 @@
 .rail-row .row-tail { justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
-.rail-row :not(.row-icons) > .action-slot:empty { display: none; } /* Only a mark slot collapses; each action slot in .row-icons keeps its width on every row. */
+.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]):empty { display: none; } /* Only a mark slot collapses; each action slot keeps its width on every row. */
 /* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
 .rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
 .rail-row .action-slot[data-slot="todos"] { inline-size: auto; min-inline-size: 0; }
-.rail-row .action-slot[data-slot="todos"] .rail-pads-control { min-inline-size: 0; inline-size: auto; }
+.rail-row .rail-pads-control { min-inline-size: 0; inline-size: auto; }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
 .rail-row .row-icons { display: inline-flex; flex: none; align-items: center; overflow: hidden; inline-size: 0; }
 [data-reveal="shown"].rail-row .row-icons { inline-size: auto; }
