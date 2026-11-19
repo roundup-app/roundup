@@ -320,6 +320,17 @@ describe("u62 Door launch failures", () => {
     expect(rail.doorFailure("r")).toBeNull();
   });
 
+  it("u7498c_an_unknown_start_outcome_keeps_its_line_and_offers_no_retry", async () => {
+    const { app, rail } = await open([workstream("r")]);
+    app.handlers["rail.startDoor"] = () => Promise.reject(new Error("the Daemon is gone"));
+    await rail.startDoor("r");
+    expect(rail.doorFailure("r")).not.toBeNull();
+    expect(rail.doorRetryable("r")).toBe(false);
+    app.handlers["rail.startDoor"] = () => Promise.reject(new RpcError(-32602, "launch failed"));
+    await rail.startDoor("r");
+    expect(rail.doorRetryable("r")).toBe(true);
+  });
+
   it("u62_a_newer_ended_attempt_clears_the_obsolete_start_failure", async () => {
     const { app, rail } = await open([workstream("r", { attempt: "1" })]);
     app.handlers["rail.startDoor"] = () => Promise.reject(new RpcError(-32602, "launch failed"));
