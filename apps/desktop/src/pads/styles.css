@@ -602,6 +602,11 @@ li[aria-selected="true"] svg {
   text-align: start;
 }
 
+/* U7637a: the fold row's stem runs the lower half of the row, to meet the first elbow below. */
+.pad-fold .tree-stem {
+  top: var(--tree-mid);
+}
+
 .pad-fold:hover {
   color: var(--text);
 }

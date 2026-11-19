@@ -131,7 +131,8 @@ export function rowAlignmentCheck(doc: Document) {
     const rail = row.matches(".rail-row, .rail-fold");
 
     const indent = rail ? parseFloat(rowStyle.gridTemplateColumns) - parseFloat(rowStyle.getPropertyValue("--rail-inset"))
-      : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--tree-step")) : 0;
+      : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--tree-step"))
+      : row instanceof HTMLElement && row.matches(".pad-inset[data-pad]") ? Number(row.style.getPropertyValue("--todo-depth") || 0) * parseFloat(rowStyle.getPropertyValue("--tree-step")) : 0;
 
     const panel = row.closest(".shelf") ?? row;
     const inset = name.getBoundingClientRect().left - panel.getBoundingClientRect().left - indent;
