@@ -14,11 +14,13 @@
 }
 
 .failure-line,
-.ink[data-kind="error"] {
+.ink[data-kind="error"],
+.ink[data-kind="notice"] {
   animation: failure-arrive var(--duration-reduced) var(--easing-out);
 }
 
-.ink[data-kind="error"]:not(button) {
+.ink[data-kind="error"]:not(button),
+.ink[data-kind="notice"]:not(button) {
   color: var(--grey);
 }
 

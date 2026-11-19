@@ -5,9 +5,9 @@ import { RecoveryButtons, type Blocked, type Dismissible } from "./recovery";
 import "./failureLine.css";
 
 /** U7314a: a failure a dialog shows for its own form. The Toast region sits under a dialog's backdrop, so the failure shows in the dialog from an element mounted only while it holds; it is announced once (U80) and takes no place before or after. */
-export const DialogFailure = (props: Dismissible & { message: string | null | false | undefined; action?: JSX.Element }) => (
+export const DialogFailure = (props: Dismissible & { message: string | null | false | undefined; action?: JSX.Element; notice?: boolean | undefined }) => (
   <Show when={props.message}>{message => <div class="mounted-line">
-    <ErrorLine message={message()} />
+    <ErrorLine message={message()} notice={props.notice} />
     {props.action}
     <RecoveryButtons recover={props.recover} dismiss={props.dismiss} />
   </div>}</Show>

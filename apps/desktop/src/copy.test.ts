@@ -2,6 +2,7 @@ import { copy } from "./app/copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
+import { RpcError } from "./app/seam";
 import { door, workstream } from "./testing/nodes";
 import { mountRailAndPane } from "./terminal/paneHarness";
 import { notices } from "./testing/notices";
@@ -295,7 +296,7 @@ it("u471_serialized_pad_wrappers_are_structure_while_authored_text_is_copy", () 
 it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () => {
   const { app, connected } = await mountRailAndPane([workstream("w")]);
 
-  app.handlers["rail.startDoor"] = () => { throw new Error("keep THIS launch failure 🧭"); };
+  app.handlers["rail.startDoor"] = () => { throw new RpcError(-32602, "keep THIS launch failure 🧭"); };
 
   connected.rail.select("w");
   flush();
