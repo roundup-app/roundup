@@ -26,7 +26,6 @@ pub mod message;
 pub mod methods;
 pub mod pad;
 pub mod project;
-pub mod skill;
 pub mod terminal;
 pub mod text;
 pub mod todo;

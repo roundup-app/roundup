@@ -628,7 +628,12 @@ impl AppState {
         method: &str,
         call: impl Future<Output = Result<T, RpcError>>,
     ) -> Result<T, RpcError> {
-        let bound = self.shared.config.call_bound;
+        let config = &self.shared.config;
+        let bound = if method == "agent.restartMode" {
+            config.restart_mode_bound
+        } else {
+            config.call_bound
+        };
         timeout(bound, call)
             .await
             .map_err(|_| unanswered(method, bound))?
@@ -675,6 +680,9 @@ fn unanswered(method: &str, bound: Duration) -> RpcError {
 }
 
 pub(crate) fn not_open(path: &str) -> RpcError {
+    if path.is_empty() {
+        return RpcError::conflict("Open a Project first");
+    }
     RpcError::conflict(format!("no Project is open at {path}"))
 }
 
