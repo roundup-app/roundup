@@ -8,10 +8,25 @@ fn statements(sql: &str) -> Vec<String> {
         .map(|line| line.split("--").next().unwrap_or(""))
         .collect::<Vec<_>>()
         .join(" ");
-    code.split(';')
-        .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
-        .filter(|s| !s.is_empty())
-        .collect()
+    let mut out: Vec<String> = Vec::new();
+    let mut open = false;
+    for piece in code.split(';') {
+        let piece = piece.split_whitespace().collect::<Vec<_>>().join(" ");
+        if piece.is_empty() {
+            continue;
+        }
+        // A trigger's body holds `;`: it is one statement up to its closing `END`.
+        if open {
+            let last = out.last_mut().unwrap();
+            last.push_str("; ");
+            last.push_str(&piece);
+        } else {
+            out.push(piece);
+        }
+        let last = out.last().unwrap().to_uppercase();
+        open = last.starts_with("CREATE TRIGGER ") && !last.ends_with(" END");
+    }
+    out
 }
 
 /// The statements of `sql` the previous build cannot read; `existing` are the tables on `origin/main`.
@@ -25,6 +40,17 @@ fn rejected(sql: &str, existing: &HashSet<String>) -> Vec<String> {
             .to_lowercase()
     };
     let all = statements(sql);
+    // C7707d: a table this file creates holds nothing the previous build reads.
+    let created: HashSet<String> = all
+        .iter()
+        .filter_map(|s| {
+            let upper = s.to_uppercase();
+            let rest = upper
+                .strip_prefix("CREATE VIRTUAL TABLE ")
+                .or_else(|| upper.strip_prefix("CREATE TABLE "))?;
+            Some(table_of(rest))
+        })
+        .collect();
     let added: Vec<String> = all
         .iter()
         .filter_map(|s| {
@@ -45,6 +71,8 @@ fn rejected(sql: &str, existing: &HashSet<String>) -> Vec<String> {
                 "CREATE INDEX ",
                 "CREATE UNIQUE INDEX ",
                 "CREATE VIEW ",
+                "CREATE VIRTUAL TABLE ",
+                "CREATE TRIGGER ",
             ]
             .iter()
             .any(|p| upper.starts_with(p));
@@ -60,6 +88,9 @@ fn rejected(sql: &str, existing: &HashSet<String>) -> Vec<String> {
                     return true;
                 };
                 return column.contains("NOT NULL") && !column.contains("DEFAULT");
+            }
+            if let Some(rest) = upper.strip_prefix("INSERT INTO ") {
+                return !created.contains(&table_of(rest));
             }
             if let Some(rest) = upper.strip_prefix("UPDATE ") {
                 return existing.contains(&table_of(rest)) && !fills_added_column(rest, &added);
@@ -114,6 +145,24 @@ fn mg1_only_additive_statements_pass() {
         CREATE VIEW v AS SELECT 1;\nALTER TABLE todos ADD COLUMN a INTEGER;\n\
         ALTER TABLE todos ADD COLUMN b TEXT NOT NULL DEFAULT '';\nUPDATE notes SET id = 'x';";
     assert_eq!(rejected(sql, &existing), Vec::<String>::new());
+}
+
+#[test]
+fn mg1_a_virtual_table_triggers_and_a_rebuild_of_its_own_table_pass() {
+    let existing = HashSet::from(["todos".to_string()]);
+    let sql = "CREATE VIRTUAL TABLE todos_fts USING fts5(title, content='todos', content_rowid='id');\n\
+        CREATE TRIGGER todos_fts_ai AFTER INSERT ON todos BEGIN\n\
+            INSERT INTO todos_fts(rowid, title) VALUES (new.id, new.title);\n\
+        END;\n\
+        INSERT INTO todos_fts(todos_fts) VALUES ('rebuild');";
+    assert_eq!(rejected(sql, &existing), Vec::<String>::new());
+    for sql in [
+        "INSERT INTO todos_fts(todos_fts) VALUES ('rebuild')",
+        "INSERT INTO todos(title) VALUES ('x')",
+        "CREATE VIRTUAL TABLE t USING fts5(a); DELETE FROM todos",
+    ] {
+        assert!(!rejected(sql, &existing).is_empty(), "{sql}");
+    }
 }
 
 #[test]
@@ -235,4 +284,31 @@ fn mg3_a_database_ahead_with_a_missing_column_still_refuses() {
     let message = connect(dir.path()).unwrap_err().to_string();
     assert!(message.contains("lacks column `priority`"), "{message}");
     assert!(message.contains("newer or branch build"), "{message}");
+}
+
+#[test]
+fn c7707d_rows_written_before_the_migration_are_found_on_first_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let all = migrations();
+    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+    apply(&mut db, all[..all.len() - 1].to_vec()).unwrap();
+    db.execute_batch(
+        "INSERT INTO todos(title, body, created_at) VALUES ('old todo', 'a token here', 1);
+         INSERT INTO pads(key, name, text, updated_at) VALUES ('p', 'old pad', 'token notes', 1);
+         INSERT INTO messages(from_actor, to_id, kind, body, status, at)
+             VALUES ('{}', 'a1', 'note', 'a token sent', 'delivered', 1);",
+    )
+    .unwrap();
+    drop(db);
+    let db = connect(dir.path()).unwrap();
+    for (fts, found) in [("todos_fts", 1), ("pads_fts", 1), ("messages_fts", 1)] {
+        let n: i64 = db
+            .query_row(
+                &format!("SELECT count(*) FROM {fts} WHERE {fts} MATCH 'token'"),
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, found, "{fts}");
+    }
 }

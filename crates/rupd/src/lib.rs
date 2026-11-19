@@ -65,6 +65,7 @@ mod u6243_tests;
 
 mod resume_turn;
 mod rewind;
+mod search;
 mod todo_refs;
 mod waits;
 mod wake;
@@ -467,6 +468,8 @@ mod concurrent_tests;
 mod dcl2_tests;
 #[cfg(test)]
 mod todo_deletion_tests;
+#[cfg(test)]
+mod search_tests;
 
 // N7: keep in-process test launches at the audited composition root. Callers own
 // the temporary data directory and must never fall back to the user's data.

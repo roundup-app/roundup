@@ -261,6 +261,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("rail.tree", Policy { entry: Entry::Rail, ..PLAIN }),
     ("route.list", PLAIN),
     ("route.set", Policy { gate: Gate::RouteSet, inputs: Inputs::RouteSet, ..PLAIN }),
+    ("search.find", Policy { actor: Actor::Caller, gate: Gate::UserOnly, ..PLAIN }),
     ("shortcuts.export", PLAIN),
     ("terminal.catchUp", Policy { actor: Actor::Caller, ..PLAIN }),
     ("terminal.close", Policy { observed: true, gate: Gate::Terminal, ..PLAIN }),
