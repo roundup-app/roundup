@@ -30,7 +30,7 @@ Module: `crates/agents` and `crates/contracts` (U7186a, U7186b), `apps/desktop/s
 - **Keyboard.** Both pickers are `ui/` select primitives over Ark UI and reachable by Tab. Asserted in `u7186d_the_pickers_are_reachable_by_keyboard`.
 
 **U7186e one Changes surface replaces the Worktree popover.** Given a Door with its own Worktree, then:
-- **Same view.** Its icon, count and view are U7186c's and U7186d's, with its worktree branch against its Base as the owned group; the Worktree-only popover (`WorktreeControl`'s `Panel` and its resting control) is removed. Asserted in `u7186e_a_worktree_door_uses_the_same_view_and_rule`.
+- **Same view.** Its icon, count and view are U7186c's and U7186d's, with its worktree branch against its Base as the owned group; the Worktree-only popover (`WorktreeControl`'s `Panel` and its resting control) is removed (done by U7671a). Asserted in `u7186e_a_worktree_door_uses_the_same_view_and_rule`.
 - **Kept facts.** U2539b's ahead/behind/dirty and CI/PR facts remain available where `scenarios/ui-worktree-status.md` (U2556d) places them, and notes, recovery and editor opening (U2540b–c, U2539d) work from the new view. Asserted in `u7186e_notes_and_the_editor_action_work_from_the_changes_view`.
 - **No icon without changes.** An Agent with no changes shows no icon, and the Door's header holds no changes control at rest. Asserted in `u7186e_no_changes_means_no_control_anywhere`.
 
