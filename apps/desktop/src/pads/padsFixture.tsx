@@ -181,6 +181,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
 
     const listed = () => waitFor(() => {
       for (const fold of document.querySelectorAll<HTMLElement>('.pad-fold[aria-expanded="false"]')) if (!opened.has(fold)) { opened.add(fold); fireEvent.click(fold); }
+
       expect(find()).toBeDefined();
     });
 

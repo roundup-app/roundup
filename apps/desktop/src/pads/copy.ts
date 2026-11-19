@@ -27,7 +27,7 @@ export const copy = {
   exportMd: sharedCopy.exportMd,
   delete: sharedCopy.delete,
   padChanged: "Pad changed",
-  foldLabel: (count: number, fold: "internal" | "idle") => `${count}${fold === "internal" ? " internal" : " idle"}`,
+  foldLabel: sharedCopy.foldLabel,
   newPad: sharedCopy.newWord,
   changedPad: "Changed since you read it",
   padDeleted: (name: string) => `Pad ${name} was deleted`,

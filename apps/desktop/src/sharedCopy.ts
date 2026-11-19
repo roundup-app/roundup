@@ -165,6 +165,7 @@ export const copy = {
   overview: "Overview",
   rail: "Rail",
   doneCount: " done",
+  foldLabel: (count: number, fold: "internal" | "idle") => `${count}${fold === "internal" ? " internal" : " idle"}`,
   create: "Create",
   addWorkstreamWord: " Workstream",
   importUnnamed: "Unavailable conversation title",
