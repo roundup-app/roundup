@@ -21,7 +21,12 @@ fn paste(text: &str) -> String {
 
 fn frozen(f: Fixture, bound: Duration) -> Fixture {
     let mut f = f;
-    f.agents = f.agents.with_clock(|| 0).with_steer_bound(bound);
+    f.agents = f
+        .agents
+        .with_clock(|| 0)
+        .with_steer_bound(bound)
+        .with_receipt_bound(bound)
+        .with_ready_bound(bound);
     f
 }
 
@@ -339,15 +344,15 @@ async fn h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to
     for dir in ["agents/src", "rupd/src"] {
         collect(&root.join(dir), &mut callers);
     }
-    // H11's prompt, H13's Interrupt, B6's explicit Terminal path (user input and
-    // original-prompt guarded bytes) and A7's exit keys. A lost Signal must never add a fallback
-    // caller.
+    // H11's prompt and A7498a's one Enter for a first prompt (both in `steer.rs`), H13's
+    // Interrupt, B6's explicit Terminal path (user input and original-prompt guarded bytes) and
+    // A7's exit keys. A lost Signal must never add a fallback caller.
     assert_eq!(
         callers,
         [
             "agents/src/ending.rs: 1",
             "agents/src/reach.rs: 1",
-            "agents/src/steer.rs: 2"
+            "agents/src/steer.rs: 3"
         ]
     );
 }
@@ -588,4 +593,101 @@ async fn h11_a_slash_command_ignores_acceptance_before_its_write_or_from_another
         error.message.contains("did not accept the prompt") && !error.message.contains(&node.id)
     );
     assert_eq!(read(&typed(&f)), bytes);
+}
+
+// A7498a: a Mode's first prompt waits for its receipt, presses Enter once, then reports unknown.
+
+fn verbatim(text: &str) -> String {
+    format!("\x1b[200~{text}\x1b[201~\r")
+}
+
+/// A started, idle Agent and `mode_prompt` of `text` running against it.
+async fn mode_prompt(
+    text: &str,
+) -> (
+    Arc<Fixture>,
+    String,
+    tokio::task::JoinHandle<Result<(), RpcError>>,
+) {
+    let (f, id) = idle(BOUND).await;
+    let attempt = f.attempt(&id).await.to_owned();
+    let call = {
+        let (f, id, text) = (Arc::clone(&f), id.clone(), text.to_owned());
+        tokio::spawn(async move { f.agents.mode_prompt(&id, &attempt, &text).await })
+    };
+    until_typed(&f, verbatim(text).len()).await;
+    (f, id, call)
+}
+
+#[tokio::test]
+async fn a7498a_a_wait_before_typing_ends_as_a_known_failure() {
+    let f = Arc::new(frozen(Fixture::running(RECORD), BOUND));
+    let node = f.spawn(None, None).await.unwrap();
+    let attempt = f.attempt(&node.id).await.to_owned();
+    let err = f
+        .agents
+        .mode_prompt(&node.id, &attempt, "never typed")
+        .await
+        .unwrap_err();
+    assert_ne!(err.code, code::UNKNOWN_OUTCOME, "{err}");
+    assert_eq!(read(&typed(&f)), "");
+}
+
+#[tokio::test]
+async fn a7498a_a_receipt_inside_the_first_window_writes_nothing_more() {
+    let (f, id, call) = mode_prompt("audit the parser").await;
+    tokio::time::sleep(BOUND / 2).await;
+    signal(&f, &id, "UserPromptSubmit").await;
+    call.await.unwrap().unwrap();
+    tokio::time::sleep(BOUND).await;
+    assert_eq!(read(&typed(&f)), verbatim("audit the parser"));
+}
+
+#[tokio::test]
+async fn a7498a_one_enter_alone_lands_a_receipt_that_the_first_window_missed() {
+    let (f, id, call) = mode_prompt("audit the parser").await;
+    let held = verbatim("audit the parser");
+    assert_eq!(until_typed(&f, held.len() + 1).await, format!("{held}\r"));
+    signal(&f, &id, "UserPromptSubmit").await;
+    call.await.unwrap().unwrap();
+    assert_eq!(read(&typed(&f)), format!("{held}\r"));
+}
+
+#[tokio::test]
+async fn a7498a_a_slash_prompt_is_accepted_by_a_session_change() {
+    let (f, id, call) = mode_prompt("/clear").await;
+    signal(&f, &id, "SessionStart").await;
+    call.await.unwrap().unwrap();
+    tokio::time::sleep(BOUND).await;
+    assert_eq!(read(&typed(&f)), verbatim("/clear"));
+}
+
+#[tokio::test]
+async fn a7498a_no_receipt_reports_unknown_naming_the_mode_after_one_enter() {
+    let (f, id, call) = mode_prompt("audit the parser").await;
+    f.call("rail.rename", json!({"id":id,"name":"team"}))
+        .await
+        .unwrap();
+    let err = call.await.unwrap().unwrap_err();
+    assert_eq!(err.code, code::UNKNOWN_OUTCOME);
+    assert!(
+        err.message.contains("team") && err.message.contains(&id),
+        "{}",
+        err.message
+    );
+    assert_eq!(
+        read(&typed(&f)),
+        format!("{}\r", verbatim("audit the parser"))
+    );
+}
+
+#[tokio::test]
+async fn a7498a_no_enter_is_written_to_a_working_agent() {
+    let (f, id, call) = mode_prompt("audit the parser").await;
+    // The Agent turned Working with no receipt: it may sit at a permission prompt.
+    signal(&f, &id, "PreToolUse").await;
+    signal(&f, &id, "PermissionRequest").await;
+    let err = call.await.unwrap().unwrap_err();
+    assert_eq!(err.code, code::UNKNOWN_OUTCOME);
+    assert_eq!(read(&typed(&f)), verbatim("audit the parser"));
 }

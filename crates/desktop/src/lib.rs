@@ -47,7 +47,7 @@ impl<G> Unpoisoned for std::sync::LockResult<G> {
 pub use builder::build;
 pub(crate) use builder::build_with_feedback;
 pub use channel::Channel;
-pub use config::{CALL_BOUND, Config, READY_BOUND};
+pub use config::{CALL_BOUND, Config, READY_BOUND, RESTART_MODE_BOUND};
 pub use error::Error;
 pub use projects::{AppState, Listed, Project};
 pub use run::{context, handle_menu_event, handle_run_event, run};

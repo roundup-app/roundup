@@ -1,24 +1,54 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
-import { LinksView, specOf } from "../links/catalogue";
-import { copy } from "../links/copy";
+import { expect, it } from "vitest";
+import terminal from "./styles.css?raw";
+import links from "../links/styles.css?raw";
 
-afterEach(cleanup);
+// jsdom lays nothing out, so each overlay's box is read from the rule that places it, in Tokens: the inset's size, and each overlay's
+// top edge and height against it.
+const space = { "--space-1": 4, "--space-2": 8, "--space-5": 24, "--space-6": 32 } satisfies Record<string, number>;
 
-it("lh13_the_plus_n_reveal_opens_beside_the_count_never_below_the_inset", async () => {
-  const entries = Array.from({ length: 6 }, (_, n) => ({ kind: "asked" as const, url: `https://example.test/${n}`, tooltip: `asked ${n}` }));
+const rule = (sheet: string, selector: string): string => {
+  const at = sheet.indexOf(`\n${selector} {`);
 
-  render(() => <LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {} }} shown={0} />);
-  fireEvent.click(screen.getByRole("button", { name: copy.moreName(8) }));
+  if (at < 0) throw new Error(`no rule ${selector}`);
 
-  const popover = await waitFor(() => {
-    const found = document.querySelector<HTMLElement>(".links-popover");
+  return sheet.slice(at, sheet.indexOf("}", at));
+};
 
-    if (!found) throw new Error("not open");
+const px = (value: string): number => {
+  const token = /var\((--space-\d)\)/.exec(value)?.[1];
 
-    return found;
-  });
+  if (token === undefined) return value.trim() === "0" ? 0 : Number.NaN;
 
-  expect(popover.getAttribute("data-side")).toBe("left");
-  expect(popover.querySelectorAll("button").length).toBe(8);
+  return Object.entries(space).find(([name]) => name === token)?.[1] ?? Number.NaN;
+};
+
+const prop = (block: string, name: string): string | undefined => new RegExp(`\\n\\s*${name}:\\s*([^;]+);`).exec(block)?.[1];
+
+const inset = px(prop(rule(terminal, ".pane-body"), "--terminal-inset") ?? "");
+
+const within = (top: string | undefined, size: string | undefined): void => {
+  const start = px(top ?? "0");
+  const end = start + (size === "var(--terminal-inset)" ? inset : px(size ?? ""));
+
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeLessThanOrEqual(inset);
+};
+
+it("lh12_no_overlay_on_the_terminal_intersects_a_text_row", () => {
+  // The inset is the expanded header's height: top gap, a 24 px icon, bottom gap (LH6).
+  expect(inset).toBeGreaterThanOrEqual(px("var(--space-1)") * 2 + px("var(--space-5)"));
+
+  const header = rule(links, ".links-header");
+
+  expect(px(prop(header, "inset-block-start") ?? "") + px("var(--space-5)")).toBeLessThanOrEqual(inset);
+
+  const line = rule(terminal, ".pane-over");
+
+  within(prop(line, "inset-block-start"), prop(line, "block-size"));
+  expect(prop(rule(terminal, ".pane .terminal-find"), "top")).toBe("0");
+  within("0", prop(rule(terminal, ".pane .terminal-find"), "block-size"));
+  within(prop(rule(terminal, ".pane .pane-latest"), "top"), "var(--space-5)");
+  // No overlay counts from a text row, and the Terminal's own padding is the inset.
+  expect(terminal).not.toContain("--over-row");
+  expect(prop(rule(terminal, ".pane .xterm"), "padding-top")).toBe("var(--terminal-inset)");
 });
