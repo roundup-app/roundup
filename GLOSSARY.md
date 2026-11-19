@@ -148,6 +148,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Inbox | same | — |
 | Drawer | same | — |
 | Switcher | same | — |
+| Search (`search.find`, `FindParams`, `Found`, `SearchHit`, `SearchKind`, `opens`) | Text matches | — |
 | Help | same | — |
 | Todo | same | task, ticket |
 | Reopen (`todo.reopen`, `todo_reopen`) | same | — |
