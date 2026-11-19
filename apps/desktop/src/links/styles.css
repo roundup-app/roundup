@@ -30,7 +30,6 @@
   overflow-y: hidden;
   overscroll-behavior: contain;
   z-index: var(--layer-popover);
-  margin-block-start: var(--space-1);
 }
 
 /* LH13: the revealed icons are bare like the header's: no pill surface at rest or on hover, ink grey at rest and `--text` on hover. The tripled class outranks the shared floating-button recipe's `:is()` specificity whatever the bundle order. */
