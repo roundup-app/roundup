@@ -122,7 +122,7 @@ it("u6283a_terminal_mutations_place_no_bar", async () => {
   terminal.className = "xterm";
   trackScrollbars(document);
   await frame();
-  const placed = vi.spyOn(tracked, "getBoundingClientRect");
+  const placed = vi.spyOn(tracked, "checkVisibility");
 
   for (let row = 0; row < 50; row += 1) terminal.appendChild(document.createElement("div"));
 
