@@ -28,7 +28,7 @@ export const createTextSearch = (app: Pick<ProjectCalls, "rpc">, query: () => st
   const [slow, setSlow] = createSignal("");
 
   createEffect(key, asked => {
-    if (!asking()) return;
+    if (!untrack(asking)) return;
 
     const words = untrack(trimmed);
     const timer = setTimeout(() => { setSlow(asked); }, QUIET_MS);
