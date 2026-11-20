@@ -51,30 +51,40 @@ impl Git {
 
     /// G10: a row for each listed worktree but the primary checkout. `busy` holds the directories
     /// an Agent or Terminal of this Rail works in; `recorded` those any Agent's node records.
+    /// G14: `within` keeps the rows inside the program's directory.
     pub fn adoptable(
         &self,
         project: &Path,
         busy: &[PathBuf],
         recorded: &[PathBuf],
+        within: Option<&Path>,
     ) -> Result<Vec<Adoptable>, RpcError> {
         let base = self.adoption_base(project)?;
+        let within = within.map(canonical_path);
         self.listed(project)?
             .into_iter()
             .skip(1)
+            .filter(|entry| {
+                within
+                    .as_deref()
+                    .is_none_or(|dir| entry.path.starts_with(dir))
+            })
             .map(|entry| {
                 let refusal = self.refusal(&entry, busy, recorded);
-                let (ahead, dirty) = match (&entry.branch, self.exists(&entry.path)) {
+                let (ahead, dirty, changed) = match (&entry.branch, self.exists(&entry.path)) {
                     (Some(branch), true) => (
                         self.ahead_of(project, &base, branch).unwrap_or(0),
                         self.dirty_at(&entry.path).unwrap_or(false),
+                        self.changed_against(&entry.path, &base),
                     ),
-                    _ => (0, false),
+                    _ => (0, false, 0),
                 };
                 Ok(Adoptable {
                     path: entry.path.to_string_lossy().into_owned(),
                     branch: entry.branch,
                     ahead,
                     dirty,
+                    changed,
                     refusal: refusal.map(str::to_owned),
                 })
             })
@@ -90,9 +100,15 @@ impl Git {
         branch: &str,
         busy: &[PathBuf],
         recorded: &[PathBuf],
+        within: Option<&Path>,
     ) -> Result<Worktree, RpcError> {
         let listed = self.listed(project)?;
         let path = self.listed_path(path);
+        if let Some(dir) = within
+            && !path.starts_with(canonical_path(dir))
+        {
+            return Err(invalid("outside_program_directory", path.display()));
+        }
         let Some(position) = listed.iter().position(|entry| entry.path == path) else {
             return Err(if self.in_other_repository(project, &path) {
                 invalid("other_repository", path.display())
@@ -198,6 +214,13 @@ impl Git {
                 (Some(_), None) => true,
                 _ => false,
             }
+    }
+
+    /// G15: the files `git diff --stat` reports against the Base, untracked ones not counted.
+    fn changed_against(&self, dir: &Path, base: &str) -> u32 {
+        self.run(dir, &["diff", "--numstat", base, "--"])
+            .map(|stat| stat.lines().count().try_into().unwrap_or(u32::MAX))
+            .unwrap_or(0)
     }
 
     fn ahead_of(&self, project: &Path, base: &str, branch: &str) -> Option<u32> {

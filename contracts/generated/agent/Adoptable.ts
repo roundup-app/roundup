@@ -8,5 +8,7 @@ export type Adoptable = {
 	branch: string | null,
 	ahead: number,
 	dirty: boolean,
+	/**  G15: the files `git diff --stat` reports against the Base, untracked ones not counted. */
+	changed: number,
 	refusal: string | null,
 };

@@ -61,7 +61,7 @@ pub(super) struct SpawnRequest {
 
 impl Agents {
     /// The Project folder: `.roundup/`'s parent, where its git repository (if any) lives.
-    pub(super) fn project_dir(&self) -> &Path {
+    pub fn project_dir(&self) -> &Path {
         &self.shared.project_dir
     }
 
@@ -177,15 +177,15 @@ impl Agents {
         let pair = self.choose(
             &ctx.actor,
             Role::Agent,
-            params.model.take(),
-            params.effort.take(),
+            params.launch.model.take(),
+            params.launch.effort.take(),
         )?;
         let (mode_prompt, (order, spawn_prompt)) = if mode {
             (params.prompt.take(), (None, None))
         } else {
             (
                 None,
-                order::order_of(params.prompt, params.order, by_agent)?,
+                order::order_of(params.prompt, params.launch.order, by_agent)?,
             )
         };
         let given = params
@@ -200,15 +200,15 @@ impl Agents {
                 && params.app_named != Some(true),
             settle_name: given.is_some() && !(params.app_named == Some(true) && !by_agent),
             given,
-            parent: params.parent,
-            visibility: params.visibility.unwrap_or_default(),
+            parent: params.launch.parent,
+            visibility: params.launch.visibility.unwrap_or_default(),
             role,
             order,
             spawn_prompt,
             spawner: by_agent.then(|| ctx.actor.id.clone()),
             pair,
             lean,
-            start_settings: params.settings,
+            start_settings: params.launch.settings,
             start_attribution: params.start_attribution,
             size,
             cwd: params.cwd,
@@ -233,7 +233,7 @@ impl Agents {
                 "a Mode starts only under a root Agent outside any Workstream",
             ));
         }
-        if params.order.is_some() {
+        if params.launch.order.is_some() {
             return refuse("a Mode takes a first prompt, not an order");
         }
         if params.scout.is_some() || params.extras.is_some() {
@@ -276,7 +276,7 @@ impl Agents {
                 "only the user connection supplies start attribution",
             ));
         }
-        if params.visibility == Some(contracts::agent::RailVisibility::Internal) {
+        if params.launch.visibility == Some(contracts::agent::RailVisibility::Internal) {
             let rail = self.shared.rail();
             if ctx.actor.kind == ActorKind::Agent
                 && rail.node(crate::rail::agent_id(&ctx.actor.id)?)?.kind() != NodeKind::Workstream
@@ -289,7 +289,7 @@ impl Agents {
         let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
-        if let Some(settings) = &params.settings {
+        if let Some(settings) = &params.launch.settings {
             // ST4: the Daemon refuses any caller but the user and the program before this; an
             // Agent never sends them.
             if ctx.actor.kind == ActorKind::Agent {
@@ -311,8 +311,8 @@ impl Agents {
                     ctx.actor.id
                 )));
             }
-            params.parent = Some(ctx.actor.id.clone());
-        } else if let Some(parent) = &params.parent
+            params.launch.parent = Some(ctx.actor.id.clone());
+        } else if let Some(parent) = &params.launch.parent
             && self
                 .shared
                 .rail()

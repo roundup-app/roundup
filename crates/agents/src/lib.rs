@@ -378,6 +378,7 @@ mod door;
 mod typed;
 pub use typed::RailRead;
 mod adoption;
+pub use adoption::AdoptBy;
 mod ending;
 mod events;
 mod handoff;

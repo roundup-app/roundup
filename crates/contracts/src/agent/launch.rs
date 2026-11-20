@@ -5,8 +5,41 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+/// G13: the launch fields `agent.spawn` and `agent.adopt` share, so a field one gains reaches both.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type, JsonSchema)]
+pub struct LaunchParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = super::RailVisibility)]
+    pub visibility: Option<super::RailVisibility>,
+    pub parent: Option<String>,
+    /// O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
+    /// `INVALID_PARAMS` (O8).
+    #[serde(default)]
+    #[specta(optional, type = Order)]
+    pub order: Option<Order>,
+    /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
+    /// `models.list` offers is accepted.
+    #[serde(default)]
+    #[specta(optional)]
+    pub model: Option<String>,
+    /// A36: the child's Effort, an id from `models.list`. Only the user sets it.
+    #[serde(default)]
+    #[specta(optional)]
+    #[schemars(skip)]
+    pub effort: Option<String>,
+    /// ST1: the Claude Code settings, a JSON object of at most 64 KiB that roundup merges with its
+    /// own keys into the Agent's `--settings` file and keeps for every resume. Only the user and
+    /// the Project's program send it; any other caller's is `FORBIDDEN` (ST4). `rup` reads
+    /// `--settings @file` from a file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = std::collections::BTreeMap<String, specta_typescript::Unknown>)]
+    pub settings: Option<serde_json::Value>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnParams {
+    #[serde(flatten)]
+    pub launch: LaunchParams,
     /// A5765e: immutable source names and identities, supplied only by the target user connection.
     #[serde(
         default,
@@ -16,9 +49,6 @@ pub struct SpawnParams {
     #[specta(optional, type = StartAttribution)]
     #[schemars(skip)]
     pub start_attribution: Option<StartAttribution>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = super::RailVisibility)]
-    pub visibility: Option<super::RailVisibility>,
     /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = u16)]
@@ -48,18 +78,12 @@ pub struct SpawnParams {
     pub machine: Option<String>,
     pub cwd: String,
     pub prompt: Option<String>,
-    pub parent: Option<String>,
     /// DCL9: an Agent's spawn names the Subagent's role, `job`, `consult` or `mode`; without one
     /// the call is refused. The user's own spawn has no role. A `mode` (A7494a) takes `name` and
     /// the first `prompt`, no `order`.
     #[serde(default)]
     #[specta(optional, type = SpawnRole)]
     pub role: Option<SpawnRole>,
-    /// O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
-    /// `INVALID_PARAMS` (O8).
-    #[serde(default)]
-    #[specta(optional, type = Order)]
-    pub order: Option<Order>,
     /// A28: the child's Rail name, at most 42 characters; A9 never renames it. Name the child after
     /// its task. Without one, A9 names it from its first prompt.
     #[serde(default)]
@@ -71,16 +95,6 @@ pub struct SpawnParams {
     #[specta(optional, type = bool)]
     #[schemars(skip)]
     pub app_named: Option<bool>,
-    /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
-    /// `models.list` offers is accepted.
-    #[serde(default)]
-    #[specta(optional)]
-    pub model: Option<String>,
-    /// A36: the child's Effort, an id from `models.list`. Only the user sets it.
-    #[serde(default)]
-    #[specta(optional)]
-    #[schemars(skip)]
-    pub effort: Option<String>,
     /// LC4: start a scout, which reads and searches only (`Read`, `Grep`, `Glob`, `Bash`) and has
     /// no skills, plugins or user instructions. Absent is false.
     #[serde(default)]
@@ -91,13 +105,6 @@ pub struct SpawnParams {
     #[serde(default)]
     #[specta(optional, type = Extras)]
     pub extras: Option<Extras>,
-    /// ST1: the Claude Code settings, a JSON object of at most 64 KiB that roundup merges with its
-    /// own keys into the Agent's `--settings` file and keeps for every resume. Only the user and
-    /// the Project's program send it; any other caller's is `FORBIDDEN` (ST4). `rup` reads
-    /// `--settings @file` from a file.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = std::collections::BTreeMap<String, specta_typescript::Unknown>)]
-    pub settings: Option<serde_json::Value>,
 }
 
 /// DCL9: what a Subagent is for. A Job owns one bounded outcome and ends with a report; a Consult

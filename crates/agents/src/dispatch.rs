@@ -244,7 +244,7 @@ impl Agents {
         ctx: &Ctx,
         _p: (),
     ) -> Result<Vec<contracts::agent::Adoptable>, RpcError> {
-        self.adoptable(ctx).await
+        self.adoptable_by(ctx, crate::AdoptBy::User).await
     }
 
     async fn agent_adopt(
@@ -252,7 +252,7 @@ impl Agents {
         ctx: &Ctx,
         p: contracts::agent::AdoptParams,
     ) -> Result<contracts::agent::RailNode, RpcError> {
-        self.adopt(ctx, p).await
+        self.adopt_by(ctx, crate::AdoptBy::User, p).await
     }
 
     async fn agent_discard(&self, ctx: &Ctx, p: contracts::agent::NodeId) -> Result<(), RpcError> {

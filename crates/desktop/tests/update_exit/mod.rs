@@ -123,23 +123,18 @@ impl Real {
     fn spawn_agent(&self) -> (String, u32, u32) {
         let params = contracts::agent::SpawnParams {
             start_attribution: None,
-            visibility: Default::default(),
+            launch: Default::default(),
             cols: None,
             rows: None,
             permission_mode: None,
             engine: None,
             cwd: self.fx.project.display().to_string(),
             prompt: None,
-            order: None,
             name: None,
             app_named: None,
-            parent: None,
             role: None,
-            model: None,
-            effort: None,
             scout: None,
             extras: None,
-            settings: None,
             machine: None,
         };
         let node = self.rpc("agent.spawn", json!(params)).unwrap();

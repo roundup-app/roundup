@@ -312,6 +312,14 @@ impl Daemon {
                 }
             }
             Gate::Spawn => self.guard_spawn(conn, &params)?,
+            Gate::Adopt | Gate::Adoptable => {
+                if let Some(reply) = self
+                    .adopt_as_program(conn, row.gate == Gate::Adoptable, &params)
+                    .await?
+                {
+                    return Ok(reply);
+                }
+            }
             Gate::None | Gate::UserOnly | Gate::RefTarget => {}
         }
         let outcome = module
