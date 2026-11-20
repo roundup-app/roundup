@@ -81,6 +81,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
 
   try {
     const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null, order: { kind: "work", ask: "Prepare the release", limits: [] } });
+    await app.rpc("workstream.setAuto", { id: home.id, auto: false }); // A7718: these assert the Door's own turns
     homeId = home.id;
     const agents: { id: string }[] = [];
 
@@ -310,6 +311,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
   try {
     const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null, order: { kind: "work", ask: "Prepare the release", limits: [] } });
+    await app.rpc("workstream.setAuto", { id: home.id, auto: false }); // A7718: these assert the Door's own turns
     await app.rpc("rail.startDoor", { id: home.id });
     await expect.poll(async () => (await app.rpc("todo.list", null)).length, { timeout: 20_000 }).toBe(1);
     await expect.poll(async () => (await app.rpc("pad.list", null)).length, { timeout: 20_000 }).toBe(1);
