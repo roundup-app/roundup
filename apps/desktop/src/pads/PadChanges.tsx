@@ -1,12 +1,14 @@
 import { diffLines } from "diff";
-import { For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show, type Accessor, type JSX } from "solid-js";
 import { copy } from "./copy";
+import { usePadRead } from "./padRead";
+import type { Pad, PadList } from "./padList";
 
 /** The diff function, held on an object so a test can count its calls. */
 export const lines = { diff: diffLines };
 
 /** U7706a: the lines that changed between the text the user read and the Pad now; unchanged lines are left out. */
-export const PadChanges = (props: { before: string | null; after: string; onBack: () => void }) => {
+const PadChanges = (props: { before: string | null; after: string; onBack: () => void }) => {
   const parts = () => props.before === null ? [] : lines.diff(props.before, props.after).filter(part => part.added || part.removed);
 
   return (
@@ -18,3 +20,38 @@ export const PadChanges = (props: { before: string | null; after: string; onBack
     </section>
   );
 };
+
+/** U7706a: the action shows exactly while U7499b marks the Pad changed. */
+export const usePadChanges = (list: PadList, initial: { incarnation: number; revision: number }, pads: Accessor<readonly Pad[]>) => {
+  const padRead = usePadRead(list);
+  const [diffing, setDiffing] = createSignal(false);
+
+  // A list that still holds the Revision the Drawer opened on is behind the user's own save, not changed by another Actor.
+  const changed = () => {
+    const pad = pads().find(one => one.incarnation === initial.incarnation);
+
+    return pad !== undefined && pad.revision > initial.revision && padRead.mark(pad) === "changed" ? pad : null;
+  };
+
+  createEffect(changed, pad => { if (!pad) setDiffing(false); });
+
+  return { changed, diffing, setDiffing, kept: padRead.kept };
+};
+
+type Changes = ReturnType<typeof usePadChanges>;
+
+export const PadChangesAction = (props: { changes: Changes }) => (
+  <Show when={props.changes.changed()}>
+    <button data-button="quiet" type="button" class="word" onClick={() => props.changes.setDiffing(true)}>{copy.changesSince}</button>
+  </Show>
+);
+
+/** The changes in place of the editor while asked for; the editor stays mounted so its draft survives. */
+export const PadChangesView = (props: { changes: Changes; children: JSX.Element }) => (
+  <>
+    <Show when={props.changes.diffing() && props.changes.changed()}>
+      {pad => <PadChanges before={props.changes.kept(pad())} after={pad().text} onBack={() => props.changes.setDiffing(false)} />}
+    </Show>
+    <div style={{ display: props.changes.diffing() ? "none" : "contents" }}>{props.children}</div>
+  </>
+);

@@ -29,7 +29,7 @@ import { createDraftField } from "../state/draftField";
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
 import { usePadRead } from "./padRead";
-import { PadChanges } from "./PadChanges";
+import { PadChangesAction, PadChangesView, usePadChanges } from "./PadChanges";
 import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
 
@@ -90,20 +90,7 @@ const PadBody = (props: {
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
-  const maximised = useContext(DrawerMaximisedContext);
-  const padRead = usePadRead(list);
-  const [diffing, setDiffing] = createSignal(false);
-  const current = () => props.pads().find(pad => pad.incarnation === props.initial.incarnation);
-
-  // U7706a: the action shows exactly while U7499b marks the Pad changed.
-  const changedSince = () => {
-    const pad = current();
-
-    // A list that still holds the Revision the Drawer opened on is behind the user's own save, not changed by another Actor.
-    return pad !== undefined && pad.revision > props.initial.revision && padRead.mark(pad) === "changed" ? pad : null;
-  };
-
-  createEffect(changedSince, pad => { if (!pad) setDiffing(false); });
+  const maximised = useContext(DrawerMaximisedContext), changes = usePadChanges(list, props.initial, () => props.pads());
   const [width, setWidth] = createSignal(untrack(() => appSettings().padWidth));
   // The body opens on the Pad as it is now, read once.
   const { name, ...opened } = untrack(() => ({ name: props.initial.name, incarnation: props.initial.incarnation, text: props.initial.text, revision: props.initial.revision }));
@@ -490,10 +477,7 @@ const PadBody = (props: {
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
-        </IconButton>
-        <Show when={changedSince()}>
-          <button data-button="quiet" type="button" class="word" onClick={() => setDiffing(true)}>{copy.changesSince}</button>
-        </Show>
+        </IconButton><PadChangesAction changes={changes} />
         <Show when={!deleted()}>
           <IconButton
             icon="delete" style={wholeWord}
@@ -508,10 +492,7 @@ const PadBody = (props: {
           </IconButton>
         </Show>
       </div>
-      <Show when={diffing() && changedSince()}>
-        {pad => <PadChanges before={padRead.kept(pad())} after={pad().text} onBack={() => setDiffing(false)} />}
-      </Show>
-      <div style={{ display: diffing() ? "none" : "contents" }}><Loading>
+      <PadChangesView changes={changes}><Loading>
         <PadRichEditor
           toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
           initialFocus={props.initialFocus}
@@ -536,7 +517,7 @@ const PadBody = (props: {
             if (recovered?.selection) ready.restoreSelection(recovered.selection);
           }}
         />
-      </Loading></div>
+      </Loading></PadChangesView>
     </div>
   );
 };
