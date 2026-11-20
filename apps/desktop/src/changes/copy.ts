@@ -1,5 +1,4 @@
 import { copy as sharedCopy } from "../sharedCopy";
-import { copy as ui } from "../ui/copy";
 
 export const copy = {
   checking: sharedCopy.checking,
@@ -31,7 +30,7 @@ export const copy = {
   folderGone: (agent: string) => `${agent}'s folder no longer exists`,
   /** @prose */
   stillMissing: "Checked again: it is still missing",
-  loadingFile: ui.surfaceLoading,
+  loadingFile: sharedCopy.surfaceLoading,
   renamedPaths: (from: string, to: string) => `${from} to ${to}`,
   /** @prose */
   modeOnly: "This file only has a mode change, so no lines show.",

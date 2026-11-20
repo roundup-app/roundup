@@ -16,7 +16,7 @@ export const copy = {
   nativeRemovalAlertUnavailable: "The removal alert is unavailable. Retry.",
   copied: sharedCopy.copied,
   surfaceLoadFailed: (label: string) => `${label} could not load; retry.`,
-  surfaceLoading: (label: string) => `Loading ${label}…`,
+  surfaceLoading: sharedCopy.surfaceLoading,
   retry: sharedCopy.retry,
   name: sharedCopy.name,
   openFolder: sharedCopy.openFolder,

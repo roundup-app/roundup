@@ -18,11 +18,13 @@ export const hiddenKind = (value: FileComparison | undefined, revealed: Hidden |
   const { text: before } = value.old;
   const { text: after } = value.new;
 
-  if (before === after) return "mode";
+  const reasons: [Hidden, () => boolean][] = [
+    ["mode", () => before === after],
+    ["large", () => Math.max(lineCount(before), lineCount(after)) > TOO_LARGE_LINES],
+    ["whitespace", () => withoutSpace(before) === withoutSpace(after)],
+  ];
 
-  if (revealed !== "large" && Math.max(lineCount(before), lineCount(after)) > TOO_LARGE_LINES) return "large";
-
-  return revealed !== "whitespace" && withoutSpace(before) === withoutSpace(after) ? "whitespace" : null;
+  return reasons.find(([kind, applies]) => revealed !== kind && applies())?.[0] ?? null;
 };
 
 const HIDDEN_NOTICE = { mode: copy.modeOnly, whitespace: copy.noDifference, large: copy.tooLarge } as const;
