@@ -13,7 +13,6 @@ export const copy = {
   compareTo: "To",
   targetTree: "Tree",
   targetBranch: "Branch",
-  targetChanges: "Changes",
   changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
   openInEditor: sharedCopy.openInEditor,
   reviewChanges: sharedCopy.reviewChanges,

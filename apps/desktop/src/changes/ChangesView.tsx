@@ -122,7 +122,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const segments = (): { value: ChangeTarget; label: string }[] => [
     ...worktree() === null ? [] : [{ value: "tree" as const, label: copy.targetTree }, { value: "branch" as const, label: copy.targetBranch }],
-    { value: "changes", label: copy.targetChanges },
+    { value: "changes", label: copy.changes },
   ];
 
   return <section class="changes-view" aria-label={copy.changes}>
