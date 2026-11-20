@@ -19,6 +19,19 @@ export type Handlers = {
   ) => RpcMethods[M]["result"] | Promise<RpcMethods[M]["result"]>;
 };
 
+/** C7684e: `agent.repeatScan` answers by Agent id: `repeat-hits`, `repeat-partial`, `repeat-failure`, else none. */
+function repeatScanFixture(id: string): RpcMethods["agent.repeatScan"]["result"] {
+  const hit = { path: "new.ts", start: 3, end: 22, other: { path: "owned.ts", start: 12, end: 31 } };
+
+  if (id === "repeat-hits") return { hits: [hit], complete: true };
+
+  if (id === "repeat-partial") return { hits: [hit], complete: false };
+
+  if (id === "repeat-failure") throw new RpcError(-32603, "failed: the scan could not read the Worktree");
+
+  return { hits: [], complete: true };
+}
+
 /** Reads the regions make once a Project is open answer empty; any other method fails with METHOD_NOT_FOUND until a test installs a handler. */
 const emptyReads: Handlers = {
   "daemon.methods": () => OWN_CONTRACT.methods,
@@ -28,6 +41,7 @@ const emptyReads: Handlers = {
   "machine.sshHosts": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "agent.ownedChanges": () => ({ groups: [] }),
+  "agent.repeatScan": ({ id }) => repeatScanFixture(id),
   "agent.links": () => ({ entries: [] }),
   "project.compareRefs": () => ({ refs: [] }),
   "terminal.list": () => [],

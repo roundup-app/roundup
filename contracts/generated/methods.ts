@@ -36,6 +36,7 @@ import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { ResumeParams as agent_ResumeParams } from "./agent/ResumeParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
 import type { SaveAsModeParams as agent_SaveAsModeParams } from "./agent/SaveAsModeParams";
+import type { ScanHits as agent_ScanHits } from "./agent/ScanHits";
 import type { SetAlertLevelParams as agent_SetAlertLevelParams } from "./agent/SetAlertLevelParams";
 import type { SetModelParams as agent_SetModelParams } from "./agent/SetModelParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
@@ -211,6 +212,7 @@ export type RpcMethods = {
   "agent.interrupt": { params: agent_NodeId; result: null };
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
   "agent.changedFiles": { params: agent_ChangedFilesParams; result: agent_ChangedFiles };
+  "agent.repeatScan": { params: agent_ChangedFilesParams; result: agent_ScanHits };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
