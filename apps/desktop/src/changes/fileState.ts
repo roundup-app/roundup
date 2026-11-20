@@ -1,6 +1,7 @@
 import { copy } from "./copy";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { LineSelection } from "./lines";
+import { drawsLines, imageHidden, imageSides, imageSizes } from "./images";
 
 /** U7675b: a side over this many lines is offered with Show anyway, not drawn at once. */
 const TOO_LARGE_LINES = 20000;
@@ -54,7 +55,13 @@ export const noticeFor = (input: NoticeInput): string | null => {
 
   if (input.hidden) return HIDDEN_NOTICE[input.hidden];
 
-  if (value.old.kind === "binary" || value.new.kind === "binary") return copy.binaryDiff;
+  if (imageSides(value)) {
+    const image = imageHidden(value);
+
+    return image === "mode" ? copy.modeOnly : image === "large" ? copy.withSizes(copy.tooLarge, imageSizes(value)) : null;
+  }
+
+  if (!drawsLines(value)) return copy.binaryDiff;
 
   return input.coarse ? copy.replacementDiff : selectedNotice(input.selection);
 };

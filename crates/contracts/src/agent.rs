@@ -9,6 +9,8 @@ use crate::{Error, common::Status};
 
 mod call_paths;
 pub use call_paths::*;
+mod comparison;
+pub use comparison::*;
 mod readback;
 pub use readback::*;
 mod scan;
@@ -372,29 +374,6 @@ pub struct CompareFileParams {
     #[serde(default)]
     #[specta(optional, type = CompareTarget)]
     pub to: CompareTarget,
-}
-
-/// Exact present bytes use SHA-256 revisions; an absent side uses `absent`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum FileContent {
-    Absent { revision: String },
-    Text { revision: String, text: String },
-    Binary { revision: String },
-}
-
-/// Merge-base versus current disk content, never the index (U2540a).
-/// Each side is capped at 4 MiB; oversized or special files fail explicitly.
-/// Status is null when no change remains against the merge base.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct FileComparison {
-    pub base: String,
-    pub old_path: String,
-    pub new_path: String,
-    pub status: Option<ChangedStatus>,
-    pub old: FileContent,
-    pub new: FileContent,
 }
 
 /// What `agent.land` returns (G4): the commit the Base points at after Landing.

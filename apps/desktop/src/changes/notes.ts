@@ -12,6 +12,8 @@ const content = v.variant("kind", [
   v.strictObject({ kind: v.literal("absent"), revision: v.string() }),
   v.strictObject({ kind: v.literal("binary"), revision: v.string() }),
   v.strictObject({ kind: v.literal("text"), revision: v.string(), text: v.string() }),
+  // U7694: a draft holds no picture bytes, so `data` is never kept.
+  v.strictObject({ kind: v.literal("image"), revision: v.string(), mime: v.string(), size: v.number() }),
 ]);
 
 const comparison = v.strictObject({

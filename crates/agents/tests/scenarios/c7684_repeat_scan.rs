@@ -323,3 +323,120 @@ async fn c7684e_no_worktree_and_missing_worktree_fail_as_u2539a_does() {
         err.message
     );
 }
+
+/// The scan of `dir`'s working tree against its HEAD.
+fn count(dir: &Path) -> usize {
+    let worktree = agents::worktree::Worktree {
+        path: dir.into(),
+        branch: "scan".into(),
+        base: "HEAD".into(),
+        adopted: true,
+    };
+    let hits = Git::from_env()
+        .repeat_scan(&worktree, &std::sync::atomic::AtomicBool::new(false))
+        .unwrap();
+    assert!(hits.complete);
+    hits.hits.len()
+}
+
+/// C7684f: the dense `tree-40` seed (`apps/desktop/src/perf/fixture.ts`): 40 Agents, each
+/// changing its own file, and four pads of the seed's 30-line text, in a repo whose Base holds
+/// one file per Agent.
+#[test]
+fn c7684f_the_tree_40_fixture_has_at_most_three_hits() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path();
+    git(path, &["init", "-q"]);
+    git(path, &["config", "user.email", "t@t"]);
+    git(path, &["config", "user.name", "t"]);
+    for n in 0..40 {
+        write(
+            path,
+            &format!("agent-{n}.rs"),
+            &unique(&format!("base{n}"), 12),
+        );
+    }
+    commit_all(path, "seed");
+    for n in 0..40 {
+        let own = format!(
+            "{}{}",
+            unique(&format!("base{n}"), 12),
+            block(&format!("agent{n}"), 6, "", "")
+        );
+        write(path, &format!("agent-{n}.rs"), &own);
+    }
+    for n in 0..4 {
+        write(
+            path,
+            &format!("pad-{n}.md"),
+            &"# hello\nsome text\n".repeat(30),
+        );
+    }
+    let hits = count(path);
+    assert!(hits <= 3, "tree-40 shows {hits} hits");
+}
+
+/// C7684f, run by hand: `MEASURE_REPO=<repo> cargo nextest run -p agents --run-ignored only
+/// c7684f_measure`. Prints the hits of each of the last 50 merged PRs: a checkout of the merge
+/// parent with the PR's merge-base-to-head diff applied.
+#[test]
+#[ignore = "measures the repo named by MEASURE_REPO"]
+fn c7684f_measure_the_last_50_merged_prs() {
+    let repo = std::path::PathBuf::from(std::env::var("MEASURE_REPO").unwrap());
+    let merges = git(
+        &repo,
+        &[
+            "log",
+            "--first-parent",
+            "--merges",
+            "-n",
+            "50",
+            "--format=%H",
+        ],
+    );
+    let mut counts = Vec::new();
+    for merge in merges.lines() {
+        let parents = git(&repo, &["log", "-1", "--format=%P", merge]);
+        let parents: Vec<&str> = parents.split_whitespace().collect();
+        let base = git(&repo, &["merge-base", parents[0], parents[1]]);
+        let patch = git(&repo, &["diff", "--binary", base.trim(), parents[1]]);
+        let dir = tempfile::tempdir().unwrap();
+        let tree = dir.path().join("tree");
+        git(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "--detach",
+                tree.to_str().unwrap(),
+                parents[0],
+            ],
+        );
+        let patch_file = dir.path().join("pr.patch");
+        std::fs::write(&patch_file, patch).unwrap();
+        let applied = std::process::Command::new("git")
+            .current_dir(&tree)
+            .args(["apply", "--whitespace=nowarn", patch_file.to_str().unwrap()])
+            .status()
+            .unwrap();
+        if !applied.success() {
+            // The merge parent moved the same lines: take the PR's net change as merged.
+            let net = git(&repo, &["diff", "--binary", parents[0], merge]);
+            std::fs::write(&patch_file, net).unwrap();
+            git(
+                &tree,
+                &["apply", "--whitespace=nowarn", patch_file.to_str().unwrap()],
+            );
+        }
+        let hits = count(&tree);
+        git(
+            &repo,
+            &["worktree", "remove", "--force", tree.to_str().unwrap()],
+        );
+        println!("{merge} {hits}");
+        counts.push(hits);
+    }
+    counts.sort_unstable();
+    println!("median {}", counts[counts.len() / 2]);
+}

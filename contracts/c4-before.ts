@@ -100,7 +100,7 @@ export type agent_ExtrasAddParams = { id: string, extras: agent_Extras, };
 
 export type agent_FileComparison = { base: string, oldPath: string, newPath: string, status: agent_ChangedStatus | null, old: agent_FileContent, new: agent_FileContent, };
 
-export type agent_FileContent = { "kind": "absent", revision: string, } | { "kind": "text", revision: string, text: string, } | { "kind": "binary", revision: string, };
+export type agent_FileContent = { "kind": "absent", revision: string, } | { "kind": "text", revision: string, text: string, } | { "kind": "binary", revision: string, } | { "kind": "image", revision: string, mime: string, size: number, data?: string, };
 
 export type agent_Inbox = "ok" | "missing" | "mismatch";
 
