@@ -139,6 +139,7 @@ export const CONTRACT = {
     "rail.tree": "2ed0e295de4937dc",
     "route.list": "5aac961a9745025c",
     "route.set": "d871b2b8a6257592",
+    "search.find": "80321bcbae087d43",
     "shortcuts.export": "63066df385273240",
     "terminal.catchUp": "127e301fef91d04b",
     "terminal.close": "1c27c5a6fa7bae68",

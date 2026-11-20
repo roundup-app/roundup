@@ -66,6 +66,7 @@ mod u6243_tests;
 
 mod resume_turn;
 mod rewind;
+mod search;
 mod todo_pr;
 mod todo_refs;
 mod waits;
@@ -469,6 +470,8 @@ mod workstream_door;
 mod concurrent_tests;
 #[cfg(test)]
 mod dcl2_tests;
+#[cfg(test)]
+mod search_tests;
 #[cfg(test)]
 mod todo_deletion_tests;
 
