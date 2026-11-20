@@ -23,10 +23,24 @@ export const openChanges = async () => {
   action.run();
 };
 
-/** Opens the Changes view for the selected Agent and reads one file's diff in it (U7186c). */
+/** The tree's row for `path` in the newest Changes view: Pierre draws it inside a shadow root. */
+export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
+  const row = [...document.querySelectorAll("file-tree-container")].at(-1)?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${path}"]`);
+
+  if (!row) throw new Error(`No tree row for ${path}`);
+
+  return row;
+});
+
+/** Reads one file's diff in the open Changes view: the first file opens by itself (U7674a), another is chosen in the tree. */
 export const openFile = async (path = "src/a.ts") => {
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }));
   await screen.findByRole("button", { name: "Add note" });
+  const row = await treeRow(path);
+
+  row.focus();
+  await within(screen.getAllByLabelText("Diff").at(-1)!).findByText(path, { selector: ".diff-path" });
+  // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
+  await new Promise(resolve => setTimeout(resolve, 50));
 };
 
 export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {

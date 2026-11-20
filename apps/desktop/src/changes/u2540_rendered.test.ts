@@ -41,8 +41,7 @@ const click = (name: string) => browser("find", "role", "button", "click", "--na
 
 const showDiff = async () => {
   await browser("click", ".changes-icon");
-  await wait("!!document.querySelector('.changes-file')");
-  await browser("click", ".changes-file");
+  await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')");
 };
 
 const capture = async (name: string, id = "U2540") => {

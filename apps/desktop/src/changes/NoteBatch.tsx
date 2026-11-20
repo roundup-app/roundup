@@ -22,6 +22,9 @@ import type { Note, Notes } from "./notes";
 
 const olderComparison = (current: FileComparison | undefined, original: FileComparison) => current && current.newPath === original.newPath && (current.oldPath !== original.oldPath || current.base !== original.base || current.old.revision !== original.old.revision || current.new.revision !== original.new.revision);
 
+/** About as many notes as the batch shows without scrolling. */
+const SLICE = 5;
+
 const NotePath = (props: { path: string }) => {
   const cut = createCutTitle(() => props.path);
 
@@ -43,6 +46,17 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 
   const older = (note: Note) => olderComparison(props.comparison, note.comparison);
 
+  // U7610b: a batch already long when the view opens mounts a slice of notes per task, so the view never waits on every note; a batch that starts short shows each note at once.
+  const list = () => props.notes.list(props.id);
+  const [mounted, setMounted] = createSignal(untrack(list).length > SLICE ? SLICE : Infinity);
+
+  createEffect(() => mounted() < list().length, more => {
+    if (!more) return undefined;
+    const timer = setTimeout(() => setMounted(count => count + SLICE < untrack(list).length ? count + SLICE : Infinity));
+
+    return () => clearTimeout(timer);
+  });
+
   const noteLine = dismissable(() => props.notes.problem() ?? props.notes.failure(props.id));
 
   createMessageToast({
@@ -51,11 +65,11 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
     get action() { return <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show>; },
   });
 
-  return <section class="note-batch" aria-label={copy.notesRegion}>
+  return <Show when={props.notes.list(props.id).length > 0 || status()}><section class="note-batch" aria-label={copy.notesRegion}>
       <StatusNote text={noteLine.message() ? null : status()} />
       <Show when={uncertain()}><BusyButton kind="quiet" busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</BusyButton></Show>
-      <Show when={props.notes.list(props.id).length}>
-        <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
+      <Show when={list().length}>
+        <ul aria-label={copy.notes}><For each={list().slice(0, mounted())}>{(note, index) => <li>
           <NotePath path={note.comparison.newPath} />
           <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<InlineStatus text={older(note) ? copy.originalContext : null} /></p>
           <p class="note-text">{note.text}</p>
@@ -86,7 +100,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
           if (focused && (document.activeElement === button || document.activeElement === document.body) && props.notes.list(props.id).length === 0) focus(() => props.fallback?.());
         });
       }}>{copy.sendNotesTo(props.name)}</BusyButton></Show>
-    </section>;
+    </section></Show>;
 };
 
 

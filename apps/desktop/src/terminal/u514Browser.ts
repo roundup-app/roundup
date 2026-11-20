@@ -121,8 +121,7 @@ export const editor = async (kind: typeof editorKinds[number] | "pad-source" | "
       ["open", url("/src/changes/u2540.html")],
       ["wait", "--fn", "!!document.querySelector('.changes-icon')"],
       ["click", ".changes-icon"],
-      ["wait", "--fn", "!!document.querySelector('.changes-file')"],
-      ["click", ".changes-file"],
+      ["wait", "--fn", "!!document.querySelector('.changes-view .changes-body')"],
       ["wait", "--fn", "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')"]
     );
     selector = ".diff-content";

@@ -665,6 +665,7 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, outcome }: (typeof
   activate(option, how);
   await waitFor(() => expect(field()).toBeNull());
   await waitFor(() => expect(connected.hasView("changes")).toBe(true));
-  expect(refs()).toEqual([]);
+  // U7674a: the first file opens by itself, so its one comparison is read; no Tree or Branch listing is.
+  expect(refs().filter(call => call.method === "agent.changedFiles")).toEqual([]);
   expect(app.calls.slice(before).filter(call => ["terminal.write", "agent.prompt"].includes(call.method))).toEqual([]);
 };

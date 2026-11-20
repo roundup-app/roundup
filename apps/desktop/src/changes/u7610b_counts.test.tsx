@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
-import { COMPARISON } from "./noteHarness";
+import { COMPARISON, treeRow } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -20,7 +20,7 @@ const open = async () => {
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
-  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
+  await screen.findByRole("region", { name: "Changes" });
 
   return mounted;
 };
@@ -28,21 +28,20 @@ const open = async () => {
 it("u7610b_rows_show_the_daemon_counts_and_a_binary_file_shows_none", async () => {
   await open();
 
-  const row = await screen.findByRole("button", { name: /a\.ts/ });
+  const row = await treeRow("a.ts");
 
-  expect(within(row).getByText(/10000/)).toBeTruthy();
-  expect(within(row).getByText(/9998/)).toBeTruthy();
-  expect((await screen.findByRole("button", { name: /logo\.png/ })).querySelector(".changes-counts")).toBeNull();
+  await waitFor(() => expect(row.textContent).toMatch(/10000.*9998/));
+  expect((await treeRow("logo.png")).textContent).not.toMatch(/\d{3}/);
 });
 
 it("u7610b_opening_the_list_never_calls_compare_file", async () => {
   const { app } = await open();
 
-  await screen.findByRole("button", { name: /a\.ts/ });
+  await treeRow("a.ts");
   fireEvent.click(screen.getByRole("radio", { name: "Tree" }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "agent.changedFiles").length).toBe(1));
-  expect(within(await screen.findByRole("button", { name: /a\.ts/ })).getByText(/10000/)).toBeTruthy();
-  expect(app.calls.filter(call => call.method === "agent.compareFile")).toEqual([]);
-  fireEvent.click(screen.getByRole("button", { name: /a\.ts/ }));
-  await waitFor(() => expect(app.calls.filter(call => call.method === "agent.compareFile").length).toBeGreaterThan(0));
+  // SAFETY: every agent.compareFile call carries a `path`.
+  await waitFor(() => expect(app.calls.filter(call => call.method === "agent.compareFile").map(call => (call.params as { path: string }).path)).toEqual(["a.ts"]));
+  fireEvent.click(await treeRow("logo.png"));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "agent.compareFile").length).toBe(2));
 });

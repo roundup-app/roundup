@@ -1,4 +1,4 @@
-import { createMemo, createSignal, createUniqueId, For, lazy, Loading, refresh, Show } from "solid-js";
+import { createMemo, createSignal, For, lazy, Loading, refresh, Show } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { failureOf } from "../app/failureOf";
 import { BlockedFailure } from "../ink/MountedLine";
@@ -10,27 +10,14 @@ import type { ChangeTarget } from "../state/changeTargets";
 import { copy } from "./copy";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
-import { changedPath, statusText } from "./paths";
+import { changedPath } from "./paths";
+import { ChangedTree, firstInTree } from "./ChangedTree";
 import "./styles.css";
 
 const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
 
 /** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
 const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? repo.slice(root.length + 1) : repo.split("/").filter(Boolean).at(-1) ?? repo;
-
-/** U7610b: the file's `+added -removed` counts as the Daemon counted them; none for a binary file. */
-const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boolean; onEdit: () => void }) => {
-  const pathId = createUniqueId();
-
-  return <li class="changes-row">
-  <button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
-    <span class="changes-path" id={pathId}>{props.file.path}</span>
-    <span class="changes-status">{statusText[props.file.status]}</span>
-    <Show when={props.file.counts}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
-  </button>
-  <Show when={props.editable} fallback={<span class="changes-edit" aria-hidden="true">{copy.openInEditor}</span>}><button type="button" data-button="quiet" class="changes-edit" aria-describedby={pathId} onClick={() => props.onEdit()}>{copy.openInEditor}</button></Show>
-  </li>;
-};
 
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
@@ -78,9 +65,13 @@ const Surface = (props: { id: string; name: string }) => {
     return { failure, files };
   }, { loadingValue: undefined });
 
-  const title = () => `${copy.changes}: ${props.name} ${copy.versus} ${copy.remoteMain}`;
-
   const files = (): readonly ChangedFile[] => own() ? listed()?.files ?? [] : group()?.files ?? [];
+
+  // U7674a: the file shown is the chosen one still listed, else the first in tree order.
+  const opened = () => files().find(file => file.path === path())?.path ?? firstInTree(files());
+
+  // U7674b: the shown listing's totals; a `null` count adds nothing.
+  const totals = () => files().reduce((sum, file) => ({ added: sum.added + (file.counts?.added ?? 0), removed: sum.removed + (file.counts?.removed ?? 0) }), { added: 0, removed: 0 });
 
   // U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card.
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
@@ -125,29 +116,41 @@ const Surface = (props: { id: string; name: string }) => {
     { value: "changes", label: copy.changes },
   ];
 
-  return <section class="changes-view" aria-label={copy.changes}>
+  // Escape closes the view unless a note field holds it.
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+
+    if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])")) return;
+    hideView("changes");
+  };
+
+  return <section class="changes-view" aria-label={copy.changes} onKeyDown={onKeyDown}>
     <header class="changes-head">
-      <h2>{title()}</h2>
-      <Show when={!path()}><button type="button" data-button="quiet" onClick={() => hideView("changes")}>{copy.closeChanges}</button></Show>
-    </header>
-    <Show when={groups().length > 1 && !own()}>
-      <ul class="changes-groups" aria-label={copy.changeGroups}>
-        <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
-      </ul>
-    </Show>
-    <div class="changes-pickers">
+      <span class="changes-name">{props.name}</span>
       <span class="changes-from"><span>{copy.compareFrom}</span> {copy.remoteMain}</span>
       <Show when={segments().length > 1} fallback={<span class="changes-to"><span>{copy.compareTo}</span> <span class="changes-to-value">{copy.changes}</span></span>}>
         <SegmentGroup label={copy.compareTo} segments={segments()} value={target()} onValueChange={choose} />
       </Show>
-    </div>
+      <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
+      <button type="button" data-button="quiet" onClick={() => hideView("changes")}>{copy.closeChanges}</button>
+    </header>
     <BlockedFailure message={own() ? listed()?.failure : null} recover={{ run: () => refresh(listed) }} />
     <div class="changes-body">
-    <Show when={path()} fallback={<ul class="changes-files" aria-label={copy.changedFilesList}>
-      <For each={files()}>{file => <FileRow file={file} editable={editable(file)} onEdit={() => edit(file)} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
-    </ul>}>
-      {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} to={own() ?? "tree"} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Loading>}
-    </Show>
+      <div class="changes-side">
+        <Show when={groups().length > 1 && !own()}>
+          <ul class="changes-groups" aria-label={copy.changeGroups}>
+            <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
+          </ul>
+        </Show>
+        <Show when={files().length > 0}>
+          <ChangedTree files={files()} selected={opened()} onChoose={setPath} onEdit={chosen => { const file = files().find(each => each.path === chosen);
+
+ if (file && editable(file)) edit(file); }} />
+        </Show>
+      </div>
+      <Show when={opened()}>
+        {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} to={own() ?? "tree"} notes={notes} onEdited={() => {}} recover={() => showView("notes")} /></Loading>}
+      </Show>
     </div>
   </section>;
 };

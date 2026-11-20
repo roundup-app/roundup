@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
-import { COMPARISON } from "./noteHarness";
+import { COMPARISON, treeRow } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -25,7 +25,7 @@ const open = async (nodes = [agent("a", "idle", "ready", tree("a")), agent("b", 
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
-  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
+  await screen.findByRole("region", { name: "Changes" });
 
   return mounted;
 };
@@ -36,7 +36,7 @@ const rowText = (row: HTMLElement) => row.textContent ?? "";
 
 const groupLists = () => screen.queryAllByRole("list", { name: "Repositories and branches" });
 
-const files = () => screen.getAllByRole("button", { name: /\.ts/ }).map(button => button.textContent?.split(/modified|added/)[0]);
+const files = () => [...document.querySelector("file-tree-container")?.shadowRoot?.querySelectorAll("[data-item-type=file]") ?? []];
 
 it("u7672c_from_is_a_label_not_a_control", async () => {
   await open();
@@ -59,24 +59,24 @@ it("u7672c_the_switch_has_three_values_and_opens_on_changes", async () => {
 it("u7672c_choosing_a_value_lists_that_values_files", async () => {
   const { app } = await open();
 
-  await screen.findByRole("button", { name: /own\.ts/ });
+  await treeRow("own.ts");
   fireEvent.click(screen.getByRole("radio", { name: "Branch" }));
-  await screen.findByRole("button", { name: /branch\.ts/ });
+  await treeRow("branch.ts");
   expect(app.calls.filter(call => call.method === "agent.changedFiles").map(call => call.params)).toEqual([{ id: "a", to: "branch" }]);
   fireEvent.click(screen.getByRole("radio", { name: "Tree" }));
-  await screen.findByRole("button", { name: /tree\.ts/ });
-  fireEvent.click(screen.getByRole("button", { name: /tree\.ts/ }));
+  await treeRow("tree.ts");
+  fireEvent.click(await treeRow("tree.ts"));
   await waitFor(() => expect(app.calls.some(call => call.method === "agent.compareFile")).toBe(true));
-  expect(app.calls.find(call => call.method === "agent.compareFile")?.params).toEqual({ id: "a", path: "tree.ts", to: "tree" });
+  expect(app.calls.filter(call => call.method === "agent.compareFile").at(-1)?.params).toEqual({ id: "a", path: "tree.ts", to: "tree" });
   fireEvent.click(screen.getByRole("radio", { name: "Changes" }));
-  expect(await screen.findByRole("button", { name: /own\.ts/ })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /tree\.ts/ })).toBeNull();
+  await treeRow("own.ts");
+  await waitFor(() => expect(files().length).toBe(1));
 });
 
 it("u7672c_a_shared_checkout_offers_changes_alone", async () => {
   const { app } = await open([agent("a", "idle", "ready")]);
 
-  await screen.findByRole("button", { name: /own\.ts/ });
+  await treeRow("own.ts");
   expect(app.calls.filter(call => call.method === "agent.changedFiles")).toEqual([]);
   // A one-value switch would change nothing when pressed, so the header draws no control for it.
   expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
@@ -88,7 +88,7 @@ it("u7672c_tree_and_branch_show_one_group", async () => {
 
   await screen.findByRole("list", { name: "Repositories and branches" });
   fireEvent.click(screen.getByRole("radio", { name: "Tree" }));
-  await screen.findByRole("button", { name: /tree\.ts/ });
+  await treeRow("tree.ts");
   expect(groupLists().map(list => list.id)).toEqual([]);
 });
 
@@ -106,7 +106,7 @@ it("u7672c_no_compare_refs_call_and_no_from", async () => {
   const { app } = await open();
 
   fireEvent.click(await screen.findByRole("radio", { name: "Tree" }));
-  fireEvent.click(await screen.findByRole("button", { name: /tree\.ts/ }));
+  fireEvent.click(await treeRow("tree.ts"));
   await waitFor(() => expect(app.calls.some(call => call.method === "agent.compareFile")).toBe(true));
   const methods: string[] = app.calls.map(call => call.method);
   // SAFETY: every agent.c* call carries an object of params.
@@ -120,12 +120,12 @@ it("u7672d_one_agents_choice_never_changes_another", async () => {
   await open();
 
   fireEvent.click(await screen.findByRole("radio", { name: "Branch" }));
-  await screen.findByRole("button", { name: /branch\.ts/ });
+  await treeRow("branch.ts");
   fireEvent.click(rowOf("b"));
-  await screen.findByRole("heading", { name: "Changes: b vs remote main" });
+  await screen.findByText("b", { selector: ".changes-name" });
   expect(selected()).toBe("Changes");
   fireEvent.click(rowOf("a"));
-  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
+  await screen.findByText("a", { selector: ".changes-name" });
   expect(selected()).toBe("Branch");
 });
 
@@ -133,10 +133,11 @@ it("u7672d_rows_and_reader_keep_their_rules_for_every_value", async () => {
   const { app } = await open();
 
   fireEvent.click(await screen.findByRole("radio", { name: "Tree" }));
-  const row = await screen.findByRole("button", { name: /tree\.ts/ });
+  const row = await treeRow("tree.ts");
 
   expect(rowText(row)).toMatch(/\+3.*-1/);
-  expect(app.calls.filter(call => call.method === "agent.compareFile")).toEqual([]);
+  // U7674a: each open (the view's, then the Tree value's) reads only its first file, never the rest.
+  expect(app.calls.filter(call => call.method === "agent.compareFile").length).toBeLessThanOrEqual(2);
   expect(files().length).toBe(2);
 });
 
@@ -144,9 +145,9 @@ it("u7672d_the_choice_is_remembered_and_falls_back_without_a_worktree", async ()
   await open();
 
   fireEvent.click(await screen.findByRole("radio", { name: "Branch" }));
-  await screen.findByRole("button", { name: /branch\.ts/ });
+  await treeRow("branch.ts");
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
-  await screen.findByRole("button", { name: /branch\.ts/ });
+  await treeRow("branch.ts");
   expect(selected()).toBe("Branch");
 });
