@@ -228,3 +228,42 @@ async fn lh4_the_link_read_returns_the_last_set() {
     let sent = run.event().await;
     assert_eq!(run.links().await, sent);
 }
+
+/// The lines of `links.log` once at least `n` are there.
+async fn log(run: &Run, n: usize) -> Vec<String> {
+    let path = run.dir.path().join("data").join("links.log");
+    for _ in 0..100 {
+        if let Ok(text) = std::fs::read_to_string(&path)
+            && text.lines().count() >= n
+        {
+            return text.lines().map(str::to_owned).collect();
+        }
+        tokio::time::sleep(Duration::from_millis(30)).await;
+    }
+    Vec::new()
+}
+
+#[tokio::test]
+async fn lh17_a_failed_call_appends_one_line_naming_the_agent_and_cause() {
+    let mut run = Run::start(true).await;
+    run.turn(&format!("opened {PR} secret-text")).await;
+    let lines = log(&run, 1).await;
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(
+        lines[0].contains(&format!("agent {} (a)", run.agent)),
+        "{}",
+        lines[0]
+    );
+    assert!(lines[0].contains("absent or invalid structured output"));
+    assert!(!lines[0].contains("secret-text"));
+}
+
+#[tokio::test]
+async fn lh17_a_success_or_no_call_writes_no_line() {
+    let mut run = Run::start(false).await;
+    run.turn(&format!("opened {PR}")).await;
+    run.event().await;
+    run.turn("done, nothing more to say").await;
+    assert!(run.quiet().await);
+    assert!(!run.dir.path().join("data").join("links.log").exists());
+}

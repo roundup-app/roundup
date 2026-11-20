@@ -33,7 +33,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["process"] }
 unicode-normalization = "0.1"
 url = "2"
-time = { version = "0.3.55", features = ["parsing"] }
+time = { version = "0.3.55", features = ["parsing", "formatting"] }
 lsp-server = "0.10.0"
 
 [target.'cfg(unix)'.dependencies]
