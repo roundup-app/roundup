@@ -18,6 +18,8 @@ use serde_json::{Value, json};
 pub(super) enum Stop {
     Timeout,
     Cancelled,
+    /// RA2: cargo could not read a dependency offline, with its message.
+    Cargo(String),
     Error(String),
 }
 
@@ -29,21 +31,25 @@ pub(super) struct Client {
     deadline: Instant,
     cancel: Arc<AtomicBool>,
     pub(super) capabilities: Value,
+    /// What the server said when cargo failed offline.
+    pub(super) cargo_failure: Option<String>,
 }
 
 impl Client {
-    /// Start `program args` in `root` and complete `initialize`; the whole client has until
-    /// `deadline`.
+    /// Start `program args` in `root` with `env` added and complete `initialize` with
+    /// `options`; the whole client has until `deadline`.
     pub(super) fn start(
         program: &Path,
         args: &[&str],
         root: &Path,
+        (env, options): (&[(String, String)], Value),
         deadline: Instant,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, Stop> {
         let mut child = Command::new(program)
             .args(args)
             .current_dir(root)
+            .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -69,6 +75,7 @@ impl Client {
             deadline,
             cancel,
             capabilities: Value::Null,
+            cargo_failure: None,
         };
         let uri = uri(root);
         let init = client.request(
@@ -77,6 +84,7 @@ impl Client {
                 "processId": std::process::id(),
                 "rootUri": uri,
                 "workspaceFolders": [{"uri": uri, "name": "root"}],
+                "initializationOptions": options,
                 "capabilities": {"textDocument": {
                     "documentSymbol": {"hierarchicalDocumentSymbolSupport": true},
                     "callHierarchy": {"dynamicRegistration": false},
@@ -120,6 +128,15 @@ impl Client {
                     Message::from(Response::new_ok(ask.id, Value::Null))
                         .write(&mut self.stdin)
                         .map_err(|err| Stop::Error(err.to_string()))?;
+                }
+                Ok(Message::Notification(note))
+                    if note.method == "window/showMessage"
+                        || note.method == "window/logMessage" =>
+                {
+                    let text = note.params["message"].as_str().unwrap_or("");
+                    if text.contains("offline") || text.contains("no matching package") {
+                        self.cargo_failure.get_or_insert_with(|| text.to_owned());
+                    }
                 }
                 Ok(_) | Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => {

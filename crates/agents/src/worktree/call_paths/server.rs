@@ -15,25 +15,75 @@ pub(super) struct Row {
     /// The first major version whose executable speaks the server protocol.
     pub first_major: u32,
     pub name: &'static str,
+    /// Where a project carries its own copy, under the Worktree.
+    pub local: Option<&'static str>,
+    /// The `languageId` of a document sent to it.
+    pub language_id: &'static str,
+    /// What a missing server reads as.
+    pub not_installed: &'static str,
+    /// CP5, RA3: the time a trace has.
+    pub limit: std::time::Duration,
 }
 
 /// Measured on TypeScript 7.0.2: `tsc --lsp -stdio` exists from 7.
-const ROWS: [Row; 1] = [Row {
-    language: "typescript",
-    extensions: &["ts", "tsx", "mts", "cts"],
-    program: "tsc",
-    args: &["--lsp", "-stdio"],
-    first_major: 7,
-    name: "tsc",
-}];
+const ROWS: [Row; 2] = [
+    Row {
+        language: "typescript",
+        extensions: &["ts", "tsx", "mts", "cts"],
+        program: "tsc",
+        args: &["--lsp", "-stdio"],
+        first_major: 7,
+        name: "tsc",
+        local: Some("node_modules/.bin"),
+        language_id: "typescript",
+        not_installed: "tsc is not installed in the project or on PATH",
+        limit: super::LIMIT,
+    },
+    Row {
+        language: "rust",
+        extensions: &["rs"],
+        program: "rust-analyzer",
+        args: &[],
+        first_major: 0,
+        name: "rust-analyzer",
+        local: None,
+        language_id: "rust",
+        not_installed: "rust-analyzer is not installed; `rustup component add rust-analyzer` installs it",
+        limit: super::RUST_LIMIT,
+    },
+];
 
 /// Languages the Daemon names though it has no server row for them: they read as no server.
-const NAMED: [(&str, &str); 4] = [
-    ("rs", "rust"),
-    ("py", "python"),
-    ("go", "go"),
-    ("js", "javascript"),
-];
+const NAMED: [(&str, &str); 3] = [("py", "python"), ("go", "go"), ("js", "javascript")];
+
+impl Row {
+    /// RA2: what the server is started with. Rust gets its own target directory under the
+    /// Daemon's cache and cargo offline and locked, so it takes no lock the Agent's cargo needs,
+    /// writes nothing in the Agent's `target/` and fetches nothing.
+    pub(super) fn launch(
+        &self,
+        target: &Path,
+        lean: bool,
+    ) -> (Vec<(String, String)>, serde_json::Value) {
+        if self.language != "rust" {
+            return (vec![], serde_json::Value::Null);
+        }
+        let mut options = serde_json::json!({
+            "cargo": {"extraArgs": ["--offline", "--locked"], "targetDir": target},
+            "checkOnSave": false,
+        });
+        if lean {
+            options["cargo"]["buildScripts"] = serde_json::json!({"enable": false});
+            options["procMacro"] = serde_json::json!({"enable": false});
+            options["cachePriming"] = serde_json::json!({"enable": false});
+        }
+        let env = [
+            ("CARGO_TARGET_DIR", target.display().to_string()),
+            ("CARGO_NET_OFFLINE", "true".into()),
+        ];
+        (env.map(|(k, v)| (k.to_owned(), v)).to_vec(), options)
+    }
+}
 
 pub(super) fn language_of(path: &str) -> Option<&'static str> {
     let ext = Path::new(path).extension()?.to_str()?;
@@ -60,8 +110,8 @@ fn cause(kind: &str, detail: String) -> CallPathCause {
     }
 }
 
-/// The server for `language` in the project at `root`: its own `node_modules/.bin`, then PATH.
-/// Runs only the executable's version read.
+/// The server for `language` in the project at `root`: its own copy, then PATH. Runs only the
+/// executable's version read, in `root` so a project's toolchain file picks the toolchain.
 pub(super) fn find(
     language: &str,
     root: &Path,
@@ -73,20 +123,24 @@ pub(super) fn find(
             format!("no language server is known for {language}"),
         ));
     };
-    let local = root.join("node_modules/.bin").join(row.program);
-    let found = std::iter::once(local)
+    let found = row
+        .local
+        .map(|dir| root.join(dir).join(row.program))
+        .into_iter()
         .chain(std::env::split_paths(path).map(|dir| dir.join(row.program)))
         .find(|candidate| candidate.is_file());
     let Some(program) = found else {
-        return Err(cause(
-            "notInstalled",
-            format!("{} is not installed in the project or on PATH", row.program),
-        ));
+        return Err(cause("notInstalled", row.not_installed.into()));
     };
+    // A rustup proxy exists when its component does not: the failed read says so.
     let out = Command::new(&program)
         .arg("--version")
+        .current_dir(root)
         .output()
         .map_err(|err| cause("notInstalled", format!("{}: {err}", program.display())))?;
+    if !out.status.success() {
+        return Err(cause("notInstalled", row.not_installed.into()));
+    }
     let text = String::from_utf8_lossy(&out.stdout);
     let version = text
         .split_whitespace()

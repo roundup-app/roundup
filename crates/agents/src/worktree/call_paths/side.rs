@@ -7,6 +7,7 @@ use std::rc::Rc;
 use serde_json::{Value, json};
 
 use super::lsp::{Client, Stop, path_of, uri};
+use super::server::Row;
 
 pub(super) const OUTGOING_CAP: usize = 200;
 pub(super) const INCOMING_CAP: usize = 500;
@@ -96,6 +97,9 @@ pub(super) struct Calls {
 /// Everything one side's server told, kept after the server is gone.
 pub(super) struct SideData {
     pub root: PathBuf,
+    row: &'static Row,
+    /// RA4: incoming calls are not read.
+    pub outgoing_only: bool,
     /// Old paths to new ones, so a renamed file's symbols keep one key.
     pub key_paths: HashMap<String, String>,
     /// 1-based changed line ranges of this side by path on this side.
@@ -112,12 +116,15 @@ pub(super) struct SideData {
 
 impl SideData {
     pub fn new(
+        row: &'static Row,
         root: &Path,
         key_paths: HashMap<String, String>,
         changed: HashMap<String, Vec<(u32, u32)>>,
     ) -> Self {
         Self {
             root: root.to_owned(),
+            row,
+            outgoing_only: false,
             key_paths,
             changed,
             tables: HashMap::new(),
@@ -151,7 +158,7 @@ impl SideData {
             if self.opened.insert(rel.to_owned()) {
                 client.notify(
                     "textDocument/didOpen",
-                    json!({"textDocument": {"uri": uri, "languageId": "typescript", "version": 1, "text": text}}),
+                    json!({"textDocument": {"uri": uri, "languageId": self.row.language_id, "version": 1, "text": text}}),
                 )?;
             }
             let reply = client.request(
@@ -222,7 +229,10 @@ impl SideData {
                 for (method, field, cap) in [
                     ("callHierarchy/outgoingCalls", "to", OUTGOING_CAP),
                     ("callHierarchy/incomingCalls", "from", INCOMING_CAP),
-                ] {
+                ]
+                .into_iter()
+                .take(if self.outgoing_only { 1 } else { 2 })
+                {
                     let reply = client.request(method, json!({"item": item}))?;
                     let all = reply.as_array().map_or(&[][..], |a| a);
                     calls.capped |= all.len() > cap;
@@ -270,8 +280,10 @@ impl SideData {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
-        if text.contains("/node_modules/") || (name.starts_with("lib.") && name.ends_with(".d.ts"))
-        {
+        let library = ["/node_modules/", "/.cargo/registry/", "/rustlib/"]
+            .iter()
+            .any(|dir| text.contains(dir));
+        if library || (name.starts_with("lib.") && name.ends_with(".d.ts")) {
             return Ok(());
         }
         let Ok(rel) = file.strip_prefix(&self.root) else {

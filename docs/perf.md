@@ -583,3 +583,23 @@ Linux x86_64, clean `pnpm --filter desktop build`, `python3 tools/release/check.
 | `.vite/manifest.json` and `modules.json` (468 KB) | not cut | C9d's check and R3800 read them |
 
 `tools/release/inventory.json` drops the 66 `mermaid@11.17.2` module entries and `check.py modules` still passes. Every diagram kind, Excalidraw's Mermaid import, the language chunks and the fonts stay; the Mermaid and Drawing Pad tests pass (24).
+
+## RA5: rust-analyzer on this repo (call paths for Rust)
+
+Measured on a 4-core, 15 GB Linux runner, rust-analyzer 1.99.0 (rustup component), one `prepareCallHierarchy`, `outgoingCalls` and `incomingCalls` on `Git::export_commit`, a fresh `CARGO_TARGET_DIR`, `cargo.extraArgs` of `--offline --locked`, check on save off. Peak is the server process's `VmHWM` (its cargo and proc-macro children are not in it).
+
+| Run | Time to first answer | Time with both directions | Peak RSS |
+|---|---:|---:|---:|
+| Full | 3.5 s | 3.7 s | 788 MB |
+| Lean (no build scripts, no proc macros, no cache priming) | 2.7 s | 3.0 s | 684 MB |
+
+This runner's cargo has no registry cache, so `cargo metadata --offline` failed and the server fell back to the workspace without dependencies: these numbers are a floor, not the cold cost of a populated machine, and it is no 64-core host. Dispositions:
+
+| Lever | Cut | Disposition |
+|---|---:|---|
+| Lean options | 19% time, 13% RSS | Not kept (under 20%); the switch exists (`Git::with_call_path_levers`) and the reply names it |
+| Outgoing calls only | not measured apart (incoming took 0.1 s) | Not kept |
+| Old side cached by commit | export cached since CP6 | Kept; its cold start (about 3 s here) is under 10 s, so no answers cache (RA6 deleted) |
+| Limit | Rust 120 s | Kept as specified (no run came near it) |
+
+The observation record (the real server over three recorded diffs of this repo with a populated cargo registry, checked by hand, with a concurrent `cargo build`) is not yet made: this runner cannot populate the registry offline. It is the Mac observation named in the PR.

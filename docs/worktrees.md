@@ -29,7 +29,7 @@ P5 says "a dropped or rejected Agent leaves no worktree and no branch". The user
 | `project.get` | `null` | `{worktrees: {on, check}}` |
 | `agent.worktreeState` | `{id}` | `{ahead, behind, dirty}` |
 | `agent.changedFiles` | `{id, to?: "tree" \| "branch"}` | `{files: [{path, status, line, from?}]}` (U2539a) |
-| `agent.callPaths` | `{id, to?, language?}` | without `language` `{languages: [{language, files, server}]}`, else `{state: "done", symbols, calls, flows, capped, oldSideResolvedThroughNewDependencies}`, `{state: "noServer", cause}` or `{state: "failed", cause}` (CP1) |
+| `agent.callPaths` | `{id, to?, language?}` | without `language` `{languages: [{language, files, server}]}`, else `{state: "done", symbols, calls, flows, capped, oldSideResolvedThroughNewDependencies, unresolved?, directions?}`, `{state: "noServer", cause}` or `{state: "failed", cause}` (CP1; Rust RA1 to RA4: `unresolved: ["macroGenerated"]` and `directions: "outgoing"` name a lever that cut calls, cause `cargoOffline` a dependency missing offline) |
 | `agent.ownedChanges` | `{id}` | `{groups: [{repo, branch, base, files: [{path, status, line, from?}]}]}` (U7186a) |
 | `agent.land` | `{id}` | `{base}` |
 | `agent.discard` | `{id}` | `null` |

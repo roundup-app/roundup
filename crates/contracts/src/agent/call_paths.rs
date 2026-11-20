@@ -142,6 +142,14 @@ pub enum CallPathsAnswer {
         flows: Vec<Flow>,
         capped: bool,
         old_side_resolved_through_new_dependencies: bool,
+        /// RA4: what the server could not resolve, `macroGenerated` when its build scripts
+        /// and proc macros were off.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        unresolved: Vec<String>,
+        /// RA4: `outgoing` when incoming calls were not read.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[specta(optional, type = String)]
+        directions: Option<String>,
     },
     NoServer {
         cause: CallPathCause,
