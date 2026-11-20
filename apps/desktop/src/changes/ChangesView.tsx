@@ -1,12 +1,12 @@
 import { createMemo, createSignal, createUniqueId, For, lazy, Loading, refresh, Show } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
-import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
-import type { CompareRef } from "@contracts/agent/CompareRef";
 import { failureOf } from "../app/failureOf";
 import { BlockedFailure } from "../ink/MountedLine";
 import { createMessageToasts } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
-import { Select } from "../ui/Select";
+import { SegmentGroup } from "../ui/SegmentGroup";
+import { isDoor } from "../state/doorNode";
+import type { ChangeTarget } from "../state/changeTargets";
 import { copy } from "./copy";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
@@ -15,14 +15,8 @@ import "./styles.css";
 
 const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
 
-const keyOf = (endpoint: CompareEndpoint) => endpoint.kind === "worktree" ? `worktree:${endpoint.path}` : `head:${endpoint.branch}`;
-
 /** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
 const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? repo.slice(root.length + 1) : repo.split("/").filter(Boolean).at(-1) ?? repo;
-
-const sameEndpoint = (a: CompareEndpoint, b: CompareEndpoint) => keyOf(a) === keyOf(b);
-
-const labelOf = (refs: readonly CompareRef[], endpoint: CompareEndpoint) => refs.find(ref => sameEndpoint(ref, endpoint))?.label ?? endpoint.branch;
 
 /** U7610b: the file's `+added -removed` counts as the Daemon counted them; none for a binary file. */
 const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boolean; onEdit: () => void }) => {
@@ -38,9 +32,9 @@ const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boo
   </li>;
 };
 
-/** U7186c, U7186d: the centre's diff of what one Agent owns, with From and To pickers over every worktree and branch head. */
-const Surface = (props: { id: string; name: string }) => {
-  const { app, owned, hideView, showView, project, drafts } = useConnectedProject();
+/** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
+const Surface = (props: { id: string; name: string; worktree: string | null }) => {
+  const { app, owned, hideView, showView, project, drafts, changeTargets } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
 
   const groups = () => {
@@ -51,47 +45,34 @@ const Surface = (props: { id: string; name: string }) => {
 
   const [active, setActive] = createSignal(0);
   const group = () => groups()[active()] ?? groups()[0];
-  // Read under ChangesView's Loading: the pickers and the title show once, with every endpoint listed.
-  const choices = createMemo<CompareRef[]>(async () => (await app.rpc("project.compareRefs", null)).refs);
-  const [picked, setPicked] = createSignal<{ from: CompareEndpoint; to: CompareEndpoint }>();
+  // U7672d: a remembered Tree or Branch for an Agent without a Worktree of its own falls back to Changes.
+  const target = (): ChangeTarget => {
+    const chosen = changeTargets.read(props.id);
+
+    return chosen !== "changes" && props.worktree === null ? "changes" : chosen;
+  };
+
+  const own = (): "tree" | "branch" | null => {
+    const value = target();
+
+    return value === "changes" ? null : value;
+  };
+
   const [path, setPath] = createSignal<string>();
 
   const [listed] = createSignal<{ failure: string | null; files: ChangedFile[] } | undefined>(async () => {
-    const chosen = picked();
+    const to = own();
 
-    if (!chosen) return undefined;
+    if (!to) return undefined;
     let files: ChangedFile[] = [];
-    const failure = await failureOf(async () => { files = (await app.rpc("agent.changedFiles", { id: props.id, from: chosen.from, to: chosen.to })).files; });
+    const failure = await failureOf(async () => { files = (await app.rpc("agent.changedFiles", { id: props.id, to })).files; });
 
     return { failure, files };
   }, { loadingValue: undefined });
 
-  // The Agent's own preset: its base against its current state, the worktree on the group's branch.
-  const preset = createMemo(() => {
-    const current = group();
+  const title = () => `${copy.changes}: ${props.name} ${copy.versus} ${copy.remoteMain}`;
 
-    if (!current) return undefined;
-    const trees = choices().flatMap(ref => ref.kind === "worktree" ? [ref] : []);
-    const now = trees.find(ref => ref.path === current.repo && ref.branch === current.branch) ?? trees.find(ref => ref.branch === current.branch);
-    const to: CompareEndpoint = now ? { kind: "worktree", path: now.path, branch: now.branch } : { kind: "head", branch: current.branch };
-
-    const from: CompareEndpoint = { kind: "head", branch: current.base };
-
-    return { from, to };
-  });
-
-  const ends = () => picked() ?? preset();
-
-  const title = () => {
-    const current = ends();
-
-    if (!current) return `${copy.changes}: ${props.name}`;
-    const against = picked() ? [labelOf(choices(), current.from), labelOf(choices(), current.to)] : [props.name, group()?.base ?? labelOf(choices(), current.from)];
-
-    return `${copy.changes}: ${against.join(` ${copy.versus} `)}`;
-  };
-
-  const files = (): readonly ChangedFile[] => picked() ? listed()?.files ?? [] : group()?.files ?? [];
+  const files = (): readonly ChangedFile[] => own() ? listed()?.files ?? [] : group()?.files ?? [];
 
   // U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card.
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
@@ -104,11 +85,7 @@ const Surface = (props: { id: string; name: string }) => {
     return next;
   });
 
-  const root = () => {
-    const end = picked()?.to;
-
-    return end ? (end.kind === "worktree" ? end.path : undefined) : group()?.repo;
-  };
+  const root = () => own() ? props.worktree ?? undefined : group()?.repo;
 
   const editable = (file: ChangedFile) => file.status !== "deleted" && root() !== undefined;
 
@@ -130,43 +107,36 @@ const Surface = (props: { id: string; name: string }) => {
     dismiss: () => clear(key),
   }));
 
-  const choose = (side: "from" | "to", value: string) => {
-    const base = ends();
-    const found = choices().find(ref => keyOf(ref) === value);
-
-    if (!base || !found) return;
-    const next = { ...base, [side]: found.kind === "worktree" ? { kind: "worktree", path: found.path, branch: found.branch } : { kind: "head", branch: found.branch } };
-
-    setPicked(next);
+  const choose = (value: ChangeTarget) => {
+    changeTargets.choose(props.id, value);
     setPath(undefined);
   };
 
-  const withEnd = (endpoint: CompareEndpoint | undefined): { value: string; label: string }[] => {
-    const list = choices().map(ref => ({ value: keyOf(ref), label: ref.label }));
-
-    return endpoint && !list.some(entry => entry.value === keyOf(endpoint)) ? [{ value: keyOf(endpoint), label: labelOf(choices(), endpoint) }, ...list] : list;
-  };
+  const segments = (): { value: ChangeTarget; label: string }[] => [
+    ...props.worktree === null ? [] : [{ value: "tree" as const, label: copy.targetTree }, { value: "branch" as const, label: copy.targetBranch }],
+    { value: "changes", label: copy.targetChanges },
+  ];
 
   return <section class="changes-view" aria-label={copy.changes}>
     <header class="changes-head">
       <h2>{title()}</h2>
       <Show when={!path()}><button type="button" data-button="quiet" onClick={() => hideView("changes")}>{copy.closeChanges}</button></Show>
     </header>
-    <Show when={groups().length > 1 && !picked()}>
+    <Show when={groups().length > 1 && !own()}>
       <ul class="changes-groups" aria-label={copy.changeGroups}>
         <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
       </ul>
     </Show>
-    <Show when={ends()}>{current => <div class="changes-pickers">
-      <Select label={copy.compareFrom} choices={withEnd(current().from)} value={keyOf(current().from)} onValueChange={value => choose("from", value)} />
-      <Select label={copy.compareTo} choices={withEnd(current().to)} value={keyOf(current().to)} onValueChange={value => choose("to", value)} />
-    </div>}</Show>
-    <BlockedFailure message={listed()?.failure} recover={{ run: () => refresh(listed) }} />
+    <div class="changes-pickers">
+      <span class="changes-from"><span>{copy.compareFrom}</span> {copy.remoteMain}</span>
+      <SegmentGroup label={copy.compareTo} segments={segments()} value={target()} onValueChange={choose} />
+    </div>
+    <BlockedFailure message={own() ? listed()?.failure : null} recover={{ run: () => refresh(listed) }} />
     <div class="changes-body">
     <Show when={path()} fallback={<ul class="changes-files" aria-label={copy.changedFilesList}>
       <For each={files()}>{file => <FileRow file={file} editable={editable(file)} onEdit={() => edit(file)} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
     </ul>}>
-      {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} from={ends()?.from} to={ends()?.to} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Loading>}
+      {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} to={own() ?? "tree"} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Loading>}
     </Show>
     </div>
   </section>;
@@ -179,8 +149,8 @@ export const ChangesView = () => {
   const agent = createMemo(() => {
     const node = rail.nodes.find(candidate => candidate.id === rail.selected());
 
-    return node?.kind === "agent" ? { id: node.id, name: node.name } : null;
-  }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name });
+    return node?.kind === "agent" ? { id: node.id, name: node.name, worktree: isDoor(node) ? node.worktree?.path ?? null : null } : null;
+  }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name && a?.worktree === b?.worktree });
 
-  return <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>;
+  return <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} worktree={each.worktree} /></Loading>}</Show>;
 };

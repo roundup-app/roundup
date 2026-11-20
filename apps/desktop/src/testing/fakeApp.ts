@@ -29,7 +29,6 @@ const emptyReads: Handlers = {
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "agent.ownedChanges": () => ({ groups: [] }),
   "agent.links": () => ({ entries: [] }),
-  "project.compareRefs": () => ({ refs: [] }),
   "terminal.list": () => [],
   "project.programRun": () => ({ state: "none" }),
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),
