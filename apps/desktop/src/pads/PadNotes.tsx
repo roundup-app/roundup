@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import { BusyButton } from "../ui/BusyButton";
 import { StatusNote } from "../ink/MountedLine";
@@ -27,8 +27,11 @@ export const PadNotes = (props: { name: string; revision: () => number; selectio
   // The receiver is the Pad's last writer; a rewrite by another Actor moves it.
   const loadWriter = () => connected.app.rpc("provenance.history", { item: `pad:${name}` }).then(history => setWriter(lastWriter(history)), () => setWriter(null));
 
-  void loadWriter();
-  onCleanup(connected.events.subscribe(event => { if (event.name === "pad.changed" && event.data.name === name) void loadWriter(); }));
+  // Only a Pad with notes needs its receiver: opening a Pad reads nothing more.
+  const hasNotes = () => store.list(name).length > 0;
+
+  createEffect(hasNotes, has => { if (has) void loadWriter(); });
+  onCleanup(connected.events.subscribe(event => { if (event.name === "pad.changed" && event.data.name === name && hasNotes()) void loadWriter(); }));
 
   const failure = (note: PadNote) => {
     const state = store.send(name, note.id);
@@ -69,11 +72,11 @@ export const PadNotes = (props: { name: string; revision: () => number; selectio
         <StatusNote text={failure(note)} />
         <div class="diff-actions">
           <button type="button" data-button="quiet" aria-label={copy.removeNote} onClick={() => store.remove(name, note.id)}>{copy.removeNote}</button>
-          <Show when={receiver()} fallback={<button type="button" data-button="quiet" aria-expanded={picking() === note.id ? "true" : "false"} onClick={() => { setPicking(picking() === note.id ? null : note.id); }}>{copy.sendNoteTo("…")}</button>}>{node =>
+          <Show when={receiver()} fallback={<button type="button" data-button="quiet" aria-expanded={picking() === note.id ? "true" : "false"} onClick={() => { setPicking(picking() === note.id ? null : note.id); }}>{copy.sendNote}</button>}>{node =>
             <BusyButton kind="quiet" busy={store.send(name, note.id).kind === "pending"} busyLabel={copy.sendingNote} onClick={() => deliver(note, node().id)}>{(store.send(name, note.id).kind === "failed" ? copy.retrySendNoteTo : copy.sendNoteTo)(node().name)}</BusyButton>}
           </Show>
         </div>
-        <Show when={picking() === note.id}><div role="group" aria-label={copy.pickReceiver} class="diff-actions"><For each={agents()}>{node => <button type="button" data-button="quiet" onClick={() => void deliver(note, node.id)}>{node.name}</button>}</For></div></Show>
+        <Show when={picking() === note.id}><div role="group" aria-label={copy.pickReceiver} class="diff-actions"><For each={agents()}>{node => <BusyButton kind="quiet" busy={store.send(name, note.id).kind === "pending"} busyLabel={copy.sendingNote} onClick={() => deliver(note, node.id)}>{node.name}</BusyButton>}</For></div></Show>
       </li>}</For></ul>
     </Show>
   </section>;
