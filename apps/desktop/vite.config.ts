@@ -58,7 +58,9 @@ const webkitGuards = [
 
 // Files that launch Chromium or a real Daemon starve every test sharing their pool: a shard's reds were a hook timing out
 // beside them. They run one file at a time in their own project, so two of them never overlap.
-const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx}", "src/**/*real*.test.{ts,tsx}", "src/todos/u3718_owner_drag.test.ts"];
+const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx}", "src/**/*real*.test.{ts,tsx}", "src/todos/u3718_owner_drag.test.ts",
+  // U7610b times the page's main thread, so other browser files running beside it fail it.
+  "src/changes/u7610b_responsive_webkit.test.ts"];
 
 // T7187a: only files that reach Chrome or the App server (`browserTests`) run in a project that starts them, so a run of any other file starts neither.
 const browser = browserTests(fileURLToPath(new URL(".", import.meta.url)));
