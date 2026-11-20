@@ -12,7 +12,7 @@ const accepted: Message = { id: 1, from: USER, to: AGENT.id, kind: "note", body:
 
 const bodyOf = (call: FakeApp["calls"][number] | undefined) => String(Object.fromEntries(Object.entries(call?.params ?? {})).body);
 
-const notes = () => document.querySelectorAll(".pad-note-list li").length;
+const notes = () => document.querySelectorAll(".pad-note").length;
 
 const touch = (actor = AGENT, verb: Touch["verb"] = "wrote", at = 5): Touch => ({ actor, verb, item: "pad:plan", at });
 
@@ -87,10 +87,10 @@ it("u7705b_nothing_sends_without_the_click", async () => {
 it("u7705b_a_user_or_departed_last_writer_asks_for_a_receiver", async () => {
   const { app, field } = await open([touch(USER)]);
   await addNote(field, "who gets this");
-  fireEvent.click(await screen.findByRole("button", { name: "Send note: …" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Send note to/ }));
   expect(sends(app)).toHaveLength(0);
 
-  fireEvent.click(within(screen.getByRole("group", { name: "Send note to" })).getByRole("button", { name: "auth-refactor" }));
+  fireEvent.click(await screen.findByRole("option", { name: "auth-refactor" }));
   await waitFor(() => expect(sends(app)).toHaveLength(1));
   expect(sends(app)[0]?.params).toMatchObject({ to: AGENT.id });
 });

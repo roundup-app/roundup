@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import { BusyButton } from "../ui/BusyButton";
+import { Combobox } from "../ui/Combobox";
 import { StatusNote } from "../ink/MountedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
@@ -14,7 +15,8 @@ export const PadNotes = (props: { name: string; revision: () => number; selectio
   const name = untrack(() => props.name);
   const [draft, setDraft] = createSignal<{ quote: string; revision: number; text: string } | null>(null);
   const [writer, setWriter] = createSignal<Actor | null>(null);
-  const [picking, setPicking] = createSignal<number | null>(null);
+
+  let section: HTMLElement | undefined;
 
   const agents = () => connected.rail.nodes.filter(node => node.kind === "agent");
 
@@ -45,15 +47,14 @@ export const PadNotes = (props: { name: string; revision: () => number; selectio
     if (!value || value.text.trim() === "") return;
     store.save(name, value.revision, value.quote, value.text);
     setDraft(null);
+    queueMicrotask(() => section?.querySelector<HTMLElement>(".pad-note:last-child .diff-actions button:last-child")?.focus());
   };
 
   const deliver = (note: PadNote, to: string) => {
-    setPicking(null);
-
     return store.deliver(connected.app, name, note, to);
   };
 
-  return <section class="pad-notes" aria-label={copy.padNotes}>
+  return <section ref={section} class="pad-notes" aria-label={copy.padNotes}>
     <Show when={!draft() && props.selection() !== ""}>
       <button type="button" data-button="quiet" onClick={() => setDraft({ quote: props.selection(), revision: props.revision(), text: "" })}>{copy.addNote}</button>
     </Show>
@@ -66,18 +67,17 @@ export const PadNotes = (props: { name: string; revision: () => number; selectio
       </div>
     </form>}</Show>
     <Show when={store.list(name).length}>
-      <ul class="pad-note-list"><For each={store.list(name)}>{note => <li>
+      <div class="pad-note-list" role="list"><For each={store.list(name)}>{note => <div role="listitem" class="pad-note">
         <blockquote class="pad-note-quote" tabindex="0">{note.quote}</blockquote>
         <p class="note-text">{note.text}</p>
         <StatusNote text={failure(note)} />
         <div class="diff-actions">
           <button type="button" data-button="quiet" aria-label={copy.removeNote} onClick={() => store.remove(name, note.id)}>{copy.removeNote}</button>
-          <Show when={receiver()} fallback={<button type="button" data-button="quiet" aria-expanded={picking() === note.id ? "true" : "false"} onClick={() => { setPicking(picking() === note.id ? null : note.id); }}>{copy.sendNote}</button>}>{node =>
+          <Show when={receiver()} fallback={<Combobox.Picker label={copy.pickReceiver} value="" savedLabel={copy.sendNote} items={agents().map(node => ({ value: node.id, label: node.name }))} onSelect={to => { void deliver(note, to); }} />}>{node =>
             <BusyButton kind="quiet" busy={store.send(name, note.id).kind === "pending"} busyLabel={copy.sendingNote} onClick={() => deliver(note, node().id)}>{(store.send(name, note.id).kind === "failed" ? copy.retrySendNoteTo : copy.sendNoteTo)(node().name)}</BusyButton>}
           </Show>
         </div>
-        <Show when={picking() === note.id}><div role="group" aria-label={copy.pickReceiver} class="diff-actions"><For each={agents()}>{node => <BusyButton kind="quiet" busy={store.send(name, note.id).kind === "pending"} busyLabel={copy.sendingNote} onClick={() => deliver(note, node.id)}>{node.name}</BusyButton>}</For></div></Show>
-      </li>}</For></ul>
+      </div>}</For></div>
     </Show>
   </section>;
 };

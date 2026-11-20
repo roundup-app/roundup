@@ -775,6 +775,9 @@ li[aria-selected="true"] svg {
 
 .pad-notes {
   display: grid;
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
 }
@@ -787,14 +790,12 @@ li[aria-selected="true"] svg {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--ink-muted);
-  border-inline-start: var(--stroke-width) solid var(--hairline);
-  padding-inline-start: var(--space-2);
 }
 
 .pad-note-list {
   display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: var(--space-3);
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
