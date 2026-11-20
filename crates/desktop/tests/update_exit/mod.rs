@@ -139,6 +139,7 @@ impl Real {
             effort: None,
             scout: None,
             extras: None,
+            settings: None,
             machine: None,
         };
         let node = self.rpc("agent.spawn", json!(params)).unwrap();

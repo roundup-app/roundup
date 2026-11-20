@@ -92,6 +92,7 @@ pub fn resolve(
         effort: effort.or_else(|| own.and_then(|entry| entry.effort.clone())),
         mcp_off: false,
         lean: None,
+        start_settings: None,
     }
 }
 

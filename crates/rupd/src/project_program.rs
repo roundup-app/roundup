@@ -132,6 +132,15 @@ impl ProgramHost {
         }
     }
 
+    /// ST3: the pid of the program's Terminal while it runs; none while it waits, is stopped or
+    /// was dropped, so a process left from an earlier start descends from nothing the Daemon holds.
+    pub(crate) fn pid(&self) -> Option<u32> {
+        match &self.state.lock().phase {
+            Phase::Running(terminal_id) => self.terminals.program_pid(terminal_id),
+            _ => None,
+        }
+    }
+
     fn changed(&self) {
         self.bus.emit(Actor::daemon(), EventData::TerminalChanged);
     }

@@ -91,6 +91,13 @@ pub struct SpawnParams {
     #[serde(default)]
     #[specta(optional, type = Extras)]
     pub extras: Option<Extras>,
+    /// ST1: the Claude Code settings, a JSON object of at most 64 KiB that roundup merges with its
+    /// own keys into the Agent's `--settings` file and keeps for every resume. Only the user and
+    /// the Project's program send it; any other caller's is `FORBIDDEN` (ST4). `rup` reads
+    /// `--settings @file` from a file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = std::collections::BTreeMap<String, specta_typescript::Unknown>)]
+    pub settings: Option<serde_json::Value>,
 }
 
 /// DCL9: what a Subagent is for. A Job owns one bounded outcome and ends with a report; a Consult

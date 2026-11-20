@@ -51,6 +51,7 @@ mod name;
 pub use name::given as agent_name;
 mod order;
 mod peer;
+pub use peer::descends_from;
 mod pick;
 #[cfg(feature = "test-support")]
 pub use peer::{classifications, parent_lookups};

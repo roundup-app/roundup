@@ -311,7 +311,8 @@ impl Daemon {
                     ));
                 }
             }
-            Gate::None | Gate::UserOnly | Gate::RefTarget | Gate::Spawn => {}
+            Gate::Spawn => self.guard_spawn(conn, &params)?,
+            Gate::None | Gate::UserOnly | Gate::RefTarget => {}
         }
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params.clone())

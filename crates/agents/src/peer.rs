@@ -80,9 +80,32 @@ pub(crate) fn agent_above(
     None
 }
 
+/// ST3: whether process `pid` is `root` or has it among its ancestors, by the same native parent
+/// walk as `agent_above`.
+pub fn descends_from(pid: u32, root: u32) -> bool {
+    let mut at = Some(pid);
+    for _ in 0..MAX_DEPTH {
+        let Some(current) = at else { return false };
+        if current == root {
+            return true;
+        }
+        at = parent_of(current);
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn st3_a_process_descends_from_its_ancestors_only() {
+        let pid = std::process::id();
+        let parent = parent_of(pid).expect("the test process has a parent");
+        assert!(descends_from(pid, pid));
+        assert!(descends_from(pid, parent));
+        assert!(!descends_from(parent, pid));
+    }
 
     #[test]
     fn h21_a_caller_is_the_agent_whose_claude_it_descends_from() {
