@@ -111,19 +111,20 @@
 .changes-remote {
   display: flex;
   align-items: center;
-  flex: 0 1 auto;
-  gap: var(--space-2);
-  min-width: 0;
-  overflow: hidden;
-  color: var(--grey);
+  flex: none;
+  gap: var(--space-3);
+  margin-inline-end: var(--space-3);
+  color: var(--amber);
   font-size: var(--text-small);
   white-space: nowrap;
 }
 
-.changes-remote-words {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.changes-remote-cause {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  color: var(--grey);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
 }
 
 .changes-remote button { flex: none; }

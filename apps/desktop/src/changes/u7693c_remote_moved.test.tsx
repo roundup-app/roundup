@@ -96,7 +96,7 @@ it("u7693c_a_failed_read_shows_its_cause_and_retry_repeats_the_call_that_failed"
   const mounted = await open(() => reachable ? Promise.resolve({ kind: "moved" }) : Promise.reject(new RpcError(-32603, "remote_unreachable: ssh: Could not resolve hostname origin.example")));
 
   await screen.findByText(copy.remoteUnreachable, { exact: false });
-  await screen.findByText("remote_unreachable: ssh: Could not resolve hostname origin.example", { exact: false });
+  await screen.findByText("ssh: Could not resolve hostname origin.example", { exact: false });
   const reads = mounted.calls("agent.remoteMain");
 
   reachable = true;

@@ -9,7 +9,7 @@ import { SegmentGroup } from "../ui/SegmentGroup";
 import { isDoor } from "../state/doorNode";
 import type { ChangeTarget } from "../state/changeTargets";
 import { copy } from "./copy";
-import { createRemoteMain } from "./remote";
+import { causeOf, createRemoteMain } from "./remote";
 import { RemoteChip } from "./RemoteChip";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
@@ -254,6 +254,7 @@ const Surface = (props: { id: string; name: string }) => {
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
       <button type="button" data-button="quiet" onClick={close}>{copy.closeChanges}</button>
     </header>
+    <Show when={remote.chip()}>{chip => <Show when={causeOf(chip()) !== ""}><p class="changes-remote-cause">{causeOf(chip())}</p></Show>}</Show>
     <Show when={failure() !== null}>
       <BlockedFailure message={missing() ? copy.folderGone(props.name) : `${copy.compareFailed(copy.remoteMain, toLabel())}: ${failure()}`} recover={{ run: retry }} />
       <StatusNote text={missing() && checked() ? copy.stillMissing : null} />

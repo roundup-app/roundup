@@ -17,14 +17,14 @@ export const wordsOf = (chip: RemoteChip): string => {
   switch (chip.kind) {
     case "checking": return copy.checkingRemote;
     case "moved": return copy.remoteMoved;
-    case "fetching": return "";
+    case "fetching": return copy.remoteMoved;
     case "fetched": return copy.fetched(chip.commits);
-    case "failed": return `${copy.remoteUnreachable}:`;
+    case "failed": return copy.remoteUnreachable;
   }
 };
 
-/** The cause a failed chip names in full; nothing for another state. */
-export const causeOf = (chip: RemoteChip): string => chip.kind === "failed" ? chip.cause : "";
+/** The cause a failed chip names in full, without the error code in front; nothing for another state. */
+export const causeOf = (chip: RemoteChip): string => chip.kind === "failed" ? chip.cause.replace(/^[a-z_]+: /, "") : "";
 
 /**
  * U7693c: the Agent's remote main, read once after the view's first state draws and fetched only by `fetch`. The view for an
