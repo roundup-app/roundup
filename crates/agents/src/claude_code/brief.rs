@@ -13,17 +13,20 @@ pub enum Role {
     /// LC4: a Subagent started with `scout: true`, which reads, searches and saves memory. It takes the
     /// Subagent's Model and Effort, so it is no entry of `ALL`.
     Scout,
+    /// A7686: the seat of a Readback, a one-shot call that is no Agent and is never launched.
+    Readback,
 }
 
 impl Role {
     /// A36: every Role, the one list a Project's Models are set for.
-    pub const ALL: [Role; 2] = [Role::Door, Role::Agent];
+    pub const ALL: [Role; 3] = [Role::Door, Role::Agent, Role::Readback];
 
     /// A36: the Role's name in `project.get` and `project.setModels`.
     pub fn id(self) -> &'static str {
         match self {
             Role::Door => "door",
             Role::Agent | Role::Scout => "subagent",
+            Role::Readback => "readback",
         }
     }
 }

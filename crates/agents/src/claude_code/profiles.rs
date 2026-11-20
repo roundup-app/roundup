@@ -51,6 +51,7 @@ pub fn profile(role: Role) -> &'static Profile {
     match role {
         Role::Door => &DOOR,
         Role::Scout => &SCOUT,
-        Role::Agent => &AGENT,
+        // A Readback launches no Agent, so no profile is ever read for it.
+        Role::Agent | Role::Readback => &AGENT,
     }
 }

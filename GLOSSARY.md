@@ -240,7 +240,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Shim | same | — |
 | Model | same | — |
 | Effort | same | — |
-| Role | same | — |
+| Role (`Role::ALL`: `door`, `subagent`, `readback`; the kind of Agent roundup starts, which a Project's Model and Effort are set for) | same | — |
+| Readback (`ReadbackCall`, `Launcher::readback_call`: one run of a fresh model that reads only what it is handed, with no tools, no session, no Terminal and no Rail row) | same | — |
 | Usage | same | — |
 | Evaluator | same | — |
 
