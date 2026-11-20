@@ -1,5 +1,5 @@
 //! G13 the Project's program adopts inside its directory, G15 a path held only by ended Agents is
-//! adopted again (`scenarios/worktrees.md`). G14's callers are the Daemon's (`crates/rupd`).
+//! adopted again (`scenarios/worktrees.md`). G14's callers are the Daemon's.
 
 use std::path::{Path, PathBuf};
 

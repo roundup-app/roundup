@@ -47,6 +47,8 @@ type Refusal = { field: Field; text: string } | null;
 
 type Saved = { argv: string[]; dir: string; adoptDir?: string };
 
+const same = (current: Saved | null, next: Saved) => current !== null && current.dir === next.dir && current.adoptDir === next.adoptDir && current.argv.length === next.argv.length && current.argv.every((word, at) => word === next.argv[at]);
+
 const ProgramField = (props: { name: Field; label: string; refusal: Refusal; value: string; setValue: (value: string) => void; ref: (element: HTMLTextAreaElement) => void; commit: () => void; keys: (event: KeyboardEvent) => void }) => {
   const failed = () => props.refusal !== null && props.refusal.field === props.name;
   const errorId = () => `program-${props.name}-error`;
@@ -125,11 +127,11 @@ export const ProgramSettings = () => {
 
     setRefusal(null);
 
-    const current = saved();
+    const program: Saved = adoptDir === "" ? { argv, dir } : { argv, dir, adoptDir };
 
-    if (current && current.dir === dir && (current.adoptDir ?? "") === adoptDir && current.argv.length === argv.length && current.argv.every((word, at) => word === argv[at])) return;
+    if (same(saved(), program)) return;
 
-    void run(() => app.rpc("project.setProgram", adoptDir === "" ? { argv, dir } : { argv, dir, adoptDir }), () => setSaved(adoptDir === "" ? { argv, dir } : { argv, dir, adoptDir }));
+    void run(() => app.rpc("project.setProgram", program), () => setSaved(program));
   };
 
   const clear = () => run(() => app.rpc("project.clearProgram", null), () => { setRefusal(null); show(null); });
