@@ -157,6 +157,8 @@
     Method { name: "provenance.touched", params: "common_TouchedParams", result: "common_Touch[]" },
     Method { name: "terminal.output", params: "terminal_TerminalId", result: "terminal_OutputStarted" },
     Method { name: "terminal.outputStop", params: "terminal_TerminalId", result: "null" },
+    Method { name: "todo.checkPr", params: "todo_TodoId", result: "todo_PrCheck" },
+    Method { name: "todo.checkPrs", params: "null", result: "todo_PrCheck[]" },
     Method { name: "todo.refs", params: "todo_TodoId", result: "todo_Ref[]" },
     Method { name: "agent.context", params: "agent_NodeId", result: "agent_Context" },
     Method { name: "agent.brief", params: "agent_NodeId", result: "agent_Brief" },
