@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
-import { createNoteMemory } from "./noteMemory";
+import { createNoteMemory, noteStateOf } from "./noteMemory";
 import { createReadYourWrites } from "./readYourWrites";
 import { createSignal, untrack } from "solid-js";
 import * as v from "valibot";
@@ -169,7 +169,11 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
-  const { kept, unkeep, gone, forget, removedNote } = createNoteMemory<Note>(restored);
+  const { kept, unkeep, gone, undo, removedNote } = createNoteMemory<Note>(restored, async (id, note) => {
+    const current = recipient(id);
+
+    await retain(id, { ...current, notes: [...current.notes, note].sort((left, right) => left.id - right.id) });
+  });
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 
@@ -229,29 +233,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     dismissKept: unkeep,
     dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
     removed: (id: string) => gone(id).length > 0,
-    /** Brings back the latest removed note still inside its 5 s. */
-    undo: async (id: string) => {
-      const entry = gone(id).at(-1);
-
-      if (!entry) return;
-      clearTimeout(entry.timer);
-      forget(id, entry.note);
-      unkeep(id);
-      const current = recipient(id);
-
-      await retain(id, { ...current, notes: [...current.notes, entry.note].sort((left, right) => left.id - right.id) });
-    },
-    /** What a note says of itself: Sending and Send unknown lock it; Couldn't send keeps it editable. */
-    noteState: (id: string, note: Note): "sending" | "unknown" | "failed" | "unsent" => {
-      const submission = recipient(id).submissions.find(value => value.notes.some(each => each.id === note.id));
-
-      if (submission?.status === "pending") return "sending";
-
-      if (submission?.status === "unknown") return "unknown";
-      const failed = sent().get(id);
-
-      return failed?.kind === "failed" && (failed.notes === null || failed.notes.includes(note.id)) ? "failed" : "unsent";
-    },
+    undo,
+    noteState: (id: string, note: Note) => noteStateOf(recipient(id).submissions, sent().get(id), note),
     project,
     entries: () => [...recipients().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,

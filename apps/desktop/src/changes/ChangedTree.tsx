@@ -47,6 +47,7 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
   let host: HTMLDivElement | undefined;
   let files = new Map<string, ChangedFile>();
   let describe = () => {};
+
   let marked: ReadonlySet<string> | undefined;
 
   let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;

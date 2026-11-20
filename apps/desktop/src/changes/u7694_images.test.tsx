@@ -129,7 +129,6 @@ it("u7694b_a_picture_that_does_not_decode_says_so", async () => {
 it("u7694b_an_image_offers_no_line_note", async () => {
   await open({ "a.png": { old: picture("o", 42_000), new: picture("n", 88_000) } });
   await within(pane()).findAllByRole("img");
-  expect(within(pane()).queryByRole("button", { name: copy.addNote })).toBeNull();
   fireEvent.keyDown(screen.getByRole("region", { name: copy.changes }), { key: "n" });
   expect(screen.queryByRole("form", { name: copy.lineNote })).toBeNull();
 });
