@@ -461,11 +461,12 @@ async fn cp5_closing_the_connection_kills_the_server() {
     );
     let _ = tokio::time::timeout(std::time::Duration::from_millis(1500), call).await;
     // The caller is gone: the server is killed, and the next request is free to start.
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(50));
     for _ in 0..40 {
+        tick.tick().await;
         if !alive(&pid) {
             break;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
     assert!(!alive(&pid));
 }
