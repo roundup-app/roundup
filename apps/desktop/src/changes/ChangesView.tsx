@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, lazy, Loading, refresh, Show } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, lazy, Loading, refresh, Show } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
 import type { CompareRef } from "@contracts/agent/CompareRef";
@@ -25,14 +25,18 @@ const sameEndpoint = (a: CompareEndpoint, b: CompareEndpoint) => keyOf(a) === ke
 const labelOf = (refs: readonly CompareRef[], endpoint: CompareEndpoint) => refs.find(ref => sameEndpoint(ref, endpoint))?.label ?? endpoint.branch;
 
 /** U7610b: the file's `+added -removed` counts as the Daemon counted them; none for a binary file. */
-const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boolean; onEdit: () => void }) => <li class="changes-row">
+const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boolean; onEdit: () => void }) => {
+  const pathId = createUniqueId();
+
+  return <li class="changes-row">
   <button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
-    <span class="changes-path">{props.file.path}</span>
+    <span class="changes-path" id={pathId}>{props.file.path}</span>
     <span class="changes-status">{statusText[props.file.status]}</span>
     <Show when={props.file.counts}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
   </button>
-  <Show when={props.editable}><button type="button" data-button="quiet" class="changes-edit" onClick={() => props.onEdit()}>{copy.openInEditor}</button></Show>
-</li>;
+  <Show when={props.editable}><button type="button" data-button="quiet" class="changes-edit" aria-describedby={pathId} onClick={() => props.onEdit()}>{copy.openInEditor}</button></Show>
+  </li>;
+};
 
 /** U7186c, U7186d: the centre's diff of what one Agent owns, with From and To pickers over every worktree and branch head. */
 const Surface = (props: { id: string; name: string }) => {

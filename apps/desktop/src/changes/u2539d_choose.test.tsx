@@ -20,7 +20,7 @@ describe("U2539d", () => {
   it("u2539d_enter_opens_the_file_at_its_line", async () => {
     const { app } = await open();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Open in editor" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Open in editor", description: "src/a.ts" }));
 
     await waitFor(() => expect(app.editorCalls).toEqual([{ path: `${WORKTREE.path}/src/a.ts`, line: 12 }]));
   });
