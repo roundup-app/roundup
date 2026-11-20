@@ -350,8 +350,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
                   commit={async (body, expected_change) => { await applied(() => app.rpc("todo.update", { id: props.id, title: null, body, expected_change })); }}
                 />
                 </div>
-                <Show when={!props.recovery}><TodoPr id={props.id} pr={(props.todos.byId().get(props.id) ?? current()).pr} done={(props.todos.byId().get(props.id) ?? current()).done} onSaved={clearFailure} /></Show>
-                <Show when={!props.recovery}><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
+                <Show when={!props.recovery}><TodoPr id={props.id} pr={(props.todos.byId().get(props.id) ?? current()).pr} done={(props.todos.byId().get(props.id) ?? current()).done} onSaved={clearFailure} /><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
                 <Show when={blockerForm()}><p><BusyButton kind="quiet" class="word" busyLabel={copy.saving} onClick={() => saveBlockers()}>{copy.save}</BusyButton></p></Show>
                 <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} onCapture={setCaptured} /></Show>
               </>
