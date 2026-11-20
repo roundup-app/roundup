@@ -29,8 +29,8 @@ impl Agents {
         self.forked
     }
 
-    /// The Project folder.
-    pub fn project_folder(&self) -> &Path {
+    /// The Project's path: `.roundup/`'s parent.
+    pub fn project_path(&self) -> &std::path::Path {
         self.project_dir()
     }
 }

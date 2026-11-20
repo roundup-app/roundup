@@ -188,7 +188,7 @@ impl ProgramHost {
             program: kept.program.clone(),
             machine: kept.machine.clone(),
         };
-        let owner = self.agents.project_folder().to_string_lossy().into_owned();
+        let owner = self.agents.project_path().to_string_lossy().into_owned();
         let spawned = self
             .terminals
             .reattach(&kept.core_id, adopted, Some(owner))
@@ -214,7 +214,7 @@ impl ProgramHost {
             .agents
             .project_program()?
             .ok_or_else(|| RpcError::conflict("the Project names no program"))?;
-        let project = self.agents.project_folder().to_path_buf();
+        let project = self.agents.project_path().to_path_buf();
         let dir = check(&project, &entry).map_err(|message| {
             RpcError::new(code::INVALID_PARAMS, message)
         })?;
