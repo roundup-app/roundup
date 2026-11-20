@@ -4,7 +4,7 @@ import { Dialog, DialogContent } from "@ui-sdk/solid/dialog";
 import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { dismissable } from "../ink/recovery";
-import { DialogFailure } from "../ink/MountedLine";
+import { DialogFailure, StatusNote } from "../ink/MountedLine";
 import { createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -359,7 +359,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     } },
   ]);
 
-  const entryRow = (entry: Entry) => entry.kind === "found" ? <FoundRow hit={entry.hit} nodes={rail.nodes} gone={gone() === entry.value} /> : <span class="switcher-row">
+  const entryRow = (entry: Entry) => entry.kind === "found" ? <FoundRow hit={entry.hit} nodes={rail.nodes} /> : <span class="switcher-row">
     <Show when={entry.kind === "node" && isDoor(entry.node) && entry.node.status} fallback={entry.kind === "todo" ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.kind === "pad" ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), entry.kind === "node" && rail.dismissed(entry.node))} decorative />}</Show>
     <Show when={entry.kind === "todo" || entry.kind === "pad"}><span class="switcher-kind">{entry.kind === "todo" ? copy.kindTodo : copy.kindPad}</span></Show>
     <span class="switcher-name">{entry.label}</span>
@@ -428,6 +428,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             return entryRow(entry);
           }} />
         <SearchStatus search={search} />
+        <StatusNote text={gone() !== null && copy.agentGone} live="polite" />
         <DialogFailure message={makeFailure()} dismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <DialogFailure message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>

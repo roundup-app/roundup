@@ -65,12 +65,11 @@ export const messageTitle = (title: string, nodes: readonly { id: string; name: 
   return at < 0 ? title : `${name(title.slice(0, at))}${join}${name(title.slice(at + join.length))}`;
 };
 
-export const FoundRow = (props: { hit: SearchHit; gone: boolean; nodes: readonly { id: string; name: string }[] }) => <span class="switcher-row switcher-found">
+export const FoundRow = (props: { hit: SearchHit; nodes: readonly { id: string; name: string }[] }) => <span class="switcher-row switcher-found">
   {props.hit.kind === "pad" ? <Icon name={PAD_ICON} /> : props.hit.kind === "todo" ? <KindGlyph kind="idle" decorative /> : <Icon name="talk" />}
   <span class="switcher-kind">{props.hit.kind === "todo" ? copy.kindTodo : props.hit.kind === "pad" ? copy.kindPad : copy.kindMessage}</span>
   <span class="switcher-name">{props.hit.kind === "message" ? messageTitle(props.hit.title, props.nodes) : props.hit.title}</span>
   <span class="switcher-snippet"><Marked text={props.hit.snippet} ranges={props.hit.ranges} /></span>
-  <Show when={props.gone}><span class="switcher-owner">{copy.agentGone}</span></Show>
 </span>;
 
 /** U7707c, U7707d: the group's own states, beside the rows it never holds back: `Searching` once a reply is slow, a failure with its retry, and a line when the Daemon had more. */
