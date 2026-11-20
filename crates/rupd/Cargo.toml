@@ -9,6 +9,7 @@ test-support = ["agents/test-support", "terminal/test-support"]
 
 [dependencies]
 async-trait.workspace = true
+backon = "1"
 agents = { path = "../agents" }
 base64.workspace = true
 contracts = { path = "../contracts" }

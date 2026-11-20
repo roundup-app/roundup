@@ -8,6 +8,7 @@ import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
 import { Checkbox } from "../ui/Checkbox";
+import { ProgramSettings } from "./ProgramSettings";
 
 /** a whole number of 1 or more, else `null`. */
 const capOf = (text: string): number | null => /^\d+$/.test(text.trim()) && Number(text) >= 1 ? Number(text) : null;
@@ -115,5 +116,6 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
       </label>
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
     </div></SettingsGroup>
+    <ProgramSettings />
   </SettingsShell>;
 };

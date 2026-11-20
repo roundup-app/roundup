@@ -30,6 +30,7 @@ import { createRailState } from "./rail";
 import { dismissalStorage, resumptionStorage } from "./railStorage";
 import type { UnseenState } from "./unseen";
 import type { QueueView } from "./queue";
+import { createProgram, type ProgramView } from "./program";
 import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
 import { createNoteQueue } from "./noteQueue";
@@ -125,6 +126,8 @@ export type ConnectedProject = ProjectView & {
   unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
+  /** PG3: where the Project program is. */
+  program: ProgramView;
   /** U7211: the Agents with unfinished work, and the user's choice to resume it. */
   continuation: Continuation;
   importing: ReturnType<typeof createImport>;
@@ -167,7 +170,7 @@ const reads = new Set<RpcMethodName>([
   "route.list", "ask.list",
   "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
   "provenance.history", "provenance.touched",
-  "workstream.queue",
+  "workstream.queue", "project.programRun",
 ]);
 
 export const connectProject = async (
@@ -262,6 +265,7 @@ export const connectProject = async (
 
   const unseen = inChildren(() => createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path, observedAt: clock() }));
   const queue = inChildren(() => createQueue(app, events, rail));
+  const program = inChildren(() => createProgram(app, events));
   const continuation = inChildren(() => createContinuation(app, project.path, () => rail.nodes, () => daemonExit() === null));
 
   const asks = inChildren(() => createAsks(app, events, { path: project.path, target: () => {
@@ -285,7 +289,7 @@ export const connectProject = async (
 
   const projectView = createProjectView(rail.selected, openShelf);
 
-  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), links: inChildren(() => createLinkSets(app, events, daemonExit)), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
+  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, program, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), links: inChildren(() => createLinkSets(app, events, daemonExit)), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

@@ -175,6 +175,7 @@ export const copy = {
   retryDoor: word.retry,
   startDoor: word.start,
   stop: word.stop,
+  clear: "Clear",
   openFolder: "Open directory",
   openInEditor: "Open in editor",
   startingDoor: (name: string) => `Starting ${name}…`,

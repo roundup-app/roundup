@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const mount = async () => {
   const mounted = await mountRail([]);
-  mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, machine: null, models: { roles: [] } });
+  mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, machine: null, program: null, models: { roles: [] } });
 
   return mounted.app;
 };
@@ -30,5 +30,6 @@ it("u3766_close_returns_the_center_to_what_it_showed", async () => {
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
   await waitFor(() => expect(document.activeElement).toBe(opener));
-  await waitFor(() => expect(railCallsTo(app, "project.get").length).toBe(2));
+  // Each opening reads the Project twice: the cap section and the Program section each load their own.
+  await waitFor(() => expect(railCallsTo(app, "project.get").length).toBe(4));
 });

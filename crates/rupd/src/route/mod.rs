@@ -217,7 +217,7 @@ impl Daemon {
             self.before_prompt_effect(&conn.actor, method).await?;
         }
         if row.gate == Gate::UserOnly && conn.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user restores deleted Todos"));
+            return Err(RpcError::forbidden("only the user may call this"));
         }
         if row.entry == Entry::Rail {
             return rpc::reply(&self.presented_rail(conn).await?);

@@ -106,6 +106,12 @@ impl Daemon {
             agents: Arc::clone(&agents),
             rail: agents.clone(),
             program_statuses: Default::default(),
+            program: Arc::new(project_program::ProgramHost::new(
+                Arc::clone(&terminals),
+                Arc::clone(&agents),
+                bus.clone(),
+                dir,
+            )),
             terminals: Arc::clone(&terminals),
             wake_gate: Default::default(),
             restarting: Default::default(),
@@ -242,6 +248,7 @@ impl Daemon {
             .ok_or_else(|| RpcError::internal("Messages are not opened"))?
             .recover()
             .await?;
+        self.program.open().await;
         Ok(self.agents.retained_sockets())
     }
 }
