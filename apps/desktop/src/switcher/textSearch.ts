@@ -14,14 +14,14 @@ const QUIET_MS = 150;
 
 export const foundValue = (hit: SearchHit): string => `found:${hit.kind}:${hit.id}`;
 
-/** The reply to the query asked under `key`: the query and the count of asks of it. */
+/** The reply to the query asked under `key`: the query and the retry that asked it. */
 type Answer = { key: string } & ({ found: Found } | { cause: string });
 
 /** U7707a, U7707c: the Daemon's text matches for the Switcher's query, asked once per query while the Switcher is open. A reply for an older query is dropped, never shown, even when it arrives last. Nothing here waits on the Daemon: the caller reads `hits` and the states as they change. */
 export const createTextSearch = (app: Pick<ProjectCalls, "rpc">, query: () => string | null) => {
   const trimmed = createMemo(() => query()?.trim() ?? "");
   const asking = () => [...trimmed()].length >= MIN_QUERY;
-  const [tries, setTries] = createSignal(0);
+  const [tries, setTries] = createSignal("");
   const key = createMemo(() => `${tries()}:${trimmed()}`);
   const [answer, setAnswer] = createSignal<Answer | null>(null);
   const [dismissed, setDismissed] = createSignal("");
@@ -67,7 +67,7 @@ export const createTextSearch = (app: Pick<ProjectCalls, "rpc">, query: () => st
 
       return reply && "cause" in reply && dismissed() !== reply.key ? reply.cause : null;
     },
-    retry: () => { setDismissed(""); setTries(count => count + 1); },
+    retry: () => { setDismissed(""); setTries(crypto.randomUUID()); },
     dismiss: () => { setDismissed(key()); },
   };
 };

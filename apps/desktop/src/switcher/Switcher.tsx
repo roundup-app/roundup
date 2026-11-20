@@ -5,7 +5,7 @@ import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { dismissable } from "../ink/recovery";
 import { DialogFailure } from "../ink/MountedLine";
-import { lazy, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import type { RpcError } from "../app/seam";
@@ -26,16 +26,14 @@ import { saveAppSettings } from "../settings/preferences";
 import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
-import { openThroughRow } from "../shelf/openItem";
 import { usePadList } from "../pads/padList";
 import { KeyHint } from "../keys/KeyHint";
 import { revealTerminal } from "../bubbles/places";
 import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX, type Entry } from "./entries";
 import type { ToastQueue } from "../toasts/queue";
 import { strandedSwitcherKeys } from "./strandedKeys";
-import { createTextSearch, foundValue } from "./textSearch";
+import { createTextSearch } from "./textSearch";
 import { chooseHit, FoundRow, openItem, SearchStatus, untitledHits } from "./foundHits";
-import type { SearchHit } from "@contracts/search/SearchHit";
 import "./styles.css";
 
 /** How the Switcher closes decides where focus goes: Escape restores the opener; a chosen row, a dismissal, another modal or a made Workstream goes to the pane (a Terminal's bubble when one was chosen); a Todo or Pad opens its own item; an action keeps the focus its run took, and one that took none leaves focus alone, since its reply may still take it and a return to the opener would end that request. */
@@ -104,8 +102,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const items = createMemo(() => itemsMatching(rail.nodes, todos.all(), pads.pads(), text()));
 
-  // U7707a, U7707c: the Daemon's text matches, asked per query while open; one restored on opening is not asked again (U2773a), one typed or given to the leader is.
-  const [asked, setAsked] = createSignal(false);
+  const [asked, setAsked] = createSignal(false), [gone, setGone] = createSignal<string | null>(null); // U7707a, U7707c: the Daemon's text matches are asked per query while open; one restored on opening is not asked again (U2773a), one typed or given to the leader is.
   const search = createTextSearch(app, () => open() && asked() ? text() : null);
   const found = createMemo(() => untitledHits(search.hits(), items()));
   const byValue = createMemo(() => new Map([...entries(), ...items(), ...found()].map(entry => [entry.value, entry])));
@@ -216,8 +213,6 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     closing = how;
     setOpen(false);
   };
-
-  const [gone, setGone] = createSignal<string | null>(null);
 
   const choose = (entry: Entry): void => {
     if (entry.kind === "found") return chooseHit(entry.hit, { connected: { drawer, project, rail }, closeWith: close, onFailure: props.onFailure, gone: setGone });
