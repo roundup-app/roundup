@@ -68,6 +68,15 @@ it("u7708d_a_failed_read_shows_its_cause", async () => {
   await within(section()).findByText("Read failed: gh: not logged in");
 });
 
+it("u7708d_a_failed_read_can_be_read_again", async () => {
+  const m = await open([todo(1, { pr: 7 })], new Map([[7, { state: "unknown", cause: "gh: offline" }]]));
+  await within(section()).findByText("Read failed: gh: offline");
+  m.store.prs = new Map([[7, { state: "open" }]]);
+  fireEvent.click(within(section()).getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(within(section()).queryByText(/Read failed/)).toBeNull());
+  expect(todoCallsTo(m.app, "todo.checkPr")).toHaveLength(2);
+});
+
 it("u7708d_an_unlinked_todo_reads_nothing", async () => {
   const m = await open([todo(1)]);
   expect(todoCallsTo(m.app, "todo.checkPr")).toHaveLength(0);

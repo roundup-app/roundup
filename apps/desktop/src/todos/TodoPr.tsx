@@ -82,7 +82,12 @@ export const TodoPr = (props: { id: number; pr: number | null; done: boolean; on
         <span class="todo-pr-number">{copy.prLabel(linked())}</span>
         <BusyButton kind="quiet" class="word todo-pr-clear" busyLabel={copy.prUnlinking} onClick={() => save(null)}>{copy.prUnlink}</BusyButton>
       </div>
-      <Show when={shown()}>{current => <p class="todo-pr-state" data-state={current().state} role="status">{stateLabel(current())}</p>}</Show></>}
+      <Show when={shown()}>{current => <div class="todo-pr-state-line">
+        <p class="todo-pr-state" data-state={current().state} role="status">{stateLabel(current())}</p>
+        <Show when={current().state === "unknown"}>
+          <BusyButton kind="quiet" class="word" busyLabel={copy.prReading} onClick={() => check(props.id, linked())}>{copy.prReread}</BusyButton>
+        </Show>
+      </div>}</Show></>}
     </Show>
   </section>;
 };

@@ -21,7 +21,9 @@
 .todo-change { white-space: pre-wrap; overflow-wrap: anywhere; }
 .todo-refs, .todo-pr { display: flex; flex-direction: column; gap: var(--space-2); }
 .todo-pr h3 { font: inherit; font-size: var(--text-body); font-weight: 600; margin: 0; }
-.todo-pr-row, .todo-pr-form { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); }
+.todo-pr-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.todo-pr-state-line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.todo-pr-form { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); }
 .todo-pr-state { margin: 0; color: var(--grey); }
 .todo-pr-state[data-state="unknown"] { color: var(--text); }
 /* U7310b: a section label is 13/600 ink. */
