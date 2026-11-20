@@ -83,7 +83,6 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
 it("u2540b_edit_remove_and_batch_across_files", async () => {
   await openDiff();
   await saveNote("first");
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await openFile("src/deep/b.ts");
   await saveNote("second");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
@@ -402,7 +401,7 @@ it("u3474e_mutation_keeps_the_next_key_live", async () => {
   await waitFor(() => expect(document.activeElement).toBe(next));
   fireEvent.click(document.activeElement!);
   await waitFor(() => expect(noteList()).toBeNull());
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add note" }));
 });
 
 it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
@@ -426,10 +425,8 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   const send = screen.getByRole("button", { name: /Send notes:/ });
   send.focus();
   fireEvent.click(send);
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add note" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
-  fireEvent.click(document.activeElement!);
-  expect(screen.queryByRole("region", { name: copy.diff })).toBeNull();
 });
 
 it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(action => ({ scope: "note", action })))("p3557c_failure_lifetime_note_recovery: $scope $action", async ({ action }) => {

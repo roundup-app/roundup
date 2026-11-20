@@ -143,7 +143,9 @@ const Surface = (props: { id: string; name: string }) => {
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <ChangedTree files={files()} selected={opened()} onChoose={setPath} onEdit={chosen => { const file = files().find(each => each.path === chosen); if (file && editable(file)) edit(file); }} />
+          <ChangedTree files={files()} selected={opened()} onChoose={setPath} onEdit={chosen => { const file = files().find(each => each.path === chosen);
+
+ if (file && editable(file)) edit(file); }} />
         </Show>
       </div>
       <Show when={opened()}>

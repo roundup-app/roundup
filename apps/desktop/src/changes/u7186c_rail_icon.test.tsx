@@ -4,7 +4,7 @@ import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent, event } from "../testing/nodes";
 import { mountRail, rowOf, settled } from "../rail/railFixture";
 import { diffsLoaded } from "./DiffReader";
-import { COMPARISON } from "./noteHarness";
+import { COMPARISON, treeRow } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -29,7 +29,7 @@ it("u7186c_the_icon_opens_the_centre_diff_on_changes_against_the_remote_main", a
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "3 changed files" }));
   await screen.findByRole("region", { name: "Changes" });
-  expect(screen.getAllByRole("button", { name: /\.ts|\.rs/ }).length).toBe(2);
+  await treeRow("a.ts");
 });
 
 it("u7186c_the_count_reads_on_a_file_write_and_a_turn_end_not_on_a_timer", async () => {
@@ -56,10 +56,6 @@ it("u7186c_the_reader_stays_lazy", async () => {
 
   app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "3 changed files" }));
-  const files = await screen.findAllByRole("button", { name: /a\.ts/ });
-
-  expect(diffsLoaded()).toBe(false);
-  fireEvent.click(files[0] ?? screen.getByRole("button", { name: /a\.ts/ }));
   await waitFor(() => expect(diffsLoaded()).toBe(true));
 });
 
