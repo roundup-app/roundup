@@ -36,7 +36,11 @@ export const ProgramStop = (props: { id: string }) => {
 const ProgramStopButton = () => {
   const act = createProgramAct();
 
-  return <BusyButton kind="quiet" class="row-program-stop" aria-label={copy.programStopAria} busyLabel={copy.programStopping} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); return act("project.stopProgram"); }}>{copy.programStop}</BusyButton>;
+  return <BusyButton kind="quiet" class="row-program-stop" aria-label={copy.programStopAria} busyLabel={copy.programStopping} onKeyDown={event => event.stopPropagation()} onClick={event => {
+    event.stopPropagation();
+
+    return act("project.stopProgram");
+  }}>{copy.programStop}</BusyButton>;
 };
 
 /** PG3: while the program is down no Terminal row stands for it, so this row says why and offers `Start`. */
