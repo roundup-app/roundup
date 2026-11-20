@@ -504,14 +504,13 @@ pre {
   font-family: var(--font-mono);
 }
 
-/* U7761: the one fill and ink for code and fenced blocks on every Markdown surface; --key-chip-fill differs from --ground in both Modes. */
-code,
-pre {
+/* U7761: the one fill and ink for code and fenced blocks on the Markdown surfaces only (.reading, .pad-body, .markdown); --key-chip-fill differs from --ground in both Modes. */
+:is(.reading, .pad-body, .markdown) :is(code, pre:not(.pad-changes-part, .call-text)) {
   background: var(--key-chip-fill);
   color: var(--text);
 }
 
-pre code {
+:is(.reading, .pad-body, .markdown) pre code {
   background: none;
 }
 
