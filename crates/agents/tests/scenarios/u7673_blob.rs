@@ -1,4 +1,4 @@
-//! U7673a, U7673b: every changed-file entry carries git's blob id of its To side (`scenarios/ui-changes-blob.md`).
+//! U7673a, U7673b, U7673c: every changed-file entry carries git's blob id of its To side (`scenarios/ui-changes-blob.md`).
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -263,4 +263,71 @@ async fn u7673b_five_hundred_files_start_one_hashing_process() {
         .filter(|call| call.contains("hash-object"))
         .count();
     assert_eq!(hashing, 1, "{calls}");
+}
+
+#[tokio::test]
+async fn u7673c_a_symlink_blob_is_the_hash_of_its_link_text() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    write(f.dir.path(), "seed.txt", b"seed\n");
+    commit_all(f.dir.path());
+    let (id, path) = on(&f).await;
+    write(&path, "target.txt", b"target bytes\n");
+    std::fs::create_dir(path.join("dir")).unwrap();
+    std::os::unix::fs::symlink("target.txt", path.join("to-file")).unwrap();
+    std::os::unix::fs::symlink("dir", path.join("to-dir")).unwrap();
+    std::os::unix::fs::symlink("nowhere", path.join("dangling")).unwrap();
+
+    let listed = blobs(&f, &id, "tree").await;
+
+    for (name, text) in [
+        ("to-file", "target.txt"),
+        ("to-dir", "dir"),
+        ("dangling", "nowhere"),
+    ] {
+        git(&path, &["add", name]);
+        let stored = git(&path, &["rev-parse", &format!(":{name}")]);
+        assert_eq!(listed[name], json!(stored.trim()), "{name} -> {text}");
+    }
+    assert!(listed["target.txt"].is_string());
+}
+
+#[tokio::test]
+async fn u7673c_a_file_gone_before_hashing_has_a_null_blob() {
+    let tools = tempfile::tempdir().unwrap();
+    let real = std::env::var("PATH")
+        .unwrap()
+        .split(':')
+        .map(|dir| Path::new(dir).join("git"))
+        .find(|candidate| candidate.is_file())
+        .unwrap();
+    let wrapper = tools.path().join("git");
+    // The first hashing call finds `vanish.txt` already removed.
+    std::fs::write(
+        &wrapper,
+        format!(
+            "#!/bin/sh\ncase \"$*\" in *hash-object*) rm -f vanish.txt;; esac\nexec '{}' \"$@\"\n",
+            real.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        &wrapper,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )
+    .unwrap();
+    let mut search = OsString::from(tools.path());
+    search.push(":");
+    search.push(std::env::var_os("PATH").unwrap());
+    let f = Fixture::in_git_project("sleep 30", Git::with_path(search));
+    write(f.dir.path(), "seed.txt", b"seed\n");
+    commit_all(f.dir.path());
+    let (id, path) = on(&f).await;
+    write(&path, "vanish.txt", b"here\n");
+    write(&path, "stays.txt", b"stays\n");
+
+    let listed = blobs(&f, &id, "tree").await;
+
+    assert_eq!(listed["vanish.txt"], Value::Null);
+    let want = git(&path, &["hash-object", "stays.txt"]);
+    assert_eq!(listed["stays.txt"], json!(want.trim()));
 }
