@@ -141,9 +141,9 @@ it("u7707c_a_pending_reply_delays_no_key_and_an_old_reply_is_dropped", async () 
 
 it("u7707c_searching_none_and_failed_states_show_with_retry", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-  let reply: ((found: Found) => void) | null = null;
+  const replies: Array<(found: Found) => void> = [];
   let fail = true;
-  const { app } = await mount(() => fail ? Promise.reject(new RpcError(-32603, "index is down")) : new Promise<Found>(resolve => { reply = resolve; }), {});
+  const { app } = await mount(() => fail ? Promise.reject(new RpcError(-32603, "index is down")) : new Promise<Found>(resolve => { replies.push(resolve); }), {});
 
   openSwitcher();
   await type("zzzz");
@@ -159,7 +159,7 @@ it("u7707c_searching_none_and_failed_states_show_with_retry", async () => {
   expect(dialog.queryByText(/“zzzz”/)).toBeNull();
   await vi.advanceTimersByTimeAsync(150);
   expect(document.querySelector(".switcher-searching")).not.toBeNull();
-  present(reply)(found());
+  present(replies.at(-1))(found());
   await vi.advanceTimersByTimeAsync(0);
   expect(document.querySelector(".switcher-searching")).toBeNull();
   // U51's empty state: with an open Project it offers the name instead of saying `No match`.
