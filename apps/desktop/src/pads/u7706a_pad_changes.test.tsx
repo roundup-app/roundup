@@ -83,7 +83,11 @@ describe("u7706a a Pad changed since the user read it shows what changed", () =>
     expect(parts("removed")).toBe(1);
     expect(parts("added")).toBe(1);
     expect(changed(diff)).toEqual(["old line\n", "new line\n"]);
-    fireEvent.click(screen.getByRole("button", { name: copy.walkBack }));
+    const toggle = screen.getByRole("button", { name: copy.changesSince });
+
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
     expect(diffs()).toBe(0);
   });
 
@@ -145,7 +149,7 @@ describe("u7706a a Pad changed since the user read it shows what changed", () =>
     const before = opened.calls().length;
 
     fireEvent.click(await screen.findByRole("button", { name: copy.changesSince }));
-    fireEvent.click(screen.getByRole("button", { name: copy.walkBack }));
+    fireEvent.click(screen.getByRole("button", { name: copy.changesSince }));
     expect(opened.calls().length).toBe(before);
   });
 });

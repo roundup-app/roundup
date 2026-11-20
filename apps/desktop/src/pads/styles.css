@@ -793,8 +793,8 @@ li[aria-selected="true"] svg {
   overscroll-behavior: contain;
 }
 
-.pad-changes-back {
-  margin-block-end: var(--space-2);
+.pad-changes-hunk + .pad-changes-hunk {
+  margin-block-start: var(--space-2);
 }
 
 /* pre raises specificity over reading.styles.css's .pad-body :is(pre, …) margin, whatever the chunk load order */
@@ -807,11 +807,10 @@ li[aria-selected="true"] svg {
   font-family: var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: var(--sunken);
   color: var(--accent);
 }
 
-.pad-changes-part[data-change="removed"] {
+.pad-changes pre.pad-changes-part[data-change="removed"] {
   color: var(--red);
 }
 
