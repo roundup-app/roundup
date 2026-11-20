@@ -221,7 +221,7 @@ export const copy = {
   staysRemoveThis: (items: string) => `Stays: ${items}`,
   listUnread: (list: "todo" | "pad") => `${list === "todo" ? sharedCopy.todos : sharedCopy.pads} could not be read.`,
   goes: (value1: CopyValue) => `Goes: ${value1}`,
-  todoProgress: (done: CopyValue, total: CopyValue) => `${done} of ${total} Todos done`,
+  todoProgress: (done: CopyValue, total: CopyValue) => `${done}/${total} Todos`,
   comma: sharedCopy.comma,
   unreadResult: sharedCopy.unreadResult,
   stopQuestion: (name: string) => `Stop ${name}?`,

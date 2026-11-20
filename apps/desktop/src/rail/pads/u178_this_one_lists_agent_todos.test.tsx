@@ -68,7 +68,7 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     // U7488c: the count is not visible, so its name reads it.
     for (const row of ["a1", "a2"]) {
-      const button = await waitFor(() => within(document.querySelector(`.rail-row[data-id="${row}"]`)!).getByRole("button", { name: "0 of 1 Todos done" }));
+      const button = await waitFor(() => within(document.querySelector(`.rail-row[data-id="${row}"]`)!).getByRole("button", { name: "0/1 Todos" }));
 
       fireEvent.keyDown(document, { key: "Tab" });
       button.focus();
@@ -113,7 +113,7 @@ it.each([1, 10, 40])("u5645b_one_todo_pass_counts_creators_for_every_agent (%i A
   const visits = observeVisits();
   const nodes = Array.from({ length: count }, (_, at) => agent(`a${at}`, "working", "x", { order: at }));
   const { connected } = await mount(nodes, countedTodos(), [], true);
-  const control = await waitFor(() => within(rowOf("a0")).getByRole("button", { name: "1 of 2 Todos done" }));
+  const control = await waitFor(() => within(rowOf("a0")).getByRole("button", { name: "1/2 Todos" }));
   expect(visits.read()).toBe(4);
 
   for (let at = 1; at < count; at += 1) expect(rowOf(`a${at}`).querySelector("[data-pads-control]")).toBeNull();

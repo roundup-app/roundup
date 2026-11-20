@@ -27,7 +27,7 @@ it.each([[0, 3], [1, 3], [3, 3]])("u7488c_the_ring_fills_by_done_share: %i of %i
   expect(bar.getAttribute("aria-valuenow")).toBe(String(done));
   expect(bar.getAttribute("aria-valuemax")).toBe(String(total));
   expect(bar.style.getPropertyValue("--ring-ratio")).toBe(String(done / total));
-  expect(root.textContent).not.toContain(`${done}/${total}`);
+  expect(find(root, "[data-pads-control]").textContent).toBe("");
 });
 
 it("u7488c_the_ring_is_not_the_status_glyph", () => {
@@ -45,6 +45,6 @@ it("u7488c_no_todos_shows_no_ring", () => {
 it("u7488c_the_ring_has_a_label_and_no_title", () => {
   const button = find(ring(1, 3), "[data-pads-control]");
 
-  expect(button.getAttribute("aria-label")).toBe("1 of 3 Todos done");
+  expect(button.getAttribute("aria-label")).toBe("1/3 Todos");
   expect(button.getAttribute("title")).toBe("");
 });
