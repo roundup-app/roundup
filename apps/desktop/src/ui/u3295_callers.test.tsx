@@ -92,9 +92,11 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   const change = modal();
 
   await change(true);
+
   // The Changes view stays mounted behind the dialog; the recovery dialog closes, so only it unmounts its form.
   if (kind !== "worktree") await waitFor(() => expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull());
   await change(false);
+
   if (kind !== "worktree") expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull();
 
   if (kind !== "worktree") {
