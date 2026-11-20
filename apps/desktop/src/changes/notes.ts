@@ -305,6 +305,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       if (!invalid.size) for (const [id, value] of recipients()) await retain(id, value);
     },
+    /** U7676c: the forms holding typed text, each Esc or file switch having kept it as unfinished work. */
+    unfinished: (id: string): readonly NoteFormDraft[] => recipient(id).forms.filter(form => form.text.trim() !== ""),
     form: (id: string, comparison: FileComparison, replacing?: number) => recipient(id).forms.find(form => form.replacing === (replacing ?? null) && form.comparison.newPath === comparison.newPath),
     editForm: (id: string, form: NoteFormDraft) => {
       const current = recipient(id);

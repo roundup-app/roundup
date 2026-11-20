@@ -1,6 +1,6 @@
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
-import type { VirtualizedFileDiff } from "@pierre/diffs";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
+import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
@@ -14,6 +14,7 @@ import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead, sameRevisions } from "./fileState";
 import { drawDiff } from "./diffDraw";
+import type { Annotated, Mark } from "./diffDraw";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
@@ -41,7 +42,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const closeForm = () => { setForm(undefined); props.onEdited(); focusHost(); };
 
   let displayed: { id: string; path: string } | undefined;
-  const [renderer, setRenderer] = createSignal<VirtualizedFileDiff<Note>>();
+  const [renderer, setRenderer] = createSignal<VirtualizedFileDiff<Annotated>>();
   const [read, setRead] = createSignal<FileComparison>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(true);
@@ -114,10 +115,14 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     const value = read();
     const view = renderer();
     const annotations = notes().filter(note => value && sameRevisions(note.comparison, value));
+    const marks = form() ? [] : props.notes.unfinished(props.id).filter(draft => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1);
 
-    return { view, annotations };
-  }, ({ view, annotations }) => {
-    view?.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })) });
+    return { view, annotations, marks };
+  }, ({ view, annotations, marks }) => {
+    view?.render({ lineAnnotations: [
+      ...annotations.map((note): DiffLineAnnotation<Note> => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })),
+      ...marks.map((draft): DiffLineAnnotation<Mark> => ({ side: draft.side === "old" ? "deletions" : "additions", lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } })),
+    ] });
   });
 
   createEffect(() => {
@@ -215,6 +220,11 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     if (value && value.status !== null && value.old.kind !== "binary" && value.new.kind !== "binary") setForm({ comparison: value, selection: range });
   };
 
+  // U7676c: a note whose comparison is not the open one stays in the batch and gathers after the file's last line.
+  const gathered = createMemo(() => { const value = read();
+
+ return value ? notes().filter(note => note.comparison.newPath === value.newPath && !sameRevisions(note.comparison, value)) : []; });
+
   const noteOnLine = () => {
     const at = selection();
 
@@ -232,6 +242,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
     <Show when={read()}>{value => <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
+    <Show when={gathered().length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
+      <For each={gathered()}>{note => <li><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)} · {copy.originalContext}</p><p class="note-text">{note.text}</p></li>}</For>
+    </ul></Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;

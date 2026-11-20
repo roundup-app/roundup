@@ -1,8 +1,7 @@
-import type { Note } from "./notes";
 import { createReadYourWrites } from "./readYourWrites";
 
 /** U7676c, U7676d: what the notes bar remembers beside the batch: the count restored at start, and the notes removed in the last 5 s. */
-export const createNoteMemory = (restored: ReadonlyMap<string, { notes: readonly unknown[] }>) => {
+export const createNoteMemory = <Note extends object>(restored: ReadonlyMap<string, { notes: readonly unknown[] }>) => {
   const [kept, holdKept] = createReadYourWrites(new Map([...restored].flatMap(([id, value]) => value.notes.length ? [[id, value.notes.length] as const] : [])));
 
   const [gone, holdGone] = createReadYourWrites(new Map<string, readonly { note: Note; timer: ReturnType<typeof setTimeout> }[]>());

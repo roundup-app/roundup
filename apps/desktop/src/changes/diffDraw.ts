@@ -4,6 +4,11 @@ import { copy } from "./copy";
 import { selectedNotice } from "./fileState";
 import type { LineSelection } from "./lines";
 import type { Note } from "./notes";
+
+/** U7676c: the mark a line draws for a field kept as unfinished work. */
+export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: number; text: string };
+
+export type Annotated = Note | Mark;
 import diffStyles from "./diff.styles.css?inline";
 
 /** U7674d: the diff is light in both App modes. */
@@ -68,7 +73,7 @@ type Hooks = {
 };
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
-export type Drawn = { view: VirtualizedFileDiff<Note>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
+export type Drawn = { view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
@@ -92,7 +97,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   mount.append(container);
   const virtualizer = new Virtualizer();
 
-  const view = new VirtualizedFileDiff<Note>({
+  const view = new VirtualizedFileDiff<Annotated>({
     onLineNumberClick: ({ lineNumber, annotationSide, event }) => {
       const side = annotationSide === "deletions" ? "old" : "new";
       const old = hooks.selection();
@@ -117,6 +122,16 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
       hooks.note({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
     },
     renderAnnotation: ({ metadata }) => {
+      if ("unfinished" in metadata) {
+        const mark = document.createElement("button");
+
+        mark.type = "button";
+        mark.className = "diff-note";
+        mark.textContent = copy.unfinishedWork;
+        mark.addEventListener("click", () => hooks.note({ side: metadata.side, start: metadata.start, end: metadata.end }));
+
+        return mark;
+      }
       const element = document.createElement("p");
 
       element.className = "diff-note";

@@ -43,9 +43,11 @@ const fileRow = (event: Event): string | undefined => {
 };
 
 /** U7674a, U7674c: the changed files as a tree of `@pierre/trees`; a file row that takes focus or a click is chosen, and Enter or a double click on one edits it (U2539d). */
-export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: string | undefined; onChoose: (path: string) => void; onEdit: (path: string) => void; controls?: (controls: { focus: (path: string) => void }) => void }) => {
+export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: string | undefined; onChoose: (path: string) => void; onEdit: (path: string) => void; unfinished?: ReadonlySet<string>; controls?: (controls: { focus: (path: string) => void }) => void }) => {
   let host: HTMLDivElement | undefined;
   let files = new Map<string, ChangedFile>();
+  let describe = () => {};
+
   let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
 
   const status = (list: readonly ChangedFile[]) => list.map(file => ({ path: file.path, status: file.status }));
@@ -78,6 +80,9 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
     tree?.focusPath(path);
     queueMicrotask(() => host?.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${CSS.escape(path)}"]`)?.focus());
   } }));
+
+  // U7676c: a file holding unfinished work says so to assistive tech.
+  createEffect(() => props.unfinished, () => describe());
 
   // The open file carries the selection: feed it back on every choose.
   createEffect(() => props.selected, path => {
@@ -124,10 +129,10 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
       shadow?.querySelector<HTMLElement>(start ? `[data-item-path="${CSS.escape(start)}"]` : '[tabindex="0"]')?.focus();
 
       // Virtualization replaces rows; restore accessible names on every rendered batch.
-      const describe = () => {
+      describe = () => {
         for (const row of shadow?.querySelectorAll<HTMLElement>('[data-item-type="file"]') ?? []) {
           const file = files.get(row.dataset.itemPath ?? "");
-          const label = file ? `${file.path}, ${statusText[file.status]}` : "";
+          const label = file ? `${file.path}, ${statusText[file.status]}${props.unfinished?.has(file.path) ? `, ${copy.unfinishedWork}` : ""}` : "";
 
           if (file && row.getAttribute("aria-label") !== label) row.setAttribute("aria-label", label);
         }

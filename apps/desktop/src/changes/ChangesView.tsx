@@ -272,7 +272,7 @@ const Surface = (props: { id: string; name: string }) => {
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <ChangedTree files={files()} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={editChosen} />
+          <ChangedTree files={files()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={editChosen} />
         </Show>
       </div>
       <Show when={opened()}>
