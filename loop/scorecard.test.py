@@ -80,6 +80,28 @@ class Scorecard(unittest.TestCase):
             prompt.write_text('Build it twice.\n')
             self.assertNotEqual(scorecard.version(prompt), version)
 
+    def test_l124_a_run_killed_before_its_result_records_the_tokens_of_its_messages_once_each(self):
+        def usage(*counts):
+            return dict(zip(('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens'), counts))
+
+        def message(id, *counts):
+            return dict(type='assistant', message=dict(id=id, usage=usage(*counts)))
+        init = dict(type='system', subtype='init', model='claude-sonnet-5-5')
+        killed = [init, message('m1', 10, 20, 300, 4), message('m1', 10, 20, 300, 4), message('m1', 0, 0, 0, 0), dict(type='user'),
+                  message('m2', 1, 2, 3, 40), dict(type='assistant', message='text'),
+                  dict(type='assistant', message=dict(id='m3', usage='n/a'))]
+        silent = [init, dict(type='assistant', message=dict(id='m1', content=[]))]
+        finished = [*killed, dict(type='result', usage=usage(5, 0, 0, 0))]
+        with tempfile.TemporaryDirectory() as tmp:
+            prompt = Path(tmp, 'builder.md')
+            prompt.write_text('Build it.\n')
+            version = scorecard.version(prompt)
+            for name, events, tokens in (('killed', killed, '380'), ('finished', finished, '5'), ('silent', silent, '-')):
+                events_file = Path(tmp, name)
+                events_file.write_text('\n'.join(json.dumps(each) for each in events))
+                with self.subTest(run=name):
+                    self.assertEqual(scorecard.measure(str(events_file), prompt, 'gpt-x'), f'builder {version} sonnet-5-5 {tokens}')
+
     def test_l124_each_run_adds_its_row_to_the_one_comment_in_place(self):
         comments = Comments()
         build, review = row('build', 'PR open'), row('review', 'reject')
