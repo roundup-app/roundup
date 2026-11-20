@@ -169,7 +169,7 @@ it("u5646d_refresh_recovery_and_disposal", async () => {
 });
 
 it("u2540a_open_back_close_and_editor_actions", async () => {
-  const { app } = await mountControl();
+  const { app, connected } = await mountControl();
 
   app.handlers["agent.compareFile"] = () => COMPARISON;
   await openChanges();
@@ -179,7 +179,7 @@ it("u2540a_open_back_close_and_editor_actions", async () => {
   await screen.findByRole("button", { name: /src\/a\.ts/ });
   expect(screen.queryByRole("button", { name: /Add note/ })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
-  await waitFor(() => expect(screen.queryByRole("region", { name: "Changes" })).toBeNull());
+  await waitFor(() => expect(connected.hasView("changes")).toBe(false));
 });
 
 it("u2540a_late_content_cannot_cross_agents", async () => {

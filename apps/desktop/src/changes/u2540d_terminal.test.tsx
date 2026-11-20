@@ -4,7 +4,6 @@ import { mountPane, subscribed } from "../terminal/paneHarness";
 import { agent, info } from "../testing/nodes";
 import { ToastHost } from "../testing/toastHost";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { ChangesView } from "./ChangesView";
 import { WorktreeControl } from "./WorktreeControl";
 import { STATE, WORKTREE } from "./harness";
 import { COMPARISON, openFile, openChanges } from "./noteHarness";
@@ -20,21 +19,21 @@ const mount = async () => {
   app.handlers["agent.compareFile"] = () => COMPARISON;
   connected.rail.select("a");
   void connected.owned.refresh("a");
-  render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /><ChangesView /></ConnectedProjectContext></ToastHost>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   await subscribed(app, "t-a");
 
   return mounted;
 };
 
 it("u2540d_close_returns_to_the_same_live_terminal", async () => {
-  const { app, emulators } = await mount();
+  const { app, emulators, connected } = await mount();
   const terminal = emulators.get("t-a")!;
   app.emitOutput("t-a", "kept output");
   terminal.type(new TextEncoder().encode("unsent draft"));
   await openChanges();
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
-  await waitFor(() => expect(screen.queryByRole("region", { name: "Changes" })).toBeNull());
+  await waitFor(() => expect(connected.hasView("changes")).toBe(false));
   expect(emulators.get("t-a")).toBe(terminal);
   expect(terminal.disposed).toBe(false);
   expect(terminal.written.map(bytes => new TextDecoder().decode(bytes)).join("")).toContain("kept output");

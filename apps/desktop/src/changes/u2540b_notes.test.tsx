@@ -366,6 +366,7 @@ it("u2773a_changes_recovery_editor_keeps_its_own_work", async () => {
   fireEvent.click(within(recovery).getByRole("button", { name: "Resume note" }));
   fireEvent.input(within(recovery).getByRole("textbox", { name: "Note" }), { target: { value: "newer recovery editor work 🐝" } });
   expect(within(recovery).getByRole("textbox", { name: "Note" })).toHaveProperty("value", "newer recovery editor work 🐝");
+  // SAFETY: the Note role is the batch's textarea.
   expect(screen.getAllByRole("textbox", { name: "Note" }).map(each => (each as HTMLTextAreaElement).value)).toContain("first editor work");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });

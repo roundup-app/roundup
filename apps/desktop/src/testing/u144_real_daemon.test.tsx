@@ -18,6 +18,7 @@ import { promisify } from "node:util";
 import { createProjectDrafts, connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { ChangesView } from "../changes/ChangesView";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import { openFile, openChanges } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -44,7 +45,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   const mount = () => render(() => {
     connected.worktrees.watch(() => true);
 
-    return <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>;
+    return <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /><ChangesView /></ConnectedProjectContext></ToastHost>;
   });
 
   beforeAll(async () => {
@@ -79,6 +80,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     for (const node of [first, second]) {
       connected.rail.select(node.id);
       flush();
+      await connected.owned.refresh(node.id);
       await openChanges();
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
@@ -113,6 +115,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
         await worktreeGit("add", "same.ts");
         await worktreeGit("commit", "-m", phase);
         await connected.worktrees.refresh(node.id);
+        await connected.owned.refresh(node.id);
 
         if (phase !== "before inspection") {
           await openChanges();
