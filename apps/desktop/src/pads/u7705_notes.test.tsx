@@ -72,7 +72,7 @@ it("u7705b_send_calls_message_send_once_to_the_last_writer_with_pad_revision_quo
 
   await waitFor(() => expect(sends(app)).toHaveLength(1));
   expect(sends(app)[0]?.params).toMatchObject({ to: AGENT.id, kind: "note", replyTo: null });
-  expect(bodyOf(sends(app)[0])).toContain("The Pad is plan.\nThe version is 1.\nThe quote is:\nhello\n\nThe comment is:\n  exact\ncomment  ");
+  expect(bodyOf(sends(app)[0])).toContain("Pad: plan\nRevision: 1\nQuoted from Revision 1:\nhello\nUser comment:\n  exact\ncomment  ");
   await waitFor(() => expect(notes()).toBe(0));
 });
 
@@ -122,8 +122,8 @@ it("u7705c_an_agent_rewrite_keeps_the_notes_revision", async () => {
 
   await waitFor(() => expect(sends(app)).toHaveLength(1));
   const body = bodyOf(sends(app)[0]);
-  expect(body).toContain("The version is 1.\nThe quote is:");
-  expect(body).not.toContain("The version is 2");
+  expect(body).toContain("Revision: 1\nQuoted from Revision 1:");
+  expect(body).not.toContain("Revision 2");
 });
 
 it("u7705c_send_outcomes_keep_or_clear_the_note", async () => {
@@ -153,5 +153,5 @@ it("u7705d_a_2000_character_selection_is_quoted_whole", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Send note: auth-refactor" }));
 
   await waitFor(() => expect(sends(app)).toHaveLength(1));
-  expect(bodyOf(sends(app)[0])).toContain(`The quote is:\n${long}\n\nThe comment is:`);
+  expect(bodyOf(sends(app)[0])).toContain(`Quoted from Revision 1:\n${long}\nUser comment:`);
 });

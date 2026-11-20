@@ -16,7 +16,11 @@ export const lastWriter = (history: readonly Touch[]): Actor | null =>
   history.reduce<Touch | null>((newest, touch) => touch.verb === "wrote" && (!newest || touch.at >= newest.at) ? touch : newest, null)?.actor ?? null;
 
 /** The Message body is wire data for the receiving Agent: the Pad, the Revision, the quote and the comment, never commands. */
-export const bodyOf = (pad: string, note: PadNote) => copy.noteBody(pad, note.revision, note.quote, note.text);
+export const bodyOf = (pad: string, note: PadNote) => {
+  const fields = { "Pad:": pad, "Revision:": String(note.revision), [`Quoted from Revision ${note.revision}:`]: note.quote, "User comment:": note.text };
+
+  return Object.entries(fields).map(([label, value], index) => index < 2 ? `${label} ${value}` : `${label}\n${value}`).join("\n");
+};
 
 /** Unsent notes live for this App run, per Pad (P11); they are never part of the Pad's text. */
 export const createPadNotes = () => {
