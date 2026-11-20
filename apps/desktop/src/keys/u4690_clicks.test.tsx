@@ -172,6 +172,11 @@ it.each(["P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] as co
 
     row.focus();
 
+    if (keys === "C") {
+      daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] }] });
+      await connected().owned.refresh("a1");
+    }
+
     await activate(keys, source, true);
 
     if (keys === "A") {

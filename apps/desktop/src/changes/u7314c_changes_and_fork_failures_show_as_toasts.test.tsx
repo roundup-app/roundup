@@ -33,7 +33,7 @@ it("u7314c_changes_and_fork_failures_show_as_toasts: Worktree control", async ()
   const before = elements();
 
   failed = true;
-  await connected.worktrees.refresh("a");
+  await connected.owned.refresh("a");
   const shown = await waitFor(() => notice("alert"));
   expect(notices("alert")).toEqual([shown]);
   expect(toasts().contains(shown)).toBe(true);
@@ -49,7 +49,7 @@ it("u7314c_changes_and_fork_failures_show_as_toasts: Worktree control", async ()
   same(elements(), before);
 
   failed = true;
-  await connected.worktrees.refresh("a");
+  await connected.owned.refresh("a");
   await waitFor(() => notice("alert"));
   const readsShown = reads();
   fireEvent.click(within(toasts()).getByRole("button", { name: "Dismiss" }));

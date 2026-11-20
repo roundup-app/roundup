@@ -630,6 +630,7 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, 
   // The shared resource has not answered yet: the real panel falls back to changedFiles.
   app.handlers["agent.worktreeState"] = () => readPath === "local" ? new Promise(() => {}) : { ahead: 0, behind: 0, dirty: true };
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] });
+  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/first", branch: "reviewed", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] }] });
   await connected.rail.refresh();
   connected.rail.select("reviewed");
   const origin = await screen.findByLabelText("1 changed file", { selector: "button" });
@@ -638,8 +639,8 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, 
   const notes = notesFor(connected.app, path("first"), connected.drafts);
   await notes.save("reviewed", { comparison: { base: "main", oldPath: "a.ts", newPath: "a.ts", status: "modified", old: { kind: "text", revision: "old", text: "before" }, new: { kind: "text", revision: "new", text: "after" } }, side: "new", start: 1, end: 1, source: "after", text: "  retain note é 🧭\n  " });
   const originalNotes = structuredClone(notes.list("reviewed"));
-  const reply = Promise.withResolvers<{ ahead: number; behind: number; dirty: boolean; files: { path: string; status: "modified"; line: number, counts: null }[] }>();
-  const method = readPath === "shared" ? "agent.worktreeState" : "agent.changedFiles";
+  const reply = Promise.withResolvers<{ groups: { repo: string; branch: string; base: string; files: { path: string; status: "modified"; line: number, counts: null }[] }[] }>();
+  const method = "agent.ownedChanges";
   const trace: string[] = [];
   app.handlers[method] = () => { trace.push(field() ? "receipt:open" : "receipt:closed");
 
@@ -694,7 +695,7 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, removal, outcome, 
   else connected.rail.select("ops");
   await waitFor(() => expect(origin.isConnected).toBe(false));
 
-  if (outcome === "resolve") reply.resolve({ ahead: 8, behind: 0, dirty: false, files: [{ path: "original.ts", status: "modified", line: 1, counts: null }] });
+  if (outcome === "resolve") reply.resolve({ groups: [{ repo: "/first", branch: "reviewed", base: "main", files: [{ path: "original.ts", status: "modified", line: 1, counts: null }] }] });
   else reply.reject(new RpcError(-32003, "Review changes rejected: worktree unavailable"));
 
   if (outcome !== "resolve") {

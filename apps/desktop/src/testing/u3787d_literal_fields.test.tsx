@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { path, tab } from "../header/stripFixture";
@@ -35,6 +35,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   daemon.handlers["project.importDiscover"] = () => ({ candidates: [], excluded: [] });
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
   daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
+  daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p/work", branch: "work", base: "main", files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] }] });
   daemon.handlers["agent.compareFile"] = async () => (await import("../changes/noteHarness")).COMPARISON;
   daemon.handlers["terminal.list"] = () => [info("term", { owner: path("p"), title: "Shell" })];
   daemon.handlers["terminal.open"] = () => ({ terminal_id: "term" });
@@ -57,7 +58,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
  return found!; });
 
     fireEvent.click(row);
-    fireEvent.click(await screen.findByRole("button", { name: "1 changed file" }));
+    fireEvent.click(await within(row).findByRole("button", { name: "1 changed file" }));
     await (await import("../changes/noteHarness")).openFile();
     fireEvent.click(await screen.findByRole("button", { name: "Add note" }));
     field = await screen.findByRole("textbox", { name: "Note" });
