@@ -133,6 +133,9 @@ geometry='(() => {
   };
 })()'
 
+# A box is unmoved when each edge stays within a pixel of the one measured with the workspace.
+box_defs='def near($a;$b): (($a-$b)|abs) <= 1; def same($a;$b): near($a.left;$b.left) and near($a.top;$b.top) and near($a.width;$b.width) and near($a.height;$b.height); def onscreen($w;$h): .width > 0 and .height > 0 and .left < $w and .right > 0 and .top < $h and .bottom > 0;'
+
 measure() {
   label=$1 width=$2 height=$3 open=$4
   screenshot="$shots/$label-${width}x$height.png"
@@ -142,42 +145,43 @@ measure() {
   jq -e '.overflow | type == "array"' <<< "$metrics" >/dev/null || fail "agent-browser returned no overflow boxes for $label"
   jq -e --argjson width "$width" --argjson height "$height" '.viewport == {width:$width,height:$height}' <<< "$metrics" >/dev/null || fail "viewport was not ${width}×${height} for $label"
   if [[ $(jq -r '.blank' <<< "$metrics") == true ]]; then fail "blank page at ${width}×${height}"; fi
-  # U409: an open Drawer lies over the Shelf and hides it, so the Shelf must be visible only while the Drawer is closed.
-  if ! jq -e --argjson width "$width" --argjson height "$height" --arg open "$open" '[.boxes.rail,.boxes.centre,(.boxes.shelf | if $open == "true" then .visible = true else . end)] | all(.visible == true and .width > 0 and .height > 0 and .left < $width and .right > 0 and .top < $height and .bottom > 0)' <<< "$metrics" >/dev/null; then
-    record_finding "$label at ${width}×${height}: Rail, centre or Shelf is hidden or outside the viewport"
-  fi
   actual=$(jq -r '.drawer != null' <<< "$metrics")
   if [[ $actual != "$open" ]]; then fail "Drawer state missing for $label at ${width}×${height}"; fi
-  centre_box=$(jq -c '.boxes.centre' <<< "$metrics")
   if [[ $open == false ]]; then
-    baseline_centre_box=$centre_box
-  elif (( width >= 1280 )) && ! jq -e --argjson base "$baseline_centre_box" '((.drawer.left - .boxes.centre.right) | abs <= 1) and ((.boxes.centre.left - $base.left) | abs <= 1) and ((.boxes.centre.top - $base.top) | abs <= 1) and ((.boxes.centre.height - $base.height) | abs <= 1)' <<< "$metrics" >/dev/null; then
-    record_finding "$label at ${width}×${height}: centre does not end where the Drawer begins (U430)"
+    if ! jq -e --argjson width "$width" --argjson height "$height" "$box_defs"'[.boxes.rail,.boxes.centre,.boxes.shelf] | all(.visible == true and onscreen($width;$height))' <<< "$metrics" >/dev/null; then
+      record_finding "$label at ${width}×${height}: Rail, centre or Shelf is hidden or outside the viewport"
+    fi
+    baseline_boxes=$(jq -c '.boxes' <<< "$metrics")
+  else
+    # U7638a: an open Todo or Pad fills the main area where the Terminal was, and the Terminal stays under it, hidden, at its size.
+    if ! jq -e --argjson base "$baseline_boxes" "$box_defs"'.drawer as $d | $base.centre as $c | $d.visible == true and near($d.left;$c.left) and near($d.right;$c.right) and near($d.top;$c.top) and $d.bottom <= $c.bottom + 1' <<< "$metrics" >/dev/null; then
+      record_finding "$label at ${width}×${height}: the item does not fill the main area where the Terminal was (U7638a)"
+    fi
+    if [[ $(jq -r '.boxes.centre.visible' <<< "$metrics") != false ]]; then
+      record_finding "$label at ${width}×${height}: the Terminal is still shown while the item is open (U7638a)"
+    fi
+    if ! jq -e --argjson base "$baseline_boxes" "$box_defs"'same(.boxes.centre; $base.centre)' <<< "$metrics" >/dev/null; then
+      record_finding "$label at ${width}×${height}: the Terminal moved or was resized under the item (U7638a)"
+    fi
+    # U111: no Drawer moves the layout, so the Rail and the Shelf stay visible where they were.
+    if ! jq -e --argjson width "$width" --argjson height "$height" --argjson base "$baseline_boxes" "$box_defs"'.boxes | ([.rail,.shelf] | all(.visible == true and onscreen($width;$height))) and same(.rail; $base.rail) and same(.shelf; $base.shelf)' <<< "$metrics" >/dev/null; then
+      record_finding "$label at ${width}×${height}: the Rail or Shelf moved or is hidden while the item is open (U111)"
+    fi
   fi
   while IFS= read -r defect; do
     [[ -z $defect ]] || record_finding "$label at ${width}×${height}: $defect"
   done < <(jq -r '.overflow[]' <<< "$metrics")
 }
 
-centre_unchanged() {
-  jq -e --argjson base "$baseline_centre_box" 'def near($a;$b): (($a-$b)|abs) <= 1; .boxes.centre as $now | near($now.left;$base.left) and near($now.top;$base.top) and near($now.width;$base.width) and near($now.height;$base.height)' <<< "$1" >/dev/null
-}
-
 verify_closed() {
   label=$1 width=$2 height=$3
   metrics=$(browser --json eval "$geometry" | jq -e '.data.result') || fail "agent-browser geometry failed after closing $label at ${width}×${height}"
   if [[ $(jq -r '.closedDrawerVisible' <<< "$metrics") != false ]]; then
-    record_finding "$label at ${width}×${height}: closed Drawer remains on-screen"
+    record_finding "$label at ${width}×${height}: the closed item remains on-screen (U7638a)"
   fi
-  if ! centre_unchanged "$metrics"; then
-    record_finding "$label at ${width}×${height}: centre did not return after Drawer closed"
+  if ! jq -e --argjson base "$baseline_boxes" "$box_defs"'.boxes.centre as $now | $now.visible == true and same($now; $base.centre)' <<< "$metrics" >/dev/null; then
+    record_finding "$label at ${width}×${height}: the Terminal did not return where it was after the item closed (U7638a)"
   fi
-}
-
-# U4698a opens a Todo or Pad maximised; U430's side Drawer is the minimised state, and the saved size persists across viewports.
-minimise_drawer() {
-  browser eval 'document.querySelector(".drawer[data-maximised=true] button[aria-label=Restore]")?.click()' >/dev/null || fail "$1 Drawer could not minimise at $2"
-  browser wait --fn 'document.querySelector(".drawer")?.getAttribute("data-maximised") === "false" && document.querySelector(".drawer").getAttribute("data-settling") !== "true"' >/dev/null || fail "$1 Drawer did not minimise at $2"
 }
 
 for size in 1280x400 1280x800; do
@@ -187,15 +191,14 @@ for size in 1280x400 1280x800; do
   measure workspace "$width" "$height" false
 
   # The Unassigned group starts collapsed (U3717), so unfold it before the row is reachable.
-  # A first mouse click on the row is lost, so the Drawer opens by keyboard.
+  # A first mouse click on the row is lost, so the item opens by keyboard.
   browser eval '(() => { const control = document.querySelector("[aria-label=Todos] [data-shelf-group=unassigned] .shelf-group-control"); if (!control) throw new Error("no Unassigned group control"); if (control.getAttribute("aria-expanded") === "false") control.click(); return true; })()' >/dev/null || fail "Unassigned group could not unfold at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Todos] [data-id=\"1\"] .todo-row-button")?.checkVisibility()' >/dev/null || fail "Todo row did not appear at ${width}×${height}"
-  browser focus '[aria-label="Todos"] [data-id="1"] .todo-row-button' >/dev/null && browser press Enter >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
-  browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer did not open at ${width}×${height}"
-  minimise_drawer Todo "${width}×${height}"
+  browser focus '[aria-label="Todos"] [data-id="1"] .todo-row-button' >/dev/null && browser press Enter >/dev/null || fail "Todo could not open at ${width}×${height}"
+  browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo did not open at ${width}×${height}"
   measure todo "$width" "$height" true
-  browser click '.drawer .close' >/dev/null || fail "Todo Drawer could not close at ${width}×${height}"
-  browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer remained open at ${width}×${height}"
+  browser click '.drawer .close' >/dev/null || fail "Todo could not close at ${width}×${height}"
+  browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo remained open at ${width}×${height}"
   verify_closed todo "$width" "$height"
 
   # U373: the Shelf mounts only its selected tab, so switch to Pads, then back for the next viewport.
@@ -205,20 +208,19 @@ for size in 1280x400 1280x800; do
   browser eval '(() => { for (const fold of document.querySelectorAll("[aria-label=Pads] .pad-fold[aria-expanded=false]")) fold.click(); return true; })()' >/dev/null || fail "Pad folds could not unfold at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Pads] [data-pad=\"pad-3\"] .pad-name")?.checkVisibility()' >/dev/null || fail "Pad row did not appear at ${width}×${height}"
   browser scrollintoview '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
-  browser focus '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null && browser press Enter >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
-  browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer did not open at ${width}×${height}"
-  minimise_drawer Pad "${width}×${height}"
+  browser focus '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null && browser press Enter >/dev/null || fail "Pad could not open at ${width}×${height}"
+  browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad did not open at ${width}×${height}"
   measure pad "$width" "$height" true
-  browser click '.drawer .close' >/dev/null || fail "Pad Drawer could not close at ${width}×${height}"
-  browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer remained open at ${width}×${height}"
+  browser click '.drawer .close' >/dev/null || fail "Pad could not close at ${width}×${height}"
+  browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad remained open at ${width}×${height}"
   verify_closed pad "$width" "$height"
   browser click '.shelf-tab[data-value=todos]' >/dev/null || fail "Todos tab could not open at ${width}×${height}"
   browser wait '[aria-label="Todos"]' >/dev/null || fail "Todos did not render at ${width}×${height}"
   jq -nc --arg size "${width}×${height}" '$size' >> "$work/viewports"
 done
 
-for id in L52 U5 U15 U20; do jq -nc --arg id "$id" '$id' >> "$work/scenarios"; done
+for id in L52 U15 U20 U111 U7638a; do jq -nc --arg id "$id" '$id' >> "$work/scenarios"; done
 printf 'l52_two_viewports_and_each_drawer_passed: %s findings\n' "$finding_count"
-# L66: every viewport and Drawer was checked; a fail() before this line leaves the record incomplete.
+# L66: every viewport and item was checked; a fail() before this line leaves the record incomplete.
 complete=true
 if (( finding_count )); then exit 1; fi
