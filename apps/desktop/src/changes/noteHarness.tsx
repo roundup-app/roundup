@@ -68,7 +68,8 @@ export const openBatch = async () => {
 };
 
 export const saveNote = async (text: string) => {
-  startNote();
+  // The pane's read lands after its element: N waits for it, as a user's key does.
+  await waitFor(() => { startNote(); screen.getByRole("form", { name: "Line note" }); });
   const form = within(screen.getByRole("form", { name: "Line note" }));
   fireEvent.input(form.getByLabelText("Note"), { target: { value: text } });
   fireEvent.click(form.getByRole("button", { name: "Save" }));

@@ -97,7 +97,7 @@ it("u2540b_edit_remove_and_batch_across_files", async () => {
   await waitFor(() => expect(within(batch).getAllByRole("listitem")).toHaveLength(2));
   await openBatch();
   fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
-  expect(within(batch).getAllByRole("listitem")).toHaveLength(1);
+  await waitFor(() => expect(within(batch).getAllByRole("listitem")).toHaveLength(1));
 });
 
 it("u2773a_changes_agent_switch_restores_form", async () => {
@@ -200,7 +200,7 @@ it("u2773a_changes_restores_exact_work", async () => {
   add.focus();
   app.emit(event({ name: "rail.changed" }));
   expect(document.activeElement).toBe(add);
-  fireEvent.click(add);
+  startNote();
   const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
   await waitFor(() => expect(document.activeElement).toBe(restored));
   expect(restored.value).toBe(unfinished);

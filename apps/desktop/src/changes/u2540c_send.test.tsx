@@ -85,10 +85,9 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   const sending = vi.spyOn(notesFor(app, "/p"), "send");
   fireEvent.click(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
-  await openBatch();
-  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: "  revision B 🐝\n newer  " } });
-  fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
+  // U7676c: a Sending note is locked in the view; the store still settles a replacement made meanwhile.
+  const locked = notesFor(app, "/p").list("a")[0]!;
+  await notesFor(app, "/p").save("a", { ...locked, text: "  revision B 🐝\n newer  " }, locked.id);
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note save remains pending"); });
 
   if (outcome === "acknowledged") resolve(message(1, { to: "a" }));
@@ -134,7 +133,7 @@ it("u2773b_changes_pending_reload_reconciles_without_resending", async () => {
   view.unmount();
   const reopened = await openDiff();
   reopened.app.handlers["message.list"] = () => [message(42, { body, to: "a", from: { kind: "user", id: "you", parent: null } })];
-  expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }).getAttribute("aria-disabled")).toBe("true");
+  expect(screen.queryByRole("button", { name: /Send notes:|Retry/ })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
   await waitFor(() => expect(noteList()).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -172,10 +171,9 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   original.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
   fireEvent.click(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }));
   await waitFor(() => expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1));
-  await openBatch();
-  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: newer } });
-  fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
+  // U7676c: a Sending note is locked in the view; the store still settles a replacement made meanwhile.
+  const locked = notesFor(original, path("api")).list("a")[0]!;
+  await notesFor(original, path("api")).save("a", { ...locked, text: newer }, locked.id);
   fireEvent.click(tab("web"));
   fireEvent.click(await screen.findByText("b", { selector: ".name" }));
   await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
@@ -230,7 +228,7 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
   // reconcile persists its settlement before returning; wait for that emitted boundary, not the request count.
   await waitFor(() => expect(retained.mock.calls.some(([key]) => key === "roundup:drafts:/p")).toBe(true));
-  expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }).getAttribute("aria-disabled")).toBe("true");
+  expect(screen.queryByRole("button", { name: /Send notes:|Retry/ })).toBeNull();
   expect(notesFor(reopened.app, "/p").list("a").map(note => note.text)).toEqual(["exact possibly accepted note"]);
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
@@ -251,10 +249,9 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   await waitFor(() => expect(first.app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   first.view.unmount();
   const next = await openDiff("/p", first.connected.drafts);
-  await openBatch();
-  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: newer } });
-  fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
+  // U7676c: a Sending note is locked in the view; the store still settles a replacement made meanwhile.
+  const locked = notesFor(next.app, "/p").list("a")[0]!;
+  await notesFor(next.app, "/p").save("a", { ...locked, text: newer }, locked.id);
   refuse(new RpcError(-32003, "original connection refused"));
   await screen.findByText("original connection refused");
   await openBatch();

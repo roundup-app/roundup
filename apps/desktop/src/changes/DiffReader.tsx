@@ -208,11 +208,11 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     },
   }));
 
-  // U7676a: a note starts from a line, a range or the focused line; a form already open stays.
+  // U7676a: a note starts from a line, a range or the focused line; the form open until then stays as unfinished work.
   const openNote = (range: LineSelection) => {
     const value = read();
 
-    if (value && value.status !== null && value.old.kind !== "binary" && value.new.kind !== "binary") setForm(open => open ?? { comparison: value, selection: range });
+    if (value && value.status !== null && value.old.kind !== "binary" && value.new.kind !== "binary") setForm({ comparison: value, selection: range });
   };
 
   const noteOnLine = () => {
