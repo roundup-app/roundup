@@ -31,8 +31,9 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         owner: None,
         refs: vec![],
         priority: None,
+        pr: None,
     };
-    let todo_wire = json!({"id":7,"title":"title","body":"body","done":true,"blockers":[2,3],"blocked":true,"created_at":123,"updated_at":123,"creator":{"kind":"agent","id":"a1","parent":"door"},"home":"w1","owner":null,"refs":[],"priority":null});
+    let todo_wire = json!({"id":7,"title":"title","body":"body","done":true,"blockers":[2,3],"blocked":true,"created_at":123,"updated_at":123,"creator":{"kind":"agent","id":"a1","parent":"door"},"home":"w1","owner":null,"refs":[],"priority":null,"pr":null});
     let message = Message {
         id: 9,
         from: todo.creator.clone(),

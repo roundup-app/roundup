@@ -66,6 +66,7 @@ mod u6243_tests;
 mod resume_turn;
 mod rewind;
 mod search;
+mod todo_pr;
 mod todo_refs;
 mod waits;
 mod wake;

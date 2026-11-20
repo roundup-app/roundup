@@ -585,6 +585,8 @@ fn todos_schema(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
         include_str!("../../todos/migrations/009/up.sql"),
         include_str!("../../todos/migrations/010/up.sql"),
         include_str!("../../todos/migrations/011/up.sql"),
+        // T7708a: the Project's own migration adds the columns the Todos crate now reads.
+        include_str!("../../storage/migrations/project/0060-todo-pr.sql"),
     ] {
         db.execute_batch(sql)?;
     }
