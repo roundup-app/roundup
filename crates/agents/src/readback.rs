@@ -488,6 +488,8 @@ mod tests {
             }],
             capped: false,
             old_side_resolved_through_new_dependencies: false,
+            unresolved: vec![],
+            directions: None,
         }
     }
 
