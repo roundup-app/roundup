@@ -27,22 +27,20 @@ impl Run {
             .unwrap()
     }
 
-    /// The setup's own settled note (DCL6) is a Door turn that carries quiet notes out; it comes
-    /// 2 s after the child rests, so it is let pass before the quiet window is counted.
+    /// The setup's own settled note (DCL6) is quiet (DTC6): it is stored, written to no inbox, and
+    /// waits for the Door's next turn. `let_settled_pass` waits until it is stored.
     pub(super) async fn let_settled_pass(&self) {
         self.let_settled_passes(1).await;
     }
 
-    /// `n` settled notes are delivered and each one's turn is in the Door's transcript: a settled
-    /// note delivered earlier counts, so a case whose setup draws a second one (after a Job's stop
-    /// note) names how many, and a turn still being written is no later turn of the case.
+    /// `n` settled notes are stored for the Door: one delivered earlier counts, so a case whose
+    /// setup draws a second one (after a Job's stop note) names how many.
     pub(super) async fn let_settled_passes(&self, n: usize) {
-        let settled = |entry: &String| entry.contains("[settled] Every Agent");
         tokio::time::timeout(Duration::from_secs(40), async {
             let mut tick = tokio::time::interval(Duration::from_millis(50));
             loop {
                 tick.tick().await;
-                let delivered = self
+                let stored = self
                     .user
                     .request("message.list", json!({}))
                     .await
@@ -51,22 +49,16 @@ impl Run {
                     .unwrap()
                     .iter()
                     .filter(|m| {
-                        m["to"] == self.door
-                            && m["status"] == "delivered"
-                            && m["body"].as_str().unwrap().starts_with("[settled]")
+                        m["to"] == self.door && m["body"].as_str().unwrap().starts_with("[settled]")
                     })
                     .count();
-                let written = super::dtc3_one_turn::rupd_turns(self)
-                    .iter()
-                    .filter(|turn| turn.iter().any(settled))
-                    .count();
-                if delivered >= n && written >= n {
+                if stored >= n {
                     break;
                 }
             }
         })
         .await
-        .expect("the settled note is delivered");
+        .expect("the settled note is stored");
         // The turn it starts ends, and the Daemon compares what it changed: take the Door's idle
         // revision from the Rail, then wait for the Daemon's snapshot of that very revision, so
         // the comparison is counted only once it has begun.
@@ -141,4 +133,24 @@ async fn dtc2_a_last_line_change_of_a_child_under_a_wake_starts_no_door_turn() {
         before,
         "no inbox write, no prompt"
     );
+}
+
+#[tokio::test]
+async fn dtc6_a_settled_note_starts_no_door_turn_and_rides_in_the_next_one() {
+    let run = Run::start_live().await;
+    run.let_settled_pass().await;
+    run.settle_quiet().await;
+    let rides = |turn: &Vec<String>| turn.iter().any(|e| e.contains("[settled] Every Agent"));
+    assert!(
+        !super::dtc3_one_turn::rupd_turns(&run).iter().any(rides),
+        "the settled note started a turn"
+    );
+    run.user
+        .request(
+            "message.send",
+            json!({"to":run.door,"kind":"note","body":"next"}),
+        )
+        .await
+        .unwrap();
+    wait(|| super::dtc3_one_turn::rupd_turns(&run).iter().any(rides)).await;
 }

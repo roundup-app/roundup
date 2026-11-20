@@ -119,9 +119,6 @@ pub(super) fn started(run: &Run) -> Vec<Vec<String>> {
     rupd_turns(run)
         .into_iter()
         .filter(|turn| turn[0].contains(r#"from-name=\"rupd\""#))
-        // DCL6's settlement note starts its own turn whatever the Job does (`scenarios/door-closed-loop.md`):
-        // `[settled]` for a reported Job, `[stopped]` for one with no report.
-        .filter(|turn| !turn[0].contains("[settled]") && !turn[0].contains("[stopped]"))
         .collect()
 }
 
