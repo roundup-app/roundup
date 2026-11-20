@@ -35,15 +35,14 @@ const browser = async (...args: string[]) => {
 
 const wait = (expression: string) => browser("wait", "--fn", expression);
 
-const open = async (path: string) => { await browser("open", new URL(path, server.resolvedUrls.local[0]).href); await wait("!!window.__fake && !!document.querySelector('.worktree-control')"); };
+const open = async (path: string) => { await browser("open", new URL(path, server.resolvedUrls.local[0]).href); await wait("!!window.__fake && !!document.querySelector('.changes-icon')"); };
 
 const click = (name: string) => browser("find", "role", "button", "click", "--name", name, "--exact");
 
 const showDiff = async () => {
-  await browser("click", ".worktree-control");
-  await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
-  await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
-  await click("View diff");
+  await browser("click", ".changes-icon");
+  await wait("!!document.querySelector('.changes-file')");
+  await browser("click", ".changes-file");
 };
 
 const capture = async (name: string, id = "U2540") => {
