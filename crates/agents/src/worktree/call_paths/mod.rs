@@ -127,6 +127,7 @@ fn run_side(
         (&launch.0, launch.1),
         deadline,
         cancel.clone(),
+        server.row.language == "rust",
     )?;
     if client
         .capabilities
