@@ -1,10 +1,12 @@
 import { diffLines } from "diff";
-import { createEffect, createSignal, For, Show, type Accessor, type JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
+import type { Pad } from "@contracts/pad/Pad";
+import { createEffect, createSignal, For, Show, type Accessor } from "solid-js";
 import { copy } from "./copy";
 import { usePadRead } from "./padRead";
-import type { Pad, PadList } from "./padList";
+import type { PadList } from "./padList";
 
-/** The diff function, held on an object so a test can count its calls. */
+/** The diff function, kept on an object so a test can count its calls. */
 export const lines = { diff: diffLines };
 
 /** U7706a: the lines that changed between the text the user read and the Pad now; unchanged lines are left out. */
@@ -22,7 +24,7 @@ const PadChanges = (props: { before: string | null; after: string; onBack: () =>
 };
 
 /** U7706a: the action shows exactly while U7499b marks the Pad changed. */
-export const usePadChanges = (list: PadList, initial: { incarnation: number; revision: number }, pads: Accessor<readonly Pad[]>) => {
+export const usePadChanges = (list: PadList, initial: Pick<Pad, "incarnation" | "revision">, pads: Accessor<readonly Pad[]>) => {
   const padRead = usePadRead(list);
   const [diffing, setDiffing] = createSignal(false);
 
