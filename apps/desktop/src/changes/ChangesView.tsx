@@ -45,6 +45,7 @@ const Surface = (props: { id: string; name: string; worktree: string | null }) =
 
   const [active, setActive] = createSignal(0);
   const group = () => groups()[active()] ?? groups()[0];
+
   // U7672d: a remembered Tree or Branch for an Agent without a Worktree of its own falls back to Changes.
   const target = (): ChangeTarget => {
     const chosen = changeTargets.read(props.id);

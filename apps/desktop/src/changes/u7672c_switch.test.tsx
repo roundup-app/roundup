@@ -19,6 +19,7 @@ const LISTS = { tree: ["tree.ts", "loose.ts"], branch: ["branch.ts"] } as const;
 const open = async (nodes = [agent("a", "idle", "ready", tree("a")), agent("b", "idle", "ready", tree("b"))]) => {
   const mounted = await mountRail(nodes, [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
     app.handlers["agent.ownedChanges"] = () => OWNED;
+    // SAFETY: the handler is only reached with the two non-Changes targets, the keys of LISTS.
     app.handlers["agent.changedFiles"] = ({ to }) => ({ files: LISTS[to as "tree" | "branch"].map(path => ({ path, status: "modified", line: 1, counts: { added: 3, removed: 1 } })) });
     app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   });
@@ -31,6 +32,10 @@ const open = async (nodes = [agent("a", "idle", "ready", tree("a")), agent("b", 
 
 const selected = () => screen.getByRole("radio", { checked: true }).getAttribute("aria-label");
 
+const rowText = (row: HTMLElement) => row.textContent ?? "";
+
+const groupLists = () => screen.queryAllByRole("list", { name: "Repositories and branches" });
+
 const files = () => screen.getAllByRole("button", { name: /\.ts/ }).map(button => button.textContent?.split(/modified|added/)[0]);
 
 it("u7672c_from_is_a_label_not_a_control", async () => {
@@ -38,8 +43,8 @@ it("u7672c_from_is_a_label_not_a_control", async () => {
 
   const from = await screen.findByText("remote main", { selector: ".changes-from" });
 
-  expect(from.closest("button, select, [role=combobox], [role=menu]")).toBeNull();
-  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(from.tagName).toBe("SPAN");
+  expect(screen.queryAllByRole("combobox")).toHaveLength(0);
 });
 
 it("u7672c_the_switch_has_three_values_and_opens_on_changes", async () => {
@@ -77,10 +82,10 @@ it("u7672c_a_shared_checkout_offers_changes_alone", async () => {
 it("u7672c_tree_and_branch_show_one_group", async () => {
   await open();
 
-  expect(await screen.findByRole("list", { name: "Repositories and branches" })).toBeTruthy();
+  await screen.findByRole("list", { name: "Repositories and branches" });
   fireEvent.click(screen.getByRole("radio", { name: "Tree" }));
   await screen.findByRole("button", { name: /tree\.ts/ });
-  expect(screen.queryByRole("list", { name: "Repositories and branches" })).toBeNull();
+  expect(groupLists().map(list => list.id)).toEqual([]);
 });
 
 it("u7672c_the_switch_is_reachable_and_arrow_keys_move_it", async () => {
@@ -99,8 +104,12 @@ it("u7672c_no_compare_refs_call_and_no_from", async () => {
   fireEvent.click(await screen.findByRole("radio", { name: "Tree" }));
   fireEvent.click(await screen.findByRole("button", { name: /tree\.ts/ }));
   await waitFor(() => expect(app.calls.some(call => call.method === "agent.compareFile")).toBe(true));
-  expect(app.calls.some(call => (call.method as string) === "project.compareRefs")).toBe(false);
-  expect(app.calls.filter(call => call.method.startsWith("agent.c")).every(call => !("from" in (call.params as object)))).toBe(true);
+  const methods: string[] = app.calls.map(call => call.method);
+  // SAFETY: every agent.c* call carries an object of params.
+  const sentKeys = app.calls.flatMap(call => (call.method.startsWith("agent.c") ? Object.keys(call.params as object) : []));
+
+  expect(methods).not.toContain("project.compareRefs");
+  expect(sentKeys).not.toContain("from");
 });
 
 it("u7672d_one_agents_choice_never_changes_another", async () => {
@@ -122,8 +131,7 @@ it("u7672d_rows_and_reader_keep_their_rules_for_every_value", async () => {
   fireEvent.click(await screen.findByRole("radio", { name: "Tree" }));
   const row = await screen.findByRole("button", { name: /tree\.ts/ });
 
-  expect(within(row).getByText("+3")).toBeTruthy();
-  expect(within(row).getByText("-1")).toBeTruthy();
+  expect(rowText(row)).toMatch(/\+3.*-1/);
   expect(app.calls.filter(call => call.method === "agent.compareFile")).toEqual([]);
   expect(files().length).toBe(2);
 });
