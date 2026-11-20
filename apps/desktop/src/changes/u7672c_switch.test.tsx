@@ -25,7 +25,7 @@ const open = async (nodes = [agent("a", "idle", "ready", tree("a")), agent("b", 
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
-  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
+  await screen.findByRole("region", { name: "Changes" });
 
   return mounted;
 };
@@ -122,10 +122,10 @@ it("u7672d_one_agents_choice_never_changes_another", async () => {
   fireEvent.click(await screen.findByRole("radio", { name: "Branch" }));
   await screen.findByRole("button", { name: /branch\.ts/ });
   fireEvent.click(rowOf("b"));
-  await screen.findByRole("heading", { name: "Changes: b vs remote main" });
+  await screen.findByText("b", { selector: ".changes-name" });
   expect(selected()).toBe("Changes");
   fireEvent.click(rowOf("a"));
-  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
+  await screen.findByText("a", { selector: ".changes-name" });
   expect(selected()).toBe("Branch");
 });
 

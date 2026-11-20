@@ -90,7 +90,7 @@ it.each([{ id: "plain", path: "src/a.ts" }, { id: "a", path: "src/deep/b.ts" }])
   const notes = notesFor(app, "/p");
 
   app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
-  render(() => <ToastHost><ConnectedProjectContext value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext></ToastHost>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} recover={() => {}} /></ConnectedProjectContext></ToastHost>);
   await waitFor(() => expect(rendered()).toHaveLength(1));
   let finish!: (value: typeof COMPARISON) => void;
 

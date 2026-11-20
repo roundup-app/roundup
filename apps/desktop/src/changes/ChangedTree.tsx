@@ -100,6 +100,11 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
       };
 
       if (shadow) {
+        // `focus` does not bubble and is not retargeted out of the shadow root everywhere: listen inside it, in the capture phase.
+        // listener-owner: removed with the tree in the cleanup below; the shadow root is the tree library's and has no solid-primitives target.
+        shadow.addEventListener("focus", choose, true);
+        cleanups.push(() => shadow.removeEventListener("focus", choose, true));
+
         const observer = new MutationObserver(describe);
 
         observer.observe(shadow, { subtree: true, childList: true });
@@ -127,16 +132,15 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
     };
 
     mount?.addEventListener("click", choose);
-    mount?.addEventListener("focusin", choose);
     mount?.addEventListener("keydown", onKeyDown);
     mount?.addEventListener("dblclick", onDoubleClick);
 
     return () => {
       gone = true;
       mount?.removeEventListener("click", choose);
-      mount?.removeEventListener("focusin", choose);
-      mount?.removeEventListener("keydown", onKeyDown);
+        mount?.removeEventListener("keydown", onKeyDown);
       mount?.removeEventListener("dblclick", onDoubleClick);
+
       for (const stop of cleanups) stop();
       tree?.cleanUp();
     };

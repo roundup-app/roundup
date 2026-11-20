@@ -28,7 +28,7 @@ it("u7186c_the_icon_opens_the_centre_diff_on_changes_against_the_remote_main", a
   const { app } = await mountRailWith(() => OWNED);
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "3 changed files" }));
-  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
+  await screen.findByRole("region", { name: "Changes" });
   expect(screen.getAllByRole("button", { name: /\.ts|\.rs/ }).length).toBe(2);
 });
 

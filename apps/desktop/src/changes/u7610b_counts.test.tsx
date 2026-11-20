@@ -20,7 +20,7 @@ const open = async () => {
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
-  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
+  await screen.findByRole("region", { name: "Changes" });
 
   return mounted;
 };

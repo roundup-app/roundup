@@ -1,6 +1,6 @@
 import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { getHighlighterType, getSharedHighlighter, registerCustomCSSVariableTheme, renderFileWithHighlighter } from "@pierre/diffs";
+import { getHighlighterType, getSharedHighlighter, renderFileWithHighlighter } from "@pierre/diffs";
 import { openDiff } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
@@ -16,10 +16,10 @@ it("z3_diff_reader_prefers_highlights", async () => {
   await waitFor(() => expect(getHighlighterType()).toBe("highlights"));
 });
 
-it("z3_highlights_uses_roundup_theme", async () => {
-  registerCustomCSSVariableTheme("roundup", {});
-  const highlighter = await getSharedHighlighter({ themes: ["roundup"], langs: ["typescript"], preferredHighlighter: "highlights" });
-  const result = JSON.stringify(renderFileWithHighlighter({ name: "a.ts", contents: "const a = 1;\n" }, highlighter, { theme: "roundup", useTokenTransformer: false, tokenizeMaxLineLength: 1000 }));
-  expect(result).toMatch(/var\(--/);
-  expect(result).not.toMatch(/#[0-9a-fA-F]{6}/);
+it("u7674d_the_reader_uses_github_light_in_both_modes", async () => {
+  await openDiff();
+  await screen.findByRole("button", { name: "Add note" });
+  const highlighter = await getSharedHighlighter({ themes: ["github-light"], langs: ["typescript"], preferredHighlighter: "highlights" });
+  const result = JSON.stringify(renderFileWithHighlighter({ name: "a.ts", contents: "const a = 1;\n" }, highlighter, { theme: "github-light", useTokenTransformer: false, tokenizeMaxLineLength: 1000 }));
+  expect(result).toMatch(/#[0-9a-fA-F]{6}/);
 });
