@@ -329,3 +329,160 @@ async fn mc52_daemon_open_ends_a_core_terminal_of_no_agent_with_no_owner_records
         "open left a Terminal of no Agent: {left:?}"
     );
 }
+
+/// UKR1–UKR4: what an update's reopen keeps (`scenarios/update-keeps-runs.md`).
+mod update_keeps_runs {
+    use super::{CONVERSATION, json};
+    use crate::common::{Fixture, status_of};
+    use contracts::Kind;
+    use rpc::Module;
+
+    const LAUNCHES: &str = "echo started >> launches.log\nexec sleep 30";
+
+    async fn ack(f: &Fixture, id: &str, source: &str) {
+        let attempt = f.attempt(id).await;
+        f.call(
+            "agent.signal",
+            json!({"id": id, "attempt": attempt, "payload": {
+                "hook_event_name": "SessionStart", "session_id": CONVERSATION, "source": source}}),
+        )
+        .await
+        .unwrap();
+    }
+
+    /// Stop `id` and resume it through `method`, acknowledging the new Attempt.
+    async fn resumed(f: &Fixture, method: &str, id: &str) {
+        f.call("agent.stop", json!({"id": id})).await.unwrap();
+        let before = f.attempt(id).await;
+        let resuming = f.call(method, json!({"id": id}));
+        let acking = async {
+            f.until_attempt_changed(id, &before).await;
+            ack(f, id, "resume").await;
+        };
+        let (resumed, ()) = tokio::join!(resuming, acking);
+        resumed.unwrap();
+    }
+
+    /// A Door and an Agent, each resumed once, both running.
+    async fn running_pair() -> (Fixture, String, String) {
+        let f = Fixture::running(LAUNCHES);
+        let ws = f.workstream("ws", None).await;
+        f.call("rail.startDoor", json!({"id": ws})).await.unwrap();
+        ack(&f, &ws, "startup").await;
+        let agent = f.spawn(None, None).await.unwrap().base.id;
+        ack(&f, &agent, "startup").await;
+        resumed(&f, "rail.startDoor", &ws).await;
+        resumed(&f, "agent.resume", &agent).await;
+        (f, ws, agent)
+    }
+
+    fn record(f: &Fixture, id: &str) -> serde_json::Value {
+        let body = std::fs::read(f.dir.path().join("owners").join(format!("{id}.json"))).unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    async fn pid(f: &Fixture, id: &str) -> u32 {
+        let tree = f.tree().await;
+        let terminal = tree.iter().find(|n| n.id == id).unwrap().terminal_id();
+        f.terminals
+            .program_pid(&terminal.expect("a Terminal"))
+            .expect("a program")
+    }
+
+    fn alive(pid: u32) -> bool {
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .status()
+            .unwrap()
+            .success()
+    }
+
+    fn launches(f: &Fixture) -> usize {
+        std::fs::read_to_string(f.dir.path().join("launches.log"))
+            .unwrap_or_default()
+            .lines()
+            .count()
+    }
+
+    #[tokio::test]
+    async fn ukr1_a_resumed_door_and_a_resumed_agent_save_their_owner_record() {
+        let (f, ws, agent) = running_pair().await;
+
+        for id in [&ws, &agent] {
+            assert_eq!(
+                record(&f, id)["attempt"].as_str().unwrap(),
+                f.attempt(id).await,
+                "{id}'s record names its current Attempt"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn ukr2_reopen_reattaches_a_door_and_a_resumed_agent_on_the_same_terminal_and_attempt() {
+        let (f, ws, agent) = running_pair().await;
+        let (door_pid, agent_pid) = (pid(&f, &ws).await, pid(&f, &agent).await);
+        let (door_attempt, agent_attempt) = (f.attempt(&ws).await, f.attempt(&agent).await);
+        let launched = launches(&f);
+
+        let f = f.reopen_over_core();
+        let mut kept = f.agents.reattach_owners().await;
+        kept.sort();
+
+        let mut both = vec![ws.clone(), agent.clone()];
+        both.sort();
+        assert_eq!(kept, both);
+        let tree = f.tree().await;
+        for (id, pid_before, attempt) in [
+            (&ws, door_pid, door_attempt),
+            (&agent, agent_pid, agent_attempt),
+        ] {
+            assert_ne!(
+                status_of(&tree, id).kind,
+                Kind::Done,
+                "{id} reports running"
+            );
+            assert_eq!(f.attempt(id).await, attempt);
+            assert_eq!(pid(&f, id).await, pid_before, "{id} keeps its program");
+        }
+        assert_eq!(launches(&f), launched, "nothing new launches");
+    }
+
+    #[tokio::test]
+    async fn ukr3_a_start_after_reopen_leaves_the_live_program_alive() {
+        let (f, ws, agent) = running_pair().await;
+        let (door_pid, agent_pid) = (pid(&f, &ws).await, pid(&f, &agent).await);
+        // The Agent keeps no record, as one resumed before this build; the Door's is kept.
+        std::fs::remove_file(f.dir.path().join("owners").join(format!("{agent}.json"))).unwrap();
+
+        let f = f.reopen_over_core();
+        assert_eq!(f.agents.reattach_owners().await, vec![ws.clone()]);
+        let _ = f.call("rail.startDoor", json!({"id": ws})).await;
+        let _ = f.call("agent.resume", json!({"id": agent})).await;
+
+        assert!(alive(door_pid), "the Door's program is alive");
+        assert!(alive(agent_pid), "the Agent's program is alive");
+    }
+
+    #[tokio::test]
+    async fn ukr4_reattach_keeps_the_channel_state_and_arms_no_deadline() {
+        let f = Fixture::running(LAUNCHES);
+        let id = f.spawn(None, None).await.unwrap().base.id;
+        ack(&f, &id, "startup").await;
+        let mut ctx = f.ctx();
+        ctx.actor = contracts::Actor {
+            kind: contracts::ActorKind::Agent,
+            id: id.clone(),
+            parent: None,
+        };
+        f.agents
+            .call(&ctx, "agent.channelUp", json!({"id": id}))
+            .await
+            .unwrap();
+
+        let f = f.reopen_over_core();
+        assert_eq!(f.agents.reattach_owners().await, vec![id.clone()]);
+
+        let node = f.tree().await.into_iter().find(|n| n.id == id).unwrap();
+        assert_eq!(node.channel(), Some(contracts::agent::Channel::Up));
+    }
+}

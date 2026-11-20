@@ -108,6 +108,22 @@ impl Terminals {
         .await
     }
 
+    /// UKR3: whether the core already runs a program for the Agent `labels` name on `machine`
+    /// (`None` is this Mac). False for a list that cannot be read, as a start goes on then.
+    pub async fn has_live_program(&self, machine: Option<&str>, labels: &Value) -> bool {
+        let conn = match machine {
+            Some(machine) => match self.remotes.conn(machine).await {
+                Ok(conn) => conn,
+                Err(_) => return false,
+            },
+            None => match self.core().await {
+                Ok(conn) => conn,
+                Err(_) => return false,
+            },
+        };
+        self.live_program(&conn, Some(labels)).await.is_some()
+    }
+
     /// The live program the core already holds for the Agent `labels` name, after ending its idle
     /// extras; `None` for no labels, no program, or a list that cannot be read (the start goes on).
     async fn live_program(&self, conn: &herdr::Conn, labels: Option<&Value>) -> Option<String> {
