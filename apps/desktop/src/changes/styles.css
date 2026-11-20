@@ -110,6 +110,11 @@
 
 .changes-row { display: flex; align-items: baseline; gap: var(--space-3); }
 
+.changes-edit { opacity: 0; }
+
+.changes-row:hover .changes-edit,
+.changes-row:focus-within .changes-edit { opacity: 1; }
+
 .changes-file {
   display: flex;
   align-items: baseline;
