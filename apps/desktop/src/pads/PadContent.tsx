@@ -33,6 +33,7 @@ import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
 
 import type { PadEditorHandle } from "./PadRichEditor";
+import { PadNotes } from "./PadNotes";
 import "./styles.css";
 
 const PadRichEditor = lazy(() => import("./PadRichEditor"));
@@ -73,6 +74,10 @@ const draftOf = (original: { name: string; base: string; revision: number }, sou
 
   return snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
 };
+
+const sameContent = (left: Pad, right: Pad) =>
+  left.revision === right.revision &&
+  left.text === right.text;
 
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
@@ -156,6 +161,8 @@ const PadBody = (props: {
   });
 
   let editor: PadEditorHandle | undefined;
+  // U7705a: the selected text, as the editor gives it; a note reads it when asked for.
+  const [selected, setSelected] = createSignal("");
   let pendingActor: Actor | null = null;
   let closed = false;
   let finalDraft: string | null | undefined;
@@ -195,10 +202,6 @@ const PadBody = (props: {
 
     if (!closed && (!editing() || currentDraft() === next.text)) settle(next);
   };
-
-  const sameContent = (left: Pad, right: Pad) =>
-    left.revision === right.revision &&
-    left.text === right.text;
 
   const currentDraft = () => finalDraft !== undefined ? finalDraft : editor ? editor.getText() : shown();
 
@@ -383,6 +386,7 @@ const PadBody = (props: {
 
   const onChange = () => {
     setEditing(true);
+    setSelected(editor?.selectedText() ?? "");
     const edited = cycle.send({ kind: "edited" });
 
     if (edited.kind !== "sending" && editor?.unchanged()) {
@@ -500,7 +504,7 @@ const PadBody = (props: {
           onChange={onChange}
           onText={onText}
           onBlur={onEditorBlur}
-          onSelection={capture}
+          onSelection={() => { capture(); setSelected(editor?.selectedText() ?? ""); }}
           onReady={(ready) => {
             editor = ready;
             queueMicrotask(() => { if (props.heading !== undefined) ready.scrollToHeading(props.heading); });
@@ -517,7 +521,7 @@ const PadBody = (props: {
           }}
         />
       </Loading>
-
+      <PadNotes name={name} revision={() => originalRevision} selection={selected} restoreFocus={() => editor?.focus()} />
     </div>
   );
 };
