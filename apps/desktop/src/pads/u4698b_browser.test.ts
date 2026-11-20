@@ -574,7 +574,7 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     await browser("press", "Enter");
     await browser("wait", ".drawer .ProseMirror");
     await browser("click", ".drawer .ProseMirror");
-    await browser("wait", ".todo-detail-body button.word");
+    await browser("wait", "--fn", "document.activeElement === document.querySelector('.drawer .ProseMirror')");
     await settle();
     await browser("focus", ".drawer .ProseMirror");
     await settle();
@@ -619,7 +619,8 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
     const unfinished = await retained();
 
-    if (entry === "slash") expect(unfinished).toEqual([{ destination: { surface: "todos", object: "1", recipient: "body" }, text: body + "\n\n/For Agents" }]);
+    // An autosave (U7641a) settles the typed text, so no retained draft is left to restore.
+    if (entry === "slash") expect(unfinished).toEqual([]);
 
     await browser("press", "Escape");
     await settle();
@@ -627,7 +628,8 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     expect.soft(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
     expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
     await shot("dismissed");
-    expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
+    // The body saves as it is typed (U7641a): its saves carry no agent details.
+    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write' || (call.method === 'todo.update' && /data-pad-agents|<details/.test(call.params.body ?? '')))")).toEqual([]);
     expect(offered.includes("For Agents")).toBe(false);
     expect(selected.includes("For Agents")).toBe(false);
 
