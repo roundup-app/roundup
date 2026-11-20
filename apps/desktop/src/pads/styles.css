@@ -819,7 +819,12 @@ li[aria-selected="true"] svg {
   text-decoration: line-through;
 }
 
-.pad-changes-mark {
+.pad-changes-part::before {
+  content: "+";
   flex: none;
   user-select: none;
+}
+
+.pad-changes-part[data-change="removed"]::before {
+  content: "−";
 }

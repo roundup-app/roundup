@@ -19,7 +19,6 @@ const PadChanges = (props: { before: string | null; after: string; onBack: () =>
       <Show when={props.before !== null} fallback={<p class="pad-changes-none">{copy.noEarlierVersion}</p>}>
         <For each={parts()}>{part => (
           <pre class="pad-changes-part" data-change={part.added ? "added" : "removed"}>
-            <span class="pad-changes-mark" aria-hidden="true">{part.added ? "+" : "−"}</span>
             {part.added ? <ins>{part.value}</ins> : <del>{part.value}</del>}
           </pre>
         )}</For>
