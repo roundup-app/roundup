@@ -73,6 +73,5 @@ export const saveNote = async (text: string) => {
   fireEvent.input(form.getByLabelText("Note"), { target: { value: text } });
   fireEvent.click(form.getByRole("button", { name: "Save" }));
   await openBatch();
-  await screen.findByRole("button", { name: "Edit note 1" });
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
 };

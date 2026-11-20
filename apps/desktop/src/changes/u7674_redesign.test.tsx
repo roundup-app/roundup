@@ -111,7 +111,7 @@ it("u7674b_totals_follow_the_shown_group", async () => {
 it("u7674b_escape_closes_the_view_unless_a_note_field_holds_it", async () => {
   await open();
   await showing("src/a.ts");
-
+  await waitDiff();
   startNote();
   fireEvent.keyDown(await screen.findByLabelText("Note"), { key: "Escape" });
   screen.getByLabelText("Diff");
