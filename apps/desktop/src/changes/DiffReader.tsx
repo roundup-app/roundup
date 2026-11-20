@@ -17,6 +17,8 @@ import { drawDiff } from "./diffDraw";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
+import { ImagePane } from "./ImagePane";
+import { drawsLines, imageHidden, imageSides } from "./images";
 
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
@@ -125,7 +127,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     const value = read();
     const mount = host();
 
-    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null || hidden() !== null) return undefined;
+    if (!value || !mount || !drawsLines(value) || value.status === null || hidden() !== null) return undefined;
 
     return { value, mount };
   }, target => {
@@ -209,14 +211,15 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       <DiffIdentity read={read()} path={props.path} />
       <div class="diff-actions">
         <Show when={read()}>{value => <>
-          <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
+          <Show when={value().status !== null && drawsLines(value())}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
         </>}</Show>
       </div>
     </header>
     <StatusNote text={failure() ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
-    <Show when={read()}>{value => <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><div class="diff-content" ref={setHost} /></Show>}</Show>
+    <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" ref={setHost} /></Show>}</Show>
+    <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch fallback={() => addButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;
