@@ -743,6 +743,16 @@ pub(crate) async fn waiting_counts(
     Ok(counts)
 }
 
+/// DTC6: the Daemon's settled, stop and compaction notes about a Workstream's children tell a Door
+/// nothing to decide, so they wait for the turn another Message starts, as a quiet digest does.
+pub(crate) fn is_passive(message: &Message) -> bool {
+    message.kind == MessageKind::Note
+        && message.from == Actor::daemon()
+        && ["[settled]", "[stopped]", "[compacted]"]
+            .iter()
+            .any(|tag| message.body.starts_with(tag))
+}
+
 /// DTC2: the pending digests no inbox write carries, which a Door at rest takes only with a
 /// Message that is no quiet digest (B5168f); the Message that settles a Workstream is such a one.
 fn deferred_digests_in(
@@ -752,7 +762,9 @@ fn deferred_digests_in(
 ) -> Result<HashSet<u32>, Error> {
     let mut deferred = HashSet::new();
     for message in pending {
-        if payloads.of(message).is_digest() && !store.in_flight(message.id)? {
+        if (payloads.of(message).is_digest() || is_passive(message))
+            && !store.in_flight(message.id)?
+        {
             deferred.insert(message.id);
         }
     }
