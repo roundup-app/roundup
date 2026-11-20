@@ -1,23 +1,5 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
-/* U2539b: the bar's Worktree control and its panel; tokens only. */
-.worktree-control {
-  --button-inline: var(--space-1);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  max-width: calc(var(--space-6) * 6);
-  color: var(--grey);
-  font-size: var(--text-small);
-}
-
-.worktree-branch {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .worktree-panel {
   display: flex;
   flex-direction: column;
@@ -29,53 +11,6 @@
   font-size: var(--text-small);
 }
 
-.worktree-facts {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
-}
-
-.worktree-facts dt {
-  color: var(--grey);
-}
-
-.worktree-facts dd {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.worktree-tree {
-  position: relative;
-  height: min(calc(var(--space-6) * 8), calc(var(--space-5) * var(--worktree-rows, 1)));
-  min-height: 0;
-  overflow: hidden;
-  font-family: var(--font-ui);
-  --trees-fg-override: var(--text);
-  --trees-border-color-override: var(--hairline);
-}
-
-/* Match the Shelf's clipped-edge cue around Pierre's shadow-root scroller. */
-.worktree-tree::before,
-.worktree-tree::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  left: 0;
-  z-index: 1;
-  height: var(--space-2);
-  opacity: 0;
-  pointer-events: none;
-}
-.worktree-tree::before { top: 0; }
-.worktree-tree::after { bottom: 0; transform: scaleY(-1); }
-.worktree-tree[data-clipped-top]::before,
-.worktree-tree[data-clipped-bottom]::after { opacity: 1; }
-
-.worktree-panel[data-diff] { width: min(80vw, calc(var(--space-6) * 36)); }
 .diff-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
 .diff-reader { flex: none; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; }
 .diff-path { margin: 0; overflow-wrap: anywhere; }
@@ -91,8 +26,6 @@
 .note-batch p { margin: 0; overflow-wrap: anywhere; }
 .note-text { white-space: pre-wrap; }
 .worktree-panel { max-height: 85vh; overflow: auto; overscroll-behavior: contain; }
-
-.worktree-panel .diff-actions { position: sticky; top: 0; z-index: 1; background-color: var(--sunken); }
 
 .diff-header { display: flex; align-items: flex-start; gap: var(--space-5); position: sticky; top: 0; z-index: 1; background: var(--sunken); }
 .diff-identity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
@@ -175,11 +108,31 @@
   list-style: none;
 }
 
+.changes-row { display: flex; align-items: baseline; gap: var(--space-3); }
+
+.changes-row:focus-within .changes-edit { opacity: 1; }
+
+/* The action column exists on every row (an empty slot for a deleted file), and its line box is the path's, so the row keeps one height and one right edge. */
+.changes-edit {
+  opacity: 0;
+  min-block-size: 0;
+  padding-block: 0;
+  line-height: inherit;
+  font-family: var(--font-mono);
+  box-sizing: border-box;
+  inline-size: max-content;
+  flex: none;
+  text-align: end;
+}
+
+.changes-edit[aria-hidden="true"] { visibility: hidden; }
+
 .changes-file {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: start;
 }
 

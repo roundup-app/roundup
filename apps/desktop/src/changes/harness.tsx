@@ -1,4 +1,4 @@
-import { render, waitFor } from "@solidjs/testing-library";
+import { render } from "@solidjs/testing-library";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -6,6 +6,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, NOW } from "../testing/nodes";
 import { ToastHost } from "../testing/toastHost";
+import { ChangesView } from "./ChangesView";
 import { WorktreeControl } from "./WorktreeControl";
 
 export const WORKTREE = { path: "/p/.roundup/a", branch: "roundup/a", base: "main", adopted: false };
@@ -26,12 +27,14 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
 
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("plain", "working", "building")];
   app.handlers["agent.worktreeState"] = () => STATE;
-  let finished = false;
-  app.handlers["agent.changedFiles"] = async () => { try { return await changed(); } finally { finished = true; } };
+  app.handlers["agent.changedFiles"] = () => changed();
+  app.handlers["agent.ownedChanges"] = async () => ({ groups: [{ repo: WORKTREE.path, branch: WORKTREE.branch, base: WORKTREE.base, files: (await changed()).files }] });
 
   const connected = await connectProject(app, { name: "p", path: project }, () => false, () => NOW, () => null, undefined, drafts);
 
   connected.rail.select("a");
+  // The rail icon's `watch` starts this read in the App; no icon mounts here.
+  void connected.owned.refresh("a");
 
   const view = render(() => {
     connected.worktrees.watch(() => true);
@@ -40,12 +43,11 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
       <ToastHost>
         <ConnectedProjectContext value={connected}>
           <WorktreeControl />
+          <ChangesView />
         </ConnectedProjectContext>
       </ToastHost>
     );
   });
-
-  await waitFor(() => { if (!finished) throw new Error(); });
 
   const calls = (method: string) => app.calls.filter((call) => call.method === method).length;
 

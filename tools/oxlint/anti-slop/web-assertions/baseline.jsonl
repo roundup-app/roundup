@@ -32,8 +32,6 @@
 {"file":"apps/desktop/src/bubbles/u165_keys.test.tsx","test":"u165 the keys for bubbles > u165_no_plus_terminal_is_in_the_pinned_line_the_inside_line_or_any_menu","identity":"331bb79ef015c3c71097f4775406f957d86d2239c70d8fae4a9faec619aa499b"}
 {"file":"apps/desktop/src/bubbles/u3661_retry.test.tsx","test":"<helper:failTerminalTwo>","identity":"f2100c581c3209427ce4eaf7d407258dfab3d5e11469764b1f0cf7af7cf839ad"}
 {"file":"apps/desktop/src/bubbles/u3661_retry.test.tsx","test":"u3661_cancelling_another_close_keeps_the_failed_close_retry","identity":"4d31d5b655f4a8c0cde6a54cc9114aab0e51ca587e4c7a59d3e75411252c7e43"}
-{"file":"apps/desktop/src/changes/u2539d_choose.test.tsx","test":"U2539d > u2539d_a_deleted_file_opens_nothing","identity":"ff3f03b28f238608702f89cf4cd94e1d565651cf3f044fd927b7bd57fbfabbe6"}
-{"file":"apps/desktop/src/changes/u2539d_choose.test.tsx","test":"U2539d > u2539d_a_failed_open_shows_one_failure_line","identity":"57ac4cd3f4c6d2b01338c4aa6c81f54c0bb04d11a750675561d878c2fe34411a"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"7a21a0b5c840c76fe2dca79348cdf1c585f8fbef94d091d97040c78a97cbfcd3"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"3b19cf46c0cf04b9a4c36239c1ea013287db7253895e1401cf5b66b75dfae670"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"5dd949e0a0a9405bfdc64257d7154c1cc5f207b329d57048c8cc082ff5bddd51"}

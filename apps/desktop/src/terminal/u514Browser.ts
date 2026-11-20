@@ -119,11 +119,10 @@ export const editor = async (kind: typeof editorKinds[number] | "pad-source" | "
   } else if (kind === "diff") {
     await batch(
       ["open", url("/src/changes/u2540.html")],
-      ["wait", "--fn", "!!document.querySelector('.worktree-control')"],
-      ["click", ".worktree-control"],
-      ["wait", "--fn", "!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')"],
-      ["eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()"],
-      ["find", "role", "button", "click", "--name", "View diff", "--exact"],
+      ["wait", "--fn", "!!document.querySelector('.changes-icon')"],
+      ["click", ".changes-icon"],
+      ["wait", "--fn", "!!document.querySelector('.changes-file')"],
+      ["click", ".changes-file"],
       ["wait", "--fn", "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')"]
     );
     selector = ".diff-content";

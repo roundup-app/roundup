@@ -6,7 +6,6 @@ import { afterEach, expect, it } from "vitest";
 import { agent, doorOf } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "../changes/WorktreeControl";
-import { copy as changesCopy } from "../changes/copy";
 import { mountRail, rowOf, rowGlyph as glyphOf, settled } from "./railFixture";
 
 const worktree = { path: "/p/a", branch: "topic", base: "base", adopted: false };
@@ -82,11 +81,9 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   app.handlers["agent.worktreeState"] = () => new Promise((resolve) => { finish = resolve; });
   setNow(100_000_000_000_000);
   const count = app.calls.filter((call) => call.method === "agent.worktreeState").length;
-  fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(count);
   finish({ ahead: 11, behind: 3, dirty: true, ci: { state: "running", stale: true }, pr: { number: 42, stale: false } });
   await screen.findByLabelText("11 ahead");
-  await screen.findByText(changesCopy.worktreeStateText(11, 3, true));
   expect(screen.getByLabelText("CI running, stale").dataset.state).toBe("running");
 
 
@@ -109,14 +106,11 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
   render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   setNow(100_000_000_000_000);
-  fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
-
-  expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead");
+  await waitFor(() => expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead"));
   const unavailable = await screen.findByRole("img", { name: "Worktree state unavailable" });
   expect(unavailable.dataset.state).toBe("unavailable");
   failed = false;
   setNow(100_000_000_015_000);
-  await screen.findByText(changesCopy.worktreeStateText(5, 2, false));
   expect(notices("alert")).toEqual([]);
 
 });
@@ -128,23 +122,4 @@ it.each(["passed", "no-ci", "conflicts", "error", "unknown"] as const)("u2556c_c
   setNow(100_000_000_000_000);
   await waitFor(() => expect(rowOf("a").querySelector(`[data-state="${state}"]`)).toBeTruthy());
   expect(rowOf("a").querySelector(`[data-state="${state}"]`)?.getAttribute("aria-label")).toBe(state === "no-ci" ? "No CI" : `CI ${state}`);
-});
-
-it("u2556b_unavailable_and_stale_are_explained", async () => {
-  const { app, connected, setNow } = await mountRail([agent("a", "idle", "ready", { worktree })]);
-  connected.rail.select("a");
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
-  render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
-  fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
-  await screen.findByText("CI unavailable");
-  await screen.findByText("PR unavailable");
-  await connected.worktrees.refresh("a");
-  app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: false, ci: { state: "passed", stale: true }, pr: { number: 18, stale: true } });
-  setNow(100_000_000_000_000);
-  await screen.findByText("Passed, stale");
-
-  expect(screen.getByRole("img", { name: "PR #18, stale" }).dataset.stale).toBe("true");
-  expect(screen.getByLabelText("CI passed, stale").dataset.state).toBe("passed");
-  expect(screen.getByLabelText("CI passed, stale").dataset.stale).toBe("true");
-
 });

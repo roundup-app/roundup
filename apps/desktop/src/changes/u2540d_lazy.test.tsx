@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { diffsLoaded } from "./DiffReader";
 import { mountControl } from "./harness";
-import { COMPARISON, openFile } from "./noteHarness";
+import { COMPARISON, openFile, openChanges } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -13,8 +13,8 @@ it("u2540d_renderer_loads_only_on_demand", async () => {
   connected.rail.select("a");
   expect(diffsLoaded()).toBe(false);
   app.handlers["agent.compareFile"] = () => COMPARISON;
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
-  await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
+  await openChanges();
+  await screen.findByRole("button", { name: /src\/a\.ts/ });
   expect(diffsLoaded()).toBe(false);
   await openFile();
   await waitFor(() => expect(diffsLoaded()).toBe(true));
