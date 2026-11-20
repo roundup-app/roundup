@@ -446,3 +446,112 @@ async fn u2540a_comparison_uses_only_the_selected_agents_worktree() {
         assert_eq!(result["new"]["text"], text);
     }
 }
+
+/// A PNG signature and IHDR for a `w`×`h` image, padded with `pad` zero bytes.
+fn png(w: u32, h: u32, pad: usize) -> Vec<u8> {
+    let mut bytes = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+    bytes.extend(w.to_be_bytes());
+    bytes.extend(h.to_be_bytes());
+    bytes.extend(vec![0; 5 + pad]);
+    bytes
+}
+
+#[tokio::test]
+async fn u7694a_a_changed_png_returns_both_versions_bytes_and_sizes() {
+    use base64::Engine;
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    let (old, new) = (png(8, 8, 10), png(16, 16, 4 * 1024 * 1024 - 40));
+    std::fs::write(f.dir.path().join("a.png"), &old).unwrap();
+    commit_all(f.dir.path(), "seed");
+    let (id, path) = on(&f).await;
+    std::fs::write(path.join("a.png"), &new).unwrap();
+    let result = f
+        .call("agent.compareFile", json!({"id": id, "path": "a.png"}))
+        .await
+        .unwrap();
+    for (side, bytes) in [("old", &old), ("new", &new)] {
+        assert_eq!(result[side]["kind"], "image");
+        assert_eq!(result[side]["mime"], "image/png");
+        assert_eq!(result[side]["size"], bytes.len());
+        assert!(
+            result[side]["revision"]
+                .as_str()
+                .unwrap()
+                .starts_with("sha256:")
+        );
+        let data = result[side]["data"].as_str().unwrap();
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .unwrap();
+        assert_eq!(&decoded, bytes);
+    }
+}
+
+#[tokio::test]
+async fn u7694a_an_added_or_deleted_image_has_an_absent_side() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    std::fs::write(f.dir.path().join("gone.png"), png(2, 2, 0)).unwrap();
+    commit_all(f.dir.path(), "seed");
+    let (id, path) = on(&f).await;
+    std::fs::remove_file(path.join("gone.png")).unwrap();
+    std::fs::write(path.join("new.png"), png(3, 3, 0)).unwrap();
+    let call = |name: &'static str| f.call("agent.compareFile", json!({"id": id, "path": name}));
+    let added = call("new.png").await.unwrap();
+    assert_eq!(added["old"]["kind"], "absent");
+    assert_eq!(added["new"]["kind"], "image");
+    let deleted = call("gone.png").await.unwrap();
+    assert_eq!(deleted["old"]["kind"], "image");
+    assert_eq!(deleted["new"]["kind"], "absent");
+}
+
+#[tokio::test]
+async fn u7694a_a_side_over_the_limit_returns_its_size_without_bytes() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    let big = png(9, 9, 4 * 1024 * 1024 + 1);
+    std::fs::write(f.dir.path().join("big.png"), &big).unwrap();
+    commit_all(f.dir.path(), "seed");
+    let (id, path) = on(&f).await;
+    std::fs::write(path.join("big.png"), png(1, 1, 0)).unwrap();
+    std::fs::write(path.join("huge.png"), png(1, 1, 16 * 1024 * 1024)).unwrap();
+    let result = f
+        .call("agent.compareFile", json!({"id": id, "path": "big.png"}))
+        .await
+        .unwrap();
+    assert_eq!(result["old"]["kind"], "image");
+    assert_eq!(result["old"]["size"], big.len());
+    assert!(result["old"].get("data").is_none());
+    assert!(result["new"]["data"].is_string());
+    let err = f
+        .call("agent.compareFile", json!({"id": id, "path": "huge.png"}))
+        .await
+        .unwrap_err();
+    assert!(err.message.contains("16 MiB"), "{}", err.message);
+}
+
+#[tokio::test]
+async fn u7694a_content_decides_and_text_svg_and_other_binary_stay_what_they_were() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    commit_all(f.dir.path(), "seed");
+    let (id, path) = on(&f).await;
+    std::fs::write(path.join("fake.png"), "just text\n").unwrap();
+    std::fs::write(
+        path.join("a.svg"),
+        "<svg xmlns=\"http://www.w3.org/2000/svg\"/>\n",
+    )
+    .unwrap();
+    std::fs::write(path.join("a.zip"), b"PK\x03\x04\0\0").unwrap();
+    std::fs::write(path.join("a.heic"), b"\0\0\0\x18ftypheic").unwrap();
+    for (name, kind) in [
+        ("fake.png", "text"),
+        ("a.svg", "text"),
+        ("a.zip", "binary"),
+        ("a.heic", "binary"),
+    ] {
+        let result = f
+            .call("agent.compareFile", json!({"id": id, "path": name}))
+            .await
+            .unwrap();
+        assert_eq!(result["new"]["kind"], kind, "{name}");
+        assert!(result["new"].get("data").is_none(), "{name}");
+    }
+}
