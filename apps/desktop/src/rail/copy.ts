@@ -106,6 +106,7 @@ export const copy = {
   programRefused: (message: string) => `✕ ${message}`,
   programStop: sharedCopy.stop,
   programStart: sharedCopy.start,
+  programStopAria: "Stop program",
   programStopped: "Stopped",
   programRestarting: (seconds: number) => `Restarting in ${seconds} s`,
   assign: sharedCopy.assign,
