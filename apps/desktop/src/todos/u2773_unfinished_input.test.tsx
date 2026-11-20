@@ -530,6 +530,29 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
 });
 
 
+it.each(["failed", "unknown", "acknowledged"] as const)("u3021c_todo_selected_save_uses_captured_change_%s", async outcome => {
+  const { app, connected, todos } = await mountTodos([todo(1, { body: "changed elsewhere" })]);
+  const destination = { surface: "todos", object: "1", recipient: "body" };
+  const form = { text: "  A 🧪\n次の行  ", base: "old base", expected_change: 7, title: "todo 1", body: "old base", done: false, blockers: [] };
+  const a = connected.drafts.edit(destination, form, null, "ordinary").draft;
+  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome === "acknowledged" ? "failed" : outcome);
+  const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, null, "ordinary").draft;
+  app.handlers["todo.update"] = () => outcome === "acknowledged" ? todo(1, { body: form.text }) : Promise.reject(new RpcError(-32003, "captured conflict"));
+  connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
+  const field = await screen.findByRole("textbox", { name: "Body" });
+  const calls = [...app.calls];
+  const updates = () => app.calls.slice(calls.length).filter(call => call.method === "todo.update");
+  fireEvent.input(field, { target: { value: form.text } });
+
+  if (outcome === "failed") await screen.findByText("captured conflict");
+
+  if (outcome === "acknowledged") await waitFor(() => expect(updates()).toHaveLength(1));
+  expect(updates()).toEqual(outcome === "unknown" ? [] : [{ method: "todo.update", params: { id: 1, title: null, body: form.text, expected_change: 7 } }]);
+
+  if (outcome === "acknowledged") await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
+  else expect(connected.drafts.list()).toEqual([{ ...a, status: outcome }, b]);
+});
+
 it.each(["failed", "unknown"] as const)("u3021c_todo_selected_creation_save_keeps_captured_home_%s", async outcome => {
   const { app, connected, todos } = await mountTodos([], true, [workstream("a"), workstream("b")]);
   await waitFor(() => expect(todos.isLoaded()).toBe(true));

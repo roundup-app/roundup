@@ -3,6 +3,7 @@ import { applying } from "../app/pending";
 import { useConnectedProject } from "../state/connectedProject";
 import { createCutTitle } from "../ui/cutTitle";
 import { NameField } from "../ui/NameField";
+import { copy } from "./copy";
 
 /** A Pad's title in the open Pad: a double-click edits it in place (U7641a), and the Pad's Drawer follows the new name. */
 export const PadTitle = (props: {
@@ -22,7 +23,7 @@ export const PadTitle = (props: {
   const [renaming, setRenaming] = createSignal(false);
 
   const rename = async (text: string, base: string, incarnation: string | null) => {
-    if (incarnation === null) throw new Error("A Pad rename needs the incarnation read on opening.");
+    if (incarnation === null) throw new Error(copy.padRenameVersionMissing);
     const result = await applying(() => connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: incarnation }));
 
     if (result.kind !== "applied") throw result.error;
