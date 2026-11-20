@@ -7,6 +7,8 @@ export type Saving = { of: object; expected: number | null; busy: boolean };
 
 type Draft = { save: () => void; send: (call: () => Promise<Applied<void>>) => Promise<Sent<void>> };
 
+const pause = 600;
+
 /**
  * A body saves as the user types (U7641a): one save at a time, a change made while one runs goes in the next, so the
  * Daemon ends with the last text; each acknowledged save moves the expected change to the one it made.
@@ -34,8 +36,8 @@ export const createBodySaver = (config: {
 
   const landed = () => { report(null); props.onSaved?.(); };
 
-  const run = async (): Promise<void> => {
-    if (!open() || expected === null) return;
+  const run = async (force = false): Promise<void> => {
+    if ((!force && !open()) || expected === null) return;
 
     if (inflight) {
       dirty = true;
@@ -70,7 +72,7 @@ export const createBodySaver = (config: {
 
     if (dirty) {
       dirty = false;
-      await run();
+      await run(force);
     }
 
     track({ of: form, expected, busy: inflight !== undefined });
@@ -78,6 +80,7 @@ export const createBodySaver = (config: {
 
   /** Esc: puts back the body as the edit found it, and saves that; an autosave consumed its draft, so this goes straight to the Daemon. */
   const revert = async () => {
+    cancel();
     await inflight;
     const was = expected;
 
@@ -90,11 +93,17 @@ export const createBodySaver = (config: {
     else report(sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown);
   };
 
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = () => { clearTimeout(timer); timer = undefined; };
+
   return {
-    run,
+    /** A change waits for a pause in typing, so one burst is one save and one history entry. */
+    run: () => { cancel(); timer = setTimeout(() => { timer = undefined; void run(); }, pause); },
     revert,
     /** What the Daemon holds and the change it expects, once any save in flight has settled. */
     settled: async () => {
+      if (timer !== undefined) { cancel(); await run(true); }
+
       await inflight;
 
       return { saved, expected };
