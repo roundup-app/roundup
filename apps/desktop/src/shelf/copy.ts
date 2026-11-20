@@ -27,7 +27,7 @@ export const copy = {
   overview: sharedCopy.overview,
   name: sharedCopy.name,
   startDoor: sharedCopy.startDoor,
-  clear: "Clear",
+  clear: sharedCopy.clear,
   stop: sharedCopy.stop,
   openFolder: sharedCopy.openFolder,
   openInEditor: sharedCopy.openInEditor,

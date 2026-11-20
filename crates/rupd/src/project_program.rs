@@ -30,6 +30,15 @@ fn waits() -> ExponentialBackoff {
         .build()
 }
 
+/// PG4: the wait after an exit that came `ran` after the last start: a healthy run starts the
+/// waits over.
+fn next_wait(backoff: &mut ExponentialBackoff, ran: Duration) -> Duration {
+    if ran >= HEALTHY {
+        *backoff = waits();
+    }
+    backoff.next().unwrap_or(MAX_WAIT)
+}
+
 #[derive(Clone, Default)]
 enum Phase {
     #[default]
@@ -291,10 +300,7 @@ impl ProgramHost {
                     }
                     let _ = host.terminals.close(&id).await;
                 }
-                if began.elapsed() >= HEALTHY {
-                    backoff = waits();
-                }
-                let wait = backoff.next().unwrap_or(MAX_WAIT);
+                let wait = next_wait(&mut backoff, began.elapsed());
                 let kick = Arc::new(Notify::new());
                 {
                     let mut state = host.state.lock();
@@ -403,6 +409,27 @@ impl ProgramHost {
 mod tests {
     use super::*;
     use crate::Daemon;
+
+    #[test]
+    fn pg4_a_second_kill_in_a_row_waits_longer_and_the_wait_is_capped() {
+        let mut backoff = waits();
+        let quick = Duration::from_secs(1);
+        let seen: Vec<u64> = (0..8)
+            .map(|_| next_wait(&mut backoff, quick).as_secs())
+            .collect();
+        assert_eq!(seen, [1, 2, 4, 8, 16, 30, 30, 30]);
+    }
+
+    #[test]
+    fn pg4_a_healthy_run_resets_the_wait() {
+        let mut backoff = waits();
+        let quick = Duration::from_secs(1);
+        for _ in 0..4 {
+            next_wait(&mut backoff, quick);
+        }
+        assert_eq!(next_wait(&mut backoff, HEALTHY).as_secs(), 1);
+        assert_eq!(next_wait(&mut backoff, quick).as_secs(), 2);
+    }
 
     const SCRIPT: &str = "echo started >> ../started.txt; exec sleep 600";
 
