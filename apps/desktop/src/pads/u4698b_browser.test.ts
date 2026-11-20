@@ -629,7 +629,8 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     expect.soft(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
     expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
     await shot("dismissed");
-    expect((await saved()).filter(text => text.includes("<details"))).toEqual([]);
+    // The body saves as it is typed (U7641a): no save writes a Pad or carries agent details.
+    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write' || (call.method === 'todo.update' && /data-pad-agents|<details/.test(call.params.body ?? '')))")).toEqual([]);
     expect(offered.includes("For Agents")).toBe(false);
     expect(selected.includes("For Agents")).toBe(false);
 

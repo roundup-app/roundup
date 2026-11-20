@@ -20,6 +20,7 @@
 
 /* U7310b: a Pad's name and a Todo's title are the title role: 24/600. */
 .pad-head-name,
+.pad-head-title .row-name-editor,
 .todo-detail-title .todo-editable {
   flex: 0 1 auto;
   min-width: 0;
@@ -28,6 +29,12 @@
   line-height: 1.25;
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
+}
+
+/* U7641a: renaming the open Pad's title keeps the box of the name it replaces. */
+.pad-head-title input.shelf-title.field-inline {
+  padding: 0;
+  min-height: 0;
 }
 
 /* U3729: the name and its status share one baseline; the status is quieter and smaller, so it reads as a state. */
