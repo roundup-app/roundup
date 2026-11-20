@@ -9,7 +9,7 @@ import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
-import { changeAt, changeStarts, placeOf, sideName } from "./lines";
+import { changeAt, changeStarts, placeOf, revealerOf, sideName } from "./lines";
 import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead, sameRevisions } from "./fileState";
@@ -23,7 +23,7 @@ import { drawsLines, imageHidden, imageSides } from "./images";
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
 /** U7675e: what the pane lets the view do from a key. */
-export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void };
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void; reveal: () => void };
 
 const DiffIdentity = (props: { read: FileComparison | undefined; path: string }) => <div class="diff-identity">
   <p class="diff-path"><Show when={props.read} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
@@ -57,6 +57,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   let rendered: { path: string; revision: string } | undefined;
   let focusHost = () => {};
 
+  let revealNearest = () => {};
+
   let moveTo = (_side: "old" | "new", _line: number) => {};
 
   // U7675b: a read of a file whose entry's blob moved on says so and waits for Reload.
@@ -70,6 +72,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const notice = createMemo(() => noticeFor({ value: read(), hidden: hidden(), loading: loading(), slow: slow(), failed: failure() !== null, coarse: coarse(), selection: selection(), path: props.path }));
 
   let stopLoading = () => {};
+
+  // U7692a: Reload draws a fresh reader even when the file reads the same, so its folds close again.
+  let redraw = false;
 
   const load = (params: CompareFileParams) => {
     stopLoading();
@@ -86,7 +91,10 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
         const same = displayed?.id === target.id && displayed.path === target.path;
 
         displayed = target;
-        setRead(previous => same && previous && sameRead(previous, result.value) ? previous : result.value);
+        const again = redraw;
+
+        redraw = false;
+        setRead(previous => same && !again && previous && sameRead(previous, result.value) ? previous : result.value);
         setFailure(null);
       }
       else setFailure(result.text);
@@ -121,6 +129,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     return { view, annotations };
   }, ({ view, annotations }) => {
     view?.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })) });
+
+    // U7692b: a note's line is never hidden in a fold; an unchanged line is a new-side line.
+    for (const note of annotations) if (note.side === "new") { view?.revealLine(note.start); view?.revealLine(note.end); }
   });
 
   createEffect(() => {
@@ -170,6 +181,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
       focusHost = () => { mount.tabIndex = -1; mount.focus(); };
 
+      // U7692b: V opens the fold nearest the focused line by the click's step.
+      revealNearest = revealerOf(view, fileDiff, selection);
+
       // listener-owner: removed with the rendered diff in the dispose below.
       mount.addEventListener("scroll", remember);
       dispose = () => {
@@ -179,6 +193,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
         moveTo = () => {};
 
         focusHost = () => {};
+
+        revealNearest = () => {};
 
         setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove();
       };
@@ -195,6 +211,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
   createEffect(() => props.keys, keys => keys?.({
     focus: () => focusHost(),
+    reveal: () => revealNearest(),
     step: direction => {
       const next = starts[Math.min(Math.max(cursor + direction, 0), starts.length - 1)];
 
@@ -204,7 +221,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     },
   }));
 
-  const reload = () => { setShown(undefined); load(params()); };
+  const reload = () => { setShown(undefined); redraw = true; load(params()); };
 
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">

@@ -62,6 +62,8 @@ export const copy = {
     /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
+    "V shows more of the nearest hidden lines.",
+    /** @prose */
     "Enter opens the file in the editor.",
     /** @prose */
     "Esc closes this list, then the view.",
