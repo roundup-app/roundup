@@ -114,7 +114,7 @@ it("u7694b_a_renamed_or_mode_only_image_shows_what_7675_shows", async () => {
 
 it("u7694b_over_the_limit_says_too_large_and_gives_both_sizes", async () => {
   await open({ "a.png": { old: picture("o", 5_200_000, true), new: picture("n", 6_100_000, true) } });
-  await says(`${copy.tooLarge} Old 5.2 MB → New 6.1 MB`);
+  await says(`${copy.tooLarge} · Old 5.2 MB → New 6.1 MB`);
   expect(within(pane()).queryAllByRole("img")).toEqual([]);
   expect(within(pane()).queryByRole("button", { name: copy.showAnyway })).toBeNull();
 });
