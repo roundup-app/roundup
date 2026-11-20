@@ -20,7 +20,7 @@ describe("U2539d", () => {
   it("u2539d_enter_opens_the_file_at_its_line", async () => {
     const { app } = await open();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open in editor: src/a.ts" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Open in editor" })[0]!);
 
     await waitFor(() => expect(app.editorCalls).toEqual([{ path: `${WORKTREE.path}/src/a.ts`, line: 12 }]));
   });
@@ -28,7 +28,7 @@ describe("U2539d", () => {
   it("u2539d_a_deleted_file_opens_nothing", async () => {
     const { app } = await open();
 
-    for (const button of screen.getAllByRole("button", { name: /^Open in editor: / })) fireEvent.click(button);
+    for (const button of screen.getAllByRole("button", { name: "Open in editor" })) fireEvent.click(button);
 
     await waitFor(() => expect(app.editorCalls.map(call => call.path)).toEqual([`${WORKTREE.path}/src/a.ts`, `${WORKTREE.path}/src/deep/b.ts`]));
   });
@@ -38,7 +38,7 @@ describe("U2539d", () => {
     const failure = new RpcError(-32001, "no code editor found; choose one in Settings");
 
     app.editorFailure = failure;
-    fireEvent.click(screen.getByRole("button", { name: "Open in editor: src/a.ts" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Open in editor" })[0]!);
 
     await waitFor(() => expect(notices("alert")).toHaveLength(1));
     expect(notices("alert")[0]!.textContent).toContain(failure.message);
