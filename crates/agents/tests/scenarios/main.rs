@@ -5,9 +5,11 @@
     clippy::indexing_slicing
 )]
 mod a24;
+mod zz_measure;
 mod a26;
 mod a33;
 mod a34;
+mod c7684_repeat_scan;
 mod common;
 mod dcl9;
 mod door;
