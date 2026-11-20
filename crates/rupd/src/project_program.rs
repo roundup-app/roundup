@@ -84,7 +84,8 @@ pub(crate) fn check(project: &Path, entry: &ProjectProgram) -> Result<PathBuf, S
     {
         return Err("the folder is inside the Project folder".into());
     }
-    let root = std::fs::canonicalize(project).map_err(|err| format!("the Project folder: {err}"))?;
+    let root =
+        std::fs::canonicalize(project).map_err(|err| format!("the Project folder: {err}"))?;
     let resolved = std::fs::canonicalize(root.join(dir))
         .map_err(|err| format!("the folder {:?}: {err}", entry.dir))?;
     if !resolved.starts_with(&root) || !resolved.is_dir() {
@@ -150,7 +151,9 @@ impl ProgramHost {
             .and_then(|body| serde_json::from_slice::<Kept>(&body).ok());
         let entry = match self.agents.project_program() {
             Ok(entry) => entry,
-            Err(err) => return eprintln!("rupd: the Project program is unreadable: {}", err.message),
+            Err(err) => {
+                return eprintln!("rupd: the Project program is unreadable: {}", err.message);
+            }
         };
         let stopped = self.agents.project_program_stopped().unwrap_or(false);
         if self.agents.is_fork() || entry.is_none() || stopped {
@@ -215,19 +218,17 @@ impl ProgramHost {
             .project_program()?
             .ok_or_else(|| RpcError::conflict("the Project names no program"))?;
         let project = self.agents.project_path().to_path_buf();
-        let dir = check(&project, &entry).map_err(|message| {
-            RpcError::new(code::INVALID_PARAMS, message)
-        })?;
+        let dir = check(&project, &entry)
+            .map_err(|message| RpcError::new(code::INVALID_PARAMS, message))?;
         let mut env = std::collections::BTreeMap::new();
         if let Ok(socket) = rpc::socket_path() {
-            env.insert("RUPD_SOCKET".to_owned(), socket.to_string_lossy().into_owned());
+            env.insert(
+                "RUPD_SOCKET".to_owned(),
+                socket.to_string_lossy().into_owned(),
+            );
         }
-        if let Some(rup) = self.agents.rup_dir() {
-            let inherited = std::env::var_os("PATH").unwrap_or_default();
-            let paths = std::iter::once(rup).chain(std::env::split_paths(&inherited));
-            if let Ok(path) = std::env::join_paths(paths) {
-                env.insert("PATH".to_owned(), path.to_string_lossy().into_owned());
-            }
+        if let Some(path) = self.agents.program_path() {
+            env.insert("PATH".to_owned(), path.to_string_lossy().into_owned());
         }
         let owner = project.to_string_lossy().into_owned();
         let spawned = self
@@ -267,7 +268,9 @@ impl ProgramHost {
         };
         if !kept_running {
             let _ = self.terminals.close(&spawned.id).await;
-            return Err(RpcError::conflict("the program was stopped while it started"));
+            return Err(RpcError::conflict(
+                "the program was stopped while it started",
+            ));
         }
         self.changed();
         Ok(spawned.id)
@@ -325,7 +328,9 @@ impl ProgramHost {
                         terminal = Some(id);
                         began = Instant::now();
                     }
-                    Err(err) => eprintln!("rupd: the Project program did not restart: {}", err.message),
+                    Err(err) => {
+                        eprintln!("rupd: the Project program did not restart: {}", err.message)
+                    }
                 }
             }
         });

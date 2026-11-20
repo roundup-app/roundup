@@ -73,7 +73,10 @@ impl World {
 
 fn rand_name() -> String {
     static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-    format!("d{}", NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+    format!(
+        "d{}",
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
 }
 
 fn entry() -> Value {
@@ -111,7 +114,10 @@ async fn run(o: &Open) -> Value {
 }
 
 async fn running(o: &Open) -> String {
-    until("the program runs", || async { run(o).await["state"] == "running" }).await;
+    until("the program runs", || async {
+        run(o).await["state"] == "running"
+    })
+    .await;
     run(o).await["terminalId"].as_str().unwrap().to_owned()
 }
 
@@ -136,15 +142,27 @@ async fn set(o: &Open) {
 async fn pg1_set_stores_one_entry_and_replaces_it() {
     let w = world();
     let o = w.open().await;
-    assert_eq!(call(&o, "project.get", Value::Null).await["program"], Value::Null);
+    assert_eq!(
+        call(&o, "project.get", Value::Null).await["program"],
+        Value::Null
+    );
     set(&o).await;
-    assert_eq!(call(&o, "project.get", Value::Null).await["program"], entry());
+    assert_eq!(
+        call(&o, "project.get", Value::Null).await["program"],
+        entry()
+    );
     let second = json!({"argv": ["true"], "dir": ""});
     call(&o, "project.setProgram", second.clone()).await;
-    assert_eq!(call(&o, "project.get", Value::Null).await["program"], second);
+    assert_eq!(
+        call(&o, "project.get", Value::Null).await["program"],
+        second
+    );
     drop(o);
     let again = w.open().await;
-    assert_eq!(call(&again, "project.get", Value::Null).await["program"], second);
+    assert_eq!(
+        call(&again, "project.get", Value::Null).await["program"],
+        second
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -162,9 +180,16 @@ async fn pg1_a_bad_argv_or_dir_changes_nothing() {
         json!({"argv": ["x"], "dir": "out"}),
         json!({"argv": ["x"], "dir": "missing"}),
     ] {
-        assert_eq!(refused(&o, "project.setProgram", bad.clone()).await, i64::from(rpc::code::INVALID_PARAMS), "{bad}");
+        assert_eq!(
+            refused(&o, "project.setProgram", bad.clone()).await,
+            i64::from(rpc::code::INVALID_PARAMS),
+            "{bad}"
+        );
     }
-    assert_eq!(call(&o, "project.get", Value::Null).await["program"], entry());
+    assert_eq!(
+        call(&o, "project.get", Value::Null).await["program"],
+        entry()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -180,11 +205,18 @@ async fn pg1_an_ext_or_agent_call_is_forbidden_and_changes_nothing() {
             ("project.startProgram", Value::Null),
             ("project.stopProgram", Value::Null),
         ] {
-            assert_eq!(refused(&o, method, params).await, i64::from(rpc::code::FORBIDDEN), "{kind} {method}");
+            assert_eq!(
+                refused(&o, method, params).await,
+                i64::from(rpc::code::FORBIDDEN),
+                "{kind} {method}"
+            );
         }
     }
     identify(&o, "user").await;
-    assert_eq!(call(&o, "project.get", Value::Null).await["program"], entry());
+    assert_eq!(
+        call(&o, "project.get", Value::Null).await["program"],
+        entry()
+    );
     assert_eq!(run(&o).await["state"], "stopped");
 }
 
@@ -198,7 +230,10 @@ async fn pg1_a_file_in_the_project_folder_names_no_program() {
     }
     let o = w.open().await;
     tokio::time::sleep(Duration::from_millis(500)).await;
-    assert_eq!(call(&o, "project.get", Value::Null).await["program"], Value::Null);
+    assert_eq!(
+        call(&o, "project.get", Value::Null).await["program"],
+        Value::Null
+    );
     assert!(!w.project.path().join("ran").exists());
     assert!(rows(&o, &w).await.is_empty());
 }
@@ -236,7 +271,9 @@ async fn pg2_the_row_shows_the_reported_status() {
     running(&o).await;
     until("the status shows on its row", || async {
         let rows = rows(&o, &w).await;
-        rows.len() == 1 && rows[0]["status"]["kind"] == "working" && rows[0]["status"]["label"] == "build"
+        rows.len() == 1
+            && rows[0]["status"]["kind"] == "working"
+            && rows[0]["status"]["label"] == "build"
     })
     .await;
 }
@@ -285,12 +322,21 @@ async fn pg3_start_while_running_or_without_a_program_is_a_conflict() {
     let w = world();
     let o = w.open().await;
     let conflict = i64::from(rpc::code::CONFLICT);
-    assert_eq!(refused(&o, "project.startProgram", Value::Null).await, conflict);
-    assert_eq!(refused(&o, "project.stopProgram", Value::Null).await, conflict);
+    assert_eq!(
+        refused(&o, "project.startProgram", Value::Null).await,
+        conflict
+    );
+    assert_eq!(
+        refused(&o, "project.stopProgram", Value::Null).await,
+        conflict
+    );
     set(&o).await;
     call(&o, "project.startProgram", Value::Null).await;
     running(&o).await;
-    assert_eq!(refused(&o, "project.startProgram", Value::Null).await, conflict);
+    assert_eq!(
+        refused(&o, "project.startProgram", Value::Null).await,
+        conflict
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -319,16 +365,27 @@ async fn pg4_a_kill_restarts_after_the_first_wait() {
     let id = running(&o).await;
     let before = std::time::Instant::now();
     call(&o, "terminal.kill", json!({"id": id})).await;
-    until("it waits to restart", || async { run(&o).await["state"] == "restarting" }).await;
+    until("it waits to restart", || async {
+        run(&o).await["state"] == "restarting"
+    })
+    .await;
     let next = running(&o).await;
     assert_ne!(next, id);
-    assert!(before.elapsed() >= Duration::from_millis(900), "{:?}", before.elapsed());
+    assert!(
+        before.elapsed() >= Duration::from_millis(900),
+        "{:?}",
+        before.elapsed()
+    );
     assert_eq!(rows(&o, &w).await.len(), 1);
     // PG4: a second exit in a row waits twice as long.
     let again = std::time::Instant::now();
     call(&o, "terminal.kill", json!({"id": next})).await;
     running(&o).await;
-    assert!(again.elapsed() >= Duration::from_millis(1900), "{:?}", again.elapsed());
+    assert!(
+        again.elapsed() >= Duration::from_millis(1900),
+        "{:?}",
+        again.elapsed()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -339,7 +396,10 @@ async fn pg4_a_stop_or_clear_during_a_wait_cancels_the_restart() {
     call(&o, "project.startProgram", Value::Null).await;
     let id = running(&o).await;
     call(&o, "terminal.kill", json!({"id": id})).await;
-    until("it waits to restart", || async { run(&o).await["state"] == "restarting" }).await;
+    until("it waits to restart", || async {
+        run(&o).await["state"] == "restarting"
+    })
+    .await;
     call(&o, "project.clearProgram", Value::Null).await;
     tokio::time::sleep(Duration::from_millis(1800)).await;
     assert_eq!(run(&o).await["state"], "none");
@@ -378,7 +438,12 @@ async fn pg5_a_gone_or_replaced_owner_starts_one_program() {
     running(&second).await;
     until("one started", || async { w.started().len() == 2 }).await;
     // A replaced entry: the survivor is ended and the new entry starts.
-    call(&second, "project.setProgram", json!({"argv": ["sh", "-c", SCRIPT.replace("600", "601")], "dir": "work"})).await;
+    call(
+        &second,
+        "project.setProgram",
+        json!({"argv": ["sh", "-c", SCRIPT.replace("600", "601")], "dir": "work"}),
+    )
+    .await;
     second.server.abort();
     let third = w.open().await;
     running(&third).await;

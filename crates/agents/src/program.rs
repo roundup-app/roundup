@@ -7,7 +7,10 @@ impl Agents {
     }
 
     /// `None` clears the entry and any stop.
-    pub fn store_project_program(&self, program: Option<&contracts::project::ProjectProgram>) -> Result<(), RpcError> {
+    pub fn store_project_program(
+        &self,
+        program: Option<&contracts::project::ProjectProgram>,
+    ) -> Result<(), RpcError> {
         Ok(self.shared.rail().set_program(program)?)
     }
 
@@ -22,6 +25,13 @@ impl Agents {
     /// A43: the directory of `rup`, which an Agent's `PATH` starts with.
     pub fn rup_dir(&self) -> Option<PathBuf> {
         self.launcher.rup_dir()
+    }
+
+    /// The `PATH` a Project program starts with: `rup`'s directory, then this process's `PATH`.
+    pub fn program_path(&self) -> Option<std::ffi::OsString> {
+        let rup = self.rup_dir()?;
+        let inherited = std::env::var_os("PATH").unwrap_or_default();
+        std::env::join_paths(std::iter::once(rup).chain(std::env::split_paths(&inherited))).ok()
     }
 
     /// FOP5978b: a Fork attaches no Terminal owner and starts no program.

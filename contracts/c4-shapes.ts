@@ -272,7 +272,7 @@ type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwn
       : K extends "RpcErrorData" ? Before[K] | { kind: "start-failed"; path: string; id: string; cause: string }
       : K extends "pad/CreateParams" ? Before[K] & { visibility?: import("./generated/agent/RailVisibility").RailVisibility }
       : K extends "project/OpenParams" ? Before[K] & { machine?: string | null }
-      : K extends "project/ProjectSettings" ? Before[K] & { machine: string | null }
+      : K extends "project/ProjectSettings" ? Before[K] & { machine: string | null; program: import("./generated/project/ProjectProgram").ProjectProgram | null }
       : K extends "agent/StartDoorParams" ? Before[K] & { prompt?: string }
       : K extends "terminal/SpawnParams" ? Before[K] & { unset: string[] }
       : Before[K] };
