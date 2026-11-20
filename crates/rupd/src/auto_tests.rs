@@ -17,6 +17,12 @@ async fn a3308_set_auto_persists_and_emits_once() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = daemon_in(dir.path());
     let node = call(&daemon, "rail.createWorkstream", json!({"name":"Ship"})).await;
+    call(
+        &daemon,
+        "workstream.setAuto",
+        json!({"id":node["id"],"auto":false}),
+    )
+    .await;
     let mut events = daemon.bus.subscribe();
     call(
         &daemon,
@@ -86,6 +92,12 @@ async fn a3308_auto_on_sends_each_unassigned_todo_to_the_door_once() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = running_daemon(dir.path());
     let home = door(&daemon).await;
+    call(
+        &daemon,
+        "workstream.setAuto",
+        json!({"id":home,"auto":false}),
+    )
+    .await;
     let first = todo(&daemon, &home, "First task", Value::Null).await;
     let second = todo(&daemon, &home, "Second task", Value::Null).await;
     call(
@@ -128,13 +140,13 @@ async fn a3308_setting_the_same_value_emits_nothing() {
     call(
         &daemon,
         "workstream.setAuto",
-        json!({"id":node["id"],"auto":false}),
+        json!({"id":node["id"],"auto":true}),
     )
     .await;
     assert!(events.try_recv().is_err());
     assert_eq!(
         call(&daemon, "rail.tree", Value::Null).await[0]["auto"],
-        false
+        true
     );
 }
 
@@ -155,6 +167,12 @@ async fn a3308_me_and_agent_owned_todos_never_move() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = running_daemon(dir.path());
     let home = door(&daemon).await;
+    call(
+        &daemon,
+        "workstream.setAuto",
+        json!({"id":home,"auto":false}),
+    )
+    .await;
     let mine = todo(&daemon, &home, "Mine", json!(Actor::user())).await;
     let child = subagent(&daemon, &home, dir.path()).await;
     let theirs = todo(
@@ -194,6 +212,12 @@ async fn a3308_auto_off_sends_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = running_daemon(dir.path());
     let home = door(&daemon).await;
+    call(
+        &daemon,
+        "workstream.setAuto",
+        json!({"id":home,"auto":false}),
+    )
+    .await;
     todo(&daemon, &home, "Before", Value::Null).await;
     assert!(notices(&daemon, &home).await.is_empty());
     call(
@@ -637,4 +661,31 @@ async fn ec5637d_auto_required_reads_propagate() {
         assert!(auto::tell(&reader).await.is_err(), "{method}");
         assert!(fixture.sent.lock().is_empty(), "{method}");
     }
+}
+
+#[tokio::test]
+async fn a7718_a_new_workstream_starts_auto_on_and_a_stored_false_stays() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = daemon_in(dir.path());
+    let old = call(&daemon, "rail.createWorkstream", json!({"name":"Old"})).await;
+    call(
+        &daemon,
+        "workstream.setAuto",
+        json!({"id":old["id"],"auto":false}),
+    )
+    .await;
+    let new = call(&daemon, "rail.createWorkstream", json!({"name":"New"})).await;
+    drop(daemon);
+    let reopened = daemon_in(dir.path());
+    let rail = call(&reopened, "rail.tree", Value::Null).await;
+    let auto = |id: &Value| {
+        rail.as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == *id)
+            .unwrap()["auto"]
+            .clone()
+    };
+    assert_eq!(auto(&new["id"]), true);
+    assert_eq!(auto(&old["id"]), false);
 }

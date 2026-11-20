@@ -114,6 +114,11 @@ for line in sys.stdin:
         .await
         .unwrap();
     let id = workstream["id"].as_str().unwrap();
+    // This Daemon registers no todo module, which Auto (A7718's default) reads.
+    client
+        .request("workstream.setAuto", json!({"id":id,"auto":false}))
+        .await
+        .unwrap();
     let child = client
         .request(
             "agent.spawn",
