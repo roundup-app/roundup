@@ -5,6 +5,8 @@ import type { RunResult as action_RunResult } from "./action/RunResult";
 import type { AdoptParams as agent_AdoptParams } from "./agent/AdoptParams";
 import type { Adoptable as agent_Adoptable } from "./agent/Adoptable";
 import type { Brief as agent_Brief } from "./agent/Brief";
+import type { CallPaths as agent_CallPaths } from "./agent/CallPaths";
+import type { CallPathsParams as agent_CallPathsParams } from "./agent/CallPathsParams";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
 import type { ChangedFilesParams as agent_ChangedFilesParams } from "./agent/ChangedFilesParams";
 import type { CompareFileParams as agent_CompareFileParams } from "./agent/CompareFileParams";
@@ -212,6 +214,7 @@ export type RpcMethods = {
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
   "agent.changedFiles": { params: agent_ChangedFilesParams; result: agent_ChangedFiles };
   "agent.repeatScan": { params: agent_ChangedFilesParams; result: agent_ScanHits };
+  "agent.callPaths": { params: agent_CallPathsParams; result: agent_CallPaths };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
   "agent.land": { params: agent_NodeId; result: agent_Landed };

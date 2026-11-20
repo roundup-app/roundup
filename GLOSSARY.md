@@ -197,8 +197,14 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Chip | same | — |
 | Live line | same | — |
 | Program status (`ProgramStatus`, `terminal.status`) | status | — |
+| Call path (`CallPaths`, `agent.callPaths`) | Flow | — |
+| Language server | — | — |
 
 **Program status.** What a program in a Terminal reports about itself with OSC 7501 (`scenarios/terminal-program-status.md`): records of a state, a message and a title that the Daemon folds into the Terminal's Status. `blocked` in a report is Kind `needs-you`; Kind `blocked` stays the Daemon's.
+
+**Call path.** The changed functions of an Agent's Worktree and the calls each one added, removed or changed against the remote's main, resolved to real symbols by the project's language server and never by name (`scenarios/call-paths.md`). Its user label is Flow.
+
+**Language server.** The project's own LSP server for one language, started per trace and gone when it ends (`tsc --lsp -stdio` for TypeScript 7 or later); a language with none reads as no server.
 
 **Glyph.** The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ⊖ ◔ ○ ✓`.
 
