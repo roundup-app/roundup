@@ -489,6 +489,10 @@ button, file-tree-container, diffs-container {
   }
 }
 
+/* U7761: color-scheme follows the App's Mode, so ui-sdk's light-dark() values do too. */
+:root[data-mode="light"] { color-scheme: light; }
+:root[data-mode="dark"] { color-scheme: dark; }
+
 /* U3768: the progress bar's track tints the grey. */
 :root {
   --progress-track: color-mix(in srgb, var(--grey) 40%, transparent);
