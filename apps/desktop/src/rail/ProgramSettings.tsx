@@ -1,9 +1,11 @@
-import { createSignal, onSettled, Show } from "solid-js";
+import { createSignal, onSettled } from "solid-js";
 import { parseArgsStringToArgv } from "string-argv";
 import { copy } from "./copy";
 import { SettingsGroup } from "../settings/SettingsShell";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
+import { BusyButton } from "../ui/BusyButton";
+import { Field } from "../ui/Field";
 import { createMessageToast } from "../ink/messageToast";
 
 /** whether a quote in `text` is never closed, as a shell reads one. */
@@ -103,7 +105,7 @@ export const ProgramSettings = () => {
     void run(() => app.rpc("project.setProgram", { argv, dir }), () => setSaved({ argv, dir }));
   };
 
-  const clear = () => void run(() => app.rpc("project.clearProgram", null), () => { setRefusal(null); show(null); });
+  const clear = () => run(() => app.rpc("project.clearProgram", null), () => { setRefusal(null); show(null); });
 
   createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
 
@@ -120,8 +122,8 @@ export const ProgramSettings = () => {
       <textarea ref={element => { folderField = element; }} class="field-frame" rows={1} aria-label={copy.programFolder} value={folder()}
         onInput={event => setFolder(event.currentTarget.value)} onBlur={commit} onKeyDown={keys} />
     </label>
-    <Show when={refusal()}>{text => <p role="alert">{copy.programRefused(text())}</p>}</Show>
+    <Field.Root invalid={refusal() !== null}><Field.ErrorText>{refusal() === null ? null : copy.programRefused(refusal() ?? "")}</Field.ErrorText></Field.Root>
     <p>{copy.programNote}</p>
-    <button type="button" data-button="quiet" disabled={saved() === null} onClick={clear}>{copy.programClear}</button>
+    <BusyButton kind="quiet" busyLabel={copy.programClearing} disabled={saved() === null} onClick={clear}>{copy.programClear}</BusyButton>
   </div></SettingsGroup>;
 };

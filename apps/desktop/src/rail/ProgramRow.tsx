@@ -2,6 +2,7 @@ import { Show, createEffect, createSignal } from "solid-js";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
+import { BusyButton } from "../ui/BusyButton";
 import { createMessageToast } from "../ink/messageToast";
 
 type Method = "project.stopProgram" | "project.startProgram";
@@ -35,7 +36,7 @@ export const ProgramStop = (props: { id: string }) => {
 const ProgramStopButton = () => {
   const act = createProgramAct();
 
-  return <button type="button" data-button="quiet" class="row-program-stop" aria-label={copy.programStopAria} onClick={() => void act("project.stopProgram")}>{copy.programStop}</button>;
+  return <BusyButton kind="quiet" class="row-program-stop" aria-label={copy.programStopAria} busyLabel={copy.programStopping} onClick={() => act("project.stopProgram")}>{copy.programStop}</BusyButton>;
 };
 
 /** PG3: while the program is down no Terminal row stands for it, so this row says why and offers `Start`. */
@@ -71,6 +72,6 @@ const ProgramDown = () => {
   return <div class="rail-program" role="group" aria-label={copy.program}>
     <span class="name">{copy.program}</span>
     <span class="light">{why()}</span>
-    <button type="button" data-button="quiet" onClick={() => void act("project.startProgram")}>{copy.programStart}</button>
+    <BusyButton kind="quiet" busyLabel={copy.programStarting} onClick={() => act("project.startProgram")}>{copy.programStart}</BusyButton>
   </div>;
 };
