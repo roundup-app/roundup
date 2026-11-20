@@ -775,12 +775,17 @@ li[aria-selected="true"] svg {
 
 .pad-notes {
   display: grid;
+  justify-items: start;
   max-height: 60vh;
   overflow-y: auto;
   overscroll-behavior: contain;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
 }
+
+.pad-notes > * { min-width: 0; max-width: 100%; }
+
+.pad-note { display: grid; gap: var(--space-2); }
 
 .pad-note-quote {
   margin: 0;
@@ -790,12 +795,15 @@ li[aria-selected="true"] svg {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--ink-muted);
+  background: var(--sunken);
+  border-radius: var(--radius-chip);
+  padding: var(--space-1) var(--space-2);
 }
 
 .pad-note-list {
   display: grid;
   gap: var(--space-3);
-  max-height: 40vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
+
+.pad-note-popover .note-field { display: grid; gap: var(--space-1); }
+.pad-note-popover textarea { resize: none; }

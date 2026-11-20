@@ -521,7 +521,7 @@ const PadBody = (props: {
           }}
         />
       </Loading>
-      <PadNotes name={name} revision={() => originalRevision} selection={selected} />
+      <PadNotes name={name} revision={() => originalRevision} selection={selected} restoreFocus={() => editor?.focus()} />
     </div>
   );
 };
