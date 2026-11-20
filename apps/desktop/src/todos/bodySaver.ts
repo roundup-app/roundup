@@ -16,10 +16,12 @@ export const createBodySaver = (config: {
   retain: () => void;
   open: () => boolean;
   alive: () => boolean;
+  /** Each text a save lands, so the edit's own saves are not a change made elsewhere. */
+  mine: (text: string) => void;
   /** The failure line: a message, or null once a save lands. */
   report: (message: string | null) => void;
 }) => {
-  const { form, read, props, draft, retain, open, alive, report } = config;
+  const { form, read, props, draft, retain, open, alive, report, mine } = config;
   let saved = form.base;
   let expected = form.expected_change;
   let inflight: Promise<void> | undefined;
@@ -54,6 +56,7 @@ export const createBodySaver = (config: {
 
       if (sent.kind === "applied") {
         saved = value;
+        mine(value);
         landed();
         expected = (await props.latest?.().catch(() => null)) ?? expected;
       } else if (sent.kind === "refused" || sent.kind === "unknown") report(sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown);

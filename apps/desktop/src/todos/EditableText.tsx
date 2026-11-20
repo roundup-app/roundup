@@ -128,8 +128,8 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
 };
 
 /** U7310d: a change made elsewhere to the field being edited is a status above it while it holds; a toast holds failures only. */
-const ChangedElsewhere = (props: { editing: Editing | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body" }) =>
-  <Show when={props.editing}>{started => <Show when={(props.captured && props.captured.seq !== started().form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started().form.base)}><StatusNote text={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
+const ChangedElsewhere = (props: { editing: Editing | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body"; mine: string | null }) =>
+  <Show when={props.editing}>{started => <Show when={props.mine === null ? (props.captured && props.captured.seq !== started().form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started().form.base) : props.todo[props.name] !== props.mine}><StatusNote text={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
 
 /** The form a new edit starts from: the captured change's values, else the Todo's own. */
 const formFrom = (todo: Todo, name: "title" | "body", change: Change | undefined): Editing["form"] => {
@@ -164,6 +164,8 @@ export const EditableText = (props: {
   const draftDestination = untrack(() => ({ surface: "todos", object: String(props.todo.id), recipient: props.name }));
   const draft = createDraftField(connected.drafts, draftDestination, formSchema, untrack(() => props.revision === undefined ? undefined : { revision: props.revision }));
   const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
+  const [mine, setMine] = createSignal<string | null>(null);
+  const [restored, setRestored] = createSignal<string | null>(null);
 
   /** What opening an edit now gives: the form to edit, or why the retained work cannot be reopened. */
   const opening = (): { failure: string; editing: null } | { failure: null; editing: Editing } => {
@@ -261,7 +263,7 @@ export const EditableText = (props: {
 
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
-    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure });
+    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure, mine: setMine });
     const select = () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); };
 
     const input = () => { if (!left) retain(); };
@@ -332,13 +334,11 @@ export const EditableText = (props: {
       if (event.key === "Escape") {
         event.preventDefault(); event.stopPropagation();
 
-        if (props.multiline) void saver.revert();
+        if (props.multiline) { setRestored(started.form.base); void saver.revert(); }
         else if (read() !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
         queueFocus(() => shown()?.focus());
-      } else if (event.key === "Enter" && !props.multiline) {
-        event.preventDefault(); void submit();
-      }
+      } else if (event.key === "Enter" && !props.multiline) { event.preventDefault(); void submit(); }
     };
 
     const blur = (target: EventTarget | null) => {
@@ -433,7 +433,9 @@ export const EditableText = (props: {
     let handle: PadEditorHandle | undefined;
     let binding: ReturnType<typeof bind> | undefined;
     const started = rich.started;
-    createEffect(createMemo(() => props.todo.body), text => { if (!started) handle?.setText(text); });
+    createEffect(createMemo(() => props.todo.body), text => { setRestored(null);
+
+ if (!started) handle?.setText(text); });
 
     return <div ref={host} onFocusIn={event => { if (!started && event.target instanceof Element && event.target.matches(".ProseMirror")) startWith(); }} onDblClick={() => { if (!started) startWith(); }} onKeyDown={event => {
       // Crepe dismisses block menus in capture; a no-match slash query has already
@@ -443,7 +445,7 @@ export const EditableText = (props: {
 
       if (started) key?.(event);
       else if (event.key === "Enter") { event.preventDefault(); startWith(); }
-    }}><Loading><PadRichEditor item="todo" text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
+    }}><Loading><PadRichEditor item="todo" text={started?.text ?? restored() ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
       onChange={() => binding?.change()}
       onText={() => binding?.change()}
       onSelection={() => binding?.retain(true)}
@@ -474,7 +476,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable" ref={container}>
-    <ChangedElsewhere editing={editing()} captured={props.captured()} revision={props.revision} todo={props.todo} name={props.name} />
+    <ChangedElsewhere editing={editing()} captured={props.captured()} revision={props.revision} todo={props.todo} name={props.name} mine={mine()} />
     <Show when={props.multiline} fallback={<TitleField />}>
       <Show
         when={editing()}
