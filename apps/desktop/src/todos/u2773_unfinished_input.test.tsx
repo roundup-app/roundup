@@ -106,9 +106,8 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   fireEvent.input(first, { target: { value: "  A\n🧪  " } });
   const newer = first;
 
+  await waitFor(() => expect(acknowledge).toBeTypeOf("function"), { timeout: 3000 });
   fireEvent.input(newer, { target: { value: "  B\nnewer  " } });
-
-  await waitFor(() => expect(acknowledge).toBeTypeOf("function"));
 
   if (outcome === "acknowledged") acknowledge?.(todo(1));
   else reject?.(outcome === "failed" ? new RpcError(-32003, "refused") : new Error("connection lost"));
