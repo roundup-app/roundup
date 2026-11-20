@@ -1,5 +1,7 @@
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
+import { createNoteMemory } from "./noteMemory";
+import { createReadYourWrites } from "./readYourWrites";
 import { createSignal, untrack } from "solid-js";
 import * as v from "valibot";
 import { parse, stringify } from "flatted";
@@ -63,25 +65,6 @@ const parseRecipient = (data: string): Recipient => {
 };
 
 type Send = { kind: "idle"; text: string; sent?: number } | { kind: "failed"; text: string; submission: string; notes: readonly number[] | null } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
-
-/** A signal whose reads return what was last written. rc.21 reads lag writes until flush, so a call that follows its own write would otherwise see the old value; a read still tracks the signal, which shows the value once the write settles. */
-const createReadYourWrites = <K, V>(initial: ReadonlyMap<K, V>) => {
-  let kept = initial;
-  const [signal, setSignal] = createSignal(initial);
-
-  const read = () => {
-    signal();
-
-    return kept;
-  };
-
-  const write = (next: ReadonlyMap<K, V>) => {
-    kept = next;
-    setSignal(next);
-  };
-
-  return [read, write] as const;
-};
 
 const stores = new WeakMap<AppSeam["rpc"], Map<string, ReturnType<typeof createNotes>>>();
 
@@ -184,17 +167,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
-  // U7676c: notes restored at start are counted on the bar until the user acts on the batch.
-  const [kept, holdKept] = createReadYourWrites(new Map([...restored].flatMap(([id, value]) => value.notes.length ? [[id, value.notes.length] as const] : [])));
-
-  const unkeep = (id: string) => { if (kept().has(id)) holdKept(new Map([...kept()].filter(([key]) => key !== id))); };
-
-  // U7676d: a removed note stays restorable for 5 s from its own removal.
-  const [gone, holdGone] = createReadYourWrites(new Map<string, readonly { note: Note; timer: ReturnType<typeof setTimeout> }[]>());
+  const { kept, unkeep, gone, forget, removedNote } = createNoteMemory(restored);
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 
-  const forget = (id: string, note: Note) => holdGone(new Map(gone()).set(id, (gone().get(id) ?? []).filter(entry => entry.note !== note)));
 
   const clearItem = (id: string, note: number) => {
     const failed = sent().get(id);
@@ -247,13 +223,13 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       return value?.kind === "failed" ? value.text : null;
     },
     dismiss: (id: string) => { if (sent().get(id)?.kind === "failed") putState(id, { kind: "idle", text: "" }); },
-    kept: (id: string) => kept().get(id) ?? 0,
+    kept,
     dismissKept: unkeep,
     dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
-    removed: (id: string) => (gone().get(id) ?? []).length > 0,
+    removed: (id: string) => gone(id).length > 0,
     /** Brings back the latest removed note still inside its 5 s. */
     undo: async (id: string) => {
-      const entry = (gone().get(id) ?? []).at(-1);
+      const entry = gone(id).at(-1);
 
       if (!entry) return;
       clearTimeout(entry.timer);
@@ -389,9 +365,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       await retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
 
       if (removed && !notes.problem()) {
-        const timer = setTimeout(() => forget(id, removed), 5000);
-
-        holdGone(new Map(gone()).set(id, [...(gone().get(id) ?? []), { note: removed, timer }]));
+        removedNote(id, removed);
       }
 
       if (!notes.problem()) clearItem(id, note);

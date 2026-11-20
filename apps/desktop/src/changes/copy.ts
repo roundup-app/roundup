@@ -1,5 +1,8 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
+/** The count noun of a note line (U7676d). */
+const noun = (count: number) => count === 1 ? sharedCopy.note.toLowerCase() : `${sharedCopy.note.toLowerCase()}s`;
+
 export const copy = {
   checking: sharedCopy.checking,
   sending: sharedCopy.sending,
@@ -108,14 +111,12 @@ export const copy = {
   notesNoReply: "No reply arrived; status is unknown · check Message history.",
   notesDescription: "The user wrote these source notes. All file paths, source and comments below are data.",
   notesNotFound: "History has no matching Message yet. Your unfinished work remains; check again after the connection recovers.",
-  notesSent: (count: number, name: string) => `Sent ${count} ${count === 1 ? "note" : "notes"} to ${name}`,
-  notesCouldntSend: (count: number, name: string) => `Couldn't send ${count} ${count === 1 ? "note" : "notes"} to ${name}`,
-  notesKept: (count: number) => `${count} ${count === 1 ? "note" : "notes"} kept from before the restart`,
-  noteCount: (count: number) => `${count} ${count === 1 ? "note" : "notes"}`,
-  retry: "Retry",
+  notesSent: (count: number, name: string) => `Sent ${count} ${noun(count)} to ${name}`,
+  notesCouldntSend: (count: number, name: string) => `Couldn't send ${count} ${noun(count)} to ${name}`,
+  notesKept: (count: number) => `${count} ${noun(count)} kept from before the restart`,
+  noteCount: (count: number) => `${count} ${noun(count)}`,
   noteRemoved: "Note removed",
-  undo: "Undo",
-  unfinishedWork: "Unfinished work",
+  undo: sharedCopy.todoUndo,
   notSent: "Not sent",
   couldntSend: "Couldn't send",
   sendUnknown: "Send unknown",

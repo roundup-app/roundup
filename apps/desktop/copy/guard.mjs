@@ -26,7 +26,7 @@ const product = (left, right, merge) => left.flatMap(a => right.map(b => merge(a
 const LONG_LABELS = new Set(['Open a Project first', 'started by ⟦0⟧ (⟦1⟧)', 'Downloading ⟦value⟧ of ⟦value⟧ MB', 'Quick add from any app', '⟦0⟧ belongs to the Terminal', "can't reach ⟦0⟧: ⟦1⟧", 'Pad ⟦0⟧ was deleted', 'Changed since you read it', 'Find active and recent Claude Code conversations in this Project', 'Written by ⟦0⟧ from its TLA+ check', 'Walk to the break', 'Restarting in ⟦0⟧ s', 'More matches: add words to narrow', 'Its Agent is gone', 'Changes since you read', 'No earlier version kept']);
 
 // U5919a and U7371a and U7489c (`draft`, a pull request's state, not unfinished work) and U7675a and U7675b (the Changes view's state lines) order these labels word for word, including their vocabulary and length.
-const ORDERED_LABELS = new Set(['New Agent with a Prompt…', 'Jump to What Needs You', 'Open Folder…', 'Folder', 'Door stopped · ⟦0⟧ waiting', 'Close to the Left', 'Close to the Right', 'draft', 'No changes against ⟦0⟧', "Everything in ⟦0⟧'s folder matches ⟦1⟧", "⟦0⟧'s folder no longer exists", '⟦0⟧ updated this file']);
+const ORDERED_LABELS = new Set(['New Agent with a Prompt…', 'Jump to What Needs You', 'Open Folder…', 'Folder', 'Door stopped · ⟦0⟧ waiting', 'Close to the Left', 'Close to the Right', 'draft', 'No changes against ⟦0⟧', "Everything in ⟦0⟧'s folder matches ⟦1⟧", "⟦0⟧'s folder no longer exists", '⟦0⟧ updated this file', 'Sent ⟦0⟧ note to ⟦1⟧', 'Sent ⟦0⟧ notes to ⟦1⟧', "Couldn't send ⟦0⟧ note to ⟦1⟧", "Couldn't send ⟦0⟧ notes to ⟦1⟧", '⟦0⟧ note kept from before the restart', '⟦0⟧ notes kept from before the restart']);
 
 // Babel owns syntax and lexical binding resolution. This layer describes only copy policy.
 

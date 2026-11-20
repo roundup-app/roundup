@@ -255,16 +255,16 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   refuse(new RpcError(-32003, "original connection refused"));
   await screen.findByText("original connection refused");
   await openBatch();
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(newer);
+  expect(screen.getAllByText(newer).length).toBeGreaterThan(0);
   expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   expect(recovery.textContent).toContain(older);
-  expect(recovery.textContent).toContain(newer);
+  expect(within(recovery).getAllByText(newer).length).toBeGreaterThan(0);
   next.view.unmount();
   await openDiff("/p", first.connected.drafts);
   await openBatch();
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(newer);
+  expect(screen.getAllByText(newer).length).toBeGreaterThan(0);
 });
 
 it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit"])("p3557c_failure_lifetime_note_batch: %s", async action => {

@@ -80,7 +80,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   return <Show when={list().length > 0 || status() || props.notes.removed(props.id)}><section class="note-batch" aria-label={copy.notesRegion} onKeyDown={event => { if (event.key === "Escape" && open()) { event.stopPropagation(); setOpen(false); } }}>
       <StatusNote text={noteLine.message() && !props.notes.failure(props.id) ? null : status()} />
       <Show when={props.notes.removed(props.id)}><p role="status"><span>{copy.noteRemoved}</span> · <button type="button" data-button="quiet" onClick={() => { void props.notes.undo(props.id); }}>{copy.undo}</button></p></Show>
-      <Show when={list().length}><button type="button" data-button="quiet" aria-expanded={open()} onClick={() => setOpen(value => !value)}>{copy.noteCount(list().length)}</button></Show>
+      <Show when={list().length}><button type="button" data-button="quiet" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen(value => !value)}>{copy.noteCount(list().length)}</button></Show>
       <Show when={uncertain()}><BusyButton kind="quiet" busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</BusyButton></Show>
       <Show when={list().length && open()}>
         <ul aria-label={copy.notes}><For each={list().slice(0, mounted())}>{(note, index) => <li>
