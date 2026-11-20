@@ -797,8 +797,9 @@ li[aria-selected="true"] svg {
   margin-block-end: var(--space-2);
 }
 
-.pad-changes-part {
-  margin: 0;
+.pad-changes .pad-changes-part {
+  margin-block: 0;
+  padding-block: 0;
   padding-inline: var(--space-2);
   font-family: var(--font-mono);
   white-space: pre-wrap;
