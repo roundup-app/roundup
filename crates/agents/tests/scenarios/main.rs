@@ -37,5 +37,6 @@ mod u3780a_tool_call;
 mod u7186a_owned_changes;
 mod u7186b_compare;
 mod u7610a_changed_counts;
+mod u7620a_worktree_pair_counts;
 mod worktree_state;
 mod worktrees;

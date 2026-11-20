@@ -86,6 +86,7 @@ impl Git {
         );
         let counted = self.endpoint_counts(project, &from, &to)?;
         let mut files = Vec::new();
+        let mut uncounted: Vec<Uncounted> = Vec::new();
         for path in paths {
             if path.starts_with(".roundup/") || path.split('/').any(|part| part == ".git") {
                 continue;
@@ -105,7 +106,10 @@ impl Git {
             };
             let counts = match counted.as_ref().and_then(|map| map.get(&path)) {
                 Some(counts) => *counts,
-                None => self.fallback_counts(old.as_deref(), new.as_deref()),
+                None => {
+                    uncounted.push((path.clone(), old, new));
+                    None
+                }
             };
             files.push(ChangedFile {
                 path,
@@ -114,6 +118,12 @@ impl Git {
                 counts,
                 from: None,
             });
+        }
+        let fallback = self.fallback_counts(&uncounted);
+        for file in &mut files {
+            if let Some(counts) = fallback.get(&file.path) {
+                file.counts = Some(*counts);
+            }
         }
         Ok(ChangedFiles { files })
     }
@@ -152,25 +162,65 @@ impl Git {
         ))
     }
 
-    /// Counts for a file numstat did not list (untracked, or between two worktrees): git's
-    /// `--no-index` on the two sides' bytes; none for a binary file.
-    fn fallback_counts(&self, old: Option<&[u8]>, new: Option<&[u8]>) -> Option<LineCounts> {
-        if old.is_some_and(|bytes| bytes.contains(&0))
-            || new.is_some_and(|bytes| bytes.contains(&0))
-        {
-            return None;
+    /// Counts for the files numstat did not list (untracked, or between two worktrees): one git
+    /// `--no-index` call over the two sides' bytes; a binary file or one git prints no row for has
+    /// no entry.
+    fn fallback_counts(&self, files: &[Uncounted]) -> BTreeMap<String, LineCounts> {
+        let mut counted = BTreeMap::new();
+        let Ok(dir) = tempfile::tempdir() else {
+            return counted;
+        };
+        let mut staged = false;
+        for (path, old, new) in files {
+            let binary = |side: &Option<Vec<u8>>| side.as_ref().is_some_and(|b| b.contains(&0));
+            if binary(old) || binary(new) {
+                continue;
+            }
+            for (side, bytes) in [("a", old), ("b", new)] {
+                let target = dir.path().join(side).join(path);
+                let written = target
+                    .parent()
+                    .is_some_and(|parent| std::fs::create_dir_all(parent).is_ok())
+                    && std::fs::write(&target, bytes.as_deref().unwrap_or_default()).is_ok();
+                if !written {
+                    return counted;
+                }
+            }
+            staged = true;
         }
-        let dir = tempfile::tempdir().ok()?;
-        std::fs::write(dir.path().join("a"), old.unwrap_or_default()).ok()?;
-        std::fs::write(dir.path().join("b"), new.unwrap_or_default()).ok()?;
-        let output = self
-            .output(
-                dir.path(),
-                &["diff", "--no-index", "--no-ext-diff", "--numstat", "a", "b"],
-                None,
-            )
-            .ok()?;
-        numstat_row(String::from_utf8_lossy(&output.stdout).lines().next()?)
+        if !staged {
+            return counted;
+        }
+        let Ok(output) = self.output(
+            dir.path(),
+            &[
+                "diff",
+                "--no-index",
+                "--no-ext-diff",
+                "--no-renames",
+                "-z",
+                "--numstat",
+                "a",
+                "b",
+            ],
+            None,
+        ) else {
+            return counted;
+        };
+        // Both sides always exist, so git prints `added\tremoved\t\0a/<path>\0b/<path>\0`.
+        let text = String::from_utf8_lossy(&output.stdout).into_owned();
+        let mut records = text.split('\0');
+        while let Some(record) = records.next() {
+            let (Some(counts), Some(_), Some(new)) =
+                (numstat_row(record), records.next(), records.next())
+            else {
+                continue;
+            };
+            if let Some(path) = new.strip_prefix("b/") {
+                counted.insert(path.to_owned(), counts);
+            }
+        }
+        counted
     }
 
     /// One file's bytes on each side of a comparison.
@@ -289,6 +339,9 @@ impl Git {
         Ok(output.status.success().then_some(output.stdout))
     }
 }
+
+/// A changed file's path and its bytes on each side, awaiting counts.
+type Uncounted = (String, Option<Vec<u8>>, Option<Vec<u8>>);
 
 struct Side {
     dir: Option<String>,
