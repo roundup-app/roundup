@@ -10,6 +10,7 @@
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 
+use backon::{ConstantBuilder, Retryable};
 use rpc::Client;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
@@ -141,22 +142,19 @@ impl Run {
     }
 
     async fn until_running(&self) {
-        tokio::time::timeout(Duration::from_secs(15), async {
-            loop {
-                let run = self
-                    .user
-                    .request("project.programRun", Value::Null)
-                    .await
-                    .unwrap();
-                let up = run["state"] == "running";
-                if up {
-                    return;
-                }
-                tokio::time::sleep(Duration::from_millis(25)).await;
+        let up = || async {
+            let run = self
+                .user
+                .request("project.programRun", Value::Null)
+                .await
+                .map_err(|e| e.to_string())?;
+            if run["state"] == "running" {
+                Ok(())
+            } else {
+                Err(run.to_string())
             }
-        })
-        .await
-        .unwrap_or_else(|_| panic!("the program never ran"));
+        };
+        up.retry(patient()).await.expect("the program never ran");
     }
 
     /// A call from a process of the program's shell, naming `claim` (an Actor) or none.
@@ -208,19 +206,20 @@ impl Run {
     }
 }
 
+fn patient() -> ConstantBuilder {
+    ConstantBuilder::default()
+        .with_delay(Duration::from_millis(25))
+        .with_max_times(600)
+}
+
 async fn reply_at(out: &Path) -> Value {
-    tokio::time::timeout(Duration::from_secs(15), async {
-        loop {
-            if let Ok(text) = std::fs::read_to_string(out)
-                && let Ok(reply) = serde_json::from_str::<Value>(&text)
-            {
-                return reply;
-            }
-            tokio::time::sleep(Duration::from_millis(25)).await;
-        }
-    })
-    .await
-    .expect("the caller wrote its reply")
+    let read = || async {
+        let text = std::fs::read_to_string(out).map_err(|e| e.to_string())?;
+        serde_json::from_str::<Value>(&text).map_err(|e| e.to_string())
+    };
+    read.retry(patient())
+        .await
+        .expect("the caller wrote its reply")
 }
 
 fn ext(name: &str) -> Value {
