@@ -623,10 +623,11 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
 
     if (entry === "slash") expect(unfinished.at(-1)).toBe(body + "\n\n/For Agents");
 
+    // An open menu takes the Escape alone. A slash query with no match has hidden its menu, so that Escape is the edit's: it puts the body back (U7641a).
     await browser("press", "Escape");
     await settle();
-    expect.soft(await saved()).toEqual(unfinished);
-    expect.soft(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
+    expect.soft(await saved()).toEqual(count ? unfinished : [...unfinished, body]);
+    expect.soft(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(count ? draft : body);
     expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
     await shot("dismissed");
     // The body saves as it is typed (U7641a): no save writes a Pad or carries agent details.

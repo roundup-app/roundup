@@ -31,12 +31,6 @@
   overflow-wrap: anywhere;
 }
 
-/* U7641a: renaming the open Pad's title keeps the box of the name it replaces. */
-.pad-head-title input.shelf-title.field-inline {
-  padding: 0;
-  min-height: 0;
-}
-
 /* U3729: the name and its status share one baseline; the status is quieter and smaller, so it reads as a state. */
 .pad-head-title {
   flex: 1;

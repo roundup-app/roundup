@@ -48,7 +48,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
 
   return (
     <button type="button" class="todo-row-button" data-drag-surface={props.dragSurface ? "" : undefined}
-      onDblClick={() => (props.onRename ?? props.onOpen)?.()}
+      onDblClick={() => props.onOpen?.()}
       onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
       aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}
       style={props.hang === false ? undefined : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" }}

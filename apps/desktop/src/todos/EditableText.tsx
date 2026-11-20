@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { bindLayer } from "@ui-sdk/core";
 import { outcomeOf } from "../app/seam";
 import { applying } from "../app/pending";
@@ -6,7 +7,7 @@ import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import { Editable } from "../ui/Editable";
 import { copy } from "./copy";
-import { createBodySaver } from "./bodySaver";
+import { createBodySaver, type Saving } from "./bodySaver";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
@@ -128,8 +129,29 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
 };
 
 /** U7310d: a change made elsewhere to the field being edited is a status above it while it holds; a toast holds failures only. */
-const ChangedElsewhere = (props: { editing: Editing | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body" }) =>
-  <Show when={props.editing}>{started => <Show when={(props.captured && props.captured.seq !== started().form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started().form.base)}><StatusNote text={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
+const ChangedElsewhere = (props: { editing: Editing | null; saving: Saving | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body" }) => {
+  // The edit's own saves are not changes made elsewhere, and a line that came and went with each keystroke would move the body.
+  const moved = (started: Editing) => {
+    const own = props.saving?.of === started.form ? props.saving : null;
+
+    if (own?.busy) return false;
+    const known = own ? own.expected : started.form.expected_change;
+
+    return (props.captured !== undefined && (known === null || props.captured.seq > known))
+      || (props.revision !== undefined && own === null && props.todo[props.name] !== started.form.base);
+  };
+
+  return <Show when={props.editing}>{started => <Show when={moved(started())}><StatusNote text={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
+};
+
+/** U5631: Crepe closes a block menu while the key is still on its way down, so only a listener ahead of the editor's sees whether Escape found one open: the text box names an open menu in `aria-controls`. */
+const escapeFindsMenu = () => {
+  let found = false;
+
+  makeEventListener(window, "keydown", event => { found = event.key === "Escape" && event.target instanceof Element && event.target.hasAttribute("aria-controls"); }, { capture: true });
+
+  return () => found;
+};
 
 /** The form a new edit starts from: the captured change's values, else the Todo's own. */
 const formFrom = (todo: Todo, name: "title" | "body", change: Change | undefined): Editing["form"] => {
@@ -190,6 +212,7 @@ export const EditableText = (props: {
   onCleanup(() => { alive = false; });
   const [editing, setEditing] = createSignal<Editing | null>(opened?.editing ?? null);
   const [typed, setTyped] = createSignal(opened?.editing?.form.text ?? "");
+  const [saving, setSaving] = createSignal<Saving | null>(null);
 
   createEffect(createMemo(() => editing() !== null && connected.drawer.content() === content), active => active ? connected.drafts.editor(draftDestination) : undefined);
   createEffect(failure, message => { untrack(() => props.onFailure?.(message, () => setFailure(null))); });
@@ -261,7 +284,7 @@ export const EditableText = (props: {
 
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
-    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure });
+    const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure, track: setSaving });
     const select = () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); };
 
     const input = () => { if (!left) retain(); };
@@ -269,7 +292,7 @@ export const EditableText = (props: {
     const submit = async (destination?: EventTarget | null) => {
       if (left) return;
       left = true;
-      const { saved, expected: expectedNow } = await saver.settled();
+      const { saved, expected } = await saver.settled();
 
       if (read() === saved && !started.recovered) {
         setEditing(null);
@@ -279,7 +302,7 @@ export const EditableText = (props: {
 
       const kept = retain();
 
-      if (expectedNow === null) {
+      if (expected === null) {
         setFailure(copy.originalUnverified);
         left = false;
 
@@ -287,7 +310,6 @@ export const EditableText = (props: {
       }
 
       const submittedValue = read();
-      const expected = expectedNow;
       const { status } = kept;
       const unsendable = copy.draftStatus[status];
 
@@ -332,8 +354,7 @@ export const EditableText = (props: {
       if (event.key === "Escape") {
         event.preventDefault(); event.stopPropagation();
 
-        if (props.multiline) void saver.revert();
-        else if (read() !== started.form.base || started.recovered) retain();
+        if (props.multiline) void saver.revert(); else if (read() !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
         queueFocus(() => shown()?.focus());
       } else if (event.key === "Enter" && !props.multiline) {
@@ -364,14 +385,12 @@ export const EditableText = (props: {
 
     /** A press or a focus move away from the title saves it, unless the work is restored or the target is one that keeps a draft: those leave it open, kept. */
     const leave = (target: EventTarget | null) => {
-      if (editing()?.recovered || keepsDraft(target)) return void binding?.keep();
+      binding?.keep();
 
-      cancel(false);
+      if (!editing()?.recovered && !keepsDraft(target)) setEditing(null);
     };
 
-    const cancel = (restore = true) => { binding?.keep(); setEditing(null);
-
- if (restore) queueFocus(() => shown()?.focus()); };
+    const cancel = () => { binding?.keep(); setEditing(null); queueFocus(() => shown()?.focus()); };
 
     createEffect(editing, started => {
       if (!started || !input) return;
@@ -433,11 +452,12 @@ export const EditableText = (props: {
     let handle: PadEditorHandle | undefined;
     let binding: ReturnType<typeof bind> | undefined;
     const started = rich.started;
+    const closedMenu = escapeFindsMenu();
     createEffect(createMemo(() => props.todo.body), text => { if (!started) handle?.setText(text); });
 
     return <div ref={host} onFocusIn={event => { if (!started && event.target instanceof Element && event.target.matches(".ProseMirror")) startWith(); }} onDblClick={() => { if (!started) startWith(); }} onKeyDown={event => {
-      // Crepe closes a block menu in capture and marks that Escape handled: it is the menu's alone (U5631). Otherwise keep rich drafts; an untouched empty body returns to Add notes (U3732).
-      if (event.key === "Escape" && event.defaultPrevented) return event.stopPropagation();
+      // Escape closes an open block menu and nothing else (U5631). An untouched empty body returns to Add notes (U3732).
+      if (event.key === "Escape" && closedMenu()) return event.stopPropagation();
 
       if (event.key === "Escape" && !(started && started.form.base === "" && !started.recovered && handle?.getText() === "")) { event.preventDefault(); event.stopPropagation(); }
 
@@ -452,6 +472,8 @@ export const EditableText = (props: {
         handle = editor;
 
         if (!started) {
+          // Esc puts the saved body back while this editor is still loading: it starts from the text its Todo had then.
+          editor.setText(props.todo.body);
           const focus = savedFocus;
           savedFocus = undefined;
 
@@ -474,7 +496,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable" ref={container}>
-    <ChangedElsewhere editing={editing()} captured={props.captured()} revision={props.revision} todo={props.todo} name={props.name} />
+    <ChangedElsewhere editing={editing()} saving={saving()} captured={props.captured()} revision={props.revision} todo={props.todo} name={props.name} />
     <Show when={props.multiline} fallback={<TitleField />}>
       <Show
         when={editing()}

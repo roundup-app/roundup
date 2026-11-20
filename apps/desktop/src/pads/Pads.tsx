@@ -502,11 +502,11 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; mark: PadMark
                 if (element) props.rowButtons.set(pad.name, element);
                 else props.rowButtons.delete(pad.name);
               }}
-              onDblClick={() => rename()}
+              onDblClick={() => open("pointer")}
               onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}
 
             >
-              <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : asked() ?? pad.name}</span>
+              <span {...nameCut.attrs()} class="shelf-title" onDblClick={event => { event.stopPropagation(); rename(); }}>{copied.copied() ? copy.copied : asked() ?? pad.name}</span>
             </button>
             </Show>
             <Show when={!editing()}>

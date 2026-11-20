@@ -322,7 +322,8 @@ input.todo-tick {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.row-name-editor input {
+/* U7641a: renaming in place keeps the name's own box, so only the caret and the selection show the edit. */
+.row-name-editor input.field-inline {
   box-sizing: border-box;
   width: 100%;
   min-height: var(--space-5);
@@ -333,6 +334,7 @@ input.todo-tick {
   color: var(--text);
   background: var(--transparent);
 }
+.row-name-editor input.field-inline:focus-visible { outline: none; }
 
 .row-secondary { opacity: 0; pointer-events: none; }
 :is(.shelf-row, .rail-row):focus-within .row-secondary,

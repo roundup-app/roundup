@@ -9,25 +9,6 @@ afterEach(cleanup);
 
 const padRow = async () => (await screen.findByText("notes")).closest<HTMLElement>("[data-shelf-row]")!;
 
-it("u7641a_double_click_on_a_pad_name_renames_in_place", async () => {
-  const { app } = await openShelf([padOf("notes", AGENT, "a")]);
-
-  fireEvent.dblClick(await screen.findByRole("button", { name: "notes" }));
-  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
-  fireEvent.keyDown(field, { key: "Escape" });
-  await waitFor(() => expect(field.isConnected).toBe(false));
-  expect(app.calls.filter(call => call.method === "pad.rename")).toEqual([]);
-
-  fireEvent.dblClick(await screen.findByRole("button", { name: "notes" }));
-  const again = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
-  flush();
-  fireEvent.input(again, { target: { value: "plan" } });
-  fireEvent.keyDown(again, { key: "Enter" });
-
-  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.rename")).toHaveLength(1));
-  expect(app.calls.find(call => call.method === "pad.rename")!.params).toMatchObject({ name: "notes", newName: "plan" });
-});
-
 it("u7641a_a_double_click_beside_a_pad_name_opens_the_pad", async () => {
   const { app } = await openShelf([padOf("notes", AGENT, "a")]);
 

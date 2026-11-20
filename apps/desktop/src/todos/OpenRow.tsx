@@ -181,7 +181,7 @@ export const OpenRow = (props: {
             sorted?.button(row);
           }}
         >
-          <span {...titleCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
+          <span {...titleCut.attrs()} class="shelf-title" onDblClick={event => { event.stopPropagation(); setEditing(true); }}>{copied.copied() ? copy.copied : props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
         </RowButton>
         </Show>
         <span class="row-controls">

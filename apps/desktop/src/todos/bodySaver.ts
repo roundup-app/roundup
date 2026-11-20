@@ -2,6 +2,9 @@ import { applying, type Applied } from "../app/pending";
 import type { Sent } from "../state/draftField";
 import { copy } from "./copy";
 
+/** What the saves of one edit (its `form`) have done to the change it expects, and whether one is still being acknowledged. */
+export type Saving = { of: object; expected: number | null; busy: boolean };
+
 type Draft = { save: () => void; send: (call: () => Promise<Applied<void>>) => Promise<Sent<void>> };
 
 /**
@@ -18,8 +21,10 @@ export const createBodySaver = (config: {
   alive: () => boolean;
   /** The failure line: a message, or null once a save lands. */
   report: (message: string | null) => void;
+  /** Each move of the saves: its own changes are not changes made elsewhere. */
+  track: (saving: Saving) => void;
 }) => {
-  const { form, read, props, draft, retain, open, alive, report } = config;
+  const { form, read, props, draft, retain, open, alive, report, track } = config;
   let saved = form.base;
   let expected = form.expected_change;
   let inflight: Promise<void> | undefined;
@@ -43,6 +48,7 @@ export const createBodySaver = (config: {
 
     if (value === saved || value === unsent) return;
 
+    track({ of: form, expected, busy: true });
     inflight = (async () => {
       retain();
       draft.save();
@@ -66,6 +72,8 @@ export const createBodySaver = (config: {
       dirty = false;
       await run();
     }
+
+    track({ of: form, expected, busy: inflight !== undefined });
   };
 
   /** Esc: puts back the body as the edit found it, and saves that; an autosave consumed its draft, so this goes straight to the Daemon. */
