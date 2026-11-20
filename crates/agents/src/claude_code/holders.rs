@@ -21,8 +21,8 @@ impl Launcher {
                 let line = line.trim_start();
                 let (pid, args) = line.split_once(char::is_whitespace)?;
                 let pid: u32 = pid.parse().ok()?;
-                let held = args.contains(&*marker) || jobs.iter().any(|job| args.contains(job));
-                (held && pid != me && !own.contains(&pid)).then_some(pid)
+                let holds = args.contains(&*marker) || jobs.iter().any(|job| args.contains(job));
+                (holds && pid != me && !own.contains(&pid)).then_some(pid)
             })
             .collect()
     }
