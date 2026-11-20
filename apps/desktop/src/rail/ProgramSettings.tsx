@@ -41,13 +41,29 @@ const inside = (dir: string): boolean => {
 
 const quoted = (word: string) => word === "" || /[\s'"\\]/.test(word) ? `"${word.replace(/(["\\])/g, "\\$1")}"` : word;
 
+type Refusal = { field: "command" | "folder"; text: string } | null;
+
+const ProgramField = (props: { name: "command" | "folder"; label: string; refusal: Refusal; value: string; setValue: (value: string) => void; ref: (element: HTMLTextAreaElement) => void; commit: () => void; keys: (event: KeyboardEvent) => void }) => {
+  const failed = () => props.refusal !== null && props.refusal.field === props.name;
+  const errorId = () => `program-${props.name}-error`;
+
+  return <Field.Root invalid={failed()}>
+    <label class="app-dialog-field">
+      <span class="program-label">{props.label}</span>
+      <textarea ref={props.ref} class="field-frame program-field" rows={1} spellcheck={false} autocorrect="off" autocapitalize="off" aria-invalid={failed() ? "true" : undefined} aria-describedby={failed() ? errorId() : undefined} aria-label={props.label} value={props.value}
+        onInput={event => props.setValue(event.currentTarget.value)} onBlur={() => props.commit()} onKeyDown={event => props.keys(event)} />
+    </label>
+    <Field.ErrorText id={errorId()}>{props.refusal !== null && failed() ? copy.programRefused(props.refusal.text) : null}</Field.ErrorText>
+  </Field.Root>;
+};
+
 /** PG6: the Project's `Program` section. Enter or blur with a changed value is one `project.setProgram`; a bad entry is refused in the field and calls nothing. */
 export const ProgramSettings = () => {
   const { app } = useConnectedProject();
   const [saved, setSaved] = createSignal<{ argv: string[]; dir: string } | null>(null);
   const [command, setCommand] = createSignal("");
   const [folder, setFolder] = createSignal("");
-  const [refusal, setRefusal] = createSignal<string | null>(null);
+  const [refusal, setRefusal] = createSignal<{ field: "command" | "folder"; text: string } | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [loaded, setLoaded] = createSignal(false);
 
@@ -89,12 +105,12 @@ export const ProgramSettings = () => {
     const text = commandField?.value ?? command();
     const argv = unclosed(text) ? [] : parseArgsStringToArgv(text);
 
-    if (argv.length === 0) return setRefusal(copy.programCommandRefusal);
+    if (argv.length === 0) return setRefusal({ field: "command", text: copy.programCommandRefusal });
 
     const typed = (folderField?.value ?? folder()).trim();
     const dir = typed === "" ? "." : typed;
 
-    if (!inside(dir)) return setRefusal(copy.programFolderRefusal);
+    if (!inside(dir)) return setRefusal({ field: "folder", text: copy.programFolderRefusal });
 
     setRefusal(null);
 
@@ -112,17 +128,8 @@ export const ProgramSettings = () => {
   const keys = (event: KeyboardEvent) => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } };
 
   return <SettingsGroup name={copy.program}><div class="app-dialog-form">
-    <label class="app-dialog-field">
-      <span class="program-label">{copy.programCommand}</span>
-      <textarea ref={element => { commandField = element; }} class="field-frame program-field" rows={1} aria-invalid={refusal() !== null ? "true" : undefined} aria-label={copy.programCommand} value={command()}
-        onInput={event => setCommand(event.currentTarget.value)} onBlur={commit} onKeyDown={keys} />
-    </label>
-    <label class="app-dialog-field">
-      <span class="program-label">{copy.programFolder}</span>
-      <textarea ref={element => { folderField = element; }} class="field-frame program-field" rows={1} aria-label={copy.programFolder} value={folder()}
-        onInput={event => setFolder(event.currentTarget.value)} onBlur={commit} onKeyDown={keys} />
-    </label>
-    <Field.Root invalid={refusal() !== null}><Field.ErrorText>{refusal() === null ? null : copy.programRefused(refusal() ?? "")}</Field.ErrorText></Field.Root>
+    <ProgramField name="command" label={copy.programCommand} refusal={refusal()} value={command()} setValue={setCommand} ref={element => { commandField = element; }} commit={commit} keys={keys} />
+    <ProgramField name="folder" label={copy.programFolder} refusal={refusal()} value={folder()} setValue={setFolder} ref={element => { folderField = element; }} commit={commit} keys={keys} />
     <p>{copy.programNote}</p>
     <Show when={saved() !== null}><BusyButton kind="quiet" busyLabel={copy.programClearing} onClick={clear}>{copy.programClear}</BusyButton></Show>
   </div></SettingsGroup>;
