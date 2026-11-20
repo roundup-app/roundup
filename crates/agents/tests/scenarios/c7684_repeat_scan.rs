@@ -195,7 +195,7 @@ fn fill(path: &Path, count: usize) {
 async fn until_reading(git: &Git, from: usize) {
     tokio::time::timeout(Duration::from_secs(10), async {
         while git.scan_reads() <= from {
-            tokio::time::sleep(Duration::from_micros(200)).await;
+            tokio::task::yield_now().await;
         }
     })
     .await

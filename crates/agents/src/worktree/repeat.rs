@@ -246,45 +246,51 @@ fn find(file: &File, files: &[File], windows: &HashMap<u64, Vec<(usize, usize)>>
     let touches = |lo: u32, hi: u32| file.changed.iter().any(|&(s, e)| s <= hi && e >= lo);
     let mut hits = Vec::new();
     let mut i = 0;
-    while i + MIN_LINES <= file.lines.len() {
-        let run = &file.lines[i..i + MIN_LINES];
-        let found = if touches(run[0].no, run[MIN_LINES - 1].no) {
+    while let Some(run) = file.lines.get(i..i + MIN_LINES) {
+        let (Some(first), Some(last)) = (run.first(), run.last()) else {
+            break;
+        };
+        let found = if touches(first.no, last.no) {
             windows.get(&window_hash(run)).and_then(|places| {
                 places
                     .iter()
                     .filter_map(|&(at, j)| {
-                        let other = &files[at];
-                        let same = std::ptr::eq(other, file);
-                        let reach = other.lines.len() - j;
-                        let mut len = (file.lines.len() - i).min(reach);
-                        if same {
-                            len = len.min(i.abs_diff(j));
+                        let other = files.get(at)?;
+                        let (mine, theirs) = (file.lines.get(i..)?, other.lines.get(j..)?);
+                        let mut limit = mine.len().min(theirs.len());
+                        if std::ptr::eq(other, file) {
+                            limit = limit.min(i.abs_diff(j));
                         }
-                        let len = (0..len)
-                            .take_while(|&k| file.lines[i + k].hash == other.lines[j + k].hash)
+                        let len = mine
+                            .iter()
+                            .zip(theirs)
+                            .take(limit)
+                            .take_while(|(a, b)| a.hash == b.hash)
                             .count();
-                        (len >= MIN_LINES).then_some((other, j, len))
+                        if len < MIN_LINES {
+                            return None;
+                        }
+                        let place = ScanPlace {
+                            path: other.path.clone(),
+                            start: theirs.first()?.no,
+                            end: theirs.get(len - 1)?.no,
+                        };
+                        Some((place, mine.get(len - 1)?.no, len))
                     })
-                    .min_by(|a, b| {
-                        (&a.0.path, a.0.lines[a.1].no).cmp(&(&b.0.path, b.0.lines[b.1].no))
-                    })
+                    .min_by(|a, b| (&a.0.path, a.0.start).cmp(&(&b.0.path, b.0.start)))
             })
         } else {
             None
         };
-        let Some((other, j, len)) = found else {
+        let Some((other, end, len)) = found else {
             i += 1;
             continue;
         };
         hits.push(ScanHit {
             path: file.path.clone(),
-            start: file.lines[i].no,
-            end: file.lines[i + len - 1].no,
-            other: ScanPlace {
-                path: other.path.clone(),
-                start: other.lines[j].no,
-                end: other.lines[j + len - 1].no,
-            },
+            start: first.no,
+            end,
+            other,
         });
         i += len;
     }
