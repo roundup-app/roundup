@@ -942,4 +942,29 @@ pub(crate) mod tests {
             }
         }
     }
+
+    /// DTC6: settled, stop and compaction notes write nothing at rest and ride the next note, oldest first.
+    #[tokio::test(start_paused = true)]
+    async fn dtc6_passive_notes_wait_and_ride_the_next_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, inbox) = setup(dir.path());
+        let mut held: Vec<Message> = [
+            "[settled] at rest",
+            "[stopped] no report",
+            "[compacted] done",
+        ]
+        .iter()
+        .map(|body| pending(&messages, &Actor::daemon(), body))
+        .collect();
+        let go =
+            |notes: Vec<Message>| send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok);
+        go(held.clone()).await.unwrap();
+        assert!(lock(&inbox.batches).is_empty());
+        held.push(pending(&messages, &Actor::daemon(), "[ended] c ended"));
+        go(held.clone()).await.unwrap();
+        let batches = lock(&inbox.batches);
+        assert_eq!(batches.len(), 1);
+        let ids: Vec<u32> = held.iter().map(|m| m.id).collect();
+        assert_eq!(batches[0].iter().map(|e| e.0).collect::<Vec<_>>(), ids);
+    }
 }
