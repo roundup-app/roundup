@@ -234,8 +234,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry.kind === "terminal") revealTerminal(rail, project.path, entry.terminal);
   };
 
-  const [making, setMaking] = createSignal(false);
-  const [makeFailure, setMakeFailure] = createSignal<string | null>(null);
+  const [making, setMaking] = createSignal(false), [makeFailure, setMakeFailure] = createSignal<string | null>(null);
   // An invalidated captured action must never turn its query into a create request.
   const makeName = () => openingSurvives() && shown().length === 0 && matching(opening().actions, text()).length === 0 ? text().trim() : "";
 
