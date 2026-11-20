@@ -138,7 +138,7 @@ export const copy = {
   prLabel: (pr: number) => `Pull request #${pr}`,
   prBad: "Enter a pull request number, 1 or more.",
   prRetry: "Retry pull request",
-  prReread: "Retry",
+  prReread: sharedCopy.retry,
   prReading: "Reading…",
   prState: {
     merged: "Merged, marked done",
