@@ -8,20 +8,19 @@ import { COMPARISON } from "./noteHarness";
 afterEach(cleanup);
 
 const OWNED: OwnedChanges = { groups: [{ repo: "/p", branch: "main", base: "main", files: [
-  { path: "a.ts", status: "modified", line: 3, counts: { added: 10000, removed: 9998 } },
-  { path: "logo.png", status: "modified", line: null, counts: null },
+  { path: "a.ts", status: "modified", line: 3, counts: { added: 10000, removed: 9998 }, blob: null },
+  { path: "logo.png", status: "modified", line: null, counts: null, blob: null },
 ] }] };
 
 const open = async () => {
-  const mounted = await mountRail([agent("a", "idle", "ready")], [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
+  const mounted = await mountRail([agent("a", "idle", "ready", { worktree: { path: "/p", branch: "own/a", base: "main", adopted: false } })], [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
     app.handlers["agent.ownedChanges"] = () => OWNED;
-    app.handlers["project.compareRefs"] = () => ({ refs: [{ kind: "head" as const, branch: "main", label: "main" }, { kind: "worktree" as const, path: "/p", branch: "main", label: "p (main)" }] });
     app.handlers["agent.changedFiles"] = () => OWNED.groups[0] ?? { files: [] };
     app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
-  await screen.findByRole("heading", { name: "Changes: a vs main" });
+  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
 
   return mounted;
 };
@@ -40,8 +39,7 @@ it("u7610b_opening_the_list_never_calls_compare_file", async () => {
   const { app } = await open();
 
   await screen.findByRole("button", { name: /a\.ts/ });
-  fireEvent.click(screen.getByRole("combobox", { name: "From" }));
-  fireEvent.click(await screen.findByRole("option", { name: "p (main)" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Tree" }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "agent.changedFiles").length).toBe(1));
   expect(within(await screen.findByRole("button", { name: /a\.ts/ })).getByText(/10000/)).toBeTruthy();
   expect(app.calls.filter(call => call.method === "agent.compareFile")).toEqual([]);

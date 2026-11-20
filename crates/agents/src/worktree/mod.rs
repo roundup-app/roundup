@@ -891,6 +891,5 @@ mod prepared;
 mod g9;
 
 mod comparison;
-mod endpoints;
 mod owned;
 mod repeat;

@@ -165,7 +165,7 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void>; areas: stri
     open: async (page) => {
       // The page answers the diff reads only; the Rail's icon needs the owned-changes read, so give it one and nudge the Agent's status to refresh it.
       await page.evaluate(() => {
-        window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] }] });
+        window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
         window.__fake.setStatus("agent-1", "idle", "idle");
       });
       await page.click(".changes-icon");

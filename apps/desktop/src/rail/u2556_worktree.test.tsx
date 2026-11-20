@@ -74,7 +74,7 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
 it("u2556d_both_views_share_facts_and_identity", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "working", "busy", { worktree })]);
   connected.rail.select("a");
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null, blob: null }] });
   render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   let finish!: (value: WorktreeState) => void;
   await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
@@ -103,7 +103,7 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   };
 
   connected.rail.select("a");
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null, blob: null }] });
   render(() => <ToastHost><ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext></ToastHost>);
   setNow(100_000_000_000_000);
   await waitFor(() => expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead"));

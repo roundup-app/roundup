@@ -9,15 +9,8 @@ import { COMPARISON } from "./noteHarness";
 afterEach(cleanup);
 
 const OWNED: OwnedChanges = { groups: [
-  { repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 3, counts: null }, { path: "b.rs", status: "added", line: 1, counts: null }] },
-  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] },
-] };
-
-const REFS = { refs: [
-  { kind: "worktree" as const, path: "/p", branch: "main", label: "p (main)" },
-  { kind: "worktree" as const, path: "/q", branch: "own/x", label: "q (own/x)" },
-  { kind: "head" as const, branch: "main", label: "main" },
-  { kind: "head" as const, branch: "own/x", label: "own/x" },
+  { repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 3, counts: null, blob: null }, { path: "b.rs", status: "added", line: 1, counts: null, blob: null }] },
+  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] },
 ] };
 
 const mountRailWith = (owned: (id: string) => OwnedChanges | Promise<OwnedChanges>) =>
@@ -31,14 +24,11 @@ it("u7186c_the_row_shows_the_icon_with_the_count_only_above_zero", async () => {
   expect(app.calls.filter(call => call.method === "agent.ownedChanges").length).toBe(2);
 });
 
-it("u7186c_the_icon_opens_the_centre_diff_preset_to_base_and_now", async () => {
+it("u7186c_the_icon_opens_the_centre_diff_on_changes_against_the_remote_main", async () => {
   const { app } = await mountRailWith(() => OWNED);
 
-  app.handlers["project.compareRefs"] = () => REFS;
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "3 changed files" }));
-  await screen.findByRole("heading", { name: "Changes: a vs main" });
-  await within(screen.getByRole("combobox", { name: "From" })).findByText("main");
-  await within(screen.getByRole("combobox", { name: "To" })).findByText("p (main)");
+  await screen.findByRole("heading", { name: "Changes: a vs remote main" });
   expect(screen.getAllByRole("button", { name: /\.ts|\.rs/ }).length).toBe(2);
 });
 
@@ -64,7 +54,6 @@ it("u7186c_the_count_reads_on_a_file_write_and_a_turn_end_not_on_a_timer", async
 it("u7186c_the_reader_stays_lazy", async () => {
   const { app } = await mountRailWith(() => OWNED);
 
-  app.handlers["project.compareRefs"] = () => REFS;
   app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "3 changed files" }));
   const files = await screen.findAllByRole("button", { name: /a\.ts/ });

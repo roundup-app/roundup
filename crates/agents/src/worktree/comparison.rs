@@ -3,30 +3,39 @@
 use std::io::Read;
 use std::path::Path;
 
-use contracts::agent::{ChangedFile, ChangedFiles, ChangedStatus, LineCounts};
+use contracts::agent::{ChangedFile, ChangedFiles, ChangedStatus, CompareTarget, LineCounts};
 use rpc::{RpcError, code};
 
 use super::{Git, Worktree, WorktreeError, failed, invalid};
 
 impl Git {
-    /// U2539a: the files the Worktree's working tree differs in from the merge base of its branch
-    /// and its Base, outside `.roundup/`, sorted by path. Runs no command that writes.
-    pub fn changed_files(&self, worktree: &Worktree) -> Result<ChangedFiles, RpcError> {
+    /// U7672a: the files the Worktree differs in from the remote's main at its merge base with
+    /// HEAD, outside `.roundup/`, sorted by path: the working tree for `Tree`, HEAD's commit for
+    /// `Branch`. Runs no command that writes.
+    pub fn changed_files(
+        &self,
+        worktree: &Worktree,
+        to: CompareTarget,
+    ) -> Result<ChangedFiles, RpcError> {
         if !worktree.path.is_dir() {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let base = self.comparison_base(worktree)?;
+        let end = (to == CompareTarget::Branch).then_some("HEAD");
         Ok(ChangedFiles {
-            files: self.files_against(&worktree.path, &base)?,
+            files: self.files_against(&worktree.path, &base, end)?,
         })
     }
 
-    /// The files `dir`'s working tree differs in from `base`, outside `.roundup/`, sorted by path.
+    /// The files `dir`'s working tree (or its `end` commit) differs in from `base`, outside
+    /// `.roundup/`, sorted by path. A commit end lists no untracked file.
     pub(super) fn files_against(
         &self,
         dir: &Path,
         base: &str,
+        end: Option<&str>,
     ) -> Result<Vec<ChangedFile>, RpcError> {
+        let ends: Vec<&str> = std::iter::once(base).chain(end).collect();
         let diff = [
             "--no-optional-locks",
             "diff",
@@ -35,13 +44,16 @@ impl Git {
             "-M",
         ];
         let names = self
-            .run(dir, &[&diff[..], &["-z", "--name-status", base]].concat())
+            .run(
+                dir,
+                &[&diff[..], &["-z", "--name-status"], &ends[..]].concat(),
+            )
             .map_err(failed)?;
         let patch = self
-            .run(dir, &[&diff[..], &["-U0", base]].concat())
+            .run(dir, &[&diff[..], &["-U0"], &ends[..]].concat())
             .map_err(failed)?;
         let counts = self
-            .run(dir, &[&diff[..], &["--numstat", base]].concat())
+            .run(dir, &[&diff[..], &["--numstat"], &ends[..]].concat())
             .map_err(failed)?;
         // Git quotes unusual paths without -z, so each count record occupies one line even for a rename.
         // Counts also classify a pure binary rename, whose patch has no binary marker or hunk.
@@ -61,8 +73,10 @@ impl Git {
             };
             files.push(file);
         }
-        let untracked = self
-            .run(
+        let untracked = if end.is_some() {
+            String::new()
+        } else {
+            self.run(
                 dir,
                 &[
                     "--no-optional-locks",
@@ -72,7 +86,8 @@ impl Git {
                     "--exclude-standard",
                 ],
             )
-            .map_err(failed)?;
+            .map_err(failed)?
+        };
         for path in untracked.split('\0').filter(|path| !path.is_empty()) {
             let text = untracked_text(&dir.join(path));
             files.push(ChangedFile {
@@ -80,29 +95,92 @@ impl Git {
                 status: ChangedStatus::Untracked,
                 line: text.is_some().then_some(1),
                 counts: text.map(|added| LineCounts { added, removed: 0 }),
+                blob: None,
                 from: None,
             });
         }
         files.retain(|file| !file.path.starts_with(".roundup/"));
         files.sort_by(|a, b| a.path.cmp(&b.path));
+        self.fill_blobs(dir, end, &mut files)?;
         Ok(files)
     }
 
-    fn comparison_base(&self, worktree: &Worktree) -> Result<String, RpcError> {
-        self.run(&worktree.path, &["merge-base", &worktree.base, "HEAD"])
+    /// U7673a, U7673b: each file's `blob`, git's id of the To side, from one process: the tree
+    /// read for a commit end, `hash-object --stdin-paths` for the working tree.
+    fn fill_blobs(
+        &self,
+        dir: &Path,
+        end: Option<&str>,
+        files: &mut [ChangedFile],
+    ) -> Result<(), RpcError> {
+        let mut hashed: Vec<&mut ChangedFile> = files
+            .iter_mut()
+            .filter(|file| {
+                file.status != ChangedStatus::Deleted
+                    && !file.path.contains('\n')
+                    && (end.is_some()
+                        || std::fs::symlink_metadata(dir.join(&file.path))
+                            .is_ok_and(|meta| !meta.is_dir()))
+            })
+            .collect();
+        if hashed.is_empty() {
+            return Ok(());
+        }
+        let paths: String = hashed
+            .iter()
+            .map(|file| match end {
+                Some(end) => format!("{end}:{}\n", file.path),
+                None => format!("{}\n", file.path),
+            })
+            .collect();
+        let args: &[&str] = match end {
+            Some(_) => &[
+                "--no-optional-locks",
+                "cat-file",
+                "--batch-check=%(objectname)",
+            ],
+            None => &["--no-optional-locks", "hash-object", "--stdin-paths"],
+        };
+        let out = self.output(dir, args, Some(&paths)).map_err(failed)?;
+        if !out.status.success() {
+            return Err(failed(String::from_utf8_lossy(&out.stderr).trim()));
+        }
+        let ids = String::from_utf8_lossy(&out.stdout);
+        for (file, id) in hashed.iter_mut().zip(ids.lines()) {
+            file.blob = (!id.ends_with(" missing")).then(|| id.to_owned());
+        }
+        Ok(())
+    }
+
+    /// U7672a: the merge base of the remote's main (else the local default branch) with HEAD.
+    pub(super) fn comparison_base(&self, worktree: &Worktree) -> Result<String, RpcError> {
+        let (_, reference) = self
+            .default_branch(&worktree.path)
+            .ok_or_else(|| failed("no default branch"))?;
+        self.run(&worktree.path, &["merge-base", &reference, "HEAD"])
             .map_err(failed)
     }
 
-    /// U2540a: the same merge base as changed_files, paired with exact current bytes.
+    /// U2540a, U7672a: the same merge base as changed_files, paired with the exact bytes of the
+    /// working tree (`Tree`) or of HEAD's commit (`Branch`).
     pub fn compare_file(
         &self,
         worktree: &Worktree,
         path: &str,
+        to: CompareTarget,
     ) -> Result<contracts::agent::FileComparison, RpcError> {
         use contracts::agent::FileComparison;
         // Validate and open before Git: no untracked-content sniffing may follow an escaping link.
-        let current = read_worktree_file(&worktree.path, path)?;
+        let current = match to {
+            CompareTarget::Tree => read_worktree_file(&worktree.path, path)?,
+            CompareTarget::Branch => {
+                validate_comparison_path(path)?;
+                self.read_head_file(&worktree.path, path)?
+            }
+        };
         let base = self.comparison_base(worktree)?;
+        let end = (to == CompareTarget::Branch).then_some("HEAD");
+        let ends: Vec<&str> = std::iter::once(base.as_str()).chain(end).collect();
         let names = self
             .run(
                 &worktree.path,
@@ -114,8 +192,11 @@ impl Git {
                     "-M",
                     "--name-status",
                     "-z",
-                    &base,
-                ],
+                ]
+                .iter()
+                .chain(&ends)
+                .copied()
+                .collect::<Vec<_>>(),
             )
             .map_err(failed)?;
         let mut fields = names.split('\0').filter(|s| !s.is_empty());
@@ -174,7 +255,7 @@ impl Git {
             }
             Some(output.stdout)
         };
-        if status.is_none() && old.is_none() && current.is_some() {
+        if to == CompareTarget::Tree && status.is_none() && old.is_none() && current.is_some() {
             status = Some(ChangedStatus::Untracked);
         }
         if old.is_none() && current.is_none() {
@@ -188,6 +269,31 @@ impl Git {
             old: file_content(old),
             new: file_content(current),
         })
+    }
+}
+
+impl Git {
+    /// The bytes of `path` in HEAD's commit; none when HEAD has no regular file there.
+    fn read_head_file(&self, dir: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcError> {
+        let object = format!("HEAD:{path}");
+        let Ok(kind) = self.run(dir, &["cat-file", "-t", &object]) else {
+            return Ok(None);
+        };
+        if kind != "blob" {
+            return Err(invalid("unsafe_path", "not a regular file"));
+        }
+        let size: u64 = self
+            .run(dir, &["cat-file", "-s", &object])
+            .map_err(failed)?
+            .parse()
+            .map_err(failed)?;
+        if size > CONTENT_LIMIT {
+            return Err(failed("comparison content exceeds 4 MiB"));
+        }
+        let output = self
+            .output(dir, &["cat-file", "blob", &object], None)
+            .map_err(failed)?;
+        Ok(output.status.success().then_some(output.stdout))
     }
 }
 
@@ -330,6 +436,7 @@ fn changed_name<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<Change
         status,
         line: None,
         counts: None,
+        blob: None,
         from,
     })
 }

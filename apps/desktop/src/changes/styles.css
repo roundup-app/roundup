@@ -95,7 +95,19 @@
 
 .changes-pickers {
   display: flex;
+  align-items: center;
   gap: var(--space-3);
+}
+
+.changes-from,
+.changes-to {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.changes-to-value {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .changes-groups,

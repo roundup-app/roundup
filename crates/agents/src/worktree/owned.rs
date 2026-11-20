@@ -9,9 +9,8 @@ use super::Git;
 
 impl Git {
     /// One group per repository and branch the absolute `edits` sit in, sorted by repo then branch.
-    /// A branch in a git worktree of its own lists every file it changed against the merge base with
-    /// the default branch; the default branch and the main checkout, which the user shares, list only
-    /// edited files. A missing repository or an unreadable one is omitted. Runs no command that writes.
+    /// Each group lists only the edited files that now differ from the merge base with the remote's
+    /// main (U7672b). A missing repository or an unreadable one is omitted. Runs no command that writes.
     pub fn owned_groups(&self, edits: &[String]) -> Vec<OwnedGroup> {
         let mut sites: BTreeMap<(PathBuf, PathBuf), BTreeSet<PathBuf>> = BTreeMap::new();
         for edit in edits {
@@ -64,7 +63,7 @@ impl Git {
     }
 
     /// The repository's default branch: `origin/HEAD`, else `main`, else `master`.
-    fn default_branch(&self, top: &Path) -> Option<(String, String)> {
+    pub(super) fn default_branch(&self, top: &Path) -> Option<(String, String)> {
         if let Ok(full) = self.run(
             top,
             &["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
@@ -90,23 +89,6 @@ impl Git {
         })
     }
 
-    /// Whether `top` is a git worktree linked to a main checkout: its git dir is not the common dir.
-    fn is_linked_worktree(&self, top: &Path) -> Option<bool> {
-        let dirs = self
-            .run(
-                top,
-                &[
-                    "rev-parse",
-                    "--path-format=absolute",
-                    "--git-dir",
-                    "--git-common-dir",
-                ],
-            )
-            .ok()?;
-        let (dir, common) = dirs.split_once('\n')?;
-        Some(dir != common)
-    }
-
     fn owned_group(
         &self,
         repo: &Path,
@@ -116,10 +98,8 @@ impl Git {
         let branch = self.run(top, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
         let (default, reference) = self.default_branch(top)?;
         let base = self.run(top, &["merge-base", &reference, "HEAD"]).ok()?;
-        let mut files = self.files_against(top, &base).ok()?;
-        if branch == default || !self.is_linked_worktree(top)? {
-            files.retain(|file| written.contains(Path::new(&file.path)));
-        }
+        let mut files = self.files_against(top, &base, None).ok()?;
+        files.retain(|file| written.contains(Path::new(&file.path)));
         Some(OwnedGroup {
             repo: repo.display().to_string(),
             branch,

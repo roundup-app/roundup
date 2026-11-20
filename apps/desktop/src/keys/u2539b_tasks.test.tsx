@@ -153,7 +153,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     press("Enter");
     await waitFor(() => expect(projectMenu.path).toBe("/project6"));
   } else {
-    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] }] });
+    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
     connected().rail.select("a1");
     void connected().owned.refresh("a1");
     await waitFor(() => expect(captureActions(document.body).some(each => each.value === "action:leader:C")).toBe(true));
