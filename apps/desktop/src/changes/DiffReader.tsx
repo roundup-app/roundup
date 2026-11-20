@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
@@ -172,24 +173,38 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
         }] });
       }
 
+      // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
+      await new Promise(resolve => setTimeout(resolve));
+
+      if (!current) return;
+
       const fileDiff = processFile(patch, { oldFile, newFile, throwOnError: true });
 
       if (!fileDiff) throw new Error(copy.comparisonRenderFailed);
+
+      await new Promise(resolve => setTimeout(resolve));
+
+      if (!current) return;
 
       virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
       setRenderer(view);
 
-      // The initial empty viewport gives Pierre a bottom anchor; reset after its first layout.
+      // The initial empty viewport gives Pierre a bottom anchor, and its layout can settle after the first resize: keep the top until the reader scrolls.
       const initialLayout = new ResizeObserver(() => {
         if (!current || mount.clientHeight === 0) return;
-        initialLayout.disconnect();
         virtualizer.scrollTo({ top: 0 });
       });
 
+      const stopKeeping = () => initialLayout.disconnect();
+
+      const unlisten = ["wheel", "pointerdown", "keydown"].map(type => makeEventListener(mount, type, stopKeeping, { once: true, passive: true }));
+
       initialLayout.observe(mount);
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
-      dispose = () => { setRenderer(undefined); initialLayout.disconnect(); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
+      dispose = () => { setRenderer(undefined); stopKeeping();
+
+ for (const off of unlisten) off(); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
     }).then(error => { if (current && error) setFailure(error); });
 
     return () => { current = false; dispose?.(); };
