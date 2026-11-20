@@ -101,12 +101,13 @@ impl Rb {
     }
     /// The state once the run has left `reading`.
     async fn settled(&self) -> Value {
+        let mut tick = tokio::time::interval(Duration::from_millis(50));
         for _ in 0..200 {
+            tick.tick().await;
             let state = self.state().await;
             if state["state"] != "reading" {
                 return state;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
         }
         panic!("the readback never settled");
     }
