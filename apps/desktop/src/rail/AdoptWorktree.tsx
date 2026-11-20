@@ -1,7 +1,8 @@
-import { createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Adoptable } from "@contracts/agent/Adoptable";
 import { failureOf } from "../app/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
+import { Combobox } from "../ui/Combobox";
 import { Dialog } from "../ui/Dialog";
 import { DialogFailure } from "../ink/MountedLine";
 import { copy } from "./copy";
@@ -37,7 +38,14 @@ export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: stri
     props.onAdopted(id);
   };
 
-  const facts = (row: Adoptable) => [row.dirty ? copy.adoptDirty : null, row.ahead > 0 ? copy.adoptAhead(row.ahead) : null, row.refusal === null ? null : copy.adoptRefusal(row.refusal)].filter(Boolean).join(" · ");
+  const [query, setQuery] = createSignal("");
+  const [highlight, setHighlight] = createSignal<string | null>(null);
+  const pickable = createMemo(() => (rows() ?? []).filter(row => row.refusal === null && row.branch !== null));
+  const refused = createMemo(() => (rows() ?? []).filter(row => row.refusal !== null));
+  const byPath = createMemo(() => new Map(pickable().map(row => [row.path, row])));
+  const nameOf = (row: Adoptable) => row.branch ?? copy.adoptDetached;
+  const items = createMemo(() => pickable().filter(row => `${nameOf(row)} ${row.path}`.toLowerCase().includes(query().trim().toLowerCase())).map(row => ({ value: row.path, label: nameOf(row) })));
+  const facts = (row: Adoptable | undefined) => row === undefined ? "" : [row.dirty ? copy.adoptDirty : null, row.ahead > 0 ? copy.adoptAhead(row.ahead) : null].filter(Boolean).join(" · ");
 
   return <Dialog.Root open onOpenChange={({ open }) => { if (!open) props.onClose(); }}>
     <Dialog.Content class="app-dialog-form">
@@ -45,11 +53,20 @@ export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: stri
       <Dialog.Description>{copy.adoptHint}</Dialog.Description>
       <Show when={rows()} fallback={<p>{copy.adoptLoading}</p>}>{list =>
         <Show when={list().length > 0} fallback={<p>{copy.adoptNone}</p>}>
-          <ul class="adopt-list">
-            <For each={list()}>{row => <li><button type="button" data-button="quiet" class="adopt-row" disabled={busy() || row.refusal !== null} onClick={() => void choose(row)}>
-              <span>{row.branch ?? copy.adoptDetached}</span><span>{row.path}</span><span>{facts(row)}</span>
-            </button></li>}</For>
-          </ul>
+          <Combobox.Root items={items()} inputValue={query()} onInput={setQuery} highlightedValue={highlight()} onHighlightChange={setHighlight}
+            autoFocus={false} onDismiss={props.onClose} focusScope={() => undefined}
+            onSelect={path => {
+              const row = byPath().get(path);
+
+              if (row) void choose(row);
+            }}
+            label={copy.adoptFilterLabel} placeholder={copy.adoptFilterPlaceholder} empty={copy.noMatch}
+            row={item => <span class="adopt-row"><span>{item.label}</span><span>{item.value}</span><Show when={facts(byPath().get(item.value))}><span>{facts(byPath().get(item.value))}</span></Show></span>} />
+          <Show when={refused().length > 0}>
+            <ul class="adopt-refused" aria-label={copy.adoptRefusedLabel}>
+              <For each={refused()}>{row => <li><span>{nameOf(row)} · {row.path}</span><span>{copy.adoptRefusal(row.refusal ?? "")}</span></li>}</For>
+            </ul>
+          </Show>
         </Show>}
       </Show>
       <DialogFailure message={failure()} dismiss={() => setFailure(null)} />

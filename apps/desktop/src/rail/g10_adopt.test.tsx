@@ -13,10 +13,10 @@ it("g10_the_user_picks_a_listed_worktree_and_adopt_sends_the_branch_shown", asyn
   ];
   m.app.handlers["agent.adopt"] = () => agent("n", "idle", "", { name: "feature" });
   fireEvent.click(pinnedAdd());
-  fireEvent.click(await screen.findByRole("menuitem", { name: /^Adopt worktree/ }));
-  const owned = await screen.findByRole("button", { name: /roundup\/agent-x/ });
-  expect(owned).toHaveProperty("disabled", true);
+  fireEvent.click(await screen.findByRole("menuitem", { name: /^Adopt Worktree/ }));
+  await screen.findByText(/Roundup owns this branch/);
+  expect(screen.queryByRole("option", { name: /roundup\/agent-x/ })).toBeNull();
   expect(railCallsTo(m.app, "agent.adopt")).toEqual([]);
-  fireEvent.click(screen.getByRole("button", { name: /feature/ }));
+  fireEvent.click(await screen.findByRole("option", { name: /feature/ }));
   await waitFor(() => expect(railCallsTo(m.app, "agent.adopt")).toEqual([{ path: "/w/feature", branch: "feature" }]));
 });
