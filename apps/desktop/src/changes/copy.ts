@@ -21,6 +21,7 @@ export const copy = {
   diff: sharedCopy.diff,
   comparing: "Comparing…",
   checkingRemote: "Checking remote main",
+  /** @prose */
   remoteMoved: "Remote main has moved",
   fetch: "Fetch",
   fetching: "Fetching",

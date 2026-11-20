@@ -13,6 +13,8 @@ mod readback;
 pub use readback::*;
 mod scan;
 pub use scan::{ScanHit, ScanHits, ScanPlace};
+mod remote_main;
+pub use remote_main::{FetchedMain, RemoteMain};
 mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod state;
@@ -370,22 +372,6 @@ pub struct CompareFileParams {
     #[serde(default)]
     #[specta(optional, type = CompareTarget)]
     pub to: CompareTarget,
-}
-
-/// Whether the remote's main has commits the repository has not fetched (U7693a).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum RemoteMain {
-    /// No `origin`, or no `origin/HEAD`: the comparison reads the local default branch.
-    None,
-    Current,
-    Moved,
-}
-
-/// What `agent.fetchRemoteMain` brought onto the remote's main (U7693b).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct FetchedMain {
-    pub commits: u32,
 }
 
 /// Exact present bytes use SHA-256 revisions; an absent side uses `absent`.

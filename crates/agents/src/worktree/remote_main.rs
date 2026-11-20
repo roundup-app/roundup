@@ -149,8 +149,11 @@ impl Git {
         let io = |err: std::io::Error| unreachable(err.to_string());
         let mut stdout = tempfile::tempfile().map_err(io)?;
         let mut stderr = tempfile::tempfile().map_err(io)?;
-        let mut child = Command::new(&command[0])
-            .args(&command[1..])
+        let Some((program, args)) = command.split_first() else {
+            return Err(unreachable("no git command to run".to_owned()));
+        };
+        let mut child = Command::new(program)
+            .args(args)
             .current_dir(repo)
             .env("PATH", &self.path)
             .stdin(Stdio::null())
