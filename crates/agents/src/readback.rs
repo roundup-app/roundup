@@ -35,7 +35,7 @@ did. An empty list when it does not.";
 enum Entry {
     Reading,
     Done {
-        signature: Vec<(String, Option<String>)>,
+        signature: Signature,
         account: Account,
     },
     Failed {
@@ -48,7 +48,35 @@ enum Entry {
 #[derive(Default)]
 pub(crate) struct Readbacks {
     runs: Mutex<HashMap<(String, &'static str), Entry>>,
-    traces: Mutex<HashMap<(String, &'static str), Arc<CallPathsAnswer>>>,
+    traces: Mutex<HashMap<(String, &'static str), Trace>>,
+    /// Traces running per `(Agent, to)`: while any runs, no kept trace is read (RB9).
+    tracing: Arc<Mutex<HashMap<(String, &'static str), usize>>>,
+}
+
+type Signature = Vec<(String, Option<String>)>;
+
+/// A done trace and the signature of the diff it started on.
+struct Trace {
+    signature: Signature,
+    answer: Arc<CallPathsAnswer>,
+}
+
+/// A trace in flight; dropping it, finished or cancelled, ends it.
+pub(crate) struct Tracing {
+    tracing: Arc<Mutex<HashMap<(String, &'static str), usize>>>,
+    key: (String, &'static str),
+}
+
+impl Drop for Tracing {
+    fn drop(&mut self) {
+        let mut tracing = self.tracing.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(count) = tracing.get_mut(&self.key) {
+            *count -= 1;
+            if *count == 0 {
+                tracing.remove(&self.key);
+            }
+        }
+    }
 }
 
 fn key(id: &str, to: CompareTarget) -> (String, &'static str) {
@@ -63,14 +91,60 @@ fn key(id: &str, to: CompareTarget) -> (String, &'static str) {
 }
 
 impl Readbacks {
-    /// The call paths of a trace that finished: kept for the next run, and dropped when a later
-    /// trace has no answer.
-    pub(crate) fn traced(&self, id: &str, to: CompareTarget, answer: &CallPathsAnswer) {
+    /// RB9: a trace starts; the kept one is dropped and none is read until this one ends.
+    pub(crate) fn trace_started(&self, id: &str, to: CompareTarget) -> Tracing {
+        let key = key(id, to);
+        self.traces
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&key);
+        *self
+            .tracing
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .entry(key.clone())
+            .or_default() += 1;
+        Tracing {
+            tracing: Arc::clone(&self.tracing),
+            key,
+        }
+    }
+
+    /// The call paths of a trace that finished on the diff `signature`: kept for the next run
+    /// (RB1), and dropped when a later trace has no answer.
+    pub(crate) fn traced(
+        &self,
+        id: &str,
+        to: CompareTarget,
+        signature: Signature,
+        answer: &CallPathsAnswer,
+    ) {
         let mut traces = self.traces.lock().unwrap_or_else(|e| e.into_inner());
         match answer {
-            CallPathsAnswer::Done { .. } => traces.insert(key(id, to), Arc::new(answer.clone())),
+            CallPathsAnswer::Done { .. } => traces.insert(
+                key(id, to),
+                Trace {
+                    signature,
+                    answer: Arc::new(answer.clone()),
+                },
+            ),
             _ => traces.remove(&key(id, to)),
         };
+    }
+
+    /// RB9: the kept trace, when none runs and it read the diff as it now stands.
+    fn flows_for(
+        &self,
+        key: &(String, &'static str),
+        signature: &Signature,
+    ) -> Option<Arc<CallPathsAnswer>> {
+        let running = self.tracing.lock().unwrap_or_else(|e| e.into_inner());
+        if running.contains_key(key) {
+            return None;
+        }
+        let traces = self.traces.lock().unwrap_or_else(|e| e.into_inner());
+        let trace = traces.get(key)?;
+        (trace.signature == *signature).then(|| Arc::clone(&trace.answer))
     }
 
     fn set(&self, key: (String, &'static str), entry: Entry) {
@@ -386,11 +460,8 @@ impl Agents {
         let flows = self
             .shared
             .readbacks
-            .traces
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(&key)
-            .map(|done| code_flows(done, &input.hunks))
+            .flows_for(&key, &input.signature)
+            .map(|done| code_flows(&done, &input.hunks))
             .unwrap_or_default();
         let shared = Arc::clone(&self.shared);
         tokio::spawn(async move {
@@ -503,6 +574,32 @@ mod tests {
 
     fn flow(id: &str, ids: &[&str]) -> Value {
         json!({"id": id, "name": id, "steps": [{"note": "n", "hunks": ids}]})
+    }
+
+    fn sig(blob: &str) -> Signature {
+        vec![("a.rs".into(), Some(blob.into()))]
+    }
+
+    #[test]
+    fn rb9_a_trace_of_an_older_diff_is_not_read() {
+        let r = Readbacks::default();
+        let k = key("a1", CompareTarget::Tree);
+        r.traced("a1", CompareTarget::Tree, sig("old"), &done());
+        assert!(r.flows_for(&k, &sig("old")).is_some());
+        assert!(r.flows_for(&k, &sig("new")).is_none());
+    }
+
+    #[test]
+    fn rb9_a_trace_in_flight_leaves_no_flows() {
+        let r = Readbacks::default();
+        let k = key("a1", CompareTarget::Tree);
+        r.traced("a1", CompareTarget::Tree, sig("s"), &done());
+        let running = r.trace_started("a1", CompareTarget::Tree);
+        assert!(r.flows_for(&k, &sig("s")).is_none());
+        drop(running);
+        assert!(r.flows_for(&k, &sig("s")).is_none());
+        r.traced("a1", CompareTarget::Tree, sig("s"), &done());
+        assert!(r.flows_for(&k, &sig("s")).is_some());
     }
 
     #[test]
