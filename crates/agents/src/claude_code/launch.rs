@@ -141,6 +141,8 @@ impl std::fmt::Debug for Launcher {
 pub struct Folders<'a> {
     pub project: &'a Path,
     pub data: &'a Path,
+    /// G10: the user's adopted worktree this launch runs in, which may sit outside `project`.
+    pub adopted: Option<&'a Path>,
 }
 
 /// One launch of an Agent: where it runs, which conversation it continues and how it is set.

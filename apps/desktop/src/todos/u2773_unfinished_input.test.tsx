@@ -101,17 +101,14 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   fireEvent.dblClick(await within(drawer).findByText("base"));
-  const first = await screen.findByRole("textbox", { name: "Body" });
+  const first = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(document.activeElement).toBe(first));
   fireEvent.input(first, { target: { value: "  A\n🧪  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  fireEvent.dblClick(await within(drawer).findByText("base"));
-  const newer = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
-  await waitFor(() => expect(document.activeElement).toBe(newer));
+  // A body saves once the typing pauses; B is typed while that save is in flight.
+  await waitFor(() => expect(acknowledge).toBeTypeOf("function"), { timeout: 3000 });
+  const newer = first;
 
   fireEvent.input(newer, { target: { value: "  B\nnewer  " } });
-
-  await waitFor(() => expect(acknowledge).toBeTypeOf("function"));
 
   if (outcome === "acknowledged") acknowledge?.(todo(1));
   else reject?.(outcome === "failed" ? new RpcError(-32003, "refused") : new Error("connection lost"));
@@ -357,8 +354,7 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   fireEvent.input(await screen.findByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
   app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
-  document.activeElement instanceof HTMLElement && document.activeElement.blur();
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Title" }), { key: "Enter" });
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
@@ -543,14 +539,15 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u3021c_todo_selected_sa
   const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, null, "ordinary").draft;
   app.handlers["todo.update"] = () => outcome === "acknowledged" ? todo(1, { body: form.text }) : Promise.reject(new RpcError(-32003, "captured conflict"));
   connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
-  await screen.findByRole("textbox", { name: "Body" });
+  const field = await screen.findByRole("textbox", { name: "Body" });
   const calls = [...app.calls];
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  const updates = () => app.calls.slice(calls.length).filter(call => call.method === "todo.update");
+  fireEvent.input(field, { target: { value: form.text } });
 
   if (outcome === "failed") await screen.findByText("captured conflict");
 
-  if (outcome === "acknowledged") await waitFor(() => expect(app.calls.slice(calls.length)).toHaveLength(1));
-  expect(app.calls.slice(calls.length)).toEqual(outcome === "unknown" ? [] : [{ method: "todo.update", params: { id: 1, title: null, body: form.text, expected_change: 7 } }]);
+  if (outcome === "acknowledged") await waitFor(() => expect(updates()).toHaveLength(1));
+  expect(updates()).toEqual(outcome === "unknown" ? [] : [{ method: "todo.update", params: { id: 1, title: null, body: form.text, expected_change: 7 } }]);
 
   if (outcome === "acknowledged") await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
   else expect(connected.drafts.list()).toEqual([{ ...a, status: outcome }, b]);

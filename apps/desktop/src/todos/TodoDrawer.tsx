@@ -14,6 +14,7 @@ import { MountedStatus, StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { TodoComments } from "./TodoComments";
 import { TodoRefs } from "./TodoRefs";
+import { TodoPr } from "./TodoPr";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField } from "../state/draftField";
@@ -344,12 +345,12 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
                   saved={saved}
                   onSaved={clearFailure}
                   revision={bodyRevision()}
-                  name="body"
-                  multiline
+                  name="body" multiline
                   commit={async (body, expected_change) => { await applied(() => app.rpc("todo.update", { id: props.id, title: null, body, expected_change })); }}
+                  latest={() => app.rpc("todo.getHistory", { id: props.id }).then(history => history.changes.at(-1)?.seq ?? null)}
                 />
                 </div>
-                <Show when={!props.recovery}><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
+                <Show when={!props.recovery}><TodoPr id={props.id} pr={(props.todos.byId().get(props.id) ?? current()).pr} done={(props.todos.byId().get(props.id) ?? current()).done} onSaved={clearFailure} /><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
                 <Show when={blockerForm()}><p><BusyButton kind="quiet" class="word" busyLabel={copy.saving} onClick={() => saveBlockers()}>{copy.save}</BusyButton></p></Show>
                 <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} onCapture={setCaptured} /></Show>
               </>

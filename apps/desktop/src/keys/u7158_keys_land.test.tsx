@@ -20,7 +20,7 @@ const mount = () => mountApp(app => {
   app.handlers["terminal.list"] = () => [info("t-a"), info("t-b")];
   Object.assign(
     app.handlers,
-    todoHandlers({ todos: [{ id: 1, title: "todo one", body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home: null, owner: { kind: "agent", id: "a", parent: null }, refs: [], priority: null }] }, () => {}),
+    todoHandlers({ todos: [{ id: 1, title: "todo one", body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home: null, owner: { kind: "agent", id: "a", parent: null }, refs: [], priority: null, pr: null }] }, () => {}),
     padHandlers({ pads: [{ incarnation: "notes-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "home", visibility: "shown" as const }], history: [] }, () => {}),
   );
 });
@@ -91,7 +91,7 @@ describe("u7158 keys land where you think you're typing", () => {
     ["closing a Pad drawer", async () => {
       await choose("a", "t-a");
       showShelfTab("Pads");
-      fireEvent.dblClick(await listRow(".pad-name"));
+      fireEvent.dblClick(await listRow("[data-pad]"));
       await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
       await userEvent.keyboard("{Escape}");
     }],

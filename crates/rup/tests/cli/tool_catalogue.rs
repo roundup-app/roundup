@@ -179,6 +179,7 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
                 folders: Folders {
                     project: &project,
                     data: &data,
+                    adopted: None,
                 },
                 id: "7",
                 attempt: "1",

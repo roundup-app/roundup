@@ -88,6 +88,7 @@ impl Agents {
                             path: made.path.to_string_lossy().into_owned(),
                             branch: made.branch,
                             base: made.base,
+                            adopted: false,
                         },
                     )?;
                     mapped

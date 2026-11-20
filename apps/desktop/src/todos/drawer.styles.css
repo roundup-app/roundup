@@ -19,7 +19,13 @@
 .todo-history-count[data-state="unread"] { color: var(--text); text-decoration: underline; }
 .todo-history-count[data-state="read"] { color: var(--grey); }
 .todo-change { white-space: pre-wrap; overflow-wrap: anywhere; }
-.todo-refs { display: flex; flex-direction: column; gap: var(--space-2); }
+.todo-refs, .todo-pr { display: flex; flex-direction: column; gap: var(--space-2); }
+.todo-pr h3 { font: inherit; font-size: var(--text-body); font-weight: 600; margin: 0; }
+.todo-pr-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.todo-pr-state-line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.todo-pr-form { display: flex; align-items: flex-end; gap: var(--space-3); }
+.todo-pr-state { margin: 0; color: var(--grey); }
+.todo-pr-state[data-state="unknown"] { color: var(--text); }
 /* U7310b: a section label is 13/600 ink. */
 .todo-refs h3 { font: inherit; font-size: var(--text-body); font-weight: 600; margin: 0 0 var(--space-2); }
 .todo-ref { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); min-width: 0; }
@@ -80,6 +86,7 @@ p.todo-comment-body { white-space: pre-wrap; }
   min-width: 0;
 }
 .todo-editable textarea { max-width: 100%; }
+.todo-editable .field-inline:focus-visible { outline: none; }
 .todo-editable button {
   align-self: flex-start;
   font-size: var(--text-body);
@@ -119,7 +126,7 @@ p.todo-comment-body { white-space: pre-wrap; }
 /* U7310b: the title is 24/600 on whole pixels. */
 .todo-detail-title { padding-top: var(--space-6); }
 .todo-detail-title .todo-editable { width: 100%; text-wrap: pretty; }
-.todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-refs, .todo-comments, .todo-history, .todo-delete-feedback) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
+.todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-pr, .todo-refs, .todo-comments, .todo-history, .todo-delete-feedback) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
 /* U7310c: the meta row wraps instead of scrolling; a long name shrinks to its "…" and the rest keep their width. */
 .todo-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-3); flex-shrink: 0; color: var(--grey); }
 .todo-meta :is(button, label) { flex-shrink: 1; min-width: 0; max-width: 100%; font-size: var(--text-body); }
@@ -144,7 +151,7 @@ p.todo-comment-body { white-space: pre-wrap; }
 
 .drawer:has(.todo-header) .drawer-controls { z-index: var(--layer-popover); }
 
-.todo-detail .todo-refs, .todo-detail .todo-comments { margin-top: var(--space-6); }
+.todo-detail .todo-pr, .todo-detail .todo-refs, .todo-detail .todo-comments { margin-top: var(--space-6); }
 .todo-detail .todo-refs { gap: var(--space-1); }
 
 .todo-activity-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }

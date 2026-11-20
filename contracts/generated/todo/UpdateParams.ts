@@ -2,7 +2,7 @@
 
 import type * as todo$Priority from "./Priority";
 /**
- *  Changes title/body/priority. `expected_change` is the last captured History Change sequence;
+ *  Changes title, body, priority or the PR link. `expected_change` is the last captured History Change sequence;
  *  mismatch is CONFLICT, a removed Todo is NOT_FOUND, and omission is unconditional.
  */
 export type UpdateParams = {
@@ -11,5 +11,7 @@ export type UpdateParams = {
 	body: string | null,
 	/**  Omitted preserves priority; null clears it; otherwise low, medium, high or urgent. */
 	priority?: todo$Priority.Priority | null,
+	/**  T7708a: omitted preserves the link; null clears it; a number of at least 1 sets it. */
+	pr?: number | null,
 	expected_change?: number,
 };

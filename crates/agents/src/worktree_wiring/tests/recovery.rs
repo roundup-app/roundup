@@ -85,6 +85,7 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                                 path: plan.worktree.path.to_string_lossy().into_owned(),
                                 branch: plan.worktree.branch.clone(),
                                 base: plan.worktree.base.clone(),
+                                adopted: false,
                             },
                         )
                         .unwrap();

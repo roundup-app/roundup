@@ -8,7 +8,7 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import { mountRail, rowOf, rowGlyph as glyphOf, settled } from "./railFixture";
 
-const worktree = { path: "/p/a", branch: "topic", base: "base" };
+const worktree = { path: "/p/a", branch: "topic", base: "base", adopted: false };
 
 afterEach(cleanup);
 

@@ -11,7 +11,7 @@ const disposals: (() => void)[] = [];
 
 afterEach(() => disposals.splice(0).forEach((dispose) => dispose()));
 
-const worktree = { path: "/p/a", branch: "topic", base: "base" };
+const worktree = { path: "/p/a", branch: "topic", base: "base", adopted: false };
 
 const facts: WorktreeState = { ahead: 7, behind: 2, dirty: true, ci: { state: "failed", stale: true }, pr: { number: 42, stale: true } };
 
@@ -242,6 +242,7 @@ it("u5643c_unchanged_ticks_do_not_reconcile_rail", async () => {
 
             return identity.base;
           },
+          adopted: false,
         };
       },
     }));

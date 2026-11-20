@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { notices } from "../testing/notices";
-import { historyLoaded, leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
+import { historyLoaded, mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -72,7 +72,7 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       fireEvent.input(field, { target: { value: "renamed" } });
       fireEvent.change(field, { target: { value: "renamed" } });
-      await leaveTitle();
+      fireEvent.keyDown(field, { key: "Enter" });
       await waitFor(() => expect(callsTo(mounted.app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 2, title: "renamed", body: null, expected_change: 2 } }]));
       refetch(mounted);
 
@@ -284,7 +284,9 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       fireEvent.dblClick(within(drawer()).getByText(fieldName === "Title" ? "todo 1" : "Original body", { selector: "p" }));
       field = await within(drawer()).findByRole<HTMLTextAreaElement>("textbox", { name: fieldName });
       fireEvent.input(field, { target: { value: fieldName === "Title" ? "  e\u0301 🧪 title  " : exactDraft } });
-      fireEvent.click(within(drawer()).getByRole("button", { name: "Save" }));
+
+      // A title saves on Enter; a body saves as it is typed (U7641a).
+      if (fieldName === "Title") fireEvent.keyDown(field, { key: "Enter" });
     } else if (owner === "todo_comments") {
       m.app.handlers["todo.comment"] = refuse;
       fireEvent.click(within(drawer()).getByRole("button", { name: "Comment" }));
@@ -298,6 +300,9 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
 
     const failure = await screen.findByRole("alert", { name: /Item unavailable; retry/ });
     const message = failure.getAttribute("aria-label")!;
+
+    // A body's save starts as it is typed: its revision settles after the alert shows.
+    if (owner === "editable_text_body") await waitFor(() => expect(m.connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
     const retained = m.connected.drafts.list();
     const calls = [...m.app.calls];
     // Same titles and unrelated deletion/saves cannot consume this item's failure or input.

@@ -322,16 +322,25 @@ input.todo-tick {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.row-name-editor input {
+/* U7641a: renaming in place keeps the name's own box, so only the caret and the selection show the edit. */
+.row-name-editor input.shelf-title {
   box-sizing: border-box;
   width: 100%;
-  min-height: var(--space-5);
+  min-height: 0;
   margin: 0;
   padding: 0;
   border: 0;
   font: inherit;
+  height: var(--name-field-height, auto);
+  line-height: var(--name-field-line, inherit);
   color: var(--text);
   background: var(--transparent);
+}
+.row-name-editor input.shelf-title:focus-visible { outline: none; }
+/* U7641a, D6: in a Shelf row the field is the row's 24 px head with the name's 16 px line centred in it, where the name sits. */
+.shelf-row .row-name-editor {
+  --name-field-height: var(--space-5);
+  --name-field-line: var(--space-4);
 }
 
 .row-secondary { opacity: 0; pointer-events: none; }

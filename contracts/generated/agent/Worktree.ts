@@ -7,4 +7,6 @@ export type Worktree = {
 	path: string,
 	branch: string,
 	base: string,
+	/**  G11: the user's own git worktree the Agent started in; nothing deletes its branch or files. */
+	adopted: boolean,
 };

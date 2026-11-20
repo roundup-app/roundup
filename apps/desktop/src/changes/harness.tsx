@@ -9,7 +9,7 @@ import { ToastHost } from "../testing/toastHost";
 import { ChangesView } from "./ChangesView";
 import { WorktreeControl } from "./WorktreeControl";
 
-export const WORKTREE = { path: "/p/.roundup/a", branch: "roundup/a", base: "main" };
+export const WORKTREE = { path: "/p/.roundup/a", branch: "roundup/a", base: "main", adopted: false };
 
 export const STATE: WorktreeState = { ahead: 2, behind: 1, dirty: true };
 

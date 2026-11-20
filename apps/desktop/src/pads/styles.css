@@ -20,6 +20,7 @@
 
 /* U7310b: a Pad's name and a Todo's title are the title role: 24/600. */
 .pad-head-name,
+.pad-head-title .row-name-editor,
 .todo-detail-title .todo-editable {
   flex: 0 1 auto;
   min-width: 0;
@@ -771,6 +772,72 @@ li[aria-selected="true"] svg {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* U7706a: the lines changed since the user read the Pad, in place of the editor. */
+.pad-changes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--pad-reading-width, var(--reading-width));
+  margin: 0 auto;
+  padding-inline: var(--reading-gutter);
+}
+
+.pad-changes-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.pad-changes-hunk + .pad-changes-hunk {
+  margin-block-start: var(--space-2);
+}
+
+/* pre raises specificity over reading.styles.css's .pad-body :is(pre, …) margin, whatever the chunk load order */
+.pad-changes pre.pad-changes-part {
+  display: flex;
+  gap: var(--space-2);
+  margin-block: 0;
+  padding-block: 0;
+  padding-inline: var(--space-2);
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--accent);
+}
+
+.pad-changes pre.pad-changes-part[data-change="removed"] {
+  color: var(--red);
+}
+
+.pad-changes-part ins,
+.pad-changes-part del {
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.pad-changes-part ins {
+  text-decoration: none;
+}
+
+.pad-changes-part[data-change="removed"] del {
+  text-decoration: line-through;
+}
+
+.pad-changes-part::before {
+  content: "+";
+  flex: none;
+  user-select: none;
+}
+
+.pad-changes-part[data-change="removed"]::before {
+  content: "−";
 }
 
 .pad-notes {

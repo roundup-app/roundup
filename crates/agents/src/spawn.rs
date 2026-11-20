@@ -34,7 +34,7 @@ pub(super) struct Launch<'a> {
 }
 
 /// A spawn after parsing: every value the new Agent starts with.
-struct SpawnRequest {
+pub(super) struct SpawnRequest {
     given: Option<String>,
     parent: Option<String>,
     visibility: contracts::agent::RailVisibility,
@@ -47,71 +47,14 @@ struct SpawnRequest {
     start_attribution: Option<contracts::agent::StartAttribution>,
     by_user_named: bool,
     settle_name: bool,
-    size: (u16, u16),
+    pub(super) size: (u16, u16),
     cwd: String,
     machine: Option<String>,
-    permission: Permission,
+    pub(super) permission: Permission,
     /// H7200a: the caller's row, which the new Agent takes the place of.
     before: Option<String>,
     /// A7494a: a `mode` spawn's saved first prompt.
     mode_prompt: Option<String>,
-}
-
-/// DCL9: an Agent's spawn names Job, Consult or Mode; the user's names none.
-fn check_role(
-    role: Option<contracts::agent::SpawnRole>,
-    by_agent: bool,
-) -> Result<Option<contracts::agent::SpawnRole>, RpcError> {
-    if by_agent && role.is_none() {
-        return Err(RpcError::new(
-            code::INVALID_PARAMS,
-            "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
-             report, `consult` for a Subagent that answers questions and rests, `mode` for a \
-             Mode under you that keeps a first prompt and asks the user",
-        ));
-    }
-    if !by_agent && role.is_some() {
-        return Err(RpcError::new(
-            code::INVALID_PARAMS,
-            "`role` is for an Agent's spawn",
-        ));
-    }
-    Ok(role)
-}
-
-/// O2, O8: the Order a spawn starts with and the prompt kept beside it.
-fn order_of(
-    prompt: Option<String>,
-    order: Option<Order>,
-    by_agent: bool,
-) -> Result<(Option<Order>, Option<String>), RpcError> {
-    let explicit = order.is_some();
-    let (order, spawn_prompt) = match (prompt, order) {
-        (Some(prompt), Some(order)) if by_agent => (Some(order), Some(prompt)),
-        (Some(_), Some(_)) => {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "prompt and order are exclusive",
-            ));
-        }
-        (Some(_), None) if by_agent => {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "an Agent's spawn needs an `order` with the ask, the done condition and the \
-                 limits; add it, and keep the working detail in `prompt`",
-            ));
-        }
-        (Some(prompt), None) => (Some(Order::work(&prompt)), None),
-        (None, order) => (order, None),
-    };
-    if let Some(order) = &order {
-        if explicit {
-            valid_explicit_order(order)?;
-        } else {
-            valid_order(order)?;
-        }
-    }
-    Ok((order, spawn_prompt))
 }
 
 impl Agents {
@@ -212,7 +155,11 @@ impl Agents {
 
     /// Parse `params` and the caller into the values the new Agent starts with, or refuse before
     /// anything is written.
-    fn spawn_request(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<SpawnRequest, RpcError> {
+    pub(super) fn spawn_request(
+        &self,
+        ctx: &Ctx,
+        mut params: SpawnParams,
+    ) -> Result<SpawnRequest, RpcError> {
         let size = self.check_spawner(ctx, &mut params)?;
         let by_agent = ctx.actor.kind == ActorKind::Agent;
         let mode = params.role == Some(contracts::agent::SpawnRole::Mode);
@@ -221,7 +168,7 @@ impl Agents {
         } else {
             self.lean_of(&mut params, by_agent)?
         };
-        let role = check_role(params.role, by_agent)?;
+        let role = order::check_role(params.role, by_agent)?;
         if mode {
             self.mode_of(ctx, &params)?;
         }
@@ -234,7 +181,10 @@ impl Agents {
         let (mode_prompt, (order, spawn_prompt)) = if mode {
             (params.prompt.take(), (None, None))
         } else {
-            (None, order_of(params.prompt, params.order, by_agent)?)
+            (
+                None,
+                order::order_of(params.prompt, params.order, by_agent)?,
+            )
         };
         let given = params
             .name
@@ -439,7 +389,10 @@ impl Agents {
 
     /// Write the Agent node and mark its first attempt starting: one insert, so a failed write
     /// leaves no node.
-    fn insert_spawned(&self, request: &SpawnRequest) -> Result<(String, Ordinal), RpcError> {
+    pub(super) fn insert_spawned(
+        &self,
+        request: &SpawnRequest,
+    ) -> Result<(String, Ordinal), RpcError> {
         let mut rail = self.shared.rail();
         let node = self.insert_node(&mut rail, request)?;
         let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;
@@ -680,12 +633,17 @@ impl Agents {
             lean: Launcher::load_lean(&self.dir, id)?,
         };
         let started = attempt.to_owned();
+        let adopted = node
+            .worktree()
+            .filter(|worktree| worktree.adopted)
+            .map(|worktree| PathBuf::from(worktree.path));
         let (argv, env, unset) = self
             .launcher
             .launch_on(&claude_code::Request {
                 folders: claude_code::Folders {
                     project: self.project_dir(),
                     data: &self.dir,
+                    adopted: adopted.as_deref(),
                 },
                 id,
                 attempt,

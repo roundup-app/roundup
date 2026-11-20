@@ -1,5 +1,8 @@
 use rpc::{RpcError, code};
 
+/// The G10 refusal name for a listed Worktree whose directory is gone.
+pub(crate) const MISSING_REFUSAL: &str = "worktree_missing";
+
 /// RB3798c: every way a Worktree call fails. The wire code and the message prefix are one value
 /// here, built once in `From<WorktreeError> for RpcError`.
 #[derive(Debug, thiserror::Error)]

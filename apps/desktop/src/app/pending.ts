@@ -1,5 +1,8 @@
 import { outcomeOf } from "./seam";
 
+/** U7641a: how long the user pauses before a body saves by itself, a Pad's and a Todo's alike. */
+export const SAVE_PAUSE_MS = 500;
+
 /** U5172a: how a change to Daemon state ended. `refused` is a known no; `pending` is no answer, so the Daemon may still apply it. */
 export type Applied<T> = { kind: "applied"; value: T } | { kind: "refused"; error: Error; thrown: unknown } | { kind: "pending"; error: Error; thrown: unknown };
 

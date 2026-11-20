@@ -29,6 +29,7 @@ async fn published(extra: Value, gh_view: &str) -> (crate::Agents, String, [temp
                 path: repo.path().to_string_lossy().into_owned(),
                 branch: "main".into(),
                 base: "base".into(),
+                adopted: false,
             },
         )
         .unwrap();
