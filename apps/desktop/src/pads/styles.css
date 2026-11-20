@@ -786,6 +786,10 @@ li[aria-selected="true"] svg {
   padding-inline: var(--reading-gutter);
 }
 
+.pad-changes > button {
+  margin-block-end: var(--space-2);
+}
+
 .pad-changes-part {
   margin: 0;
   padding-inline: var(--space-2);
@@ -794,12 +798,29 @@ li[aria-selected="true"] svg {
   overflow-wrap: anywhere;
 }
 
-.pad-changes-part[data-change="added"] {
-  color: var(--green-12);
-  background: var(--green-3);
+.pad-changes-part {
+  display: flex;
+  gap: var(--space-2);
+  background: var(--sunken);
+  color: var(--text);
 }
 
-.pad-changes-part[data-change="removed"] {
-  color: var(--red-11);
-  background: var(--red-3);
+.pad-changes-part ins,
+.pad-changes-part del {
+  flex: 1;
+  min-width: 0;
+  text-decoration-thickness: 1px;
+}
+
+.pad-changes-part ins {
+  text-decoration: none;
+}
+
+.pad-changes-part[data-change="removed"] del {
+  text-decoration: line-through;
+}
+
+.pad-changes-mark {
+  flex: none;
+  user-select: none;
 }

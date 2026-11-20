@@ -17,7 +17,12 @@ const PadChanges = (props: { before: string | null; after: string; onBack: () =>
     <section class="pad-changes" aria-label={copy.changesSince}>
       <button data-button="quiet" type="button" onClick={() => props.onBack()}>{copy.walkBack}</button>
       <Show when={props.before !== null} fallback={<p class="pad-changes-none">{copy.noEarlierVersion}</p>}>
-        <For each={parts()}>{part => <pre class="pad-changes-part" data-change={part.added ? "added" : "removed"}>{part.value}</pre>}</For>
+        <For each={parts()}>{part => (
+          <pre class="pad-changes-part" data-change={part.added ? "added" : "removed"}>
+            <span class="pad-changes-mark" aria-hidden="true">{part.added ? "+" : "−"}</span>
+            {part.added ? <ins>{part.value}</ins> : <del>{part.value}</del>}
+          </pre>
+        )}</For>
       </Show>
     </section>
   );
