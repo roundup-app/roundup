@@ -105,8 +105,8 @@ impl Rail {
         check_parent(&nodes, kind, parent)?;
         let order = siblings(&nodes, parent).len() as i64;
         tx.execute(
-            "INSERT INTO nodes (kind, name, parent, ord, terminal_id, work, start_attribution)
-                VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO nodes (kind, name, parent, ord, terminal_id, work, start_attribution, auto)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             params![
                 kind_name(kind),
                 name,
@@ -114,7 +114,9 @@ impl Rail {
                 order,
                 terminal_id,
                 work,
-                start_attribution
+                start_attribution,
+                // A7718: a new Workstream starts with Auto on.
+                kind == NodeKind::Workstream
             ],
         )?;
         let id = tx.last_insert_rowid().to_string();

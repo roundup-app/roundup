@@ -186,7 +186,19 @@ impl Agents {
             ctx.emit(EventData::RailChanged);
         }
         outcome?;
+        self.save_resumed_owner(id);
         self.shared.node(id)
+    }
+
+    /// UKR1: the resumed Attempt's Terminal is attached, so its owner record is saved.
+    fn save_resumed_owner(&self, id: &str) {
+        let terminal = match self.shared.runs().slot(id) {
+            Some(Slot::Running(run)) => run.terminal_id().to_owned(),
+            _ => return,
+        };
+        if let Err(error) = self.save_owner(id, &terminal) {
+            eprintln!("agents: could not save {id}'s owner after its resume: {error}");
+        }
     }
 
     /// Check the slot, allocate the Attempt and park the old run in `Slot::Resuming`.
@@ -332,6 +344,59 @@ impl Agents {
         Ok(())
     }
 
+    /// RLH1: stop each live process outside the Daemon's Terminals that holds the Agent's
+    /// conversation (a Claude Code background session naming its settings file), so the new run
+    /// is the only one. The conversation is on disk, so nothing is lost (P9).
+    async fn stop_outside_holders(&self, id: &str) -> Result<(), RpcError> {
+        let Some(marker) = claude_code::settings_marker(&self.dir, id) else {
+            return Ok(());
+        };
+        let own: Vec<u32> = self
+            .shared
+            .terminals
+            .list()
+            .await
+            .iter()
+            .filter_map(|info| self.shared.terminals.program_pid(&info.id))
+            .collect();
+        let launcher = self.launcher.clone();
+        let holders = tokio::task::spawn_blocking(move || {
+            let table = scan::read_table()?;
+            Ok::<_, std::io::Error>(launcher.outside_holders(&marker, &table, &own))
+        })
+        .await
+        .map_err(RpcError::internal)?
+        .map_err(|err| RpcError::conflict(format!("cannot read the process table: {err}")))?;
+        for pid in &holders {
+            let target =
+                nix::unistd::Pid::from_raw(i32::try_from(*pid).map_err(RpcError::internal)?);
+            if let Err(err) = nix::sys::signal::kill(target, nix::sys::signal::Signal::SIGTERM)
+                && err != nix::errno::Errno::ESRCH
+            {
+                return Err(RpcError::conflict(format!(
+                    "cannot stop process {pid}: {err}"
+                )));
+            }
+        }
+        for pid in holders {
+            let target =
+                nix::unistd::Pid::from_raw(i32::try_from(pid).map_err(RpcError::internal)?);
+            let mut waited = 0;
+            let mut tick = tokio::time::interval(Duration::from_millis(50));
+            while nix::sys::signal::kill(target, None).is_ok() {
+                if waited >= HOLDER_STOP_BOUND_MS {
+                    return Err(RpcError::conflict(format!(
+                        "process {pid} still runs {}s after the stop signal",
+                        HOLDER_STOP_BOUND_MS / 1000
+                    )));
+                }
+                tick.tick().await;
+                waited += 50;
+            }
+        }
+        Ok(())
+    }
+
     /// Every step of a resume after the slot is reserved. A step's failure is returned as
     /// `Ended::Failed` and rolled back once by the caller.
     async fn resume_steps(
@@ -357,12 +422,15 @@ impl Agents {
         if let Err(err) = self.stop_replaced_run(ctx, id).await {
             return Ended::Failed(err);
         }
+        if let Err(err) = self.stop_outside_holders(id).await {
+            return Ended::Failed(at_step(id, "stop outside holder", err));
+        }
         let spawned = match self
             .launch_resumed(id, reserved, mode, permission_mode, size)
             .await
         {
             Ok(spawned) => spawned,
-            Err(err) => return Ended::Failed(err),
+            Err(err) => return Ended::Failed(at_step(id, "launch", err)),
         };
         let terminal_id = spawned.id.clone();
         let observed = self.shared.resume_effect("claim", &terminal_id).await;
@@ -392,7 +460,9 @@ impl Agents {
                 Err(RpcError::unknown_outcome(format!("{id}: resume completion lost; do not retry")))
             })),
             () = tokio::time::sleep(ack_bound) => Ended::Failed(RpcError::conflict(format!(
-                "{id}: no acknowledgement within {}s", ack_bound.as_secs()
+                "{id}: acknowledge failed: no acknowledgement within {}s; the new run sent no start \
+                 signal (another live copy of the conversation may hold it)",
+                ack_bound.as_secs()
             ))),
         }
     }
@@ -461,6 +531,17 @@ impl Agents {
                 cleanup.message
             )),
         }
+    }
+}
+
+/// How long a stopped outside holder gets to exit, in milliseconds.
+const HOLDER_STOP_BOUND_MS: u64 = 3000;
+
+/// RLH3: `err` with the step it failed at in its message.
+fn at_step(id: &str, step: &str, err: RpcError) -> RpcError {
+    RpcError {
+        message: format!("{id}: {step} failed: {}", err.message),
+        ..err
     }
 }
 

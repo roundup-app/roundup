@@ -25,6 +25,9 @@ struct Stored {
     /// A12a: the Status last published for the Run, so a reopen starts from it.
     #[serde(default)]
     status: Option<Status>,
+    /// UKR4: the Channel as last read, so a reopen keeps it.
+    #[serde(default)]
+    channel: Option<Channel>,
 }
 
 impl Agents {
@@ -50,11 +53,13 @@ impl Agents {
             cols: adopted.cols,
             rows: adopted.rows,
             program: adopted.program,
-            input_started: false,
+            // A resume continues its conversation, so the input it already received stays.
+            input_started: self.input_started(id),
             inbox: Some(self.launcher.socket_path(id).map_err(RpcError::internal)?),
             socket: rpc::socket_path().ok(),
             background: None,
             status: None,
+            channel: None,
         })
         .map_err(RpcError::internal)?;
         let dir = file
@@ -146,9 +151,7 @@ impl Agents {
                 _ => return false,
             }
         };
-        if node.kind() != NodeKind::Agent
-            || node.attempt().as_ref().map(Ordinal::as_str) != Some(stored.attempt.as_str())
-        {
+        if node.attempt().as_ref().map(Ordinal::as_str) != Some(stored.attempt.as_str()) {
             return false;
         }
         let adopted = terminal::Adopted {
@@ -198,6 +201,10 @@ impl Agents {
                 .is_ok()
             {
                 runs.put(id, Slot::Running(run));
+                // UKR4: the Channel read before the exit stands, with no deadline re-armed.
+                if let (Some(channel), Some(agent)) = (stored.channel, runs.agent_mut(id)) {
+                    agent.facts.channel = Some((stored.attempt.to_string(), channel));
+                }
                 true
             } else {
                 false
@@ -209,7 +216,6 @@ impl Agents {
         if let Some(inbox) = &stored.inbox {
             self.launcher.reattach_inbox(id, inbox);
         }
-        self.shared.watch_channel(id, &stored.attempt);
         tokio::spawn(watch(
             Arc::clone(&self.shared),
             id.to_owned(),
@@ -254,6 +260,21 @@ impl Shared {
         self.update_owner(id, attempt, |stored| {
             stored.status.as_ref() != Some(status) && {
                 stored.status = Some(status.clone());
+                true
+            }
+        })
+    }
+
+    /// UKR4: keep the Channel beside the verified owner, fenced to its Attempt.
+    pub(super) fn save_channel(
+        &self,
+        id: &str,
+        attempt: &str,
+        channel: Channel,
+    ) -> Result<(), RpcError> {
+        self.update_owner(id, attempt, |stored| {
+            stored.channel != Some(channel) && {
+                stored.channel = Some(channel);
                 true
             }
         })
