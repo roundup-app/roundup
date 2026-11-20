@@ -105,9 +105,9 @@ it("u7707b_a_message_whose_agent_is_gone_opens_nothing", async () => {
   expect(connected.rail.selected()).toBeNull();
 });
 
-it("u7707c_a_held_reply_delays_no_key_and_an_old_reply_is_dropped", async () => {
-  const held = new Map<string, (found: Found) => void>();
-  const { app, connected } = await mount(query => new Promise<Found>(resolve => held.set(query, resolve)));
+it("u7707c_a_pending_reply_delays_no_key_and_an_old_reply_is_dropped", async () => {
+  const pending = new Map<string, (found: Found) => void>();
+  const { app, connected } = await mount(query => new Promise<Found>(resolve => pending.set(query, resolve)));
 
   openSwitcher();
   await type("ren");
@@ -117,10 +117,10 @@ it("u7707c_a_held_reply_delays_no_key_and_an_old_reply_is_dropped", async () => 
   expect(connected.rail.selected()).toBe("ws");
   openSwitcher();
   await type("rena");
-  held.get("rena")!(found(hit("pad", "new")));
+  pending.get("rena")?.(found(hit("pad", "new")));
   await waitFor(() => expect(values()).toContain("found:pad:new"));
   // The reply for `ren` arrives last and is never shown.
-  held.get("ren")!(found(hit("pad", "old")));
+  pending.get("ren")?.(found(hit("pad", "old")));
   await Promise.resolve();
   expect(values()).not.toContain("found:pad:old");
   expect(asked(app)).toEqual(["ren", "rena"]);
@@ -137,20 +137,20 @@ it("u7707c_searching_none_and_failed_states_show_with_retry", async () => {
   await vi.advanceTimersByTimeAsync(0);
   const dialog = within(screen.getByRole("dialog", { name: "Switch to" }));
 
-  expect(await dialog.findByText("index is down")).toBeDefined();
-  expect(dialog.queryByText("Searching")).toBeNull();
+  expect(document.querySelector(".switcher-searching")).toBeNull();
   fail = false;
   fireEvent.click(dialog.getByRole("button", { name: "Retry" }));
   expect(asked(app)).toEqual(["zzzz", "zzzz"]);
   // No reply yet: quiet until 150 ms have passed, and no no-match state while it is out.
-  expect(dialog.queryByText("Searching")).toBeNull();
-  expect(dialog.queryByText("No match")).toBeNull();
+  expect(document.querySelector(".switcher-searching")).toBeNull();
+  expect(dialog.queryByText(/“zzzz”/)).toBeNull();
   await vi.advanceTimersByTimeAsync(150);
-  expect(await dialog.findByText("Searching")).toBeDefined();
+  expect(document.querySelector(".switcher-searching")).not.toBeNull();
   reply!(found());
   await vi.advanceTimersByTimeAsync(0);
-  await waitFor(() => expect(dialog.queryByText("Searching")).toBeNull());
-  expect(await dialog.findByText("No match")).toBeDefined();
+  expect(document.querySelector(".switcher-searching")).toBeNull();
+  // U51's empty state: with an open Project it offers the name instead of saying `No match`.
+  expect(dialog.getByText(/“zzzz”/)).toBeDefined();
 });
 
 it("u7707d_ranges_mark_exactly_the_matched_characters", async () => {

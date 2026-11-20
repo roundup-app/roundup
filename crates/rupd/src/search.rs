@@ -39,7 +39,12 @@ fn snippet(marked: &str) -> (String, Vec<Span>) {
     let end = (first.saturating_sub(LEAD) + WIDTH).min(chars.len());
     let start = end.saturating_sub(WIDTH).min(first);
     let units = |upto: usize| -> u32 {
-        chars[start..upto].iter().map(|c| c.len_utf16() as u32).sum()
+        chars
+            .get(start..upto)
+            .unwrap_or_default()
+            .iter()
+            .map(|c| c.len_utf16() as u32)
+            .sum()
     };
     let ranges = found
         .iter()
@@ -49,7 +54,10 @@ fn snippet(marked: &str) -> (String, Vec<Span>) {
             end: units(b.min(end)),
         })
         .collect();
-    (chars[start..end].iter().collect(), ranges)
+    (
+        chars.get(start..end).unwrap_or_default().iter().collect(),
+        ranges,
+    )
 }
 
 /// The snippet of the first text that holds a match, else of the first text.

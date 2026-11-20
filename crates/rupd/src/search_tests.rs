@@ -43,12 +43,23 @@ fn say(dir: &Path, from: &str, to: &str, body: &str) {
 
 async fn seeded(dir: &Path) -> Daemon {
     let daemon = test_daemon(dir).unwrap();
-    call_as(&daemon, Actor::user(), json!({"query":""})).await.unwrap();
+    call_as(&daemon, Actor::user(), json!({"query":""}))
+        .await
+        .unwrap();
     for (method, params) in [
-        ("todo.create", json!({"title":"rotate","body":"rotate the token","owner":Actor::user()})),
-        ("pad.create", json!({"name":"notes","text":"token rotation notes"})),
+        (
+            "todo.create",
+            json!({"title":"rotate","body":"rotate the token","owner":Actor::user()}),
+        ),
+        (
+            "pad.create",
+            json!({"name":"notes","text":"token rotation notes"}),
+        ),
     ] {
-        daemon.route(&mut test_conn(), method, params).await.unwrap();
+        daemon
+            .route(&mut test_conn(), method, params)
+            .await
+            .unwrap();
     }
     say(dir, "a1", "you", "renew the token");
     daemon
@@ -74,7 +85,13 @@ async fn c7707a_a_word_in_a_message_a_pad_and_a_todo_finds_each_with_its_ranges(
     assert_eq!(ids(&found, "pad"), ["notes"]);
     assert_eq!(ids(&found, "message"), ["1"]);
     let hit = |kind: &str| {
-        found["hits"].as_array().unwrap().iter().find(|h| h["kind"] == kind).unwrap().clone()
+        found["hits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|h| h["kind"] == kind)
+            .unwrap()
+            .clone()
     };
     let message = hit("message");
     assert_eq!(message["title"], "a1 to you");
@@ -103,17 +120,36 @@ async fn c7707b_words_match_as_case_and_accent_blind_prefixes_in_one_item() {
     let daemon = seeded(dir.path()).await;
     say(dir.path(), "a1", "a2", "Café résumé tokens");
     assert_eq!(ids(&find(&daemon, "CAFE resu").await, "message"), ["2"]);
-    assert_eq!(ids(&find(&daemon, "tok").await, "message"), ["1", "2"].map(String::from));
+    assert_eq!(
+        ids(&find(&daemon, "tok").await, "message"),
+        ["1", "2"].map(String::from)
+    );
     // every word must match in the same item: `renew` is in a Message, `rotation` in a Pad
-    assert!(find(&daemon, "renew rotation").await["hits"].as_array().unwrap().is_empty());
+    assert!(
+        find(&daemon, "renew rotation").await["hits"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
 async fn c7707b_fts_syntax_in_a_query_is_literal() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = seeded(dir.path()).await;
-    for query in ["\"", "token*", "-token", "NEAR(token", "title:token", "AND", "\"a\" OR", "(("] {
-        call_as(&daemon, Actor::user(), json!({"query":query})).await.unwrap();
+    for query in [
+        "\"",
+        "token*",
+        "-token",
+        "NEAR(token",
+        "title:token",
+        "AND",
+        "\"a\" OR",
+        "((",
+    ] {
+        call_as(&daemon, Actor::user(), json!({"query":query}))
+            .await
+            .unwrap();
     }
     assert!(!ids(&find(&daemon, "-token").await, "todo").is_empty());
 }
@@ -124,17 +160,33 @@ async fn c7707b_a_blank_query_answers_nothing_and_the_cap_sets_more() {
     let daemon = seeded(dir.path()).await;
     for query in ["", "   ", "-- ** \"\""] {
         let found = find(&daemon, query).await;
-        assert_eq!((found["hits"].as_array().unwrap().len(), &found["more"]), (0, &json!(false)));
+        assert_eq!(
+            (found["hits"].as_array().unwrap().len(), &found["more"]),
+            (0, &json!(false))
+        );
     }
     for n in 0..25 {
         say(dir.path(), "a1", "a2", &format!("many words {n}"));
     }
     let found = find(&daemon, "many").await;
-    assert_eq!((found["hits"].as_array().unwrap().len(), &found["more"]), (20, &json!(true)));
-    let found = call_as(&daemon, Actor::user(), json!({"query":"many","limit":5})).await.unwrap();
-    assert_eq!((found["hits"].as_array().unwrap().len(), &found["more"]), (5, &json!(true)));
-    let found = call_as(&daemon, Actor::user(), json!({"query":"many","limit":500})).await.unwrap();
-    assert_eq!((found["hits"].as_array().unwrap().len(), &found["more"]), (25, &json!(false)));
+    assert_eq!(
+        (found["hits"].as_array().unwrap().len(), &found["more"]),
+        (20, &json!(true))
+    );
+    let found = call_as(&daemon, Actor::user(), json!({"query":"many","limit":5}))
+        .await
+        .unwrap();
+    assert_eq!(
+        (found["hits"].as_array().unwrap().len(), &found["more"]),
+        (5, &json!(true))
+    );
+    let found = call_as(&daemon, Actor::user(), json!({"query":"many","limit":500}))
+        .await
+        .unwrap();
+    assert_eq!(
+        (found["hits"].as_array().unwrap().len(), &found["more"]),
+        (25, &json!(false))
+    );
 }
 
 #[tokio::test]
@@ -142,33 +194,70 @@ async fn c7707c_edit_delete_and_rollback_keep_the_index_with_its_rows() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = seeded(dir.path()).await;
     daemon
-        .route(&mut test_conn(), "todo.update", json!({"id":1,"body":"rotate the secret"}))
+        .route(
+            &mut test_conn(),
+            "todo.update",
+            json!({"id":1,"body":"rotate the secret"}),
+        )
         .await
         .unwrap();
     daemon
-        .route(&mut test_conn(), "pad.write", json!({"name":"notes","text":"secret notes"}))
+        .route(
+            &mut test_conn(),
+            "pad.write",
+            json!({"name":"notes","text":"secret notes"}),
+        )
         .await
         .unwrap();
     let found = find(&daemon, "token").await;
     assert_eq!(ids(&found, "todo").len() + ids(&found, "pad").len(), 0);
     let found = find(&daemon, "secret").await;
-    assert_eq!((ids(&found, "todo"), ids(&found, "pad")), (vec!["1".to_string()], vec!["notes".to_string()]));
+    assert_eq!(
+        (ids(&found, "todo"), ids(&found, "pad")),
+        (vec!["1".to_string()], vec!["notes".to_string()])
+    );
 
     let mut db = storage::connect(dir.path()).unwrap();
     let tx = db.transaction().unwrap();
-    tx.execute("INSERT INTO pads(key,name,text,updated_at) VALUES ('k','ghost','phantom',1)", []).unwrap();
+    tx.execute(
+        "INSERT INTO pads(key,name,text,updated_at) VALUES ('k','ghost','phantom',1)",
+        [],
+    )
+    .unwrap();
     tx.rollback().unwrap();
-    assert!(find(&daemon, "phantom").await["hits"].as_array().unwrap().is_empty());
+    assert!(
+        find(&daemon, "phantom").await["hits"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 
-    db.execute("UPDATE pads SET key = 'n2', name = 'renamed' WHERE key = 'notes'", []).ok();
+    db.execute(
+        "UPDATE pads SET key = 'n2', name = 'renamed' WHERE key = 'notes'",
+        [],
+    )
+    .ok();
     db.execute("DELETE FROM pads", []).unwrap();
     db.execute("DELETE FROM todos", []).unwrap();
     db.execute("DELETE FROM messages", []).unwrap();
-    assert!(find(&daemon, "secret").await["hits"].as_array().unwrap().is_empty());
-    assert!(find(&daemon, "renew").await["hits"].as_array().unwrap().is_empty());
+    assert!(
+        find(&daemon, "secret").await["hits"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        find(&daemon, "renew").await["hits"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
     for table in ["todos_fts", "messages_fts", "pads_fts"] {
-        db.execute(&format!("INSERT INTO {table}({table}) VALUES ('integrity-check')"), [])
-            .unwrap_or_else(|e| panic!("{table}: {e}"));
+        db.execute(
+            &format!("INSERT INTO {table}({table}) VALUES ('integrity-check')"),
+            [],
+        )
+        .unwrap_or_else(|e| panic!("{table}: {e}"));
     }
 }
 
@@ -176,8 +265,14 @@ async fn c7707c_edit_delete_and_rollback_keep_the_index_with_its_rows() {
 async fn c7707e_an_agent_call_is_refused_and_the_tool_list_does_not_move() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = seeded(dir.path()).await;
-    let agent = Actor { kind: contracts::ActorKind::Agent, id: "a1".into(), parent: None };
-    let error = call_as(&daemon, agent, json!({"query":"token"})).await.unwrap_err();
+    let agent = Actor {
+        kind: contracts::ActorKind::Agent,
+        id: "a1".into(),
+        parent: None,
+    };
+    let error = call_as(&daemon, agent, json!({"query":"token"}))
+        .await
+        .unwrap_err();
     assert_eq!(error.code, code::FORBIDDEN);
     let listed = contracts::methods::metadata();
     let row = listed.iter().find(|m| m.name == "search.find").unwrap();

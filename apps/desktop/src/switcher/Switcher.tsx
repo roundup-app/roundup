@@ -485,7 +485,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             return entryRow(entry);
           }} />
-        <StatusNote text={search.searching() && copy.searching} live="polite" />
+        <StatusNote text={search.searching() && copy.searching} live="polite" class="switcher-searching" />
         <DialogFailure message={search.failure()} dismiss={search.dismiss} recover={{ run: search.retry }} />
         <Show when={search.more()}><p class="switcher-text-more">{copy.moreMatches}</p></Show>
         <DialogFailure message={makeFailure()} dismiss={() => setMakeFailure(null)} />

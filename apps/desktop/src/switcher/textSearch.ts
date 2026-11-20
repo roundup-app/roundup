@@ -5,8 +5,10 @@ import type { ProjectCalls } from "../app/seam";
 
 /** U7707a: a query shorter than this, trimmed, makes no call. */
 export const MIN_QUERY = 2;
+
 /** U7707d: the most hits the group shows. */
 export const SHOWN_HITS = 20;
+
 /** U7707c: how long a reply may take before the group says `Searching`. */
 const QUIET_MS = 150;
 
@@ -34,7 +36,7 @@ export const createTextSearch = (app: Pick<ProjectCalls, "rpc">, query: () => st
 
     app.rpc("search.find", { query: words }).then(
       found => { if (current()) setPhase({ kind: "found", query: words, found }); },
-      (thrown: unknown) => { if (current()) setPhase({ kind: "failed", query: words, cause: thrown instanceof Error ? thrown.message : String(thrown) }); },
+      (thrown: Error) => { if (current()) setPhase({ kind: "failed", query: words, cause: thrown.message }); },
     ).finally(() => clearTimeout(timer));
   };
 
@@ -47,16 +49,33 @@ export const createTextSearch = (app: Pick<ProjectCalls, "rpc">, query: () => st
 
   onCleanup(() => { latest += 1; });
 
-  const found = () => { const now = phase(); return now.kind === "found" ? now.found : null; };
+
+  const found = () => {
+    const now = phase();
+
+    return now.kind === "found" ? now.found : null;
+  };
 
   return {
     hits: (): SearchHit[] => found()?.hits.slice(0, SHOWN_HITS) ?? [],
     more: () => found()?.more === true,
     /** The reply for the current query has not come in. */
-    awaiting: () => { const now = phase().kind; return now === "waiting" || now === "searching"; },
+    awaiting: () => {
+      const now = phase().kind;
+
+      return now === "waiting" || now === "searching";
+    },
     searching: () => phase().kind === "searching",
-    failure: () => { const now = phase(); return now.kind === "failed" ? now.cause : null; },
-    retry: () => { const now = phase(); if (now.kind === "failed") ask(now.query); },
+    failure: () => {
+      const now = phase();
+
+      return now.kind === "failed" ? now.cause : null;
+    },
+    retry: () => {
+      const now = phase();
+
+      if (now.kind === "failed") ask(now.query);
+    },
     dismiss: () => setPhase({ kind: "idle" }),
   };
 };

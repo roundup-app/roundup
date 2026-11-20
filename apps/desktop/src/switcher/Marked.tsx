@@ -11,6 +11,7 @@ export const Marked = (props: { text: string; ranges: readonly Span[] }) => {
       const from = Math.max(start, at);
 
       if (end <= from) continue;
+
       if (from > at) out.push({ text: props.text.slice(at, from), marked: false });
       out.push({ text: props.text.slice(from, end), marked: true });
       at = end;

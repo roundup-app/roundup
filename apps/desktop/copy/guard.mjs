@@ -23,7 +23,7 @@ const slot = index => `⟦${index}⟧`;
 const product = (left, right, merge) => left.flatMap(a => right.map(b => merge(a, b)));
 
 // Ordered row titles and status lines longer than three words, each named exactly (U5205, U7208b).
-const LONG_LABELS = new Set(['Open a Project first', 'started by ⟦0⟧ (⟦1⟧)', 'Downloading ⟦value⟧ of ⟦value⟧ MB', 'Quick add from any app', '⟦0⟧ belongs to the Terminal', "can't reach ⟦0⟧: ⟦1⟧", 'Pad ⟦0⟧ was deleted', 'Changed since you read it', 'Find active and recent Claude Code conversations in this Project', 'Written by ⟦0⟧ from its TLA+ check', 'Walk to the break']);
+const LONG_LABELS = new Set(['Open a Project first', 'started by ⟦0⟧ (⟦1⟧)', 'Downloading ⟦value⟧ of ⟦value⟧ MB', 'Quick add from any app', '⟦0⟧ belongs to the Terminal', "can't reach ⟦0⟧: ⟦1⟧", 'Pad ⟦0⟧ was deleted', 'Changed since you read it', 'Find active and recent Claude Code conversations in this Project', 'Written by ⟦0⟧ from its TLA+ check', 'Walk to the break', 'More matches: add words to narrow', 'Its Agent is gone']);
 
 // U5919a and U7371a and U7489c (`draft`, a pull request's state, not unfinished work) order these labels word for word, including their vocabulary and length.
 const ORDERED_LABELS = new Set(['New Agent with a Prompt…', 'Jump to What Needs You', 'Open Folder…', 'Door stopped · ⟦0⟧ waiting', 'Close to the Left', 'Close to the Right', 'draft']);
