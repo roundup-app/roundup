@@ -19,6 +19,8 @@ pub struct Worktree {
     pub path: PathBuf,
     pub branch: String,
     pub base: String,
+    /// G11: the user's own worktree; no path here deletes its directory, branch or commits (G12).
+    pub adopted: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -34,6 +36,7 @@ impl From<&contracts::agent::Worktree> for Worktree {
             path: PathBuf::from(&record.path),
             branch: record.branch.clone(),
             base: record.base.clone(),
+            adopted: record.adopted,
         }
     }
 }
@@ -162,6 +165,7 @@ impl Git {
             path: worktree_path(project, id),
             branch: format!("roundup/agent-{id}"),
             base,
+            adopted: false,
         };
         if self.exists(&worktree.path)
             || self
@@ -418,6 +422,9 @@ impl Git {
     }
 
     pub fn require_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+        if worktree.adopted {
+            return Ok(());
+        }
         let (dirty, ahead) = self.unlanded(project, worktree)?;
         if dirty != 0 || ahead != 0 {
             return Err(WorktreeError::Unlanded { dirty, ahead }.into());
@@ -429,6 +436,9 @@ impl Git {
     /// gone is not an error, and only git's record of it is removed.
     pub fn discard(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         self.refuse_in_fork()?;
+        if worktree.adopted {
+            return Ok(());
+        }
         if self.is_enrolled(&worktree.path) {
             return self.discard_prepared(project, worktree);
         }
@@ -502,7 +512,7 @@ impl Git {
             removed: false,
         };
         let result = (|| {
-            for worktree in worktrees {
+            for worktree in worktrees.iter().filter(|worktree| !worktree.adopted) {
                 if scope == RemoveScope::This {
                     self.require_landed(project, worktree)?;
                 }
@@ -557,6 +567,9 @@ impl Git {
 
     pub fn remove_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         self.refuse_in_fork()?;
+        if worktree.adopted {
+            return Ok(());
+        }
         let reference = format!("refs/heads/{}", worktree.branch);
         let expected = self.reference(project, &reference)?;
         self.remove_at_tip(project, worktree, expected.as_deref(), RemoveScope::This)
@@ -858,9 +871,10 @@ pub fn map_cwd(project: &Path, cwd: &Path, worktree_path: &Path) -> Option<PathB
 
 mod error;
 mod exclude;
-pub(crate) use error::WorktreeError;
+pub(crate) use error::{MISSING_REFUSAL, WorktreeError};
 use exclude::exclude_worktrees;
 
+mod adopt;
 mod command;
 mod remote;
 pub use remote::Machines;

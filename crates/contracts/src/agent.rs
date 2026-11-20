@@ -37,6 +37,27 @@ pub struct Worktree {
     pub path: String,
     pub branch: String,
     pub base: String,
+    /// G11: the user's own git worktree the Agent started in; nothing deletes its branch or files.
+    pub adopted: bool,
+}
+/// G10: one git worktree of the Project's repository the user may pick for `agent.adopt`.
+/// `refusal` is `None` or the first failing name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct Adoptable {
+    pub path: String,
+    pub branch: Option<String>,
+    pub ahead: u32,
+    pub dirty: bool,
+    pub refusal: Option<String>,
+}
+/// G10: the user's pick; `branch` is the branch the row showed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct AdoptParams {
+    pub path: String,
+    pub branch: String,
+    #[serde(default)]
+    #[specta(optional, type = String)]
+    pub parent: Option<String>,
 }
 /// A34: what a Workstream's removal took off the Rail, the Todos and the Pads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]

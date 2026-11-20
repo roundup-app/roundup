@@ -4,11 +4,14 @@ import type { RailMenuModel } from "./menu/model";
 import { ModePrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 
+const AdoptWorktree = lazy(() => import("./AdoptWorktree").then(module => ({ default: module.AdoptWorktree })));
+
 const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: module.CreateMode })));
 
 /** The one dialog the Rail has open; it is the single answer to whether one is. */
 export type RailDialog =
   | { kind: "create-mode" }
+  | { kind: "adopt-worktree" }
   | { kind: "opening-prompt"; id: string }
   | { kind: "save-as-mode"; id: string };
 
@@ -24,6 +27,10 @@ export const RailDialogs = (props: { dialog: () => RailDialog | null; close: () 
         const focus = rail.terminalFocus();
         queueMicrotask(() => untrack(() => focus(() => props.rowElement(id)?.focus({ preventScroll: true }))));
         void props.menu.restartMode(id, request);
+      }} />;
+      case "adopt-worktree": return <AdoptWorktree onClose={props.close} onAdopted={id => {
+        props.close();
+        queueMicrotask(() => untrack(() => props.rowElement(id)?.focus({ preventScroll: true })));
       }} />;
       case "opening-prompt": return <ModePrompt restart={() => props.menu.restartMode(dialog.id)} id={dialog.id} onClose={props.close} finalFocus={() => rowOf(dialog.id)} />;
       case "save-as-mode": return <SaveAsMode id={dialog.id} onClose={props.close} finalFocus={() => rowOf(dialog.id)} />;

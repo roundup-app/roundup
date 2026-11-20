@@ -89,7 +89,7 @@ it("lh6_the_terminal_keeps_a_fixed_top_inset_the_header_lies_over", async () => 
 });
 
 it("lh7_editor_and_terminal_icons_open_once_on_the_worktree_or_folder", async () => {
-  const withTree = agent("a", "idle", "waiting", { worktree: { path: "/p/.wt/a", branch: "a", base: "main" } });
+  const withTree = agent("a", "idle", "waiting", { worktree: { path: "/p/.wt/a", branch: "a", adopted: false, base: "main" } });
 
   for (const [nodes, folder] of [[[withTree], "/p/.wt/a"], [undefined, "/p"]] as const) {
     const { app, connected } = await mount(nodes ? { nodes: [...nodes] } : {});
