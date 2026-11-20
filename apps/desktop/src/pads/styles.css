@@ -786,7 +786,7 @@ li[aria-selected="true"] svg {
   padding-inline: var(--reading-gutter);
 }
 
-.pad-changes > button {
+.pad-changes-back {
   margin-block-end: var(--space-2);
 }
 
@@ -809,7 +809,6 @@ li[aria-selected="true"] svg {
 .pad-changes-part del {
   flex: 1;
   min-width: 0;
-  text-decoration-thickness: 1px;
 }
 
 .pad-changes-part ins {

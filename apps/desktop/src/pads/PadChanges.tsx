@@ -15,7 +15,7 @@ const PadChanges = (props: { before: string | null; after: string; onBack: () =>
 
   return (
     <section class="pad-changes" aria-label={copy.changesSince}>
-      <button data-button="quiet" type="button" onClick={() => props.onBack()}>{copy.walkBack}</button>
+      <button data-button="quiet" type="button" class="pad-changes-back" onClick={() => props.onBack()}>{copy.walkBack}</button>
       <Show when={props.before !== null} fallback={<p class="pad-changes-none">{copy.noEarlierVersion}</p>}>
         <For each={parts()}>{part => (
           <pre class="pad-changes-part" data-change={part.added ? "added" : "removed"}>
