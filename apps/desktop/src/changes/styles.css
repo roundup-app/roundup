@@ -20,7 +20,7 @@
 .note-form input { width: calc(var(--space-6) * 3); }
 .note-field { flex: 1 0 100%; }
 .note-form textarea { min-height: calc(var(--space-6) * 2); resize: vertical; }
-.note-batch { min-height: 0; }
+.note-batch { min-height: 0; max-height: calc(var(--space-6) * 8); overflow-y: auto; overscroll-behavior: contain; flex: none; }
 .note-batch ul { margin: 0; padding: 0; list-style: none; }
 .note-batch li { padding-block: var(--space-2); }
 .note-batch p { margin: 0; overflow-wrap: anywhere; }

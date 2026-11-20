@@ -54,6 +54,11 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
     tree?.setGitStatus(status(list));
   });
 
+  // The open file carries the selection: feed it back on every choose.
+  createEffect(() => props.selected, path => {
+    if (path) tree?.getItem(path)?.select();
+  });
+
   onSettled(() => {
     let gone = false;
     const cleanups: (() => void)[] = [];
@@ -86,7 +91,11 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
       const shadow = mount.querySelector("file-tree-container")?.shadowRoot;
       const start = initial.selected;
 
-      if (start) tree.focusPath(start);
+      if (start) {
+        tree.focusPath(start);
+        tree.getItem(start)?.select();
+      }
+
       shadow?.querySelector<HTMLElement>(start ? `[data-item-path="${CSS.escape(start)}"]` : '[tabindex="0"]')?.focus();
 
       // Virtualization replaces rows; restore accessible names on every rendered batch.
