@@ -22,12 +22,12 @@ const longestBlock = async (type: BrowserType) => {
     const page = await engine.newPage();
 
     await page.goto(new URL("/src/changes/u2540.html?dense", server.resolvedUrls.local[0]).href);
-    // The two lazy library chunks load and evaluate once at startup (R3800), not per open; the beat measures the list.
+    // The lazy diff chunk loads and evaluates once at startup (R3800), not per open; the beat measures the list.
     // A string, so vitest does not rewrite the page's native import().
     await page.evaluate(`(async () => {
       const chunks = await import("/src/changes/chunks.ts");
 
-      await Promise.all([chunks.loadReader(), chunks.loadTree()]);
+      await chunks.loadReader();
     })()`);
     await page.evaluate(() => {
       window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: { added: 10000, removed: 10000 } }] }] });

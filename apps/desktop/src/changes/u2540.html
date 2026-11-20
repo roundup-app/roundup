@@ -41,7 +41,12 @@ const comparison = { base: "original-base-commit", oldPath: path, newPath: path,
 
 app.handlers["agent.worktreeState"] = () => ({ ahead: 1, behind: 0, dirty: true });
 
-app.handlers["agent.changedFiles"] = () => ({ files: [{ path, line: 1, status: "modified", counts: dense ? { added: 10000, removed: 10000 } : { added: 2, removed: 2 } }, ...Array.from({ length: dense ? 499 : 1 }, (_, i) => ({ path: `src/file-${i}.ts`, status: "modified", line: 1, counts: { added: 1, removed: 1 } }))] });
+const files = [{ path, line: 1, status: "modified", counts: dense ? { added: 10000, removed: 10000 } : { added: 2, removed: 2 } }, ...Array.from({ length: dense ? 499 : 1 }, (_, i) => ({ path: `src/file-${i}.ts`, status: "modified", line: 1, counts: { added: 1, removed: 1 } }))];
+
+app.handlers["agent.changedFiles"] = () => ({ files });
+
+// U7186c: the Rail icon shows from what the Agent owns, and the Changes view lists the same files.
+app.handlers["agent.ownedChanges"] = ({ id }) => ({ groups: id === "agent-1" ? [{ repo: worktree.path, branch: worktree.branch, base: worktree.base, files }] : [] });
 
 app.handlers["agent.compareFile"] = () => comparison;
 
@@ -66,10 +71,10 @@ if (new URLSearchParams(location.search).has("submit-failure")) {
 render(() => createComponent(App, { app, reducedMotion: () => true, clock: Date.now, prepareIdle: open => { window.__worktrees = open.worktrees; } }), document.getElementById("root"));
 
 if (dense) {
-  // The mounted control registers the App-owned holder before fixture edits enter it.
-  if (!document.querySelector(".worktree-control")) await new Promise(resolve => {
+  // The bottom bar's mounted control registers the App-owned holder before fixture edits enter it.
+  if (!document.querySelector(".resource-strip")) await new Promise(resolve => {
     const observer = new MutationObserver(() => {
-      if (!document.querySelector(".worktree-control")) return;
+      if (!document.querySelector(".resource-strip")) return;
       observer.disconnect();
       resolve();
     });

@@ -572,6 +572,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/src/project_program.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rupd/src/wake.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -598,6 +603,12 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/project_program.rs": {
+    "cleanup": "The fixture serves within the test runtime and its TempDirs drop after the Daemon and terminal owner stop.",
+    "data": "Daemon::open_project receives explicit TempDir project and data paths; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "84e21618682290caf37829bb0631eff1f6f12adda44d487f8955e8c1d23ca564"
   },
   "crates/rupd/tests/ps8_terminal_list.rs": {
     "cleanup": "No separate built-Daemon launch site.",

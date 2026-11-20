@@ -13,6 +13,7 @@ import { activationSource, captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
 import { Menu } from "../ui/Menu";
+import { ProgramRow } from "./ProgramRow";
 import type { draftsOf } from "../state/railStorage";
 
 export const RailFooter = (props: {
@@ -81,6 +82,7 @@ export const RailFooter = (props: {
             rail.select(row.agent, "open");
           }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time datetime={new Date(row.at).toISOString()}>{copy.time(row.at)}</time></button>}</For>
         </Disclosure></Show>
+        <ProgramRow />
         <div class="rail-actions">
           <Menu.Root open={open()} onOpenChange={details => { if (!details.open || canSpawn()) setOpen(details.open); }} onAction={value => { if (!canSpawn()) return;
 

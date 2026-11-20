@@ -243,9 +243,7 @@ export const Pads = (props: {
           aria-label={copy.addPad}
           class="shelf-add"
           ref={(button) => (plusButton = button)}
-          onClick={() => {
-            openField();
-          }}
+          onClick={() => openField()}
         >
           <Icon name="plus" />
           <span>{copy.pad}</span>
@@ -254,7 +252,7 @@ export const Pads = (props: {
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
         <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
-      <OwnerGroups groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows {...of(group)}
+      <OwnerGroups label={copy.pads} groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows {...of(group)}
         selection={selection}
         bulk={bulk}
         pads={pads}

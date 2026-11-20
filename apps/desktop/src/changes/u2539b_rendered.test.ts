@@ -105,49 +105,44 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         const selected = await evaluate<string>(`(() => {
           const nodes = window.__fake.app.handlers['rail.tree']();
           const node = nodes.find(node => node.kind === 'agent');
-          node.worktree = {path:'/p/observer-worktree', branch:'roundup/' + 'long-branch-'.repeat(20), base:'main'};
-          window.__fake.app.handlers['rail.tree'] = () => nodes;
-          window.__fake.app.handlers['agent.changedFiles'] = () => {throw new Error('Changed files unavailable: the Worktree directory could not be read. Retry to check it again.')};
-          window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+          window.__fake.app.handlers['agent.ownedChanges'] = () => {throw new Error('Changed files unavailable: the Worktree directory could not be read. Retry to check it again.')};
+          // An Agent's idle status reads what it owns again (U7186c); the failed read shows in the Toast region.
+          window.__fake.setStatus(node.id, 'idle', 'ready');
           return node.id;
         })()`);
 
         // U7205c: hover overlays a row's end with its controls, so the click lands on the row's start (its state glyph), not its centre.
         await browser("click", `.rail-row[data-id="${selected}"] .row-state`);
-
-        if (lane === "base") await browser("click", ".worktree-control");
         await until("!!document.querySelector('.app-toasts [role=alert]')");
         await capture(lane, "tree-40-failed-read");
       }
 
       if (seed !== "resources") continue;
 
-      await evaluate(`(() => {const nodes = window.__fake.app.handlers['rail.tree'](); nodes.find(node => node.id === 'worktree-agent').worktree.branch = 'roundup/' + 'long-branch-'.repeat(20); window.__fake.app.handlers['rail.tree'] = () => nodes; window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});})()`);
+      const icon = '.rail-row[data-id="worktree-agent"] .changes-icon';
 
       for (const count of [0, 1, 500]) {
-        await evaluate(`window.__fake.app.handlers['agent.changedFiles'] = () => ({files: Array.from({length:${count}}, (_, n) => ({path:'folder/' + 'p'.repeat(120) + n + '.ts', status:'modified', line:1}))})`);
+        await evaluate(`window.__fake.app.handlers['agent.ownedChanges'] = () => ({groups: ${count === 0 ? "[]" : `[{repo: '/p/worktree-agent', branch: 'roundup/' + 'long-branch-'.repeat(20), base: 'main', files: Array.from({length:${count}}, (_, n) => ({path:'folder/' + 'p'.repeat(120) + n + '.ts', status:'modified', line:1, counts:{added:1, removed:0}}))}]`}})`);
+        // An Agent's idle status reads what it owns again, including the empty→nonempty case.
+        await evaluate("window.__fake.setStatus('worktree-agent', 'idle', 'ready')");
         await browser("click", '.rail-row[data-id="worktree-agent"] .row-state');
 
-        if (lane === "head" && count === 0) {
-          await until("!document.querySelector('.worktree-control')");
+        if (count === 0) {
+          await until(`!document.querySelector('${icon}')`);
           await capture(lane, "changes-0");
         } else {
-          await until("!!document.querySelector('.worktree-control')");
-          await browser("click", ".worktree-control");
-          await until("!!document.querySelector('.worktree-panel')");
-
-          if (count > 0) await until("!!document.querySelector('.worktree-panel')?.querySelector('file-tree-container')");
+          await until(`document.querySelector('${icon} .changes-count')?.textContent === '${count}'`);
+          await browser("click", icon);
+          await until("!!document.querySelector('.changes-view .changes-file')");
           await capture(lane, `changes-${count}`);
-          await browser("press", "Escape");
+          await browser("click", ".changes-head button");
+          await until("!document.querySelector('.changes-view')");
         }
-
-        // A new selection forces the next authoritative read, including the empty→nonempty case.
       }
 
-      await evaluate("window.__fake.app.handlers['agent.changedFiles'] = () => { throw new Error('Changed files unavailable: the Worktree directory could not be read. Retry to check it again.') }");
+      await evaluate("window.__fake.app.handlers['agent.ownedChanges'] = () => { throw new Error('Changed files unavailable: the Worktree directory could not be read. Retry to check it again.') }");
+      await evaluate("window.__fake.setStatus('worktree-agent', 'idle', 'ready')");
       await browser("click", '.rail-row[data-id="worktree-agent"] .row-state');
-
-      if (lane === "base") await browser("click", ".worktree-control");
       await until("!!document.querySelector('.app-toasts [role=alert]')");
       await capture(lane, "failed-read");
   }

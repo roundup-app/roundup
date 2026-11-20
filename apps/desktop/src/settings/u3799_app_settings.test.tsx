@@ -77,7 +77,7 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
   const { app } = await openTabs({ api: [], web: [] });
 
   for (const [name, cap] of [["api", 2], ["web", 7]] as const) {
-    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, machine: null, models: { roles: [] } });
+    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, machine: null, program: null, models: { roles: [] } });
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
     fireEvent.click(tab(name));
     await waitFor(() => expect(tab(name).getAttribute("aria-selected")).toBe("true"));
@@ -89,11 +89,11 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
       expect(screen.queryByRole("dialog")).toBeNull();
 
       if (command === "import-work") expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
-      else await waitFor(() => expect(within(page).getByRole("textbox")).toHaveProperty("value", String(cap)));
+      else await waitFor(() => expect(within(page).getByRole("textbox", { name: /Workstreams at once/ })).toHaveProperty("value", String(cap)));
       fireEvent.click(within(page).getByRole("button", { name: "Close" }));
     }
 
-    expect(app.of(path(name)).calls.filter(call => call.method === "project.get")).toHaveLength(1);
+    expect(app.of(path(name)).calls.filter(call => call.method === "project.get")).toHaveLength(2);
     expect(app.of(path(name)).calls.filter(call => call.method === "project.importDiscover")).toHaveLength(1);
   }
 });
@@ -103,7 +103,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
   const { app } = await openTabs({ api: [], web: [] });
 
   for (const [name, cap] of [["api", 2], ["web", 7]] as const) {
-    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, machine: null, models: { roles: [] } });
+    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, machine: null, program: null, models: { roles: [] } });
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
   }
 
@@ -119,9 +119,9 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
       fireEvent.click(await within(page).findByRole("checkbox", { name: new RegExp(name) }));
       fireEvent.click(within(page).getByRole("button", { name: name === "api" ? "Last month" : "Last day" }));
     } else {
-      await waitFor(() => expect(within(page).getByRole("textbox")).toHaveProperty("value", name === "api" ? "2" : "7"));
+      await waitFor(() => expect(within(page).getByRole("textbox", { name: /Workstreams at once/ })).toHaveProperty("value", name === "api" ? "2" : "7"));
 
-      if (name === "api") fireEvent.input(within(page).getByRole("textbox"), { target: { value: "unfinished" } });
+      if (name === "api") fireEvent.input(within(page).getByRole("textbox", { name: /Workstreams at once/ }), { target: { value: "unfinished" } });
     }
   }
 
@@ -133,7 +133,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
     expect(await within(page).findByRole("checkbox", { name: /api/ })).toBeTruthy();
     expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
     expect(within(page).queryByRole("checkbox", { name: /web/ })).toBeNull();
-  } else await waitFor(() => expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished"));
+  } else await waitFor(() => expect(within(page).getByRole("textbox", { name: /Workstreams at once/ })).toHaveProperty("value", "unfinished"));
   expect(app.of(path("api")).calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
 });
 

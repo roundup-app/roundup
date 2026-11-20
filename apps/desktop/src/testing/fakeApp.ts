@@ -31,6 +31,7 @@ const emptyReads: Handlers = {
   "agent.links": () => ({ entries: [] }),
   "project.compareRefs": () => ({ refs: [] }),
   "terminal.list": () => [],
+  "project.programRun": () => ({ state: "none" }),
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),
   "project.resources": () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } }),
   "models.list": () => ({ engines: [{ id: "test-engine", label: "Claude Code" }], models: [{ id: "test-model", label: "Offered model" }], efforts: [] }),

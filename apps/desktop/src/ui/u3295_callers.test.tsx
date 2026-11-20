@@ -3,7 +3,7 @@ import { createSignal, flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { Dialog } from "./Dialog";
 import { mountSwitcher, openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
-import { openDiff, openFile, COMPARISON } from "../changes/noteHarness";
+import { openDiff, COMPARISON } from "../changes/noteHarness";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { NoteRecovery } from "../changes/NoteBatch";
 import { notesFor } from "../changes/notes";
@@ -92,15 +92,14 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   const change = modal();
 
   await change(true);
-  await waitFor(() => expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull());
-  await change(false);
-  expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull();
 
-  if (kind === "worktree") {
-    fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
-    await openFile();
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  } else {
+  // The Changes view stays mounted behind the dialog; the recovery dialog closes, so only it unmounts its form.
+  if (kind !== "worktree") await waitFor(() => expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull());
+  await change(false);
+
+  if (kind !== "worktree") expect(screen.queryByRole("textbox", { name: /Note/ })).toBeNull();
+
+  if (kind !== "worktree") {
     fireEvent.click(screen.getByRole("button", { name: "Recover" }));
     fireEvent.click(await screen.findByRole("button", { name: "Resume note" }));
   }

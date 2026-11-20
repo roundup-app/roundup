@@ -1,4 +1,5 @@
 import { isDoor } from "../state/doorNode";
+import { captureActions } from "./registry";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
@@ -152,11 +153,12 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     press("Enter");
     await waitFor(() => expect(projectMenu.path).toBe("/project6"));
   } else {
+    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] }] });
     connected().rail.select("a1");
-    await screen.findByRole("button", { name: /\d+ changed files?/ });
+    void connected().owned.refresh("a1");
+    await waitFor(() => expect(captureActions(document.body).some(each => each.value === "action:leader:C")).toBe(true));
     runLeader("KeyC");
-    await screen.findByRole("dialog", { name: "Worktree" });
-    await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
+    await screen.findByRole("region", { name: "Changes" });
   }
 
   expect(presses).toBeLessThanOrEqual(3);
@@ -194,7 +196,6 @@ it("u2539b_empty_project_can_submit_an_ask", async () => {
 it("u2539b_strip_items_follow_actionable_facts", async () => {
   const { connected, emulators, daemon } = await mount();
   connected().rail.select("a1");
-  await screen.findByRole("button", { name: /\d+ changed files?/ });
   await waitFor(() => expect(emulators.made.has("t-a1")).toBe(true));
   const terminal = emulators.made.get("t-a1");
   const portal = document.querySelector(".resource-agent");
@@ -232,33 +233,6 @@ it("u2539b_hiding_optional_views_preserves_original_drafts", async () => {
   expect(restored.value).toBe(text);
   expect(connected().drafts.list().find(draft => draft.revision === original.revision)?.destination).toEqual(original.destination);
   expect(daemon.calls.filter(call => call.method === "ask.send")).toHaveLength(0);
-});
-
-it("u2539b_unknown_and_late_answers_never_supply_another_selection", async () => {
-  const { connected, daemon } = await mount();
-  let finish!: (value: { files: [] }) => void;
-  daemon.handlers["agent.changedFiles"] = ({ id }) => id === "a1" ? new Promise(resolve => { finish = resolve; }) : { files: [{ path: "current", status: "modified", line: 1, counts: null }] };
-  connected().rail.select("a1");
-  await waitFor(() => expect(daemon.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
-  expect(document.querySelector(".worktree-control")).toBeNull();
-  connected().rail.select("a2");
-  await screen.findByRole("button", { name: /\d+ changed files?/ });
-  finish({ files: [] });
-  await waitFor(() => expect(Number(document.querySelector(".worktree-control")?.textContent)).toBe(1));
-});
-
-it("u2539b_last_change_removed_closes_to_a_surviving_target", async () => {
-  const { connected, daemon, emulators } = await mount();
-  connected().rail.select("a1");
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
-  await screen.findByRole("dialog", { name: "Worktree" });
-  const original = emulators.made.get("t-a1");
-  daemon.handlers["agent.changedFiles"] = () => ({ files: [] });
-  await connected().worktrees.refresh("a1");
-  await waitFor(() => expect(document.querySelector(".worktree-control, .worktree-panel")).toBeNull());
-  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
-  expect(emulators.made.get("t-a1")).toBe(original);
-  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(0);
 });
 
 it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("u2539b_each_status_has_at_most_three_resting_presentations: %s", async kind => {
@@ -357,7 +331,7 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   key("Slash", { metaKey: true });
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" })).value).toBe(text);
   expect(terminal.selection()).toBe("exact Terminal selection\n second line");
-  expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "action.userList", "message.list", "message.reconcileWork", "todo.listHanded", "config.read", "machine.list", "agent.ownedChanges", "agent.links", "search.find"].includes(call.method))).toEqual([]);
+  expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "project.programRun", "action.userList", "message.list", "message.reconcileWork", "todo.listHanded", "config.read", "machine.list", "agent.ownedChanges", "agent.links", "search.find"].includes(call.method))).toEqual([]);
 });
 
 it("u4274b_project_menu_omits_navigation_toggles", async () => {

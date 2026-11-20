@@ -521,10 +521,6 @@ button, file-tree-container, diffs-container {
 /* Fira Code ships upright faces; xterm/browser synthesize italic at both weights. */
 
 /* U3512e: Drawer/Shelf depth, scroll cues and non-elevation resets retain their roles. */
-.worktree-tree::before,
-.worktree-tree::after {
-  box-shadow: var(--shadow-scroll)
-}
 .shelf-scroll::before,
 .shelf-scroll::after {
   box-shadow: var(--shadow-scroll)

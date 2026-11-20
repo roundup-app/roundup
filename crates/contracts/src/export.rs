@@ -192,6 +192,7 @@ pub fn types() -> specta::Types {
         .register::<crate::project::Prepared>()
         .register::<crate::project::PrepareParams>()
         .register::<crate::project::Mcp>()
+        .register::<crate::project::ProgramRun>()
         .register::<crate::project::ProjectSettings>()
         .register::<crate::project::Choice>()
         .register::<crate::project::ModelList>()

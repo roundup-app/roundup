@@ -53,7 +53,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: copy.importTitle })));
     fireEvent.keyDown(screen.getByRole("region", { name: copy.importTitle }), { key: "Escape", code: "Escape", keyCode: 27 });
     await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
-    expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method.startsWith("project.")).length).toBe(0);
+    expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method !== "project.programRun" && call.method.startsWith("project.")).length).toBe(0);
 
     // A rejected call keeps the selection and the page.
     openProjectPage("import-work");

@@ -466,12 +466,11 @@ it.skipIf(!groundOutput)("u4456c_changes_tree_and_diff", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     await browser("set", "media", "dark");
     await browser("open", url('/src/changes/u2540.html?dense', base));
-    await wait("!!window.__fake && !!document.querySelector('.worktree-control')");
-    await browser("click", ".worktree-control");
-    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
+    await wait("!!window.__fake && !!document.querySelector('.changes-icon')");
+    await browser("click", ".changes-icon");
+    await wait("!!document.querySelector('.changes-file')");
     await groundCapture(base, "changes-fixture", "system", "changes-tree");
-    await read("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
-    await browser("find", "role", "button", "click", "--name", "View diff", "--exact");
+    await browser("click", ".changes-file");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await groundCapture(base, "changes-fixture", "system", "diff");
   }

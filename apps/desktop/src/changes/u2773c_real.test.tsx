@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import type { SendParams } from "@contracts/message/SendParams";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
+import { COMPARISON, openDiff, openFile, saveNote, openChanges } from "./noteHarness";
 import { mountControl } from "./harness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
@@ -23,7 +23,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
     app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "external-revision", text: "external replacement\n" } });
     const send = vi.fn((params: SendParams) => message(1, { to: params.to, body: params.body }));
     app.handlers["message.send"] = send;
-    fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
+    await openChanges();
     await openFile();
     const notes = screen.getByRole("list", { name: "Notes" });
     expect(notes.textContent).toContain(`  ${project} e\u0301\n🐝  `);
