@@ -135,7 +135,7 @@ const closeButton = () => screen.getByRole("button", { name: copy.closeChanges }
 const calls = (app: { calls: { method: string }[] }, method: string) => app.calls.filter(call => call.method === method).length;
 
 /** A listing the test releases itself: each read waits for `release`. */
-const held = () => {
+const pausedListing = () => {
   const waiting: (() => void)[] = [];
 
   return {
@@ -170,7 +170,7 @@ const edited = (app: Awaited<ReturnType<typeof mountRailWith>>["app"], id: strin
 const totals = () => document.querySelector(".changes-totals")?.textContent;
 
 it("u7675a_opening_names_comparing_only_after_150_ms", async () => {
-  const listing = held();
+  const listing = pausedListing();
   const { connected } = await mountControl(() => listing.read(THREE), fresh());
 
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -240,7 +240,7 @@ it("u7675a_a_missing_folder_says_so_and_retry_checks_again", async () => {
 });
 
 /** The view opened over a listing that has not answered. */
-const opening = (listing: ReturnType<typeof held>) => async () => {
+const opening = (listing: ReturnType<typeof pausedListing>) => async () => {
   const mounted = await mountControl(() => listing.read(THREE), fresh());
 
   mounted.connected.showView("changes");
@@ -249,7 +249,7 @@ const opening = (listing: ReturnType<typeof held>) => async () => {
 };
 
 it("u7675a_every_view_state_keeps_close_usable", async () => {
-  const listing = held();
+  const listing = pausedListing();
 
   const states = [
     { name: "opening", make: opening(listing), reached: () => Promise.resolve() },
