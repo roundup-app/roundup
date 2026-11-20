@@ -170,6 +170,7 @@ export const copy = {
   modeWord: "Mode",
   createMode: "Create Mode",
   adoptWord: "Adopt Worktree",
+  adoptRefusedRow: (name: string, path: string) => `${name} · ${path}`,
   adoptTitle: "Adopt a Worktree",
   adoptHint: "Start an Agent in a Worktree you already work in. Its branch, commits and files stay as they are.",
   adoptLoading: "Looking for Worktrees",
