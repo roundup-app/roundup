@@ -48,6 +48,7 @@ it("u7674a_the_first_file_opens_and_focus_lands_in_the_tree", async () => {
   await showing("src/a.ts");
   const row = await treeRow("src/a.ts");
 
+  // SAFETY: a tree row lives in the tree's open shadow root, so its root node is a ShadowRoot.
   await waitFor(() => expect((row.getRootNode() as ShadowRoot).querySelector(":focus, [data-item-focused=true]")).toBeTruthy());
 });
 
