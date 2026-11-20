@@ -488,6 +488,11 @@ describe("U5991 pending changes", () => {
     expect(drawn?.kind === "workstream" && drawn.auto).toBe(true);
   });
 
+  it("u7736_the_shared_workstream_fixture_makes_auto_on", () => {
+    expect(workstream("w").auto).toBe(true);
+    expect(workstream("w", { auto: false }).auto).toBe(false);
+  });
+
   it("u5991a_events_wait_while_a_fetch_runs", async () => {
     const { app, rail } = await open([node("a", { name: "Old" })]);
     const answer = Promise.withResolvers<RailNode[]>();
