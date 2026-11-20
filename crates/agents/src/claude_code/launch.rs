@@ -182,6 +182,19 @@ impl Launcher {
         }
     }
 
+    /// A7686: the Readback call, which runs on `model` and `effort` (`None` is the vendor's own).
+    pub fn readback_call(
+        &self,
+        model: Option<String>,
+        effort: Option<String>,
+    ) -> super::ReadbackCall {
+        super::ReadbackCall {
+            launcher: self.clone(),
+            model,
+            effort,
+        }
+    }
+
     pub(super) fn one_shot_settings(&self, project: &Path) -> Result<Value, String> {
         user_settings(&self.conversation_dir, project).map_err(|err| err.to_string())
     }

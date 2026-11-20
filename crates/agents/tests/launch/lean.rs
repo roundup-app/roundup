@@ -209,7 +209,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
                     Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
                 }
                 Role::Scout => Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion"),
-                Role::Agent => None,
+                Role::Agent | Role::Readback => None,
             };
             assert_eq!(Setup::after(&argv, "--tools"), tools);
             let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
