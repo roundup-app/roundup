@@ -106,6 +106,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   let cursor = -1;
   let rendered: string | undefined;
   let focusHost = () => {};
+
   let moveTo = (_side: "old" | "new", _line: number) => {};
 
   // U7675b: a read of a file whose entry's blob moved on says so and waits for Reload.
@@ -163,6 +164,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
       clearTimeout(timer);
       setLoading(false);
+
       if (result.kind === "ok") {
         setRead(previous => {
           const next = result.value;
@@ -301,7 +303,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
         if (position) mount.scrollTop = position.top;
         remember();
       };
+
       focusHost = () => { mount.tabIndex = -1; mount.focus(); };
+
       const onScroll = () => remember();
 
       // listener-owner: removed with the rendered diff in the dispose below.
@@ -311,7 +315,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
         mount.removeEventListener("scroll", onScroll);
         rendered = undefined;
         moveTo = () => {};
+
         focusHost = () => {};
+
         setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove();
       };
     }).then(error => { if (current && error) setFailure(error); });

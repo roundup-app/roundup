@@ -96,7 +96,7 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
 };
 
 /** Elements a component hands to others by name; a caller never finds them by CSS class. */
-export type FocusTarget = `bubble.${string}` | "terminal.new" | "pane.terminal" | "thread.composer" | "ask.input" | "shelf.tabs" | "shelf.first" | "rail.selected";
+export type FocusTarget = `bubble.${string}` | "terminal.new" | "pane.terminal" | "thread.composer" | "ask.input" | "shelf.tabs" | "shelf.first" | "rail.selected" | `changes.icon.${string}`;
 
 type Provided = HTMLElement | (() => HTMLElement | null | undefined);
 

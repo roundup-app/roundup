@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, For, lazy, Loading, refresh, Sh
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { failureOf } from "../app/failureOf";
 import { BlockedFailure, StatusNote } from "../ink/MountedLine";
+import { focusTarget } from "../keys/focus";
 import { registerKeys } from "../keys/registry";
 import { createMessageToasts } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
@@ -108,6 +109,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const retry = () => {
     asked = true;
+
     if (own()) refresh(listed); else void owned.refresh(props.id);
   };
 
@@ -209,9 +211,11 @@ const Surface = (props: { id: string; name: string }) => {
   ]);
 
   // U7675f: closing returns focus to the Rail icon.
+  const iconId = untrack(() => props.id);
+
   const close = () => {
     hideView("changes");
-    queueMicrotask(() => document.querySelector<HTMLElement>(`[data-changes-icon="${CSS.escape(props.id)}"]`)?.focus());
+    queueMicrotask(() => focusTarget(`changes.icon.${iconId}`)?.focus());
   };
 
   const choose = (value: ChangeTarget) => {
@@ -230,7 +234,10 @@ const Surface = (props: { id: string; name: string }) => {
 
     if (typing(event)) return;
 
-    if (help()) { setHelp(false); return; }
+    if (help()) { setHelp(false);
+
+ return; }
+
     close();
   };
 
@@ -252,9 +259,9 @@ const Surface = (props: { id: string; name: string }) => {
     <Show when={left()}>{file => <StatusNote text={copy.fileGone(file(), copy.remoteMain)} />}</Show>
     <Show when={help()}>
       <section class="changes-keys" aria-label={copy.keys}>
-        <dl>
-          <For each={copy.keysList}>{([key, what]) => <><dt>{key}</dt><dd>{what}</dd></>}</For>
-        </dl>
+        <ul>
+          <For each={copy.keysList}>{what => <li>{what}</li>}</For>
+        </ul>
       </section>
     </Show>
     <div class="changes-body">

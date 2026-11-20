@@ -26,6 +26,7 @@ export const changeStarts = (patch: string): ChangeStart[] => {
     if (mark === "+" || mark === "-") {
       if (!inRun) starts.push(mark === "+" ? { side: "new", line: newLine } : { side: "old", line: oldLine });
       inRun = true;
+
       if (mark === "+") newLine++; else oldLine++;
     } else {
       inRun = false;

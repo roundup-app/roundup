@@ -62,9 +62,14 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
 
     files = new Map(list.map(file => [file.path, file]));
 
-    for (const path of before.keys()) if (!files.has(path)) tree?.remove(path);
+    // A list sharing no file with the last one is a new comparison: the tree starts over at its first row.
+    if (![...files.keys()].some(path => before.has(path))) tree?.resetPaths(list.map(file => file.path));
+    else {
+      for (const path of before.keys()) if (!files.has(path)) tree?.remove(path);
 
-    for (const path of files.keys()) if (!before.has(path)) tree?.add(path);
+      for (const path of files.keys()) if (!before.has(path)) tree?.add(path);
+    }
+
     tree?.setGitStatus(status(list));
   });
 
