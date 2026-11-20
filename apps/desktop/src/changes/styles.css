@@ -118,9 +118,9 @@
   min-block-size: 0;
   padding-block: 0;
   line-height: inherit;
-  font: inherit;
+  font-family: var(--font-mono);
   box-sizing: border-box;
-  inline-size: 7.5rem;
+  inline-size: max-content;
   flex: none;
   text-align: end;
 }
