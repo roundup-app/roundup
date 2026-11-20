@@ -34,19 +34,21 @@ const section = () => within(panel()).getByRole("region", { name: "Pull request"
 it("u7708d_the_drawer_sets_and_clears_the_link", async () => {
   const m = await open([todo(1)]);
   // Keyboard: type the number and press Enter.
-  const field = within(section()).getByRole("textbox", { name: "PR number" });
+  const field = within(section()).getByRole("textbox", { name: "Pull request number" });
   fireEvent.input(field, { target: { value: "12" } });
   fireEvent.submit(only([...panel().querySelectorAll("form")], 0));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.update")).toHaveLength(1));
   expect(only(todoCallsTo(m.app, "todo.update"), 0).params).toMatchObject({ id: 1, pr: 12 });
   // The Daemon's event, not the click, brings the link into the Drawer.
   m.app.emit({ actor: USER, name: "todo.updated", data: first(m) });
-  await within(section()).findByText("Pull request #12");
+  await within(section()).findByText("#12");
+  await waitFor(() => expect(document.activeElement).toBe(within(section()).getByRole("button", { name: "Unlink" })));
   fireEvent.click(within(section()).getByRole("button", { name: "Unlink" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.update")).toHaveLength(2));
   expect(only(todoCallsTo(m.app, "todo.update"), 1).params).toMatchObject({ id: 1, pr: null });
   m.app.emit({ actor: USER, name: "todo.updated", data: first(m) });
-  await within(section()).findByRole("textbox", { name: "PR number" });
+  const again = await within(section()).findByRole("textbox", { name: "Pull request number" });
+  await waitFor(() => expect(document.activeElement).toBe(again));
 });
 
 it("u7708d_a_linked_open_todo_reads_once_and_shows_its_state", async () => {

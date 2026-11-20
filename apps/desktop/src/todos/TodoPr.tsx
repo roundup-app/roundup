@@ -40,13 +40,31 @@ export const TodoPr = (props: { id: number; pr: number | null; done: boolean; on
     if (event.name === "todo.prChecked" && event.data.id === props.id) setRead(event.data);
   }));
 
+  // The form or the Unlink button unmounts on a save; focus moves to its counterpart once the link changes.
+  const [refocus, setRefocus] = createSignal<"field" | "unlink" | null>(null);
+  let section: HTMLElement | undefined;
+
+  createEffect(() => ({ pr: props.pr, target: refocus() }), ({ target }) => {
+    if (target === null) return;
+
+    // Kept until the counterpart is mounted: the save can answer before the Daemon's event changes the link.
+    queueMicrotask(() => {
+      const next = section?.querySelector<HTMLElement>(target === "field" ? "input" : ".todo-pr-clear");
+
+      if (next === null || next === undefined) return;
+
+      next.focus();
+      setRefocus(null);
+    });
+  });
+
   const save = async (pr: number | null) => {
     const todo = id();
     const message = await changeFailureOf(async () => { await app.rpc("todo.update", { id: todo, title: null, body: null, pr }); });
 
     setFailure(message);
 
-    if (message === null) props.onSaved?.();
+    if (message === null) { setRefocus(pr === null ? "field" : "unlink"); props.onSaved?.(); }
   };
 
   const submit = (event: SubmitEvent) => {
@@ -66,7 +84,7 @@ export const TodoPr = (props: { id: number; pr: number | null; done: boolean; on
 
   const stateLabel = (check: PrCheck) => (check.state === "unknown" ? copy.prUnknown(check.cause ?? "") : copy.prState[check.state]);
 
-  return <section class="todo-pr" aria-label={copy.prHeading}>
+  return <section class="todo-pr" ref={section} aria-label={copy.prHeading}>
     <h3>{copy.prHeading}</h3>
     <Show when={props.pr} fallback={
       <form class="todo-pr-form" onSubmit={submit}>
