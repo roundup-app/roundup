@@ -1,12 +1,11 @@
 import { DrawerMaximisedContext } from "../drawer/DrawerHost";
 import { SegmentGroup } from "../ui/SegmentGroup";
 import { appSettings } from "../settings/preferences";
-import { applying } from "../app/pending";
+import { applying, SAVE_PAUSE_MS } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { createCutTitle } from "../ui/cutTitle";
 import { IconButton } from "../ui/IconButton";
 import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
@@ -28,6 +27,7 @@ import { createDraftField } from "../state/draftField";
 
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
+import { PadTitle } from "./PadTitle";
 import { usePadRead } from "./padRead";
 import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
@@ -91,6 +91,8 @@ const PadBody = (props: {
   onFailureCleared?: (() => void) | undefined;
   /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
   onAcknowledged?: ((incarnation: Pad["incarnation"], saved: Pad) => void) | undefined;
+  /** The Pad took this name from its own title (U7641a); a Drawer keyed by name reopens on it. */
+  onRenamed?: ((name: string) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
@@ -166,7 +168,7 @@ const PadBody = (props: {
   let pendingActor: Actor | null = null;
   let closed = false;
   let finalDraft: string | null | undefined;
-  const saveAfterPause = debounce(() => flush(), 500);
+  const saveAfterPause = debounce(() => flush(), SAVE_PAUSE_MS);
 
   /** `typing`: the user is editing, which a change handler knows before `editing` shows it. */
   const capture = (typing = editing()) => {
@@ -456,8 +458,6 @@ const PadBody = (props: {
     return discarded;
   };
 
-  const nameCut = createCutTitle(() => name);
-
   // U7310d: the Pad's failures and conflicts show as toasts.
   createMessageToast({
     get message() { return actionFailure.message() ?? note.message(); }, dismiss: () => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); },
@@ -476,7 +476,7 @@ const PadBody = (props: {
     <div class="pad-body" data-pad-width={maximised() ? width() : undefined} data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
-          <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
+          <PadTitle name={name} incarnation={destination.object} onRenamed={props.onRenamed} locked={deleted()} reload={list.reload} returnFocus={() => editor?.focus()} fail={message => { if (message === null) actionFailure.clear(); else actionFailure.show(message); }} />
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
@@ -595,6 +595,7 @@ export const PadDrawer = (props: {
             padRead.record(saved);
             props.onAcknowledged?.(incarnation, saved);
           }}
+          onRenamed={name => connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} />, "key", { kind: "pad", project: connected.project.path })}
         />
       )}
     </ItemDrawer>
