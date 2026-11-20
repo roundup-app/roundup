@@ -128,6 +128,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
         mark.type = "button";
         mark.className = "diff-note";
         mark.textContent = copy.unfinishedWork;
+        // listener-owner: Pierre builds the mark for its annotation and drops it with the line.
         mark.addEventListener("click", () => hooks.note({ side: metadata.side, start: metadata.start, end: metadata.end }));
 
         return mark;

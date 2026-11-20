@@ -18,6 +18,8 @@ import type { Annotated, Mark } from "./diffDraw";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
+import { ImagePane } from "./ImagePane";
+import { drawsLines, imageHidden, imageSides } from "./images";
 
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
@@ -129,7 +131,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     const value = read();
     const mount = host();
 
-    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null || hidden() !== null) return undefined;
+    if (!value || !mount || !drawsLines(value) || value.status === null || hidden() !== null) return undefined;
 
     return { value, mount };
   }, target => {
@@ -241,7 +243,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     <StatusNote text={failure() ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
-    <Show when={read()}>{value => <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
+    <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
+    <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <Show when={gathered().length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
       <For each={gathered()}>{note => <li><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)} · {copy.originalContext}</p><p class="note-text">{note.text}</p></li>}</For>
     </ul></Show>

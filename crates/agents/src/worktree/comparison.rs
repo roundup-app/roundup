@@ -292,8 +292,8 @@ impl Git {
                 .map_err(failed)?
                 .parse()
                 .map_err(failed)?;
-            if size > CONTENT_LIMIT {
-                return Err(failed("comparison content exceeds 4 MiB"));
+            if size > BUDGET {
+                return Err(failed("comparison content exceeds the 16 MiB read budget"));
             }
             let output = self
                 .output(&worktree.path, &["cat-file", "blob", oid], None)
@@ -314,8 +314,8 @@ impl Git {
             old_path,
             new_path: path.to_owned(),
             status,
-            old: file_content(old),
-            new: file_content(current),
+            old: file_content(old)?,
+            new: file_content(current)?,
         })
     }
 }
@@ -335,8 +335,8 @@ impl Git {
             .map_err(failed)?
             .parse()
             .map_err(failed)?;
-        if size > CONTENT_LIMIT {
-            return Err(failed("comparison content exceeds 4 MiB"));
+        if size > BUDGET {
+            return Err(failed("comparison content exceeds the 16 MiB read budget"));
         }
         let output = self
             .output(dir, &["cat-file", "blob", &object], None)
@@ -387,7 +387,10 @@ pub(super) fn numstat_row(row: &str) -> Option<LineCounts> {
     })
 }
 
-const CONTENT_LIMIT: u64 = 4 * 1024 * 1024;
+const CONTENT_LIMIT: usize = 4 * 1024 * 1024;
+/// The runner's output budget: the most one side's bytes a read holds, which an image over
+/// `CONTENT_LIMIT` is read within so its size is exact (U7694a).
+const BUDGET: u64 = 16 * 1024 * 1024;
 
 fn validate_comparison_path(path: &str) -> Result<(), RpcError> {
     if path.is_empty()
@@ -435,32 +438,67 @@ pub(super) fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u
             return Err(invalid("unsafe_path", "not a regular file"));
         }
         let mut bytes = Vec::new();
-        file.take(CONTENT_LIMIT + 1)
+        file.take(BUDGET + 1)
             .read_to_end(&mut bytes)
             .map_err(failed)?;
-        if u64::try_from(bytes.len()).map_err(failed)? > CONTENT_LIMIT {
-            return Err(failed("comparison content exceeds 4 MiB"));
+        if u64::try_from(bytes.len()).map_err(failed)? > BUDGET {
+            return Err(failed("comparison content exceeds the 16 MiB read budget"));
         }
         return Ok(Some(bytes));
     }
     Err(invalid("unsafe_path", "missing file"))
 }
 
-pub(super) fn file_content(bytes: Option<Vec<u8>>) -> contracts::agent::FileContent {
+/// U2540a, U7694a: what one side's bytes are. Content decides, never a name: text is UTF-8
+/// without NUL, a PNG, JPEG, GIF or WebP signature is an `Image` (its `data` left out over
+/// `CONTENT_LIMIT`), other bytes are `Binary`; any other side over the limit fails.
+pub(super) fn file_content(
+    bytes: Option<Vec<u8>>,
+) -> Result<contracts::agent::FileContent, RpcError> {
+    use base64::Engine;
     use contracts::agent::FileContent;
     use sha2::{Digest, Sha256};
     let Some(bytes) = bytes else {
-        return FileContent::Absent {
+        return Ok(FileContent::Absent {
             revision: "absent".into(),
-        };
+        });
     };
     let revision = format!("sha256:{:x}", Sha256::digest(&bytes));
-    if bytes.contains(&0) {
-        return FileContent::Binary { revision };
+    let mime = if bytes.contains(&0) || std::str::from_utf8(&bytes).is_err() {
+        image_mime(&bytes)
+    } else {
+        None
+    };
+    if let Some(mime) = mime {
+        let over = bytes.len() > CONTENT_LIMIT;
+        return Ok(FileContent::Image {
+            revision,
+            mime: mime.into(),
+            size: u32::try_from(bytes.len()).map_err(failed)?,
+            data: (!over).then(|| base64::engine::general_purpose::STANDARD.encode(&bytes)),
+        });
     }
-    match String::from_utf8(bytes) {
+    if bytes.len() > CONTENT_LIMIT {
+        return Err(failed("comparison content exceeds 4 MiB"));
+    }
+    if bytes.contains(&0) {
+        return Ok(FileContent::Binary { revision });
+    }
+    Ok(match String::from_utf8(bytes) {
         Ok(text) => FileContent::Text { revision, text },
         Err(_) => FileContent::Binary { revision },
+    })
+}
+
+/// The MIME type of the four formats the webview decodes, from the bytes' header.
+fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    use imagesize::ImageType;
+    match imagesize::image_type(bytes).ok()? {
+        ImageType::Png => Some("image/png"),
+        ImageType::Jpeg => Some("image/jpeg"),
+        ImageType::Gif => Some("image/gif"),
+        ImageType::Webp => Some("image/webp"),
+        _ => None,
     }
 }
 

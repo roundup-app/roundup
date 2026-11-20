@@ -47,6 +47,7 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
   let host: HTMLDivElement | undefined;
   let files = new Map<string, ChangedFile>();
   let describe = () => {};
+  let marked: ReadonlySet<string> | undefined;
 
   let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
 
@@ -82,7 +83,10 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
   } }));
 
   // U7676c: a file holding unfinished work says so to assistive tech.
-  createEffect(() => props.unfinished, () => describe());
+  createEffect(() => props.unfinished, set => {
+    marked = set;
+    describe();
+  });
 
   // The open file carries the selection: feed it back on every choose.
   createEffect(() => props.selected, path => {
@@ -132,7 +136,7 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
       describe = () => {
         for (const row of shadow?.querySelectorAll<HTMLElement>('[data-item-type="file"]') ?? []) {
           const file = files.get(row.dataset.itemPath ?? "");
-          const label = file ? `${file.path}, ${statusText[file.status]}${props.unfinished?.has(file.path) ? `, ${copy.unfinishedWork}` : ""}` : "";
+          const label = file ? `${file.path}, ${statusText[file.status]}${marked?.has(file.path) ? `, ${copy.unfinishedWork}` : ""}` : "";
 
           if (file && row.getAttribute("aria-label") !== label) row.setAttribute("aria-label", label);
         }
