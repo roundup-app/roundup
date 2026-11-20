@@ -86,9 +86,19 @@ impl Run {
     /// The turns a `rupd` note started after the first `before`, once `at_least` are written and
     /// the Door has answered them.
     async fn started_by_rupd(&self, before: usize, at_least: usize) -> Vec<Vec<String>> {
-        wait(|| started(self).len() >= before + at_least).await;
+        // A quiet `[settled]` or `[stopped]` note alone is the user's prompt turn taking it along (DTC6(b)), not a
+        // turn a `rupd` note started.
+        let own = |run: &Self| {
+            let mut turns = started(run).split_off(before);
+            turns.retain(|turn| {
+                turn.iter()
+                    .any(|e| !e.contains("[settled]") && !e.contains("[stopped]"))
+            });
+            turns
+        };
+        wait(|| own(self).len() >= at_least).await;
         tokio::time::sleep(Duration::from_secs(3)).await;
-        started(self).split_off(before)
+        own(self)
     }
 
     /// No `rupd` note has started a turn for 5 s: the setup's own notes are all written.
