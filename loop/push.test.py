@@ -66,6 +66,27 @@ class Land(unittest.TestCase):
             self.assertEqual(git(bare, 'rev-parse', 'fix'), before)
 
 
+    def test_l23_a_failing_pre_push_hook_does_not_keep_a_killed_runs_draft_off_github(self):
+        with tempfile.TemporaryDirectory() as path:
+            bare = f'{path}/github.git'
+            git(path, 'init', '--quiet', '--bare', bare)
+            git(path, 'clone', '--quiet', bare, f'{path}/work')
+            work = f'{path}/work'
+            for key, value in (('user.name', 't'), ('user.email', 't@t'), ('commit.gpgsign', 'false')):
+                git(work, 'config', key, value)
+            hooks = Path(path) / 'hooks'
+            hooks.mkdir()
+            (hooks / 'pre-push').write_text('#!/bin/sh\necho "lint failed" >&2\nexit 1\n')
+            (hooks / 'pre-push').chmod(0o755)
+            git(work, 'config', 'core.hooksPath', str(hooks))
+            git(work, 'switch', '-q', '-c', 'draft')
+            (Path(work) / 'half.ts').write_text('const unfinished =\n')
+            git(work, 'add', '.')
+            git(work, 'commit', '-qm', 'the killed run')
+            with chdir(work):
+                push.land(bare, 'draft', ACCOUNT)
+            self.assertEqual(git(bare, 'rev-parse', 'draft'), git(work, 'rev-parse', 'HEAD'))
+
 class Save(unittest.TestCase):
     def test_l23_work_a_killed_run_left_uncommitted_is_committed_but_not_its_captures_or_ignored_files(self):
         with tempfile.TemporaryDirectory() as path:
