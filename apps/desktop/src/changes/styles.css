@@ -108,6 +108,26 @@
 .changes-head .changes-from,
 .changes-head .changes-to { flex: none; }
 
+.changes-remote {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--grey);
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
+.changes-remote-words {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.changes-remote button { flex: none; }
+
 .changes-totals {
   flex: 1;
   min-width: 0;

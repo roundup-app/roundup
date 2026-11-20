@@ -271,3 +271,44 @@ fn mc32_worktree_exclude_is_written_through_file_methods() {
         "no shell touches the exclude: {ran:?}"
     );
 }
+
+#[test]
+fn u7693a_both_calls_run_on_the_projects_machine() {
+    let (dir, project, host, fake) = folder();
+    let origin = dir.path().parent().unwrap().join(format!(
+        "{}-origin",
+        dir.path().file_name().unwrap().to_string_lossy()
+    ));
+    git(
+        &project,
+        &[
+            "init",
+            "-q",
+            "--bare",
+            "-b",
+            "main",
+            &origin.to_string_lossy(),
+        ],
+    );
+    git(
+        &project,
+        &["remote", "add", "origin", &origin.to_string_lossy()],
+    );
+    git(&project, &["push", "-q", "origin", "main"]);
+    git(&project, &["fetch", "-q", "origin"]);
+    git(&project, &["remote", "set-head", "origin", "main"]);
+    assert_eq!(
+        host.remote_main(&project).unwrap(),
+        contracts::agent::RemoteMain::Current
+    );
+    assert_eq!(host.fetch_remote_main(&project).unwrap().commits, 0);
+    let calls = fake.calls.lock().unwrap();
+    assert!(calls.iter().all(|c| c.0 == "m"), "{calls:?}");
+    for verb in ["ls-remote", "fetch"] {
+        assert!(
+            calls.iter().any(|c| c.2.contains(&verb.to_owned())),
+            "{verb}: {calls:?}"
+        );
+    }
+    std::fs::remove_dir_all(origin).unwrap();
+}

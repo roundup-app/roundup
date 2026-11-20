@@ -69,6 +69,8 @@ pub struct Git {
     /// RA4: (build scripts and proc macros off, outgoing calls only) for Rust traces. Both off:
     /// the measurement of RA5 did not cut a run by 20%.
     call_levers: (bool, bool),
+    /// U7693: the time one remote-main call has, in place of 5 s (read) and 60 s (fetch).
+    network_limit: Option<Duration>,
 }
 
 impl Git {
@@ -90,6 +92,7 @@ impl Git {
             scan_reads: Arc::default(),
             call_limit: call_paths::LIMIT,
             call_levers: (false, false),
+            network_limit: None,
         }
     }
 
@@ -102,6 +105,12 @@ impl Git {
     /// Run Rust traces with the cost levers of RA4 on: a test reads how a reply names them.
     pub fn with_call_path_levers(mut self, lean: bool, outgoing_only: bool) -> Self {
         self.call_levers = (lean, outgoing_only);
+        self
+    }
+
+    /// Give each remote-main call `limit`, not the default: a test ends a silent remote quickly.
+    pub fn with_network_limit(mut self, limit: Duration) -> Self {
+        self.network_limit = Some(limit);
         self
     }
 
@@ -914,4 +923,5 @@ mod comparison;
 mod hunks;
 pub use hunks::{DiffInput, Hunk};
 mod owned;
+mod remote_main;
 mod repeat;

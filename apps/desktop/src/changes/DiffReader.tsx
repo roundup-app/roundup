@@ -21,7 +21,7 @@ import { NoteBatch } from "./NoteBatch";
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
 /** U7675e: what the pane lets the view do from a key. */
-export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void };
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void; reload: () => void };
 
 const DiffIdentity = (props: { read: FileComparison | undefined; path: string }) => <div class="diff-identity">
   <p class="diff-path"><Show when={props.read} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
@@ -193,6 +193,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
   createEffect(() => props.keys, keys => keys?.({
     focus: () => focusHost(),
+    reload: () => reload(),
     step: direction => {
       const next = starts[Math.min(Math.max(cursor + direction, 0), starts.length - 1)];
 

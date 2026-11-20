@@ -118,6 +118,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Scan hit (`agent.repeatScan`, `ScanHits`, `ScanHit`, `ScanPlace`) | same | — |
 | Compare target (`CompareTarget`, the `to` of `agent.changedFiles` and `agent.compareFile`) | same | — |
 | File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | same | — |
+| Remote main (`agent.remoteMain`, `RemoteMain`) | Remote main | — |
+| Fetch (`agent.fetchRemoteMain`, `FetchedMain`) | Fetch | — |
 | Base | same | — |
 | Resource use | same | — |
 | Landing | same | — |

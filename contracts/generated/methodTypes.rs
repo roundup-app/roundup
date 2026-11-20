@@ -17,6 +17,8 @@
     Method { name: "agent.readback", params: "agent_ChangedFilesParams", result: "agent_Readback" },
     Method { name: "agent.ownedChanges", params: "agent_NodeId", result: "agent_OwnedChanges" },
     Method { name: "agent.compareFile", params: "agent_CompareFileParams", result: "agent_FileComparison" },
+    Method { name: "agent.remoteMain", params: "agent_NodeId", result: "agent_RemoteMain" },
+    Method { name: "agent.fetchRemoteMain", params: "agent_NodeId", result: "agent_FetchedMain" },
     Method { name: "agent.land", params: "agent_NodeId", result: "agent_Landed" },
     Method { name: "agent.adoptable", params: "null", result: "agent_Adoptable[]" },
     Method { name: "agent.adopt", params: "agent_AdoptParams", result: "agent_RailNode" },
