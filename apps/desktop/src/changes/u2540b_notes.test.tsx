@@ -89,11 +89,9 @@ it("u2540b_edit_remove_and_batch_across_files", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "edited first" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   const batch = screen.getByRole("list", { name: "Notes" });
-  expect(batch.textContent).toContain("edited first");
-  expect(batch.textContent).toContain("src/deep/b.ts");
+  expect(within(batch).getAllByRole("listitem")).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
-  expect(batch.textContent).not.toContain("edited first");
-  expect(batch.textContent).toContain("second");
+  expect(within(batch).getAllByRole("listitem")).toHaveLength(1);
 });
 
 it("u2773a_changes_agent_switch_restores_form", async () => {

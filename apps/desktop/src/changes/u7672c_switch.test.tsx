@@ -136,8 +136,8 @@ it("u7672d_rows_and_reader_keep_their_rules_for_every_value", async () => {
   const row = await treeRow("tree.ts");
 
   expect(rowText(row)).toMatch(/\+3.*-1/);
-  // U7674e: only the first file in tree order is read, never the rest.
-  expect(app.calls.filter(call => call.method === "agent.compareFile").length).toBeLessThanOrEqual(1);
+  // U7674a: each open (the view's, then the Tree value's) reads only its first file, never the rest.
+  expect(app.calls.filter(call => call.method === "agent.compareFile").length).toBeLessThanOrEqual(2);
   expect(files().length).toBe(2);
 });
 

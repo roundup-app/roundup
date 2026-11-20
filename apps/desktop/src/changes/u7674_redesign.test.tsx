@@ -48,7 +48,7 @@ it("u7674a_the_first_file_opens_and_focus_lands_in_the_tree", async () => {
   await showing("src/a.ts");
   const row = await treeRow("src/a.ts");
 
-  await waitFor(() => expect(row.getRootNode().querySelector(":focus, [data-item-focused=true]")).toBeTruthy());
+  await waitFor(() => expect((row.getRootNode() as ShadowRoot).querySelector(":focus, [data-item-focused=true]")).toBeTruthy());
 });
 
 it("u7674a_up_and_down_open_the_next_and_previous_file", async () => {

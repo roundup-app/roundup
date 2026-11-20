@@ -23,7 +23,7 @@ export const firstInTree = (files: readonly ChangedFile[]): string | undefined =
 
       if (leftFolder !== rightFolder) return leftFolder ? -1 : 1;
 
-      const same = byName(left[depth]!, right[depth]!);
+      const same = byName(left[depth] ?? "", right[depth] ?? "");
 
       if (same !== 0) return same;
     }
@@ -131,8 +131,11 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
       if (path) props.onEdit(path);
     };
 
+    // listener-owner: removed in the cleanup below with the tree it listens on.
     mount?.addEventListener("click", choose);
+    // listener-owner: removed in the cleanup below.
     mount?.addEventListener("keydown", onKeyDown);
+    // listener-owner: removed in the cleanup below.
     mount?.addEventListener("dblclick", onDoubleClick);
 
     return () => {

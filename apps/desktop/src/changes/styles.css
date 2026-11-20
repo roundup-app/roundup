@@ -105,8 +105,8 @@
   white-space: nowrap;
 }
 
-.changes-head > .changes-from,
-.changes-head > .changes-to { flex: none; }
+.changes-head .changes-from,
+.changes-head .changes-to { flex: none; }
 
 .changes-totals {
   flex: 1;

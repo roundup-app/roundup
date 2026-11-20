@@ -1,4 +1,3 @@
-import { expect } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -39,7 +38,7 @@ export const openFile = async (path = "src/a.ts") => {
   const row = await treeRow(path);
 
   row.focus();
-  await waitFor(() => expect(screen.getByLabelText("Diff").textContent).toContain(path));
+  await within(screen.getByLabelText("Diff")).findByText(path);
   // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
   await new Promise(resolve => setTimeout(resolve, 50));
 };
