@@ -115,7 +115,7 @@ export const copy = {
   programStop: sharedCopy.stop,
   programStart: sharedCopy.start,
   programStopping: "Stopping…",
-  programStarting: "Starting…",
+  programStarting: sharedCopy.starting,
   programClearing: "Clearing…",
   programStopAria: "Stop program",
   programStopped: "Stopped",

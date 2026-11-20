@@ -47,7 +47,7 @@ it("pg3_the_restart_countdown_ticks_each_second", async () => {
   mounted.app.emit(event({ name: "terminal.changed" }));
 
   const wait = async () => vi.waitFor(() => {
-    const text = document.querySelector(".rail-program .light")?.textContent ?? "";
+    const text = document.querySelector(".rail-program .state")?.textContent ?? "";
 
     expect(text).not.toBe("");
 

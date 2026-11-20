@@ -1,4 +1,4 @@
-import { createSignal, onSettled } from "solid-js";
+import { Show, createSignal, onSettled } from "solid-js";
 import { parseArgsStringToArgv } from "string-argv";
 import { copy } from "./copy";
 import { SettingsGroup } from "../settings/SettingsShell";
@@ -113,17 +113,17 @@ export const ProgramSettings = () => {
 
   return <SettingsGroup name={copy.program}><div class="app-dialog-form">
     <label class="app-dialog-field">
-      <span>{copy.programCommand}</span>
-      <textarea ref={element => { commandField = element; }} class="field-frame" rows={1} aria-label={copy.programCommand} value={command()}
+      <span class="program-label">{copy.programCommand}</span>
+      <textarea ref={element => { commandField = element; }} class="field-frame program-field" rows={1} aria-invalid={refusal() !== null ? "true" : undefined} aria-label={copy.programCommand} value={command()}
         onInput={event => setCommand(event.currentTarget.value)} onBlur={commit} onKeyDown={keys} />
     </label>
     <label class="app-dialog-field">
-      <span>{copy.programFolder}</span>
-      <textarea ref={element => { folderField = element; }} class="field-frame" rows={1} aria-label={copy.programFolder} value={folder()}
+      <span class="program-label">{copy.programFolder}</span>
+      <textarea ref={element => { folderField = element; }} class="field-frame program-field" rows={1} aria-label={copy.programFolder} value={folder()}
         onInput={event => setFolder(event.currentTarget.value)} onBlur={commit} onKeyDown={keys} />
     </label>
     <Field.Root invalid={refusal() !== null}><Field.ErrorText>{refusal() === null ? null : copy.programRefused(refusal() ?? "")}</Field.ErrorText></Field.Root>
     <p>{copy.programNote}</p>
-    <BusyButton kind="quiet" busyLabel={copy.programClearing} disabled={saved() === null} onClick={clear}>{copy.programClear}</BusyButton>
+    <Show when={saved() !== null}><BusyButton kind="quiet" busyLabel={copy.programClearing} onClick={clear}>{copy.programClear}</BusyButton></Show>
   </div></SettingsGroup>;
 };

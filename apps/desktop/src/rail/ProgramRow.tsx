@@ -71,7 +71,7 @@ const ProgramDown = () => {
 
   return <div class="rail-program" role="group" aria-label={copy.program}>
     <span class="name">{copy.program}</span>
-    <span class="light">{why()}</span>
+    <span class="state">{why()}</span>
     <BusyButton kind="quiet" busyLabel={copy.programStarting} onClick={() => act("project.startProgram")}>{copy.programStart}</BusyButton>
   </div>;
 };
