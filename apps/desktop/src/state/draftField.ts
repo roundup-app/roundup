@@ -62,6 +62,7 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
   let followedNow = from?.revision;
   let ownedNow: ReadonlySet<string> = new Set();
   let wrote: Draft | undefined;
+  let retaining: ReturnType<Drafts["edit"]>["retained"] = Promise.resolve(null);
 
   const now = () => {
     const listed = drafts.list(inDestination);
@@ -100,8 +101,9 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
       return draft;
     }
 
-    const written = drafts.edit(destination, next, caret, "ordinary", draft?.status === "draft" ? draft.revision : null).draft;
+    const { draft: written, retained } = drafts.edit(destination, next, caret, "ordinary", draft?.status === "draft" ? draft.revision : null);
 
+    retaining = retained;
     wrote = written;
     own(written.revision);
     followedNow = written.revision;
@@ -152,6 +154,9 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     return draft ? drafts.discard(draft.revision) : Promise.resolve(null);
   };
 
+  /** Settles with the problem of the last keep's retention, or null once the Project holds it. */
+  const retained = () => retaining;
+
   /** The draft the field follows, read-only: its status and identity for the surface's checks. */
-  return { draft: latest, value, recovered, keep, select, save, send, discard };
+  return { draft: latest, value, recovered, keep, select, save, send, discard, retained };
 };

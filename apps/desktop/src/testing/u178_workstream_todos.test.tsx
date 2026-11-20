@@ -67,6 +67,8 @@ it("u2773c_todos_external_change_keeps_original", async () => {
   const original = todo(1, { title: "conflict target", body: "original base" });
   const { connected, app, store } = await mount(original);
   const field = await openBody(original.id, "original base");
+  // The body saves as it is typed (U7641a), so the Daemon already refuses the first save.
+  app.handlers["todo.update"] = () => { throw new RpcError(-32003, "Todo changed since editing began"); };
 
   fireEvent.input(field, { target: { value: "  my edit\n🧪  " } });
   flush();
@@ -76,12 +78,10 @@ it("u2773c_todos_external_change_keeps_original", async () => {
   store.todos = [changed];
   store.changes!.set(original.id, [...store.changes!.get(original.id)!, { seq: 2, before: store.changes!.get(original.id)![0]!.after,
     after: { title: changed.title, body: changed.body, done: false, blockers: [], owner: null, priority: null }, actor: original.creator, changed_at: 1 }]);
-  app.handlers["todo.update"] = () => { throw new RpcError(-32003, "Todo changed since editing began"); };
 
   app.emit(event({ name: "todo.updated", data: changed }));
 
   await screen.findByText(/Changed Todo/);
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
   expect(app.calls.filter(call => call.method === "todo.update")).toEqual([{
     method: "todo.update", params: { id: original.id, title: null, body: "  my edit\n🧪  ", expected_change: 1 },
