@@ -64,7 +64,16 @@ impl Daemon {
     pub(crate) async fn todo_check_prs(&self, _conn: &mut Conn) -> Result<Vec<PrCheck>, RpcError> {
         let mut checks = Vec::new();
         for (id, pr) in self.todos.prs_to_read()? {
-            checks.push(self.check_todo_pr(id, pr).await?);
+            checks.push(match self.check_todo_pr(id, pr).await {
+                Ok(read) => read,
+                // T7708e: one failed completion answers `unknown` and the batch goes on.
+                Err(err) => {
+                    let read = check(id, pr, PrState::Unknown, Some(err.message));
+                    self.ctx(Actor::daemon())
+                        .emit(EventData::TodoPrChecked(read.clone()));
+                    read
+                }
+            });
         }
         Ok(checks)
     }
@@ -273,5 +282,39 @@ mod tests {
                 usize::from(serde_json::to_value(&event.data).unwrap()["name"] == "todo.updated");
         }
         assert_eq!(updated, 1);
+    }
+
+    #[tokio::test]
+    async fn t7708e_a_failed_completion_does_not_stop_the_batch() {
+        let (_bin, _project, daemon) = setup(&prints(&view("MERGED", false, Some(AT))));
+        make(&daemon, json!({"title": "a", "pr": 7})).await;
+        make(&daemon, json!({"title": "b", "pr": 7})).await;
+        rusqlite::Connection::open(daemon.data_dir.join("project.db"))
+            .unwrap()
+            .execute_batch(
+                "CREATE TRIGGER fail_first BEFORE UPDATE OF done ON todos WHEN NEW.id = 1 \
+                 BEGIN SELECT RAISE(ABORT, 'disk full'); END;",
+            )
+            .unwrap();
+        let mut events = daemon.bus.subscribe();
+        let reads = call(&daemon, "todo.checkPrs", json!({})).await.unwrap();
+        assert_eq!(reads[0]["id"], 1);
+        assert_eq!(reads[0]["state"], "unknown");
+        assert!(reads[0]["cause"].as_str().unwrap().contains("disk full"));
+        assert_eq!(reads[1]["id"], 2);
+        assert_eq!(reads[1]["state"], "merged");
+        assert!(!done(&daemon, 1).await);
+        assert!(done(&daemon, 2).await);
+        let mut checked = Vec::new();
+        while let Ok(event) = events.try_recv() {
+            let event = serde_json::to_value(&event.data).unwrap();
+            if event["name"] == "todo.prChecked" {
+                checked.push(event["data"]["id"].clone());
+            }
+        }
+        assert_eq!(checked, [1, 2]);
+        call(&daemon, "todo.checkPr", json!({"id": 1}))
+            .await
+            .unwrap_err();
     }
 }
