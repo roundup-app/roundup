@@ -114,11 +114,14 @@ async fn run(o: &Open) -> Value {
 }
 
 async fn running(o: &Open) -> String {
+    let id = std::cell::RefCell::new(None);
     until("the program runs", || async {
-        run(o).await["state"] == "running"
+        let now = run(o).await;
+        *id.borrow_mut() = now["terminalId"].as_str().map(str::to_owned);
+        now["state"] == "running" && id.borrow().is_some()
     })
     .await;
-    run(o).await["terminalId"].as_str().unwrap().to_owned()
+    id.into_inner().unwrap()
 }
 
 /// The Terminals the Project owns, which is where the program's row comes from.

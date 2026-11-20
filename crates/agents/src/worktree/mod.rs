@@ -64,6 +64,8 @@ pub struct Git {
     host: Arc<RwLock<Option<Arc<dyn Machines>>>>,
     /// C7684d: files `repeat_scan` has read, over every scan this Git (and its readers) ran.
     scan_reads: Arc<std::sync::atomic::AtomicUsize>,
+    /// CP5: the time one call-path trace has.
+    call_limit: Duration,
 }
 
 impl Git {
@@ -83,7 +85,14 @@ impl Git {
             machine: Arc::default(),
             host: Arc::default(),
             scan_reads: Arc::default(),
+            call_limit: call_paths::LIMIT,
         }
+    }
+
+    /// Give each call-path trace `limit`, not the default: a test ends a silent server quickly.
+    pub fn with_call_path_limit(mut self, limit: Duration) -> Self {
+        self.call_limit = limit;
+        self
     }
 
     /// Give each `bounded` operation `bound`, not the default: a test that holds a command
@@ -890,6 +899,7 @@ mod prepared;
 #[path = "../../tests/scenarios/g9.rs"]
 mod g9;
 
+mod call_paths;
 mod comparison;
 mod owned;
 mod repeat;

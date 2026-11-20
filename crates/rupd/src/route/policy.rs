@@ -141,6 +141,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.adopt", Policy { gate: Gate::Adopt, observes: true, ..PLAIN }),
     ("agent.adoptable", Policy { gate: Gate::Adoptable, ..PLAIN }),
     ("agent.brief", Policy { inputs: Inputs::Id, ..PLAIN }),
+    ("agent.callPaths", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.changedFiles", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.channelUp", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.compareFile", Policy { inputs: Inputs::Id, ..PLAIN }),

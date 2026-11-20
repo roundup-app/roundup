@@ -10,6 +10,7 @@ mod a33;
 mod a34;
 mod c7684_repeat_scan;
 mod common;
+mod cp_call_paths;
 mod dcl9;
 mod door;
 mod fork_open;

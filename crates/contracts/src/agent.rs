@@ -7,6 +7,8 @@ use specta::Type;
 
 use crate::{Error, common::Status};
 
+mod call_paths;
+pub use call_paths::*;
 mod scan;
 pub use scan::{ScanHit, ScanHits, ScanPlace};
 mod alert;
