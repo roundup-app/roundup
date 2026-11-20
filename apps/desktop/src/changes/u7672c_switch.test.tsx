@@ -10,8 +10,8 @@ afterEach(cleanup);
 const tree = (name: string) => ({ worktree: { path: `/w/${name}`, branch: `own/${name}`, base: "main", adopted: false } });
 
 const OWNED: OwnedChanges = { groups: [
-  { repo: "/p", branch: "main", base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 } }] },
-  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "other.ts", status: "added", line: 1, counts: { added: 2, removed: 0 } }] },
+  { repo: "/p", branch: "main", base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 }, blob: null }] },
+  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "other.ts", status: "added", line: 1, counts: { added: 2, removed: 0 }, blob: null }] },
 ] };
 
 const LISTS = { tree: ["tree.ts", "loose.ts"], branch: ["branch.ts"] } as const;
@@ -20,7 +20,7 @@ const open = async (nodes = [agent("a", "idle", "ready", tree("a")), agent("b", 
   const mounted = await mountRail(nodes, [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
     app.handlers["agent.ownedChanges"] = () => OWNED;
     // SAFETY: the handler is only reached with the two non-Changes targets, the keys of LISTS.
-    app.handlers["agent.changedFiles"] = ({ to }) => ({ files: LISTS[to as "tree" | "branch"].map(path => ({ path, status: "modified", line: 1, counts: { added: 3, removed: 1 } })) });
+    app.handlers["agent.changedFiles"] = ({ to }) => ({ files: LISTS[to as "tree" | "branch"].map(path => ({ path, status: "modified", line: 1, counts: { added: 3, removed: 1 }, blob: null })) });
     app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   });
 

@@ -38,5 +38,6 @@ mod u3780a_tool_call;
 mod u7186a_owned_changes;
 mod u7610a_changed_counts;
 mod u7672a_remote_main;
+mod u7673_blob;
 mod worktree_state;
 mod worktrees;

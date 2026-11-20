@@ -95,12 +95,61 @@ impl Git {
                 status: ChangedStatus::Untracked,
                 line: text.is_some().then_some(1),
                 counts: text.map(|added| LineCounts { added, removed: 0 }),
+                blob: None,
                 from: None,
             });
         }
         files.retain(|file| !file.path.starts_with(".roundup/"));
         files.sort_by(|a, b| a.path.cmp(&b.path));
+        self.fill_blobs(dir, end, &mut files)?;
         Ok(files)
+    }
+
+    /// U7673a, U7673b: each file's `blob`, git's id of the To side, from one process: the tree
+    /// read for a commit end, `hash-object --stdin-paths` for the working tree.
+    fn fill_blobs(
+        &self,
+        dir: &Path,
+        end: Option<&str>,
+        files: &mut [ChangedFile],
+    ) -> Result<(), RpcError> {
+        let mut hashed: Vec<&mut ChangedFile> = files
+            .iter_mut()
+            .filter(|file| {
+                file.status != ChangedStatus::Deleted
+                    && !file.path.contains('\n')
+                    && (end.is_some()
+                        || std::fs::symlink_metadata(dir.join(&file.path))
+                            .is_ok_and(|meta| !meta.is_dir()))
+            })
+            .collect();
+        if hashed.is_empty() {
+            return Ok(());
+        }
+        let paths: String = hashed
+            .iter()
+            .map(|file| match end {
+                Some(end) => format!("{end}:{}\n", file.path),
+                None => format!("{}\n", file.path),
+            })
+            .collect();
+        let args: &[&str] = match end {
+            Some(_) => &[
+                "--no-optional-locks",
+                "cat-file",
+                "--batch-check=%(objectname)",
+            ],
+            None => &["--no-optional-locks", "hash-object", "--stdin-paths"],
+        };
+        let out = self.output(dir, args, Some(&paths)).map_err(failed)?;
+        if !out.status.success() {
+            return Err(failed(String::from_utf8_lossy(&out.stderr).trim()));
+        }
+        let ids = String::from_utf8_lossy(&out.stdout);
+        for (file, id) in hashed.iter_mut().zip(ids.lines()) {
+            file.blob = (!id.ends_with(" missing")).then(|| id.to_owned());
+        }
+        Ok(())
     }
 
     /// U7672a: the merge base of the remote's main (else the local default branch) with HEAD.
@@ -387,6 +436,7 @@ fn changed_name<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<Change
         status,
         line: None,
         counts: None,
+        blob: None,
         from,
     })
 }

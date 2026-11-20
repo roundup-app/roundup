@@ -8,8 +8,8 @@ import { COMPARISON } from "./noteHarness";
 afterEach(cleanup);
 
 const OWNED: OwnedChanges = { groups: [{ repo: "/p", branch: "main", base: "main", files: [
-  { path: "a.ts", status: "modified", line: 3, counts: { added: 10000, removed: 9998 } },
-  { path: "logo.png", status: "modified", line: null, counts: null },
+  { path: "a.ts", status: "modified", line: 3, counts: { added: 10000, removed: 9998 }, blob: null },
+  { path: "logo.png", status: "modified", line: null, counts: null, blob: null },
 ] }] };
 
 const open = async () => {

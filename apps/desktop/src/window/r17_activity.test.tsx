@@ -42,7 +42,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   app.opened.project = { path: "/p", name: "p" };
   app.handlers["rail.tree"] = () => nodes;
   app.handlers["project.resources"] = () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } });
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] });
 
   setup?.(app);
   const clock = vi.fn(() => Date.now());

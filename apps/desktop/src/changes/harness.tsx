@@ -15,9 +15,9 @@ export const STATE: WorktreeState = { ahead: 2, behind: 1, dirty: true };
 
 const FILES: ChangedFiles = {
   files: [
-    { path: "src/a.ts", status: "modified", line: 12, counts: null },
-    { path: "src/deep/b.ts", status: "added", line: 1, counts: null },
-    { path: "gone.ts", status: "deleted", line: null, counts: null },
+    { path: "src/a.ts", status: "modified", line: 12, counts: null, blob: null },
+    { path: "src/deep/b.ts", status: "added", line: 1, counts: null, blob: null },
+    { path: "gone.ts", status: "deleted", line: null, counts: null, blob: null },
   ],
 };
 

@@ -30,7 +30,7 @@ const longestBlock = async (type: BrowserType) => {
       await chunks.loadReader();
     })()`);
     await page.evaluate(() => {
-      window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: { added: 10000, removed: 10000 } }] }] });
+      window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: { added: 10000, removed: 10000 }, blob: null }] }] });
       window.__fake.setStatus("agent-1", "idle", "idle");
     });
 

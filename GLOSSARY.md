@@ -113,7 +113,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Adopted Worktree (`agent.adopt`, `agent.adoptable`, `Worktree.adopted`) | same | — |
 | Prepared directory | same | — |
 | Worktree state | same | — |
-| Changed file (`ChangedFile`, `ChangedFile.counts`, `LineCounts`) | same | — |
+| Changed file (`ChangedFile`, `ChangedFile.counts`, `ChangedFile.blob`, `LineCounts`) | same | — |
 | Owned changes (`agent.ownedChanges`) | same | — |
 | Scan hit (`agent.repeatScan`, `ScanHits`, `ScanHit`, `ScanPlace`) | same | — |
 | Compare target (`CompareTarget`, the `to` of `agent.changedFiles` and `agent.compareFile`) | same | — |
