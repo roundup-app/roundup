@@ -168,6 +168,27 @@ impl Agents {
         self.call_paths(&p.id, p.to, p.language).await
     }
 
+    async fn agent_readback_start(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::ChangedFilesParams,
+    ) -> Result<contracts::agent::Readback, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user starts a readback"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.readback_start(&p.id, p.to).await
+    }
+
+    async fn agent_readback(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::ChangedFilesParams,
+    ) -> Result<contracts::agent::Readback, RpcError> {
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.readback(&p.id, p.to).await
+    }
+
     async fn agent_repeat_scan(
         &self,
         ctx: &Ctx,
