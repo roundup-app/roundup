@@ -70,6 +70,10 @@ impl Run {
             .as_str()
             .unwrap()
             .to_owned();
+        // These tests count Door notes; A7718's default Auto would add its own.
+        user.request("workstream.setAuto", json!({"id":door,"auto":false}))
+            .await
+            .unwrap();
         let child = user
             .request(
                 "agent.spawn",

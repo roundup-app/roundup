@@ -191,7 +191,8 @@ const Root = (props: {
 };
 
 /** A filtered choice anchored to its trigger. ui-sdk's Popover owns opening, dismissal and focus return. */
-const Picker = (props: { label: string; value: string; savedLabel?: string; items: readonly ComboboxItem[]; onSelect: (value: string) => void }) => {
+/** `quiet` draws the trigger as a text action, named by the label alone. */
+const Picker = (props: { quiet?: boolean; label: string; value: string; savedLabel?: string; items: readonly ComboboxItem[]; onSelect: (value: string) => void }) => {
   const field = useFieldControl();
   const control = field?.props({});
   const caption = createUniqueId();
@@ -204,9 +205,9 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
   const items = () => props.items.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
 
   return <div class="app-select"><span id={caption} class="app-combobox-label">{props.label}</span><Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} initialFocusEl={() => input}>
-    <Popover.Trigger {...control} disabled={field?.disabled() ?? false} class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
+    <Popover.Trigger {...control} disabled={field?.disabled() ?? false} class={props.quiet ? undefined : "app-select-trigger"} data-button={props.quiet ? "quiet" : undefined} aria-labelledby={props.quiet ? undefined : `${caption} ${valueId}`} aria-label={props.quiet ? props.label : undefined}>
       <span id={valueId}>{props.items.find(item => item.value === props.value)?.label ?? props.savedLabel ?? props.label}</span>
-      <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
+      {!props.quiet && <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />}
     </Popover.Trigger>
     <Popover.Content ref={element => { content = element; }} class="choice-picker" aria-label={props.label} side="bottom" align="start">
       {/* A separate Field keeps the query input out of the trigger's field wiring. */}
