@@ -59,3 +59,19 @@ export const nearestFold = (folds: readonly Fold[], selection: { side: "old" | "
 
   return open.find(fold => fold[selection.side][1] > selection.start) ?? open.at(-1);
 };
+
+/** U7692b: the function V runs: it opens the nearest fold with lines still hidden, by the step the library's separator uses; the library says which lines are hidden. */
+export const revealerOf = (
+  view: { isLineRenderable: (line: number) => boolean; expandHunk: (index: number, step: Fold["step"]) => void },
+  diff: FileDiffMetadata,
+  selection: () => { side: "old" | "new"; start: number },
+): () => void => {
+  const folds = foldsOf(diff);
+  const hides = (fold: Fold) => Array.from({ length: fold.new[1] - fold.new[0] }, (_, offset) => fold.new[0] + offset).some(line => !view.isLineRenderable(line));
+
+  return () => {
+    const fold = nearestFold(folds, selection(), hides);
+
+    if (fold) view.expandHunk(fold.index, fold.step);
+  };
+};

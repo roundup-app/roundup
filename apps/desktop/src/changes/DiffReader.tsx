@@ -9,8 +9,8 @@ import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
-import { changeAt, changeStarts, foldsOf, nearestFold, placeOf, sideName } from "./lines";
-import type { ChangeStart, Fold, LineSelection, Places } from "./lines";
+import { changeAt, changeStarts, placeOf, revealerOf, sideName } from "./lines";
+import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead, sameRevisions } from "./fileState";
 import { drawDiff } from "./diffDraw";
@@ -179,15 +179,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
       focusHost = () => { mount.tabIndex = -1; mount.focus(); };
 
-      // U7692b: V opens the fold nearest the focused line by the click's step; the library says which lines are still hidden.
-      const folds = foldsOf(fileDiff);
-      const hides = (fold: Fold) => Array.from({ length: fold.new[1] - fold.new[0] }, (_, offset) => fold.new[0] + offset).some(line => !view.isLineRenderable(line));
-
-      revealNearest = () => {
-        const fold = nearestFold(folds, selection(), hides);
-
-        if (fold) view.expandHunk(fold.index, fold.step);
-      };
+      // U7692b: V opens the fold nearest the focused line by the click's step.
+      revealNearest = revealerOf(view, fileDiff, selection);
 
       // listener-owner: removed with the rendered diff in the dispose below.
       mount.addEventListener("scroll", remember);
