@@ -1,6 +1,8 @@
 //! O2: the Steer an Agent's order becomes at its first `SessionStart`.
 
+use crate::rail_view::{valid_explicit_order, valid_order};
 use contracts::agent::Order;
+use rpc::{RpcError, code};
 
 /// What a Clarification order's Steer tells the Agent after the question.
 const CLARIFY: &str = "Find the intent and elicit what is missing, asking whom \
@@ -52,6 +54,63 @@ pub(crate) fn first_input(
             .filter(|_| has_order_revision && attempt == "1")
             .map(|work| steer(work, details)),
     }
+}
+
+/// DCL9: an Agent's spawn names Job, Consult or Mode; the user's names none.
+pub(crate) fn check_role(
+    role: Option<contracts::agent::SpawnRole>,
+    by_agent: bool,
+) -> Result<Option<contracts::agent::SpawnRole>, RpcError> {
+    if by_agent && role.is_none() {
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
+            "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
+             report, `consult` for a Subagent that answers questions and rests, `mode` for a \
+             Mode under you that keeps a first prompt and asks the user",
+        ));
+    }
+    if !by_agent && role.is_some() {
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
+            "`role` is for an Agent's spawn",
+        ));
+    }
+    Ok(role)
+}
+
+/// O2, O8: the Order a spawn starts with and the prompt kept beside it.
+pub(crate) fn order_of(
+    prompt: Option<String>,
+    order: Option<Order>,
+    by_agent: bool,
+) -> Result<(Option<Order>, Option<String>), RpcError> {
+    let explicit = order.is_some();
+    let (order, spawn_prompt) = match (prompt, order) {
+        (Some(prompt), Some(order)) if by_agent => (Some(order), Some(prompt)),
+        (Some(_), Some(_)) => {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "prompt and order are exclusive",
+            ));
+        }
+        (Some(_), None) if by_agent => {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "an Agent's spawn needs an `order` with the ask, the done condition and the \
+                 limits; add it, and keep the working detail in `prompt`",
+            ));
+        }
+        (Some(prompt), None) => (Some(Order::work(&prompt)), None),
+        (None, order) => (order, None),
+    };
+    if let Some(order) = &order {
+        if explicit {
+            valid_explicit_order(order)?;
+        } else {
+            valid_order(order)?;
+        }
+    }
+    Ok((order, spawn_prompt))
 }
 
 #[cfg(test)]

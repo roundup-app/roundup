@@ -57,63 +57,6 @@ pub(super) struct SpawnRequest {
     mode_prompt: Option<String>,
 }
 
-/// DCL9: an Agent's spawn names Job, Consult or Mode; the user's names none.
-fn check_role(
-    role: Option<contracts::agent::SpawnRole>,
-    by_agent: bool,
-) -> Result<Option<contracts::agent::SpawnRole>, RpcError> {
-    if by_agent && role.is_none() {
-        return Err(RpcError::new(
-            code::INVALID_PARAMS,
-            "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
-             report, `consult` for a Subagent that answers questions and rests, `mode` for a \
-             Mode under you that keeps a first prompt and asks the user",
-        ));
-    }
-    if !by_agent && role.is_some() {
-        return Err(RpcError::new(
-            code::INVALID_PARAMS,
-            "`role` is for an Agent's spawn",
-        ));
-    }
-    Ok(role)
-}
-
-/// O2, O8: the Order a spawn starts with and the prompt kept beside it.
-fn order_of(
-    prompt: Option<String>,
-    order: Option<Order>,
-    by_agent: bool,
-) -> Result<(Option<Order>, Option<String>), RpcError> {
-    let explicit = order.is_some();
-    let (order, spawn_prompt) = match (prompt, order) {
-        (Some(prompt), Some(order)) if by_agent => (Some(order), Some(prompt)),
-        (Some(_), Some(_)) => {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "prompt and order are exclusive",
-            ));
-        }
-        (Some(_), None) if by_agent => {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "an Agent's spawn needs an `order` with the ask, the done condition and the \
-                 limits; add it, and keep the working detail in `prompt`",
-            ));
-        }
-        (Some(prompt), None) => (Some(Order::work(&prompt)), None),
-        (None, order) => (order, None),
-    };
-    if let Some(order) = &order {
-        if explicit {
-            valid_explicit_order(order)?;
-        } else {
-            valid_order(order)?;
-        }
-    }
-    Ok((order, spawn_prompt))
-}
-
 impl Agents {
     /// The Project folder: `.roundup/`'s parent, where its git repository (if any) lives.
     pub(super) fn project_dir(&self) -> &Path {
@@ -225,7 +168,7 @@ impl Agents {
         } else {
             self.lean_of(&mut params, by_agent)?
         };
-        let role = check_role(params.role, by_agent)?;
+        let role = order::check_role(params.role, by_agent)?;
         if mode {
             self.mode_of(ctx, &params)?;
         }
@@ -238,7 +181,10 @@ impl Agents {
         let (mode_prompt, (order, spawn_prompt)) = if mode {
             (params.prompt.take(), (None, None))
         } else {
-            (None, order_of(params.prompt, params.order, by_agent)?)
+            (
+                None,
+                order::order_of(params.prompt, params.order, by_agent)?,
+            )
         };
         let given = params
             .name
