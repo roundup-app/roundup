@@ -165,10 +165,6 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
       await snap("pad-drawer");
       await controls("pad-drawer-control", ".drawer");
       await load("resources", "&view=resources");
-      await read("window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/icon.tsx',status:'modified',line:1}]})");
-      await browser("click", '.rail-row[data-id="worktree-agent"]');
-      await snap("worktree-control");
-      await controls("worktree-control-control", ".worktree-control");
       await load("import-candidates");
       await read("(async () => { const {openProjectPage} = await import('/src/testing/menuProbe.ts'); openProjectPage('import-work', window.__fake.app.opened.project.path); })()");
       await wait("!!document.querySelector('.import-panel')");
@@ -188,10 +184,9 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
     }
 
     await load("resources", "&view=resources");
-    await read("window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/icon.tsx',status:'modified',line:1}]})");
-    await browser("click", '.rail-row[data-id="worktree-agent"]');
-    await wait("!!document.querySelector('.worktree-control')");
-    await states("worktree-trigger", ".worktree-control");
+    await read("window.__fake.app.handlers['agent.ownedChanges'] = () => ({groups:[{repo:'/p/worktree-agent',branch:'roundup/icon',base:'main',files:[{path:'src/icon.tsx',status:'modified',line:1,counts:null}]}]}); window.__fake.setStatus('worktree-agent','idle','ready')");
+    await wait("!!document.querySelector('.changes-icon')");
+    await states("changes-icon", ".changes-icon");
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
   }

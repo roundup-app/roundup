@@ -681,8 +681,6 @@
  "src/ui/s3806b_app_todo_workstream_actions.test.tsx": 22,
  "src/ui/s3806b_bubble_actions.test.tsx": 55,
  "src/ui/s3806b_rail_actions.test.tsx": 12,
- "src/ui/s3806b_review_local_actions.test.tsx": 42,
- "src/ui/s3806b_review_shared_actions.test.tsx": 38,
  "src/ui/tokenColour.test.ts": 1,
  "src/ui/u130_styles.test.ts": 1,
  "src/ui/u133_choices.test.ts": 19,

@@ -19,6 +19,7 @@ import { createProjectDrafts, connectProject, ConnectedProjectContext } from "..
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { ChangesView } from "../changes/ChangesView";
+import { copy } from "../changes/copy";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import { openFile, openChanges } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -28,6 +29,9 @@ import { openRecovery as openMenu, recoveryLabel } from "./recovery";
 
 /** A row opens as left-unsent work and turns to Copy once its original is known gone, which waits on the Daemon's reads. */
 const copyOf = (row: () => HTMLElement) => waitFor(() => within(row()).getByRole("button", { name: "Copy" }), { timeout: 15_000 });
+
+/** U7186a: an Agent owns what its recorded file writes touched, so the test records the write it made to the Agent's Worktree. */
+const recordWrite = (app: AppSeam, node: RailNode, file: string) => app.rpc("agent.signal", { id: node.id, attempt: doorOf(node)!.attempt!, payload: { hook_event_name: "PostToolUse", tool_name: "Write", tool_input: { file_path: join(doorOf(node)!.worktree!.path, file) } } });
 
 describe("u2540 inspection and notes on the real Daemon", () => {
   const execute = promisify(execFile);
@@ -66,6 +70,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     await writeFile(join(real.dir, "same.ts"), "project source\n");
     await writeFile(join(doorOf(first)!.worktree!.path, "same.ts"), "first source\n");
     await writeFile(join(doorOf(second)!.worktree!.path, "same.ts"), "second source\n");
+    await Promise.all([first, second].map(node => recordWrite(app, node, "same.ts")));
     connected = await connectProject(app, { name: "observer", path: real.dir }, () => true, () => 0);
   }, 120_000);
 
@@ -85,8 +90,8 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
-      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close changes" }));
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      fireEvent.click(within(screen.getByRole("region", { name: copy.changes })).getByRole("button", { name: "Close changes" }));
+      await waitFor(() => expect(screen.queryByRole("region", { name: copy.changes })).toBeNull());
     }
 
     cleanup();
@@ -97,6 +102,8 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     const { app } = connected;
     const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Landing", order: { kind: "work", ask: "inspect", limits: [] } });
     const path = doorOf(node)!.worktree!.path;
+
+    await recordWrite(app, node, "same.ts");
     const worktreeGit = (...args: string[]) => execute("git", ["-C", path, ...args], { timeout: 30_000 });
 
     // The ownership observer intentionally dirtied the Project copy; Landing requires a clean Base.
@@ -127,8 +134,8 @@ describe("u2540 inspection and notes on the real Daemon", () => {
             fireEvent.click(screen.getByRole("button", { name: "Save" }));
           }
 
-          fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close changes" }));
-          await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+          fireEvent.click(within(screen.getByRole("region", { name: copy.changes })).getByRole("button", { name: "Close changes" }));
+          await waitFor(() => expect(screen.queryByRole("region", { name: copy.changes })).toBeNull());
         }
 
         const landed = await app.rpc("agent.land", { id: node.id });

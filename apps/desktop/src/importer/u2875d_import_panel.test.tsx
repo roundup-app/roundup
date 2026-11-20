@@ -742,11 +742,10 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
 
     await evaluate("localStorage.clear()");
     await browser("open", `${server.resolvedUrls.local[0]}src/changes/u2540.html`);
-    await wait("!!document.querySelector('.worktree-control')");
-    await browser("click", ".worktree-control");
-    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
-    await evaluate("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
-    await click("View diff");
+    await wait("!!document.querySelector('.changes-icon')");
+    await browser("click", ".changes-icon");
+    await wait("!!document.querySelector('.changes-file')");
+    await browser("click", ".changes-file");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await click("Add note");
     await browser("fill", ".note-field textarea", "  keep this exact unfinished note 🐝  ");
@@ -767,10 +766,10 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await capture("U5558e", "diff-keyboard-recovered");
     await browser("focus", ".diff-header [aria-label=Close]");
     await browser("press", "Enter");
-    await wait("!document.querySelector('.diff-reader') && !!document.querySelector('file-tree-container')");
-    await browser("focus", ".worktree-panel > .diff-actions button");
+    await wait("!document.querySelector('.diff-reader') && !!document.querySelector('.changes-files')");
+    await browser("focus", ".changes-head button");
     await browser("press", "Enter");
-    await wait("!document.querySelector('.worktree-panel')");
+    await wait("!document.querySelector('.changes-view')");
     expect(await evaluate("[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Refresh')")).toBe(false);
   } finally {
     try {
