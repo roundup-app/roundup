@@ -1,4 +1,3 @@
-import { makeEventListener } from "@solid-primitives/event-listener";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
@@ -27,10 +26,32 @@ const compareParams = (id: string, path: string, to: CompareTarget): CompareFile
 
 type PatchFile = { name: string; contents: string };
 
+const MAX_EDITS = 2000;
+
+/** The fewest line insertions and deletions any diff from `old` to `next` needs: each line the other text lacks, counted with its repeats. */
+const lineEditFloor = (old: string, next: string) => {
+  const lines = (text: string) => text === "" ? [] : text.replace(/\n$/, "").split("\n");
+  const before = lines(old);
+  const after = lines(next);
+  const left = new Map<string, number>();
+
+  for (const line of before) left.set(line, (left.get(line) ?? 0) + 1);
+  let shared = 0;
+
+  for (const line of after) {
+    const count = left.get(line) ?? 0;
+
+    if (count > 0) { shared += 1; left.set(line, count - 1); }
+  }
+
+  return before.length + after.length - 2 * shared;
+};
+
 /** U2540’s 10,000-line complete rewrite froze the rendered observer beyond 30 seconds.
- * jsdiff bounds that search; its empty-side patches supply a lossless coarse fallback. */
-const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, structuredPatch, formatPatch }: typeof import("diff")) => {
-  const patch = createTwoFilesPatch(oldFile.name, newFile.name, oldFile.contents, newFile.contents, undefined, undefined, { timeout: 100, maxEditLength: 2000 });
+ * jsdiff bounds that search; its empty-side patches supply a lossless coarse fallback.
+ * U7610b: a rewrite that needs more edits than the bound skips the search, which cannot succeed, and its 100 ms timeout. */
+const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, structuredPatch, formatPatch }: Pick<typeof import("diff"), "createTwoFilesPatch" | "structuredPatch" | "formatPatch">) => {
+  const patch = lineEditFloor(oldFile.contents, newFile.contents) > MAX_EDITS ? undefined : createTwoFilesPatch(oldFile.name, newFile.name, oldFile.contents, newFile.contents, undefined, undefined, { timeout: 100, maxEditLength: MAX_EDITS });
 
   if (patch !== undefined) return { patch, coarse: false };
 
@@ -144,7 +165,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const { VirtualizedFileDiff, Virtualizer, processFile } = await (library ??= import("@pierre/diffs").then(module => {
+      const { VirtualizedFileDiff, Virtualizer, processFile, preloadHighlighter, getFiletypeFromFileName } = await (library ??= import("@pierre/diffs").then(module => {
         // U7674d: the library ships no themes in this build; Pierre's own github-light, a Zed theme for Highlights, loads on first use.
         module.registerCustomTheme(DIFF_THEME, () => import("@pierre/highlights/themes/github-light"), "zed");
 
@@ -154,6 +175,12 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
       const { createTwoFilesPatch, structuredPatch, formatPatch } = await import("diff");
 
       if (!current) return;
+
+      const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
+      const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
+      const { patch, coarse } = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
+
+      setCoarse(coarse);
 
       // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
       const container = document.createElement("diffs-container");
@@ -171,13 +198,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
         renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start === metadata.end ? `${metadata.start}` : `${metadata.start}–${metadata.end}`, metadata.start === metadata.end)}: ${metadata.text}`;
 
         return element; },
-        theme: DIFF_THEME, overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
-
-      const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
-      const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
-      const { patch, coarse } = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
-
-      setCoarse(coarse);
+        theme: DIFF_THEME, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
       // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
       await new Promise(resolve => setTimeout(resolve));
@@ -192,25 +213,17 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
 
       if (!current) return;
 
+      // Pierre anchors a visible file of no height to its bottom, so a first render left waiting on the highlighter opened the diff at its last line.
+      await preloadHighlighter({ themes: [DIFF_THEME], langs: [...new Set([oldFile.name, newFile.name].map(getFiletypeFromFileName))], preferredHighlighter: "highlights" });
+
+      if (!current) return;
+
       virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
       setRenderer(view);
 
-      // The initial empty viewport gives Pierre a bottom anchor, and its layout can settle after the first resize: keep the top until the reader scrolls.
-      const initialLayout = new ResizeObserver(() => {
-        if (!current || mount.clientHeight === 0) return;
-        virtualizer.scrollTo({ top: 0 });
-      });
-
-      const stopKeeping = () => initialLayout.disconnect();
-
-      const unlisten = ["wheel", "pointerdown", "keydown"].map(type => makeEventListener(mount, type, stopKeeping, { once: true, passive: true }));
-
-      initialLayout.observe(mount);
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
-      dispose = () => { setRenderer(undefined); stopKeeping();
-
- for (const off of unlisten) off(); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
+      dispose = () => { setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
     }).then(error => { if (current && error) setFailure(error); });
 
     return () => { current = false; dispose?.(); };
