@@ -30,6 +30,8 @@ P5 says "a dropped or rejected Agent leaves no worktree and no branch". The user
 | `agent.worktreeState` | `{id}` | `{ahead, behind, dirty}` |
 | `agent.changedFiles` | `{id, to?: "tree" \| "branch"}` | `{files: [{path, status, line, from?}]}` (U2539a) |
 | `agent.callPaths` | `{id, to?, language?}` | without `language` `{languages: [{language, files, server}]}`, else `{state: "done", symbols, calls, flows, capped, oldSideResolvedThroughNewDependencies}`, `{state: "noServer", cause}` or `{state: "failed", cause}` (CP1) |
+| `agent.readbackStart` | `{id, to?}` | `{state: "reading"}`, or `{state: "failed", kind, cause}` at once (RB2, RB8); the user's call only |
+| `agent.readback` | `{id, to?}` | `{state: "notRead" \| "reading" \| "read" \| "stale" \| "failed", ...}`; a result holds `{overview, diagram, flows, modules, unplaced, gaps}` (RB3, RB5, RB7) |
 | `agent.ownedChanges` | `{id}` | `{groups: [{repo, branch, base, files: [{path, status, line, from?}]}]}` (U7186a) |
 | `agent.land` | `{id}` | `{base}` |
 | `agent.discard` | `{id}` | `null` |

@@ -58,6 +58,7 @@ pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;
+mod readback;
 pub use rail::{home_in, is_home_in, maker_in, registered_in};
 mod links;
 pub mod rewind;
@@ -223,6 +224,7 @@ struct Shared {
     steer: SteerSettings,
     events: events::State,
     rail_view: rail_view::State,
+    readbacks: readback::Readbacks,
     ending: ending::State,
     resume_effect: Option<ResumeEffect>,
 }

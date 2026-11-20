@@ -9,6 +9,8 @@ use crate::{Error, common::Status};
 
 mod call_paths;
 pub use call_paths::*;
+mod readback;
+pub use readback::*;
 mod scan;
 pub use scan::{ScanHit, ScanHits, ScanPlace};
 mod alert;

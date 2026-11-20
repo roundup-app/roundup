@@ -249,7 +249,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Model | same | — |
 | Effort | same | — |
 | Role (`Role::ALL`: `door`, `subagent`, `readback`; the kind of Agent roundup starts, which a Project's Model and Effort are set for) | same | — |
-| Readback (`ReadbackCall`, `Launcher::readback_call`: one run of a fresh model that reads only what it is handed, with no tools, no session, no Terminal and no Rail row) | same | — |
+| Readback (`ReadbackCall`, `Launcher::readback_call`: one run of a fresh model that reads only what it is handed, with no tools, no session, no Terminal and no Rail row; `agent.readbackStart` starts one on the user's call, `agent.readback` reads its state) | same | — |
+| Hunk id (`Hunk::id`: `<path>#<n>`, `n` counting that path's hunks from 1 in diff order, as the changes view names them) | same | — |
+| Gap (`Gap`: where the diff disagrees with the Agent's last message, with `path`, `quote` and the new-side `line`) | same | — |
+| Unplaced (`Account::unplaced`: the hunk ids no flow of a Readback holds, computed by the Daemon) | Unplaced | — |
 | Usage | same | — |
 | Evaluator | same | — |
 

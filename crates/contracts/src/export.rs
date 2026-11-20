@@ -76,6 +76,7 @@ pub fn types() -> specta::Types {
         .register::<crate::agent::ScanHits>()
         .register::<crate::agent::CallPaths>()
         .register::<crate::agent::CallPathsParams>()
+        .register::<crate::agent::Readback>()
         .register::<crate::agent::OwnedGroup>()
         .register::<crate::agent::OwnedChanges>()
         .register::<crate::agent::ChangedFilesParams>()

@@ -100,11 +100,15 @@ impl Agents {
         let worktree = worktree::Worktree::from(&record);
         let stop = Stop(Default::default());
         let cancel = stop.0.clone();
-        tokio::task::spawn_blocking(move || {
+        let answer = tokio::task::spawn_blocking(move || {
             git.call_paths(&worktree, to, language.as_deref(), &cache, cancel)
         })
         .await
-        .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
+        .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))??;
+        if let contracts::agent::CallPaths::Answer(done) = &answer {
+            self.shared.readbacks.traced(id, to, done);
+        }
+        Ok(answer)
     }
 
     /// C7684: where the changed lines of the Agent's Worktree repeat in the repo. Dropping the
