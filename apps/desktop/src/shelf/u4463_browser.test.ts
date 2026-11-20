@@ -52,15 +52,20 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
   await browser("wait", ".shelf-bar [role=switch]");
   // Like u3310's App-seam observer, acknowledge Auto through the Workstream event.
   await evaluate(`(async () => {
-    const tree = await window.__fake.app.rpc('rail.tree', {});
+    let tree = await window.__fake.app.rpc('rail.tree', {});
     window.__fake.app.handlers['workstream.setAuto'] = ({id, auto}) => {
-      tree.find(node => node.id === id).auto = auto;
+      // Fresh nodes each time, so the App's store sees the change.
+      tree = tree.map(node => node.id === id ? {...node, auto} : node);
       window.__fake.app.handlers['rail.tree'] = () => tree;
       window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'workstream.updated',data:{id,auto}});
       return null;
     };
+    // The shared Workstream fixture reads Auto on; this observer starts it off.
+    const id = '${seed === "tree-40" ? "backend" : "n1"}';
+    window.__fake.app.handlers['workstream.setAuto']({id, auto:false});
   })()`);
   await settle();
+  await browser("wait", "--fn", `document.querySelector('.shelf-bar [role=switch]').getAttribute('aria-checked') === 'false'`);
 
   if (seed === "tree-40") await browser("wait", "[data-todo-count]");
 

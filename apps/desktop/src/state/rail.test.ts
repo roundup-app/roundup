@@ -477,6 +477,22 @@ describe("U5991 pending changes", () => {
     expect(frames.at(-1)).toEqual(["kept", "leaving", "made"]);
   });
 
+  it("u7736_a_new_workstream_row_reads_auto_on_before_the_daemon_row", async () => {
+    const { rail } = await open([node("kept")]);
+
+    const lift = rail.drawNew("workstream", "New", null);
+    flush();
+    const drawn = rail.nodes.find(each => each.id !== "kept");
+    lift();
+
+    expect(drawn?.kind === "workstream" && drawn.auto).toBe(true);
+  });
+
+  it("u7736_the_shared_workstream_fixture_makes_auto_on", () => {
+    expect(workstream("w").auto).toBe(true);
+    expect(workstream("w", { auto: false }).auto).toBe(false);
+  });
+
   it("u5991a_events_wait_while_a_fetch_runs", async () => {
     const { app, rail } = await open([node("a", { name: "Old" })]);
     const answer = Promise.withResolvers<RailNode[]>();
