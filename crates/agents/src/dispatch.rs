@@ -621,6 +621,7 @@ impl Agents {
                 models,
                 mcp,
                 workstream_cap: shared.rail().get_workstream_cap()?,
+                program: shared.rail().get_program()?,
             })
         }
     }

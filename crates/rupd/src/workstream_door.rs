@@ -63,6 +63,12 @@ for line in sys.stdin:
         )),
         terminals: terminals.clone(),
         program_statuses: Default::default(),
+        program: Arc::new(crate::project_program::ProgramHost::new(
+            terminals.clone(),
+            agents.clone(),
+            bus.clone(),
+            &dir,
+        )),
         modules: Default::default(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),

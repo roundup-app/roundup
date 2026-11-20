@@ -255,3 +255,51 @@ impl Rail {
         Ok(())
     }
 }
+
+impl Rail {
+    /// PG1: the Project's program, or `None` when it names none.
+    pub fn get_program(&self) -> Result<Option<ProjectProgram>, StoreError> {
+        let stored: Option<String> = self
+            .db
+            .query_row("SELECT program FROM settings WHERE id = 0", [], |row| {
+                row.get(0)
+            })
+            .optional()?
+            .flatten();
+        Ok(stored.map(|json| serde_json::from_str(&json)).transpose()?)
+    }
+
+    /// PG1, PG3: `None` clears the entry and any stop; a replacement keeps the stop.
+    pub fn set_program(&mut self, program: Option<&ProjectProgram>) -> Result<(), StoreError> {
+        let json = program.map(serde_json::to_string).transpose()?;
+        self.db.execute(
+            "INSERT INTO settings (id, program) VALUES (0, ?1)
+                 ON CONFLICT (id) DO UPDATE SET program = excluded.program,
+                    program_stopped = CASE WHEN ?1 IS NULL THEN 0 ELSE program_stopped END",
+            params![json],
+        )?;
+        Ok(())
+    }
+
+    /// PG3: whether the user stopped the program and has not started it since.
+    pub fn program_stopped(&self) -> Result<bool, StoreError> {
+        Ok(self
+            .db
+            .query_row(
+                "SELECT program_stopped FROM settings WHERE id = 0",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?
+            .unwrap_or(false))
+    }
+
+    pub fn set_program_stopped(&mut self, stopped: bool) -> Result<(), StoreError> {
+        self.db.execute(
+            "INSERT INTO settings (id, program_stopped) VALUES (0, ?)
+                 ON CONFLICT (id) DO UPDATE SET program_stopped = excluded.program_stopped",
+            params![stopped],
+        )?;
+        Ok(())
+    }
+}

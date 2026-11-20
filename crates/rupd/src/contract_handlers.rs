@@ -5,6 +5,38 @@ use contracts::ActorKind;
 use rpc::RpcError;
 
 impl Daemon {
+    /// PG1: the entry is checked against the Project folder, then replaces any earlier one.
+    pub(super) async fn project_set_program(
+        &self,
+        _conn: &mut Conn,
+        entry: contracts::project::ProjectProgram,
+    ) -> Result<(), RpcError> {
+        crate::project_program::check(&self.project, &entry)
+            .map_err(|message| RpcError::new(rpc::code::INVALID_PARAMS, message))?;
+        self.agents.store_project_program(Some(&entry))
+    }
+
+    pub(super) async fn project_clear_program(&self, _conn: &mut Conn) -> Result<(), RpcError> {
+        self.agents.store_project_program(None)?;
+        self.program.cleared().await;
+        Ok(())
+    }
+
+    pub(super) async fn project_start_program(&self, _conn: &mut Conn) -> Result<(), RpcError> {
+        self.program.start().await
+    }
+
+    pub(super) async fn project_stop_program(&self, _conn: &mut Conn) -> Result<(), RpcError> {
+        self.program.stop().await
+    }
+
+    pub(super) async fn project_program_run(
+        &self,
+        _conn: &mut Conn,
+    ) -> Result<contracts::project::ProgramRun, RpcError> {
+        Ok(self.program.run())
+    }
+
     pub(super) async fn daemon_get_naming(
         &self,
         conn: &mut Conn,

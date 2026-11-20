@@ -2,6 +2,7 @@
 
 import type * as project$Mcp from "./Mcp";
 import type * as project$ProjectModels from "./ProjectModels";
+import type * as project$ProjectProgram from "./ProjectProgram";
 import type * as project$Worktrees from "./Worktrees";
 export type ProjectSettings = {
 	worktrees: project$Worktrees.Worktrees,
@@ -12,4 +13,6 @@ export type ProjectSettings = {
 	workstreamCap: number | null,
 	/**  MC30: the Machine the folder is on; `None` is this Mac. */
 	machine: string | null,
+	/**  PG1: the Project program; `None` names none. */
+	program: project$ProjectProgram.ProjectProgram | null,
 };

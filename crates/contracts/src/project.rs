@@ -47,6 +47,35 @@ pub struct SetMachine {
     pub machine: Option<String>,
 }
 
+/// PG1: the one outside program a Project names. `dir` is relative to the Project folder and
+/// stays inside it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectProgram {
+    pub argv: Vec<String>,
+    pub dir: String,
+}
+
+/// PG3: where the Project program is: its Terminal runs, the user stopped it, or it waits to
+/// restart after an exit the user did not ask for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(tag = "state", rename_all = "kebab-case")]
+pub enum ProgramRun {
+    /// The Project names none.
+    None,
+    Running {
+        #[serde(rename = "terminalId")]
+        terminal_id: String,
+    },
+    Stopped,
+    Restarting {
+        /// Milliseconds since the epoch at which the restart starts.
+        #[serde(rename = "restartAt")]
+        #[specta(type = specta_typescript::Number)]
+        restart_at: i64,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ProjectSettings {
     pub worktrees: Worktrees,
@@ -59,6 +88,8 @@ pub struct ProjectSettings {
     pub workstream_cap: Option<u32>,
     /// MC30: the Machine the folder is on; `None` is this Mac.
     pub machine: Option<String>,
+    /// PG1: the Project program; `None` names none.
+    pub program: Option<ProjectProgram>,
 }
 
 /// A36: one Model or Effort the Adapter offers. Outside the Adapter `id` is opaque (P4).

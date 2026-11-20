@@ -48,6 +48,7 @@ mod output;
 mod owner_told;
 mod pr_checks;
 mod program_status;
+mod project_program;
 mod queue;
 mod rail_index;
 mod removal;
@@ -135,6 +136,7 @@ pub struct Daemon {
     terminals: Arc<terminal::Terminals>,
     /// PS8: each Terminal's program status.
     program_statuses: Arc<program_status::Statuses>,
+    program: Arc<project_program::ProgramHost>,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
@@ -382,6 +384,7 @@ impl Daemon {
     /// Terminal spawned while this runs is caught by the next round, up to [`STOP_ROUNDS`]; past
     /// that the caller gets an error rather than a loop that never ends.
     pub async fn stop_terminals(&self) -> Result<(), RpcError> {
+        self.program.shut_down();
         // DCR1: record the Jobs this quit cuts off before any program ends.
         if let Some(messages) = self.sender.get() {
             let marked = self.agents.mark_cut_off(|id| {

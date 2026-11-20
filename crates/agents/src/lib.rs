@@ -382,6 +382,7 @@ mod jobs;
 pub use jobs::{JobStop, OpenJob};
 mod model_wiring;
 mod owners;
+mod program;
 mod rail_view;
 mod registration;
 mod removal;

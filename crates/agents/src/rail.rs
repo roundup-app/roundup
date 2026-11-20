@@ -21,7 +21,7 @@ use view::load_nodes;
 use std::path::Path;
 
 use contracts::agent::{CapturedOrder, NodeKind, Order, RailNode, StartAttribution, Worktree};
-use contracts::project::{Mcp, Prepared, ProjectModels, RoleModels, Worktrees};
+use contracts::project::{Mcp, Prepared, ProjectModels, ProjectProgram, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 

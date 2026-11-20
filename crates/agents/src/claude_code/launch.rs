@@ -184,6 +184,14 @@ impl Launcher {
         user_settings(&self.conversation_dir, project).map_err(|err| err.to_string())
     }
 
+    /// A43: the directory of `rup`, when it is absolute.
+    pub fn rup_dir(&self) -> Option<PathBuf> {
+        self.rup
+            .parent()
+            .filter(|dir| dir.is_absolute())
+            .map(Path::to_path_buf)
+    }
+
     pub fn new(
         bin: impl Into<String>,
         claude_json: PathBuf,
