@@ -28,6 +28,8 @@ Use only existing Tokens in owned CSS and inline styles; delete rules whose only
 
 Given the implementation head, when `just perf` runs, then rule 7's absolute Daemon limits and measured regression gates pass (`u488_budgets`, observer: `just perf`). Retain the output, OS, head and available baseline; report unavailable comparisons as skipped, never measured. Daemon perf is no App latency measurement; existing native keystroke budgets remain regression requirements under `docs/perf.md` (policy). Follow the Builder's recorded-observer/Mac procedure only when a required result can be produced solely on the user's Mac.
 
+**U7658a Pad rows sit in one named tree.** Given the Pads tab with an owner group holding a folded Pad group and its Pad rows, when its accessibility tree is read, then exactly one element with `role="tree"` and the accessible name `Pads` is an ancestor of every `treeitem` of the tab, the rows keep their `aria-level`, and the lists between the tree and the rows stay `role="group"`. Test: `u7658a_every_pad_treeitem_has_the_named_pads_tree_as_ancestor` in `apps/desktop/src/pads/`, asserting by role queries that the one `tree` named `Pads` contains every `treeitem`, and that no `treeitem` lacks a `tree` ancestor.
+
 ## Validation
 
 Policy: run every existing test under `apps/desktop/src/pads/` plus the affected U150, U346, U359, U431, U432 and U433 observers; retain live P1–P10, P12 and P14 in `scenarios/pads.md` and all directory-carried scenarios. P11/P13 remain overturned. Run `pnpm install`, `just check origin/main`, the new browser observers and `just perf`. Browser observers use dedicated headless sessions and fresh profiles only. Record one row per failing command, with actual exit code and repair, on the work Issue.
