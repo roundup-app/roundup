@@ -3,7 +3,7 @@ import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
+import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import { useConnectedProject } from "../state/connectedProject";
 import { StatusNote } from "../ink/MountedLine";
@@ -20,19 +20,10 @@ let library: Promise<typeof import("@pierre/diffs")> | undefined;
 /** U2540d: startup and Agent selection never fetch the renderer. */
 export const diffsLoaded = () => library !== undefined;
 
-const compareParams = (id: string, path: string, from: CompareEndpoint | undefined, to: CompareEndpoint | undefined): CompareFileParams => {
-  const params: CompareFileParams = { id, path };
-
-  if (from && to) {
-    params.from = from;
-    params.to = to;
-  }
-
-  return params;
-};
+const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; from?: CompareEndpoint | undefined; to?: CompareEndpoint | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void; recover: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
@@ -99,10 +90,10 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
     stopLoading = () => { current = false; };
   };
 
-  createEffect(() => [worktree(), compareParams(props.id, props.path, props.from, props.to)] as const, ([, params]) => { load(params); });
+  createEffect(() => [worktree(), compareParams(props.id, props.path, props.to ?? "tree")] as const, ([, params]) => { load(params); });
   onCleanup(() => stopLoading());
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return loading() ? undefined : { run: () => load(compareParams(props.id, props.path, props.from, props.to)) }; } });
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return loading() ? undefined : { run: () => load(compareParams(props.id, props.path, props.to ?? "tree")) }; } });
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
   const notes = createMemo(() => props.notes.list(props.id));

@@ -17,6 +17,7 @@ import type { AppSeam, DaemonExit, Project } from "../app/seam";
 import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
 import { createWorktreeState } from "./worktrees";
+import { createChangeTargets } from "./changeTargets";
 import { createLinkSets } from "./linkSets";
 import type { LinkSets } from "./linkSets";
 import { createOwnedChanges } from "../changes/owned";
@@ -136,6 +137,8 @@ export type ConnectedProject = ProjectView & {
   links: LinkSets;
   /** U7186c: what each Agent owns, for the Rail icon and the Changes view. */
   owned: ReturnType<typeof createOwnedChanges>;
+  /** U7672d: each Agent's Changes view choice. */
+  changeTargets: ReturnType<typeof createChangeTargets>;
   /** MC3, MC15: the Machines Agents run on. */
   machines: ReturnType<typeof createMachines>;
   drawer: DrawerState;
@@ -163,7 +166,7 @@ const reads = new Set<RpcMethodName>([
   "terminal.snapshot", "terminal.screen", "terminal.read", "terminal.search",
   "todo.list", "todo.get", "todo.listHanded", "todo.getHistory", "todo.comments",
   "todo.unread", "todo.refs", "todo.deletion", "pad.list", "pad.read", "pad.getDeletion",
-  "agent.worktreeState", "machine.list", "agent.changedFiles", "agent.ownedChanges", "project.compareRefs", "agent.compareFile", "agent.spawnPrompt",
+  "agent.worktreeState", "machine.list", "agent.changedFiles", "agent.ownedChanges", "agent.compareFile", "agent.spawnPrompt",
   "agent.links", "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
   "project.get", "project.resources", "models.list", "import.list", "project.importDiscover",
   "message.get", "message.list", "message.reconcileWork",
@@ -289,7 +292,7 @@ export const connectProject = async (
 
   const projectView = createProjectView(rail.selected, openShelf);
 
-  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, program, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), links: inChildren(() => createLinkSets(app, events, daemonExit)), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
+  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, program, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), links: inChildren(() => createLinkSets(app, events, daemonExit)), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), changeTargets: createChangeTargets(), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

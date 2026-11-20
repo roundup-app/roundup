@@ -43,7 +43,6 @@ const emptyReads: Handlers = {
   "agent.ownedChanges": () => ({ groups: [] }),
   "agent.repeatScan": ({ id }) => repeatScanFixture(id),
   "agent.links": () => ({ entries: [] }),
-  "project.compareRefs": () => ({ refs: [] }),
   "terminal.list": () => [],
   "project.programRun": () => ({ state: "none" }),
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),

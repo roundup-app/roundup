@@ -13,26 +13,21 @@ Module: `crates/agents` and `crates/contracts` (U7186a, U7186b), `apps/desktop/s
 - **Default branch.** The default branch is the repository's own default (`origin/HEAD`, else `main`, else `master`), not a fixed name. Asserted in `u7186a_the_default_branch_is_the_repository_default`.
 - **Read-only and failures.** Branches and files are the same after the call; a repository gone from disk is omitted from the groups and an Agent with no recorded edits returns `{groups: []}`. Asserted in `u7186a_changes_nothing_and_skips_a_missing_repo`.
 
-**U7186b `project.compareRefs` lists the endpoints and `agent.compareFile` compares any two.** Given a Project with a repository, then:
-- **Endpoints.** `project.compareRefs {project}` returns every git worktree's current state (`{kind: "worktree", path, branch}`) and every branch head (`{kind: "head", branch}`) of the Project's repository, each with a label, in sorted order. Asserted in `u7186b_lists_every_worktree_state_and_every_branch_head`.
-- **A comparison.** `agent.compareFile` and the changed-file list take `from` and `to` endpoints; a worktree endpoint reads its working tree (committed, staged, unstaged and untracked files outside `.roundup/`) and a head endpoint reads the branch's commit. Worktree against worktree, head against head and worktree against head each list the files whose content differs, with U2539a's `status` and `line`. Asserted in `u7186b_compares_worktree_with_worktree_head_with_head_and_worktree_with_head`.
-- **Read-only and failures.** Nothing is changed; an endpoint that no longer exists fails `endpoint_missing`. Asserted in `u7186b_changes_nothing_and_a_gone_endpoint_fails`.
+**U7186b `agent.compareFile` reads one file; its endpoints are retired by U7672.** Given a Project with a repository, then:
+- **Read-only and failures.** Nothing is changed; held by `u7672a_changes_nothing`.
 
 **U7186c each Agent's Rail row shows a changes icon with its file count.** Given Rail rows for Agents (Doors included), with or without Worktrees, then:
 - **Icon and count.** A row whose `agent.ownedChanges` totals N files above 0 shows one changes icon button with the count N (a file in two groups counts twice); a row with 0 files, or one whose read has not succeeded, shows none, and loading is never a zero. Asserted in `u7186c_the_row_shows_the_icon_with_the_count_only_above_zero`.
-- **Opens the compare.** Activating the icon opens the diff in the centre, titled `Changes: <Agent> vs <base>`, with From preset to the group's base and To to the Agent's current state, one group per repository and branch, each listing its files with `+added -removed` counts; the first group shows when several exist. Asserted in `u7186c_the_icon_opens_the_centre_diff_preset_to_base_and_now`.
+- **Opens the compare.** Activating the icon opens the diff in the centre, titled `Changes: <Agent> vs <remote main>` on the switch's value, Changes by default, one group per repository and branch, each listing its files with `+added -removed` counts; the first group shows when several exist. Asserted in `u7186c_the_icon_opens_the_centre_diff_on_changes_against_the_remote_main`.
 - **Refresh.** The count is read again when the Agent writes a file (a file-writing tool call event) and when its turn ends, and on no timer; no other event starts a read. Asserted in `u7186c_the_count_reads_on_a_file_write_and_a_turn_end_not_on_a_timer`.
 - **Reader.** Choosing a file loads the lazy diff reader as U2540a does, and the reader chunk is not loaded before it. Asserted in `u7186c_the_reader_stays_lazy` (extends `u2540d_lazy`).
 - **Failure.** A failed read shows no count and one failure with Retry in the existing reserved message surface (P11). Asserted in `u7186c_a_failed_read_shows_retry_and_no_count`.
 
-**U7186d the From and To pickers compare any two states.** Given the open Changes view, then:
-- **Choices.** From and To each list U7186b's endpoints, and choosing one reloads the file list and clears the open file. Asserted in `u7186d_the_pickers_list_the_endpoints_and_reload_on_choice`.
-- **Free compare.** The user can pick worktree against worktree, head against head or worktree against head, and the heading names the two choices. Asserted in `u7186d_any_two_endpoints_can_be_compared`.
-- **Presets.** Opened from an Agent, From is its base and To its current state; the user's later choice stays until the view closes. Asserted in `u7186d_the_agent_preset_stays_until_the_user_chooses`.
-- **Keyboard.** Both pickers are `ui/` select primitives over Ark UI and reachable by Tab. Asserted in `u7186d_the_pickers_are_reachable_by_keyboard`.
+**U7186d the pickers are replaced by U7672c's switch.** Given the open Changes view, then:
+- **Keyboard.** The switch is U7672c's: a `ui/` primitive over Ark UI, reachable by Tab. Asserted in `u7672c_the_switch_is_reachable_and_arrow_keys_move_it`.
 
 **U7186e one Changes surface replaces the Worktree popover.** Given a Door with its own Worktree, then:
-- **Same view.** Its icon, count and view are U7186c's and U7186d's, with its worktree branch against its Base as the owned group; the Worktree-only popover (`WorktreeControl`'s `Panel` and its resting control) is removed (done by U7671a). Asserted in `u7186e_a_worktree_door_uses_the_same_view_and_rule`.
+- **Same view.** Its icon, count and view are U7186c's and U7672c's, with its worktree branch against the remote's main as the owned group; the Worktree-only popover (`WorktreeControl`'s `Panel` and its resting control) is removed (done by U7671a). Asserted in `u7186e_a_worktree_door_uses_the_same_view_and_rule`.
 - **Kept facts.** U2539b's ahead/behind/dirty and CI/PR facts remain available where `scenarios/ui-worktree-status.md` (U2556d) places them, and notes, recovery and editor opening (U2540b–c, U2539d) work from the new view. Asserted in `u7186e_notes_and_the_editor_action_work_from_the_changes_view`.
 - **No icon without changes.** An Agent with no changes shows no icon, and the Door's header holds no changes control at rest. Asserted in `u7186e_no_changes_means_no_control_anywhere`.
 

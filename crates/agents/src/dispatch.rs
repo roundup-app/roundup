@@ -151,9 +151,9 @@ impl Agents {
         ctx: &Ctx,
         p: contracts::agent::ChangedFilesParams,
     ) -> Result<contracts::agent::ChangedFiles, RpcError> {
-        let contracts::agent::ChangedFilesParams { id, from, to } = p;
+        let contracts::agent::ChangedFilesParams { id, to } = p;
         self.shared.guard_reach(&ctx.actor, &id, true)?;
-        self.changed_files(&id, endpoints(from, to)?).await
+        self.changed_files(&id, to).await
     }
 
     async fn agent_repeat_scan(
@@ -166,13 +166,6 @@ impl Agents {
         }
         self.shared.guard_reach(&ctx.actor, &p.id, true)?;
         self.repeat_scan(&p.id).await
-    }
-
-    async fn project_compare_refs(
-        &self,
-        _ctx: &Ctx,
-    ) -> Result<contracts::agent::CompareRefs, RpcError> {
-        self.compare_refs().await
     }
 
     async fn agent_owned_changes(
@@ -192,9 +185,9 @@ impl Agents {
     ) -> Result<contracts::agent::FileComparison, RpcError> {
         let shared = &self.shared;
         {
-            let contracts::agent::CompareFileParams { id, path, from, to } = p;
+            let contracts::agent::CompareFileParams { id, path, to } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            self.compare_file(&id, &path, endpoints(from, to)?).await
+            self.compare_file(&id, &path, to).await
         }
     }
 
@@ -707,26 +700,5 @@ impl Agents {
         Err(RpcError::forbidden(
             "selection removal requires the Project Daemon",
         ))
-    }
-}
-
-/// `from` and `to` together or neither (U7186b).
-fn endpoints(
-    from: Option<contracts::agent::CompareEndpoint>,
-    to: Option<contracts::agent::CompareEndpoint>,
-) -> Result<
-    Option<(
-        contracts::agent::CompareEndpoint,
-        contracts::agent::CompareEndpoint,
-    )>,
-    RpcError,
-> {
-    match (from, to) {
-        (Some(from), Some(to)) => Ok(Some((from, to))),
-        (None, None) => Ok(None),
-        _ => Err(RpcError::new(
-            rpc::code::INVALID_PARAMS,
-            "endpoints: give both from and to",
-        )),
     }
 }

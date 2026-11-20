@@ -116,7 +116,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Changed file (`ChangedFile`, `ChangedFile.counts`, `LineCounts`) | same | — |
 | Owned changes (`agent.ownedChanges`) | same | — |
 | Scan hit (`agent.repeatScan`, `ScanHits`, `ScanHit`, `ScanPlace`) | same | — |
-| Compare endpoint (`project.compareRefs`, `CompareEndpoint`) | same | — |
+| Compare target (`CompareTarget`, the `to` of `agent.changedFiles` and `agent.compareFile`) | same | — |
 | File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | same | — |
 | Base | same | — |
 | Resource use | same | — |

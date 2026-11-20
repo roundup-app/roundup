@@ -333,52 +333,35 @@ pub struct OwnedChanges {
     pub groups: Vec<OwnedGroup>,
 }
 
-/// One side of a comparison (U7186b): a git worktree's current state or a branch's head commit.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum CompareEndpoint {
-    Worktree { path: String, branch: String },
-    Head { branch: String },
+/// What the Agent's own Worktree is compared as, against the remote's main (U7672a): everything
+/// in its folder now, or its commits only.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum CompareTarget {
+    #[default]
+    Tree,
+    Branch,
 }
 
-/// A choosable endpoint with the label the pickers show.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct CompareRef {
-    #[serde(flatten)]
-    pub endpoint: CompareEndpoint,
-    pub label: String,
-}
-
-/// What `project.compareRefs` returns (U7186b): worktrees first, then heads, each sorted.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct CompareRefs {
-    pub refs: Vec<CompareRef>,
-}
-
-/// The Agent's changed-file list: its Worktree against its Base, or, with `from` and `to`, any
-/// two endpoints (U7186b).
+/// The Agent's changed-file list: the remote's main against its Worktree's `to` (U7672a).
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ChangedFilesParams {
     pub id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = CompareEndpoint)]
-    pub from: Option<CompareEndpoint>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = CompareEndpoint)]
-    pub to: Option<CompareEndpoint>,
+    #[serde(default)]
+    #[specta(optional, type = CompareTarget)]
+    pub to: CompareTarget,
 }
 
-/// Select one relative path in an Agent's Worktree (U2540a), or between `from` and `to` (U7186b).
+/// Select one relative path in an Agent's Worktree (U2540a) and the `to` it is compared as.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CompareFileParams {
     pub id: String,
     pub path: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = CompareEndpoint)]
-    pub from: Option<CompareEndpoint>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = CompareEndpoint)]
-    pub to: Option<CompareEndpoint>,
+    #[serde(default)]
+    #[specta(optional, type = CompareTarget)]
+    pub to: CompareTarget,
 }
 
 /// Exact present bytes use SHA-256 revisions; an absent side uses `absent`.

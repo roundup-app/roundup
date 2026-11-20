@@ -100,7 +100,7 @@ it.each([{ id: "plain", path: "src/a.ts" }, { id: "a", path: "src/deep/b.ts" }])
   app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
   setRequested(target);
   await waitFor(() => expect(rendered()).toHaveLength(2));
-  expect(app.calls.filter(call => call.method === "agent.compareFile").at(-1)?.params).toEqual(target);
+  expect(app.calls.filter(call => call.method === "agent.compareFile").at(-1)?.params).toMatchObject(target);
   finish({ ...COMPARISON, new: { kind: "text", revision: "stale", text: "stale\n" } });
   // reply() unwraps its awaited RPC before DiffReader's .then runs.
   await Promise.resolve();
