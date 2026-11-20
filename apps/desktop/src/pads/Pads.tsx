@@ -252,8 +252,7 @@ export const Pads = (props: {
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
         <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
-      <div role="tree" aria-label={copy.pads}>
-      <OwnerGroups groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows {...of(group)}
+      <OwnerGroups label={copy.pads} groups={groups} dragging={dragging} reveal={() => null}>{group => <PadRows {...of(group)}
         selection={selection}
         bulk={bulk}
         pads={pads}
@@ -263,7 +262,6 @@ export const Pads = (props: {
         onOrderChange={(ids, moved) => void reorder(ids, moved)}
         onDrag={setDragging}
       />}</OwnerGroups>
-      </div>
       <Show when={naming()}>
         <div class="shelf-list">
           <ShelfRow glyph={<Icon name={PAD_ICON} />} class="entry-row pad-inset">

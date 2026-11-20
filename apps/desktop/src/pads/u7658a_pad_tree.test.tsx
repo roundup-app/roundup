@@ -1,4 +1,4 @@
-import { cleanup, screen } from "@solidjs/testing-library";
+import { cleanup, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AGENT, openShelf, padOf } from "./padsFixture";
 
@@ -12,6 +12,6 @@ it("u7658a_every_pad_treeitem_has_the_named_pads_tree_as_ancestor", async () => 
   const items = screen.getAllByRole("treeitem");
 
   expect(items.length).toBeGreaterThan(0);
-  expect(items.every(item => tree.contains(item))).toBe(true);
-  expect(items.every(item => item.closest('[role="tree"]') !== null)).toBe(true);
+  expect(items.every(item => item.closest('[role="tree"]') === tree)).toBe(true);
+  expect(within(tree).queryAllByRole("tree")).toHaveLength(0);
 });

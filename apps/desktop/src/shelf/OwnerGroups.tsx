@@ -47,6 +47,8 @@ export const OwnerGroups = <T,>(props: {
   bare?: Accessor<string | null>;
   /** U3770: completion effects only play in expanded groups. */
   onClosedChange?: (ids: readonly string[]) => void;
+  /** The tree's accessible name; the tab names its one tree. */
+  label?: string;
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   // A Todo filed before the first group mounts has already counted: the group starts open then.
@@ -134,7 +136,7 @@ export const OwnerGroups = <T,>(props: {
     }}</For>
   );
 
-  return <AppTree<"none"> class="shelf-groups" aria-label={copy.shelfLabel} items={items()} mode="none"
+  return <AppTree<"none"> class="shelf-groups" aria-label={props.label ?? copy.shelfLabel} items={items()} mode="none"
     expanded={groupIds(shown()).filter(id => !closed().includes(id))}
     onExpandedChange={expanded => {
       const known = groupIds(shown());
