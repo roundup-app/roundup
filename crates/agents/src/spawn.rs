@@ -212,7 +212,11 @@ impl Agents {
 
     /// Parse `params` and the caller into the values the new Agent starts with, or refuse before
     /// anything is written.
-    pub(super) fn spawn_request(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<SpawnRequest, RpcError> {
+    pub(super) fn spawn_request(
+        &self,
+        ctx: &Ctx,
+        mut params: SpawnParams,
+    ) -> Result<SpawnRequest, RpcError> {
         let size = self.check_spawner(ctx, &mut params)?;
         let by_agent = ctx.actor.kind == ActorKind::Agent;
         let mode = params.role == Some(contracts::agent::SpawnRole::Mode);
@@ -439,7 +443,10 @@ impl Agents {
 
     /// Write the Agent node and mark its first attempt starting: one insert, so a failed write
     /// leaves no node.
-    pub(super) fn insert_spawned(&self, request: &SpawnRequest) -> Result<(String, Ordinal), RpcError> {
+    pub(super) fn insert_spawned(
+        &self,
+        request: &SpawnRequest,
+    ) -> Result<(String, Ordinal), RpcError> {
         let mut rail = self.shared.rail();
         let node = self.insert_node(&mut rail, request)?;
         let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;

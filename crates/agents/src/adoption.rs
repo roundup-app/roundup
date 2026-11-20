@@ -87,8 +87,8 @@ impl Agents {
             .set_worktree(crate::rail::agent_id(&id)?, &record);
         ctx.emit(EventData::RailChanged);
         let started = match recorded {
-            Ok(()) => {
-                self.run_agent(
+            Ok(()) => self
+                .run_agent(
                     Launch {
                         id: &id,
                         attempt: &attempt,
@@ -102,8 +102,7 @@ impl Agents {
                     true,
                 )
                 .await
-                .map(drop)
-            }
+                .map(drop),
             Err(err) => Err(RpcError::from(err)),
         };
         if let Err(err) = started {

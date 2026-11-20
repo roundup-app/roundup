@@ -526,7 +526,13 @@ impl Rail {
         self.db.execute(
             "UPDATE nodes SET worktree_path = ?, worktree_branch = ?, worktree_base = ?,
                     worktree_adopted = ?, worktree_state = 'ready' WHERE id = ?",
-            params![path, worktree.branch, worktree.base, worktree.adopted, id.get()],
+            params![
+                path,
+                worktree.branch,
+                worktree.base,
+                worktree.adopted,
+                id.get()
+            ],
         )?;
         Ok(())
     }

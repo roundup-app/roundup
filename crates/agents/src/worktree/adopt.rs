@@ -143,7 +143,9 @@ impl Git {
             .branch
             .as_deref()
             .is_some_and(|branch| branch.starts_with("roundup/agent-"))
-            || recorded.iter().any(|path| canonical_path(path) == entry.path);
+            || recorded
+                .iter()
+                .any(|path| canonical_path(path) == entry.path);
         if owned {
             return Some("owned_branch");
         }
@@ -181,9 +183,12 @@ impl Git {
 
     fn in_other_repository(&self, project: &Path, path: &Path) -> bool {
         let common = |dir: &Path| {
-            self.run(dir, &["rev-parse", "--path-format=absolute", "--git-common-dir"])
-                .ok()
-                .map(|dir| canonical_path(Path::new(dir.trim())))
+            self.run(
+                dir,
+                &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+            )
+            .ok()
+            .map(|dir| canonical_path(Path::new(dir.trim())))
         };
         self.exists(path)
             && match (common(path), common(project)) {

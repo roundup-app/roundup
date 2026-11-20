@@ -104,7 +104,7 @@ describe("u2694 the Rail's menu actions", () => {
   });
 
   it("u2694b_a_workstream_worktree_remove_asks_what_goes_and_esc_keeps", async () => {
-    const { app } = await mountRail([workstream("g", { worktree: { path: "/p/tree", branch: "work", base: "main" } })]);
+    const { app } = await mountRail([workstream("g", { worktree: { path: "/p/tree", branch: "work", adopted: false, base: "main" } })]);
     app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
 
     open("g");
@@ -178,9 +178,9 @@ describe("u2694 the Rail's menu actions", () => {
 
 it.each([
   workstream("group", { parent: "chosen", status: null }),
-  workstream("group", { parent: "chosen", worktree: { path: "/p/group", branch: "group", base: "main" } }),
+  workstream("group", { parent: "chosen", worktree: { path: "/p/group", branch: "group", adopted: false, base: "main" } }),
   door("supervisor", "working", "busy", { parent: "chosen" }),
-  door("supervisor", "done", "finished", { parent: "chosen", worktree: { path: "/p/door", branch: "door", base: "main" } }),
+  door("supervisor", "done", "finished", { parent: "chosen", worktree: { path: "/p/door", branch: "door", adopted: false, base: "main" } }),
 ])("u4368_only_agent_nodes_enter_goes_and_stays_%j", async container => {
   const app = createFakeApp();
   const result = await judgeRemoval(app, [workstream("chosen"), container], "chosen");
@@ -202,7 +202,7 @@ it("u4368_nested_agents_keep_a34_classification", async () => {
   const result = await judgeRemoval(app, [
     workstream("chosen"),
     workstream("group", { parent: "chosen", status: null }),
-    agent("finished", "done", "finished", { parent: "group", worktree: { path: "/p/finished", branch: "finished", base: "main" } }),
+    agent("finished", "done", "finished", { parent: "group", worktree: { path: "/p/finished", branch: "finished", adopted: false, base: "main" } }),
     door("supervisor", "working", "busy", { parent: "group" }),
     agent("running", "working", "busy", { parent: "supervisor" }),
   ], "chosen");

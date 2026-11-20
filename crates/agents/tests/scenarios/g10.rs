@@ -35,7 +35,14 @@ fn make_worktree(f: &Fixture, home: &Path, branch: &str) -> PathBuf {
     let path = home.join(branch.replace('/', "-"));
     git(
         f.dir.path(),
-        &["worktree", "add", "-q", "-b", branch, &path.to_string_lossy()],
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            branch,
+            &path.to_string_lossy(),
+        ],
     );
     std::fs::canonicalize(path).unwrap()
 }
@@ -70,7 +77,11 @@ async fn adopt(f: &Fixture, path: &Path, branch: &str) -> Result<RailNode, rpc::
 
 fn assert_refused(err: &rpc::RpcError, code: i64, name: &str) {
     assert_eq!(err.code, code, "{}", err.message);
-    assert!(err.message.starts_with(&format!("{name}: ")), "{}", err.message);
+    assert!(
+        err.message.starts_with(&format!("{name}: ")),
+        "{}",
+        err.message
+    );
 }
 
 #[tokio::test]
@@ -89,7 +100,11 @@ async fn g10_adoptable_lists_qualifying_worktrees_and_refusals() {
     let before = git(f.dir.path(), &["worktree", "list"]);
 
     let rows = rows(&f).await;
-    let find = |path: &Path| rows.iter().find(|row| Path::new(&row.path) == path).unwrap();
+    let find = |path: &Path| {
+        rows.iter()
+            .find(|row| Path::new(&row.path) == path)
+            .unwrap()
+    };
     assert_eq!(rows.len(), 5, "the primary checkout is no row");
     let row = find(&ok);
     assert_eq!((row.ahead, row.dirty, row.refusal.clone()), (2, true, None));
@@ -105,7 +120,9 @@ async fn g10_adoptable_lists_qualifying_worktrees_and_refusals() {
 
     let err = adopt(&f, f.dir.path(), "main").await.unwrap_err();
     assert_refused(&err, code::INVALID_PARAMS, "primary_checkout");
-    let err = adopt(&f, &home.path().join("nowhere"), "x").await.unwrap_err();
+    let err = adopt(&f, &home.path().join("nowhere"), "x")
+        .await
+        .unwrap_err();
     assert_refused(&err, code::INVALID_PARAMS, "not_registered");
     let other = tempfile::tempdir().unwrap();
     crate::common::init_repo(other.path());
@@ -141,7 +158,12 @@ async fn g11_adopt_keeps_dirty_work_and_branch_untouched() {
     let node = adopt(&f, &path, "feature").await.unwrap();
     let worktree = node.worktree().unwrap();
     assert_eq!(
-        (worktree.path.as_str(), worktree.branch.as_str(), worktree.base.as_str(), worktree.adopted),
+        (
+            worktree.path.as_str(),
+            worktree.branch.as_str(),
+            worktree.base.as_str(),
+            worktree.adopted
+        ),
         (path.to_str().unwrap(), "feature", "main", true)
     );
     let terminals = f.terminals.list().await;
@@ -157,7 +179,10 @@ async fn g11_adopted_state_counts_against_the_recorded_base() {
     let path = dirty_ahead(&f, home.path());
     let node = adopt(&f, &path, "feature").await.unwrap();
     commit_file(f.dir.path(), "later.txt", "x");
-    let state = f.call("agent.worktreeState", json!({"id": node.id})).await.unwrap();
+    let state = f
+        .call("agent.worktreeState", json!({"id": node.id}))
+        .await
+        .unwrap();
     let state: WorktreeState = serde_json::from_value(state).unwrap();
     assert_eq!((state.ahead, state.behind, state.dirty), (2, 1, true));
     assert_eq!(f.tree().await[0].worktree().unwrap().base, "main");
@@ -186,7 +211,9 @@ async fn g12_discard_keeps_a_dirty_adopted_worktree_and_its_commits() {
     let node = adopt(&f, &path, "feature").await.unwrap();
     let before = snapshot(&f, &path);
     assert_eq!(
-        f.call("agent.discard", json!({"id": node.id})).await.unwrap(),
+        f.call("agent.discard", json!({"id": node.id}))
+            .await
+            .unwrap(),
         Value::Null
     );
     assert!(f.tree().await.is_empty());
