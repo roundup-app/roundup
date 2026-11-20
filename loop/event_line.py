@@ -2,29 +2,36 @@
 label of the call, so GitHub's line timestamps time the call without a secret reaching the log."""
 import itertools
 import re
+import shlex
 
-# A `Bash` label shows at most `LABEL_WORDS` words of each of at most `LABEL_SEGMENTS` segments.
+# A `Bash` label shows at most `LABEL_WORDS` words of each of at most `LABEL_SEGMENTS` segments, read from the first `LABEL_CHARS`
+# characters of the command: `shlex` takes time quadratic in the length of one word.
 LABEL_WORDS = 3
 LABEL_SEGMENTS = 4
+LABEL_CHARS = 20000
 LABEL_WORD = re.compile(r'[a-z][a-z-]{0,23}')
 # The names Anthropic's API allows a tool: every real tool, MCP tools included, and no sentence a model made up.
 TOOL_NAME = re.compile(r'[A-Za-z0-9_-]{1,64}')
-# A closed quoted string or a backslash pair, which a shell reads as part of one word and so hides every operator in it. A
-# single-quoted string holds no escape. A double-quoted one is read through its backslash pairs and holds no `$(`, `${` or
-# backtick, which open a command that a quote inside it would pair wrongly. A quote after `$` opens a `$'...'` or `$"..."`
-# string, read otherwise.
-QUOTED = re.compile(r'''(?:(?<!\$)(?:'[^']*'|"(?:[^"\\`$]|\\.|\$(?![({]))*")|\\.)''', re.DOTALL)
-# What stands for it in a word, which is then no plain name.
-MASK = '~'
-# What a split on spaces reads differently from a shell, once those are masked: a quote left over (a string that is not closed
-# or not simple), a backtick, a `#` that starts a comment and a `<<` that starts text no command reads.
-UNREADABLE = re.compile(r'''['"`#]|<<''')
-OPERATORS = re.compile(r'(&&|\|\||[;|\n])')
+# The tokens that end a segment of a command and join it to the next.
+OPERATORS = frozenset(['&&', '||', ';', '|'])
+# What stops the reading of a command: a token that opens a here-document, whose text is no command, and one that holds a command
+# substitution (`$(` or a backtick), whose own quotes `shlex` pairs with the quotes around it.
+STOP = re.compile(r'<<|\$\(|`')
 ASSIGNMENT = re.compile(r'\w+=.*')
 DURATION = re.compile(r'(\d+\.?\d*|\.\d+)[smhd]?')
 # The flags of `timeout` whose value is the next word.
 TIMEOUT_VALUE_FLAGS = ('-k', '-s', '--kill-after', '--signal')
 BASH = 'Bash'
+
+
+def tokens(command):
+    """The words and operators of `command` as a POSIX shell splits them (`shlex`): a quoted string or an escaped character
+    is part of one word, so no operator inside it splits the command, and a comment is dropped. Newlines are white space. It
+    stops at the first token that matches `STOP`, and reads no further than it needs. Raises `ValueError` for an unclosed
+    quote or a trailing backslash."""
+    lexer = shlex.shlex(command[:LABEL_CHARS], posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    return itertools.takewhile(lambda token: not STOP.search(token), lexer)
 
 
 def without_timeout(words):
@@ -46,33 +53,28 @@ def bare(words):
     return [] if words[:1] == ['cd'] else words
 
 
-def readable(command):
-    """`command` with each closed `QUOTED` string masked, up to the first word that still holds a quote, backtick, `#` or
-    `<<`; all of it when no word does. What a quote hides is never split, so no operator inside one makes a false
-    segment, and a quote read wrongly leaves a character of `UNREADABLE` before it."""
-    masked = QUOTED.sub(MASK, command)
-    found = UNREADABLE.search(masked)
-    return re.match(r'.*\s|', masked[:found.start()], re.DOTALL)[0] if found else masked
-
-
 def segments(command):
-    """`(operator, label)` for each segment of the `readable` start of `command`, split at `&&`, `||`, `;`, `|` and a
-    newline (shown as `;`): the operator that joins it to the segment before, and the first words of its command, at
-    most `LABEL_WORDS`, that are lowercase letters and hyphens only. A segment with no such word is left out with its
-    operator."""
-    pieces = OPERATORS.split(readable(command))
-    for operator, text in zip(['', *pieces[1::2]], pieces[::2]):
-        words = itertools.islice(itertools.takewhile(LABEL_WORD.fullmatch, bare(text.split())), LABEL_WORDS)
-        if label := ' '.join(words):
-            yield operator.replace('\n', ';'), label
+    """`(operator, label)` for each segment of `command` (its `tokens` between `OPERATORS`): the operator that joins it to
+    the segment before, and the first words of its command, at most `LABEL_WORDS`, that are lowercase letters and hyphens
+    only. A segment with no such word is left out with its operator."""
+    operator = ''
+    for is_operator, group in itertools.groupby(tokens(command), OPERATORS.__contains__):
+        if is_operator:
+            *_, operator = group
+        elif words := ' '.join(itertools.islice(itertools.takewhile(LABEL_WORD.fullmatch, bare(list(group))), LABEL_WORDS)):
+            yield operator, words
 
 
 def bash_label(command):
     """The label of a `Bash` call's `command`: the first `LABEL_SEGMENTS` of its `segments`, each after its operator, the
-    first with none. A `cd <dir>`, `NAME=value` words and `timeout` with its flags and duration are never shown, and a
-    label word is lowercase letters and hyphens only, so no path, flag, quote, digit, token or argument reaches the log."""
-    shown = itertools.islice(segments(command), LABEL_SEGMENTS)
-    return ' '.join(f'{operator} {label}' if index else label for index, (operator, label) in enumerate(shown))
+    first with none; empty when a shell could not split it (`ValueError` of `tokens`). A `cd <dir>`, `NAME=value` words and
+    `timeout` with its flags and duration are never shown, and a label word is lowercase letters and hyphens only, so no
+    path, flag, digit, token or argument reaches the log."""
+    try:
+        shown = list(itertools.islice(segments(command), LABEL_SEGMENTS))
+    except ValueError:
+        return ''
+    return ' '.join(f'{operator} {words}' if index else words for index, (operator, words) in enumerate(shown))
 
 
 def label(part):
