@@ -34,11 +34,7 @@ impl Git {
         let entry = root.join(commit);
         if entry.join(MARKER).exists() {
             // Touch the marker: the oldest marker is the first evicted.
-            let marker = std::fs::File::options()
-                .write(true)
-                .open(entry.join(MARKER))
-                .map_err(|err| err.to_string())?;
-            let _ = marker.set_modified(std::time::SystemTime::now());
+            let _ = std::fs::write(entry.join(MARKER), "");
             return Ok(entry);
         }
         let _ = std::fs::remove_dir_all(&entry);
