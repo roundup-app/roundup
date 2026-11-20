@@ -24,7 +24,8 @@ FEW = 5
 HINT = 'Versions ran on different Issues: read these as a hint, not a verdict.'
 # The PRs `report` reads, newest first.
 LIMIT = 1000
-# The counts of a Claude Code `result` event's `usage` that make a run's tokens: input, cache writes, cache reads and output.
+# The counts of a Claude Code `usage` (a `result` event's, or an `assistant` event's `message.usage`) that make a run's tokens:
+# input, cache writes, cache reads and output.
 CLAUDE_TOKENS = ('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens')
 NO_TOKENS = '-'
 
@@ -56,6 +57,23 @@ def turns(seen):
     return [event.get('usage') or {} for event in seen if event.get('type') == 'turn.completed']
 
 
+def streamed(seen):
+    """The tokens of each Claude Code message among the events `seen` that holds a `message.usage`, once per `message.id`:
+    stream-json writes one `assistant` event for each content block of a message and repeats its usage on each, and a repeat can
+    hold zeros, so each count of an id is the largest among its events. An event with no `message.id` is left out. Its
+    `output_tokens` are the count when the event was written, which can fall short of the message's final count: a run killed
+    at its deadline reads a little low in output tokens, not in input or cache tokens."""
+    found = {}
+    for event in seen:
+        message = event.get('message') if event.get('type') == 'assistant' else None
+        usage = message.get('usage') if isinstance(message, dict) else None
+        if isinstance(usage, dict) and message.get('id'):
+            counts = found.setdefault(message['id'], dict.fromkeys(CLAUDE_TOKENS, 0))
+            for key in CLAUDE_TOKENS:
+                counts[key] = max(counts[key], usage.get(key) or 0)
+    return [sum(counts.values()) for counts in found.values()]
+
+
 def short(count):
     """`count` tokens as `812k`; `n/a` for a run with no count."""
     if count is None:
@@ -65,9 +83,10 @@ def short(count):
 
 def measure(events_path, prompt_path, codex_model):
     """What a run's model job tells its `after` job, as `<prompt> <version> <model> <tokens>`: the prompt file's stem and
-    `version`, the model, and the tokens of the events file `events_path`: Claude Code's `result` event, or the sum of
-    Codex's `turn.completed` events, which name no model, so it is `codex_model`. `-` stands for a run that ended before
-    it wrote its usage. The line holds no brace: GitHub drops a job output that matches a masked line of a secret."""
+    `version`, the model, and the tokens of the events file `events_path`: Claude Code's `result` event, else the sum of its
+    `assistant` events' usage (`streamed`), which a run killed at its deadline leaves, else the sum of Codex's `turn.completed`
+    events, which name no model, so it is `codex_model`. `-` stands for a run that ended before it wrote any usage. The line
+    holds no brace: GitHub drops a job output that matches a masked line of a secret."""
     seen = events(Path(events_path).read_text())
     results = [event for event in seen if event.get('type') == 'result']
     if results:
@@ -75,6 +94,8 @@ def measure(events_path, prompt_path, codex_model):
     elif turns(seen):
         # Codex counts the cached input inside `input_tokens`.
         tokens = sum(turn.get('input_tokens', 0) + turn.get('output_tokens', 0) for turn in turns(seen))
+    elif messages := streamed(seen):
+        tokens = sum(messages)
     else:
         tokens = None
     started = next((event['model'] for event in seen if event.get('type') == 'system' and event.get('subtype') == 'init'), codex_model)

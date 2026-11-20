@@ -80,6 +80,28 @@ class Scorecard(unittest.TestCase):
             prompt.write_text('Build it twice.\n')
             self.assertNotEqual(scorecard.version(prompt), version)
 
+    def test_l124_a_run_killed_before_its_result_records_the_tokens_of_its_messages_once_each(self):
+        def usage(*counts):
+            return dict(zip(('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens'), counts))
+
+        def message(id, *counts):
+            return dict(type='assistant', message=dict(id=id, usage=usage(*counts)))
+        init = dict(type='system', subtype='init', model='claude-sonnet-5-5')
+        killed = [init, message('m1', 10, 20, 300, 4), message('m1', 10, 20, 300, 4), message('m1', 0, 0, 0, 0), dict(type='user'),
+                  message('m2', 1, 2, 3, 40), dict(type='assistant', message='text'),
+                  dict(type='assistant', message=dict(id='m3', usage='n/a'))]
+        silent = [init, dict(type='assistant', message=dict(id='m1', content=[]))]
+        finished = [*killed, dict(type='result', usage=usage(5, 0, 0, 0))]
+        with tempfile.TemporaryDirectory() as tmp:
+            prompt = Path(tmp, 'builder.md')
+            prompt.write_text('Build it.\n')
+            version = scorecard.version(prompt)
+            for name, events, tokens in (('killed', killed, '380'), ('finished', finished, '5'), ('silent', silent, '-')):
+                events_file = Path(tmp, name)
+                events_file.write_text('\n'.join(json.dumps(each) for each in events))
+                with self.subTest(run=name):
+                    self.assertEqual(scorecard.measure(str(events_file), prompt, 'gpt-x'), f'builder {version} sonnet-5-5 {tokens}')
+
     def test_l124_each_run_adds_its_row_to_the_one_comment_in_place(self):
         comments = Comments()
         build, review = row('build', 'PR open'), row('review', 'reject')
@@ -137,6 +159,57 @@ class Scorecard(unittest.TestCase):
         self.assertEqual([line for line in lines if line.startswith('warning')],
                          ['warning: builder.md bbbbbbb ran on 2 PRs, fewer than 5: too few to judge'])
         self.assertEqual(len([line for line in lines if line.startswith('note')]), 1)
+
+
+class StepLog(unittest.TestCase):
+    """L23's step log labels (`event_line`): here, not in `builder.test.py`, which holds its size ceiling."""
+
+    def test_l23_the_step_log_names_every_tool_and_the_plain_words_of_each_command_behind_cd_and_timeout(self):
+        label = builder.event_line.label
+        for name, shown in (('Read', 'Read'), ('mcp__roundup__todo_create', 'mcp__roundup__todo_create'), ('say hello', ''), (7, ''),
+                            (None, '')):
+            with self.subTest(tool=name):
+                self.assertEqual(label(dict(type='tool_use', name=name, input=dict(file_path='/secret'))), shown)
+        self.assertEqual(label(dict(type='text', name='Read')), '')
+        commands = {
+            'timeout 120 pnpm vitest run src/a.test.ts': 'pnpm vitest run',
+            'timeout -k 5 300 cargo nextest run': 'cargo nextest run',
+            'timeout 2m just lint-web': 'just lint-web',
+            'FOO=1 timeout --kill-after=5 300 git status': 'git status',
+            'cd apps/desktop && timeout 90 pnpm vitest related': 'pnpm vitest related',
+            'sed -n 1p f && pnpm test': 'sed && pnpm test',
+            'git fetch || git pull; cargo build 2>&1 | tail -5': 'git fetch || git pull ; cargo build | tail',
+            'pnpm test\nfoo bar': 'pnpm test ; foo bar',
+            'a && b && c && d && e': 'a && b && c && d',
+            'python3 x.py && git push': 'git push',
+            'python3 x.py': 'Bash',
+            'timeout 120 ./run.sh --flag word': 'Bash',
+            # A quoted string or a backslash pair is one word, and no operator inside it splits the command.
+            'git commit -m "x; ship it now" && git push': 'git commit && git push',
+            "echo 'x; secret words' && just lint-web": 'echo && just lint-web',
+            'gh pr create --body="x; secret words"': 'gh pr create',
+            'FOO="a; b" cmd': 'cmd',
+            'echo "$HOME; secret words" && z': 'echo && z',
+            'echo "a \\"x; secret words\\" b" && z': 'echo && z',
+            'find . -exec rm {} \\; && just lint-web': 'find && just lint-web',
+            'echo sec"ret"ets && z': 'echo && z',
+            'a \\\n b && c': 'a && c',
+            # What no pairing reads rightly is never read: an unclosed quote, a $-string, a command or a backtick in a string,
+            # a backtick, a comment and a here-document.
+            'echo "x; secret words': 'echo',
+            'echo sec"ret; x': 'echo',
+            "echo $'a\\'b; secret words' && z": 'echo',
+            'echo "$(echo "x; secret words")" && z': 'echo',
+            'echo "${x:-"a; secret words"}" && z': 'echo',
+            'echo "`echo "x; secret words"`" && z': 'echo',
+            'echo `a; secret words`': 'echo',
+            'echo hi # x; y words': 'echo hi',
+            'cat <<EOF\nfix it; ship now\nEOF': 'cat',
+        }
+        for command, shown in commands.items():
+            with self.subTest(command=command):
+                self.assertEqual(label(dict(type='tool_use', name='Bash', input=dict(command=command))), shown)
+        self.assertEqual(label(dict(type='tool_use', name='Bash', input='ls')), 'Bash')
 
 
 if __name__ == '__main__':
