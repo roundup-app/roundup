@@ -141,6 +141,8 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.context", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.createMode", Policy { observes: true, ..PLAIN }),
     ("agent.digest", Policy { inputs: Inputs::Id, ..PLAIN }),
+    ("agent.adoptable", PLAIN),
+    ("agent.adopt", Policy { observes: true, ..PLAIN }),
     ("agent.discard", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.extras", PLAIN),
     ("agent.extras_add", Policy { inputs: Inputs::Id, ..PLAIN }),

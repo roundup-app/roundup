@@ -63,6 +63,7 @@ impl Launcher {
             role,
             facts: pair,
         } = *request;
+        let adopted = folders.adopted.map(Path::to_owned);
         let (launcher, project, data, id, attempt, cwd, resume, pair) = (
             self.clone(),
             folders.project.to_owned(),
@@ -84,6 +85,7 @@ impl Launcher {
                 folders: Folders {
                     project: &project,
                     data: &data,
+                    adopted: adopted.as_deref(),
                 },
                 id: &id,
                 attempt: &attempt,

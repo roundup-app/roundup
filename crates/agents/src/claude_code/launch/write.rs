@@ -63,7 +63,11 @@ impl Launcher {
 
     fn check(&self, request: &Request<'_>) -> Result<Checked, RpcError> {
         let invalid = |message: String| RpcError::new(code::INVALID_PARAMS, message);
-        let Folders { project, data: dir } = request.folders;
+        let Folders {
+            project,
+            data: dir,
+            adopted,
+        } = request.folders;
         let id = AgentId::parse(request.id)
             .ok_or_else(|| invalid(format!("{:?} is not a node id", request.id)))?;
         let cwd = request
@@ -89,7 +93,8 @@ impl Launcher {
         let project = project
             .canonicalize()
             .map_err(|err| RpcError::internal(format!("{}: {err}", project.display())))?;
-        if !cwd.starts_with(&project) {
+        let adopted = adopted.is_some_and(|path| path.canonicalize().is_ok_and(|path| path == cwd));
+        if !cwd.starts_with(&project) && !adopted {
             return Err(invalid(format!(
                 "cwd {} is outside the project folder {}",
                 cwd.display(),

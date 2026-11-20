@@ -72,6 +72,7 @@ fn folders(dir: &Path) -> agents::claude_code::Folders<'_> {
     agents::claude_code::Folders {
         project: dir.parent().unwrap_or(dir),
         data: dir,
+        adopted: None,
     }
 }
 

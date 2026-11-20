@@ -12,6 +12,7 @@ mod common;
 mod dcl9;
 mod door;
 mod fork_open;
+mod g10;
 mod interrupt;
 mod landing;
 mod m7;

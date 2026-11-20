@@ -318,6 +318,7 @@ async fn b2706_note_mode_is_the_users_default_mode() {
             let folders = agents::claude_code::Folders {
                 project: &project,
                 data: &data,
+                adopted: None,
             };
             launcher
                 .prepare_on(&agents::claude_code::Request {

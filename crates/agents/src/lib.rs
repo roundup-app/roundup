@@ -374,6 +374,7 @@ mod dispatch;
 mod door;
 mod typed;
 pub use typed::RailRead;
+mod adoption;
 mod ending;
 mod events;
 mod handoff;
