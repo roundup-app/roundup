@@ -201,6 +201,8 @@ fn env(spec: &Spec<'_>, facts: &Facts, agent_id: String) -> Map<String, Value> {
     for (key, default) in [
         ("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS", "1"),
         ("CLAUDE_CODE_PLUGIN_DIR_WATCH", "0"),
+        // RLH2: Claude Code hands a session to its background service when its client exits.
+        ("CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF", "1"),
         ("ENABLE_TOOL_SEARCH", "true"),
     ] {
         if facts
