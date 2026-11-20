@@ -504,6 +504,16 @@ pre {
   font-family: var(--font-mono);
 }
 
+/* U7761: the one fill and ink for code on every Markdown surface; ui-sdk's `code` fill is a light-dark() value. */
+code {
+  background: var(--sunken);
+  color: var(--text);
+}
+
+pre code {
+  background: none;
+}
+
 /* Content must remain copyable even when its editor is read-only. */
 input,
 textarea,
