@@ -113,6 +113,7 @@ impl Git {
         end: Option<&str>,
         files: &mut [ChangedFile],
     ) -> Result<(), RpcError> {
+        let mut links = Vec::new();
         let mut hashed: Vec<&mut ChangedFile> = files
             .iter_mut()
             .filter(|file| {
@@ -123,6 +124,17 @@ impl Git {
                             .is_ok_and(|meta| !meta.is_dir()))
             })
             .collect();
+        if end.is_none() {
+            let (symlinks, regular): (Vec<_>, Vec<_>) = hashed.into_iter().partition(|file| {
+                std::fs::symlink_metadata(dir.join(&file.path))
+                    .is_ok_and(|meta| meta.file_type().is_symlink())
+            });
+            hashed = regular;
+            links = symlinks;
+        }
+        for file in links {
+            file.blob = self.hash_link(dir, &file.path);
+        }
         if hashed.is_empty() {
             return Ok(());
         }
@@ -142,14 +154,50 @@ impl Git {
             None => &["--no-optional-locks", "hash-object", "--stdin-paths"],
         };
         let out = self.output(dir, args, Some(&paths)).map_err(failed)?;
-        if !out.status.success() {
+        if out.status.success() {
+            let ids = String::from_utf8_lossy(&out.stdout);
+            for (file, id) in hashed.iter_mut().zip(ids.lines()) {
+                file.blob = (!id.ends_with(" missing")).then(|| id.to_owned());
+            }
+        } else if end.is_some() {
             return Err(failed(String::from_utf8_lossy(&out.stderr).trim()));
-        }
-        let ids = String::from_utf8_lossy(&out.stdout);
-        for (file, id) in hashed.iter_mut().zip(ids.lines()) {
-            file.blob = (!id.ends_with(" missing")).then(|| id.to_owned());
+        } else {
+            // U7673c: a file gone since the listing has no id; the others keep theirs.
+            for file in hashed {
+                file.blob = self.hash_path(dir, &file.path);
+            }
         }
         Ok(())
+    }
+
+    /// U7673c: the id of one working-tree path, `None` when git cannot read it.
+    fn hash_path(&self, dir: &Path, path: &str) -> Option<String> {
+        let out = self
+            .output(
+                dir,
+                &["--no-optional-locks", "hash-object", "--stdin-paths"],
+                Some(&format!("{path}\n")),
+            )
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
+    }
+
+    /// U7673c: git stores a symlink as the blob of its link text, so that text is hashed, never
+    /// the target's bytes.
+    fn hash_link(&self, dir: &Path, path: &str) -> Option<String> {
+        let text = std::fs::read_link(dir.join(path)).ok()?;
+        let out = self
+            .output(
+                dir,
+                &["--no-optional-locks", "hash-object", "--stdin"],
+                Some(&text.to_string_lossy()),
+            )
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
     }
 
     /// U7672a: the merge base of the remote's main (else the local default branch) with HEAD.
