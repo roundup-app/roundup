@@ -10,7 +10,7 @@ import { field, mountSwitcher, openSwitcher, switcherKey } from "./switcherFixtu
 
 afterEach(() => { vi.useRealTimers(); cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
-const todo = (id: number, title: string): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home: null, owner: null, refs: [], priority: null });
+const todo = (id: number, title: string): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home: null, owner: null, refs: [], priority: null, pr: null });
 
 const pad = (name: string): Pad => ({ incarnation: `i-${name}`, name, text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const });
 
