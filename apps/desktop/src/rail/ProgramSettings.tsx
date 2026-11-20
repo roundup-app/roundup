@@ -49,6 +49,19 @@ type Saved = { argv: string[]; dir: string; adoptDir?: string };
 
 const same = (current: Saved | null, next: Saved) => current !== null && current.dir === next.dir && current.adoptDir === next.adoptDir && current.argv.length === next.argv.length && current.argv.every((word, at) => word === next.argv[at]);
 
+const checked = (folder: string, adopt: string): { dir: string; adoptDir: string } | { refusal: NonNullable<Refusal> } => {
+  const typed = folder.trim();
+  const dir = typed === "" ? "." : typed;
+
+  if (!inside(dir)) return { refusal: { field: "folder", text: copy.programFolderRefusal } };
+
+  const adoptDir = adopt.trim();
+
+  if (adoptDir !== "" && !inside(adoptDir)) return { refusal: { field: "adopt", text: copy.programAdoptRefusal } };
+
+  return { dir, adoptDir };
+};
+
 const ProgramField = (props: { name: Field; label: string; refusal: Refusal; value: string; setValue: (value: string) => void; ref: (element: HTMLTextAreaElement) => void; commit: () => void; keys: (event: KeyboardEvent) => void }) => {
   const failed = () => props.refusal !== null && props.refusal.field === props.name;
   const errorId = () => `program-${props.name}-error`;
@@ -116,14 +129,11 @@ export const ProgramSettings = () => {
 
     if (argv.length === 0) return setRefusal({ field: "command", text: copy.programCommandRefusal });
 
-    const typed = (folderField?.value ?? folder()).trim();
-    const dir = typed === "" ? "." : typed;
+    const entry = checked(folderField?.value ?? folder(), adoptField?.value ?? adopt());
 
-    if (!inside(dir)) return setRefusal({ field: "folder", text: copy.programFolderRefusal });
+    if ("refusal" in entry) return setRefusal(entry.refusal);
 
-    const adoptDir = (adoptField?.value ?? adopt()).trim();
-
-    if (adoptDir !== "" && !inside(adoptDir)) return setRefusal({ field: "adopt", text: copy.programAdoptRefusal });
+    const { dir, adoptDir } = entry;
 
     setRefusal(null);
 
