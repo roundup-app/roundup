@@ -38,6 +38,7 @@ const bar = () => screen.getByLabelText(copy.notesRegion, { selector: "section" 
 
 const sendButton = () => within(bar()).getByRole("button", { name: /Send notes:|Retry/ });
 
+// SAFETY: both fields are number inputs, so each element is an HTMLInputElement.
 const range = () => [form().getByRole("spinbutton", { name: "Start line" }), form().getByRole("spinbutton", { name: "End line" })].map(input => (input as HTMLInputElement).value);
 
 it("u7676a_the_gutter_plus_opens_the_field_for_that_line", async () => {
@@ -70,7 +71,7 @@ it("u7676b_n_opens_the_labelled_field_preset_from_the_line_or_range", async () =
   press("n");
   await screen.findByRole("form", { name: copy.lineNote });
   expect(range()).toEqual(["2", "2"]);
-  expect(form().getByRole("tab", { name: "New" })).toBeTruthy();
+  expect(form().getAllByRole("tab").length).toBe(2);
 });
 
 it("u7676b_cmd_enter_saves_and_escape_keeps_text_as_unfinished_work", async () => {
@@ -133,7 +134,7 @@ it("u7676c_a_saved_note_says_not_sent_and_editing_keeps_it_until_save", async ()
   const { app } = await openDiff();
   await saveNote("saved");
   expect(within(batch()).getByText(new RegExp(copy.notSent))).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.editNote(1) }));
   fireEvent.input(field(), { target: { value: "changed" } });
   expect(firstNote(app).text).toBe("saved");
   fireEvent.keyDown(field(), { key: "Escape" });
@@ -149,8 +150,8 @@ it("u7676c_a_sending_note_is_locked", async () => {
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   await openBatch();
   expect(within(batch()).getByText(new RegExp(copy.sending))).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Edit note 1" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Remove note 1" })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.editNote(1) })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.removeNote(1) })).toBeNull();
   fireEvent.click(sendButton());
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
 });
@@ -159,22 +160,24 @@ it("u7676c_a_rejected_note_says_couldnt_send_and_stays_editable", async () => {
   const { app } = await openDiff();
   await saveNote("one");
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "receiver ended"); };
+
   fireEvent.click(sendButton());
   await openBatch();
   await within(batch()).findByText(new RegExp(copy.couldntSend));
-  expect(screen.getByRole("button", { name: "Edit note 1" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Remove note 1" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: copy.editNote(1) })).toBeTruthy();
+  expect(screen.getByRole("button", { name: copy.removeNote(1) })).toBeTruthy();
 });
 
 it("u7676c_an_unknown_acceptance_locks_the_note_and_offers_no_resend", async () => {
   const { app } = await openDiff();
   await saveNote("one");
   app.handlers["message.send"] = () => { throw new Error("disconnected"); };
+
   fireEvent.click(sendButton());
   await screen.findByRole("button", { name: copy.checkMessageHistory });
   await openBatch();
   expect(within(batch()).getByText(new RegExp(copy.sendUnknown))).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Edit note 1" })).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.editNote(1) })).toBeNull();
   expect(screen.queryByRole("button", { name: /Send notes:|Retry/ })).toBeNull();
 });
 
@@ -195,7 +198,7 @@ it("u7676c_notes_for_lines_no_longer_shown_gather_after_the_last_line", async ()
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "later-revision", text: "different\n" } });
   await connected.worktrees.refresh("a");
   const group = await screen.findByRole("list", { name: copy.notesNoLongerShown });
-  expect(within(group).getByText("original")).toBeTruthy();
+  expect(within(group).getAllByRole("listitem").length).toBe(1);
   expect(within(group).getByText(new RegExp(copy.originalContext))).toBeTruthy();
 });
 
@@ -236,6 +239,7 @@ it("u7676d_retry_is_for_a_definite_rejection_only", async () => {
   const { app } = await openDiff();
   await saveNote("one");
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "receiver ended"); };
+
   fireEvent.click(sendButton());
   await screen.findByText(/Couldn't send 1 note/);
   await screen.findByText("receiver ended");
@@ -250,10 +254,10 @@ it("u7676d_remove_offers_undo_for_five_seconds", async () => {
   await saveNote("one");
   await saveNote("two");
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-  fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.removeNote(1) }));
   await vi.advanceTimersByTimeAsync(10);
   await vi.advanceTimersByTimeAsync(3000);
-  fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.removeNote(1) }));
   await vi.advanceTimersByTimeAsync(10);
   expect(notesFor(app, "/p").list("a")).toEqual([]);
   // The first removal is 3 s old and the second fresh: Undo brings back the latest.

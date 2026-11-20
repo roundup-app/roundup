@@ -118,7 +118,7 @@ export const copy = {
   noteRemoved: "Note removed",
   undo: sharedCopy.todoUndo,
   notSent: "Not sent",
-  unfinishedWork: "Unfinished work",
+  unfinishedWork: sharedCopy.unfinishedWork,
   notesNoLongerShown: "Notes for lines no longer shown",
   couldntSend: "Couldn't send",
   sendUnknown: "Send unknown",

@@ -167,7 +167,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
-  const { kept, unkeep, gone, forget, removedNote } = createNoteMemory(restored);
+  const { kept, unkeep, gone, forget, removedNote } = createNoteMemory<Note>(restored);
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 

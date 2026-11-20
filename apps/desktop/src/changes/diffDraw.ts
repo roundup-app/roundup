@@ -4,12 +4,12 @@ import { copy } from "./copy";
 import { selectedNotice } from "./fileState";
 import type { LineSelection } from "./lines";
 import type { Note } from "./notes";
+import diffStyles from "./diff.styles.css?inline";
 
 /** U7676c: the mark a line draws for a field kept as unfinished work. */
 export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: number; text: string };
 
 export type Annotated = Note | Mark;
-import diffStyles from "./diff.styles.css?inline";
 
 /** U7674d: the diff is light in both App modes. */
 const DIFF_THEME = "github-light";
@@ -132,6 +132,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
         return mark;
       }
+
       const element = document.createElement("p");
 
       element.className = "diff-note";
