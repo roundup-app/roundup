@@ -1,0 +1,51 @@
+# UI: the Changes view compares the remote's main with the Agent's work (U7672a–U7672d)
+
+Module: `crates/agents` and `crates/contracts` (U7672a, U7672b), `apps/desktop/src/changes/` and `apps/desktop/src/state/` (U7672c, U7672d). Ids: U7672a, U7672b, U7672c, U7672d. Work order: [#7672](https://github.com/roundup-app/roundup/issues/7672), blocked by #7671. Owner, 2026-11-18: each Rail item owns its changes, Solo-style, and the view compares the remote's main with the Agent's work. This replaces U7186b's and U7186d's free compare: the From and To pickers go and so does the choice of any worktree or branch head. Remote freshness and a warning when it has moved are #7693, never this order.
+
+Contract change (rule 4): `project.compareRefs`, `CompareRefs`, `CompareRef`, `CompareEndpoint` and the `from` and `to` endpoint fields of `ChangedFilesParams` and `CompareFileParams` are deleted; both params gain `to`, a **Compare target** (a new `GLOSSARY.md` row in the implementation PR, replacing **Compare endpoint**). `agent.changedFiles` and `agent.compareFile` are reused; `agent.ownedChanges` is reused; no new Daemon method. Every caller, `docs/worktrees.md`, `scenarios/rpc.md`, `contracts/generated/` (regenerated, never hand-edited), the fake App, `crates/rupd/src/route/policy.rs`, `crates/perf/tests/large_project.rs` and the `project_compareRefs` tool of the Brief (with its fixtures) change in the implementation PR. `crates/agents/src/worktree/endpoints.rs`, `tests/scenarios/u7186b_compare.rs`, `u7186d_pickers.test.tsx` and the handler lines of `u7186c_rail_icon.test.tsx` are deleted. The implementation PR's `Reuse:` section says it names no library: it deletes code and reuses the three methods above. Observer: Rust tests on Linux against temporary git repositories with an origin for U7672a and U7672b; Vitest against the fake App for U7672c and U7672d; the isolated Chromium harness (U26) at 1280 by 800, dark only, for the rendered Checks D2, D5 and D6. Never a native Mac capture. Size: about 1,400 changed lines, about 770 of them deleted, one API change with all its callers (rule 3); the specify run found no seam that splits it without leaving two interfaces live.
+
+**Precedence.** A design check that reads a decision here as a defect changes how it is drawn, never the decision. When both cannot hold, `ask` (`flag:needs-user`).
+
+**U7672a `agent.changedFiles` and `agent.compareFile` compare the remote's main with a Compare target.** Given a repository with an origin, an Agent whose Worktree is its own (G2), and `to` of `tree` (the default) or `branch`, then:
+- **From.** From is the remote's default branch (`refs/remotes/origin/HEAD`) read at its merge base with the Agent's HEAD, as a pull request shows it. A commit that lands on the remote's main after the branch point is never listed as a change, by either method and for any `to`. Asserted in `u7672a_a_commit_landing_on_remote_main_after_the_branch_point_is_never_listed`.
+- **Tree.** `to: "tree"` lists everything in the Agent's folder now against From: committed, staged, unstaged and untracked files outside `.roundup/`, with U2539a's `status` and `line`. Asserted in `u7672a_tree_lists_committed_staged_unstaged_and_untracked_files`.
+- **Branch.** `to: "branch"` lists only what the Agent's commits changed against From: a staged, unstaged or untracked file is not listed, and `agent.compareFile` reads its new side from HEAD's commit, not from disk. Asserted in `u7672a_branch_lists_only_what_its_commits_changed`.
+- **Counts.** For each `to` value every entry's `counts` equals `git diff --numstat` between the same two sides (U7610a). Asserted in `u7672a_counts_equal_git_numstat_for_tree_and_branch`.
+- **No remote.** A repository with no `origin` uses the repository's local default branch (`main`, else `master`) as From; nothing fails. Asserted in `u7672a_without_a_remote_from_is_the_local_default_branch`.
+- **Shared checkout.** An Agent with no Worktree of its own fails `to: "tree"` and `to: "branch"` with `no_worktree` (U2539a). Asserted in `u7672a_a_shared_checkout_has_no_tree_or_branch_target`.
+- **One read.** `agent.compareFile` stays the one read of a file's bytes, with its 4 MiB limit and its refusals (U2540a); no endpoint parameter remains and a request carrying `from` is rejected as an unknown field. Asserted in `u7672a_compare_file_keeps_its_limit_and_takes_no_endpoint`.
+- **Read-only.** Branches, index and files are the same after any call. Asserted in `u7672a_changes_nothing`.
+
+**U7672b `agent.ownedChanges` is the Changes target and compares the remote's main.** Amends U7186a; given the repository above, then:
+- **Only what the Agent wrote.** For an Agent whose edits sit in its own Worktree, the group lists only the files its file-writing tool calls wrote that now differ from From; a file another hand changed in that Worktree is listed under Tree, not here. Asserted in `u7672b_changes_lists_only_files_the_agent_wrote_in_its_own_worktree`.
+- **Base.** Each group's `base` is the remote's main merge base (U7672a's From) with the group's branch, for the own Worktree and the shared checkout alike; a commit that lands on the remote's main after the branch point is never listed. Asserted in `u7672b_a_later_remote_commit_never_shows_as_a_change`.
+- **Kept.** U7186a's shared-checkout, merged-is-empty, several-repositories and read-only clauses stand, and the default-branch clause now reads: the remote's main (`origin/HEAD`), else `main`, else `master` when there is no remote. Asserted in the U7186a tests named there, with `u7186a_the_default_branch_is_the_repository_default` edited to the remote's main.
+
+**U7672c the Changes header has a quiet From label and one switch.** Given the open Changes view for an Agent, then:
+- **From label.** The header shows From as a fixed label naming the remote's main (the local default branch when there is no remote), not a control: it has no button, select or menu role. Asserted in `u7672c_from_is_a_label_not_a_control`.
+- **Switch.** One switch holds **Tree**, **Branch** and **Changes**, and replaces the pickers in the header. Changes is selected when the view first opens for an Agent. Choosing Tree or Branch lists `agent.changedFiles` for that `to`; choosing Changes lists `agent.ownedChanges`; each choice clears the open file. Asserted in `u7672c_the_switch_has_three_values_and_opens_on_changes` and `u7672c_choosing_a_value_lists_that_values_files`.
+- **No Worktree.** For an Agent in a shared checkout (no Worktree of its own) the switch offers Changes alone. Asserted in `u7672c_a_shared_checkout_offers_changes_alone`.
+- **One group.** Changes shows one group per repository and branch (U7186a); Tree and Branch show the Worktree's one. Asserted in `u7672c_tree_and_branch_show_one_group`.
+- **Keyboard.** The switch is a `ui/` primitive over Ark UI, reachable by Tab, and arrow keys move between its values. Asserted in `u7672c_the_switch_is_reachable_and_arrow_keys_move_it`.
+- **No free compare.** Opening, switching and choosing a file call `project.compareRefs` never and send no `from`. Asserted in `u7672c_no_compare_refs_call_and_no_from`.
+
+**U7672d the choice is remembered per Agent.** Given two Agents, then:
+- **Per Agent.** Choosing Branch for one Agent leaves another's switch at Changes, and each shows its own choice when selected again. Asserted in `u7672d_one_agents_choice_never_changes_another`.
+- **Kept.** The remembered choice survives closing and reopening the view; an Agent never chosen for opens on Changes. A remembered Tree or Branch for an Agent that has lost its Worktree falls back to Changes. Asserted in `u7672d_the_choice_is_remembered_and_falls_back_without_a_worktree`.
+- **Counts and rows follow the value.** The Rail icon count stays `agent.ownedChanges`' (U7186c), and each row's `+added -removed` follows the selected value (U7610b). The lazy reader and 10,000-line fallback, Enter or a double click opening the editor (U2539d) and U2539a's status, `line`, path order, read-only rule and `.roundup/` exclusion are unchanged. Asserted in `u7672d_rows_and_reader_keep_their_rules_for_every_value`.
+- **No dead names.** The compiler and the lints find no caller of a deleted name (policy, rule 10); each deleted test names the test that still proves its then-clause or the retirement below.
+
+**Retired and amended.**
+- U7186b's Endpoints clause and the endpoint half of its A comparison are retired; its read-only and failure clause stands with `endpoint_missing` removed. `u7186b_*` tests go with `u7186b_compare.rs`, held by U7672a.
+- U7186d's Choices, Free compare and Presets clauses are retired; its Keyboard clause now reads U7672c's switch. `u7186d_*` tests go, held by U7672c and U7672d.
+- U7186c's Opens the compare clause now reads: the diff opens titled `Changes: <Agent> vs <remote main>` on the switch's value, Changes by default.
+- U7186e's Kept facts and Same view clauses read the switch, not pickers, and compare against the remote's main.
+- U2539a and U2540a: their comparison is against the remote's main merge base (U7672a), not the Base merge base; Base stays for Landing (G3).
+- U7610a: `from` and `to` endpoints are replaced by `to`; counts match `git diff --numstat` for each value.
+
+Checks on main (numbered references, not claims that this specification implements them):
+
+1. `scenarios/ui-agent-changes.md`, U7186a to U7186e: the clauses amended above.
+2. `scenarios/ui-worktree-changes.md`, U2539a, and `scenarios/ui-changes-counts.md`, U7610a: the list and count rules kept.
+3. `scenarios/ui-diff-notes.md`, U2540a: the reader and the 4 MiB limit kept.
+4. `crates/agents/src/worktree/owned.rs`, `default_branch`: the `origin/HEAD`, else `main`, else `master` fallback.
