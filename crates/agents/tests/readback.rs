@@ -132,6 +132,27 @@ async fn a7686_the_call_has_no_tools_no_session_and_only_its_input() {
     assert!(!any_file_holds(fake.dir.path(), conversation));
 }
 
+#[tokio::test]
+async fn a7686_readback_is_no_agent_node() {
+    let fake = Fake::new();
+
+    let text = fake
+        .launcher()
+        .readback_call(Some("opus".into()), None)
+        .read("Read it.", b"the diff")
+        .await
+        .unwrap();
+
+    // The call is one process that returns text: no session to become a Rail node, no
+    // Terminal, and no Write or Edit tool whose use would record a `wrote` Touch.
+    assert_eq!(text, "read");
+    let launches = fake.launches();
+    assert_eq!(launches.len(), 1);
+    assert!(has(&launches[0], "--tools", ""));
+    assert!(argv(&launches[0]).contains(&"--no-session-persistence"));
+    assert!(!argv(&launches[0]).contains(&"--session-id"));
+}
+
 fn any_file_holds(dir: &Path, needle: &str) -> bool {
     std::fs::read_dir(dir).unwrap().any(|entry| {
         let path = entry.unwrap().path();
