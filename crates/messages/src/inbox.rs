@@ -967,4 +967,28 @@ pub(crate) mod tests {
         let ids: Vec<u32> = rows.iter().map(|m| m.id).collect();
         assert_eq!(batches[0].iter().map(|e| e.0).collect::<Vec<_>>(), ids);
     }
+
+    /// DTC6(c): the notes that decide something for the Door are no passive note: each is written at once.
+    #[tokio::test(start_paused = true)]
+    async fn dtc6_stalled_return_and_ended_notes_are_written_at_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, inbox) = setup(dir.path());
+        for (n, body) in ["[stalled] c", "[return] c", "[ended] c", "[wake] c"]
+            .iter()
+            .enumerate()
+        {
+            let note = pending(&messages, &Actor::daemon(), body);
+            send(
+                &messages.inner,
+                "m",
+                (1, 2),
+                Pick::Next,
+                vec![note],
+                Inbox::Ok,
+            )
+            .await
+            .unwrap();
+            assert_eq!(lock(&inbox.batches).len(), n + 1, "{body}");
+        }
+    }
 }
