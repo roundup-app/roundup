@@ -47,6 +47,7 @@ export const copy = {
   changedPad: "Changed since you read it",
   padDeleted: (name: string) => `Pad ${name} was deleted`,
   padSourceMappingFailed: "Pad not saved: edited blocks did not match the source.",
+  padRenameVersionMissing: "Pad not renamed: its version was not read.",
   changedBy: "Changed by ",
   keepMine: "Keep mine",
   useTheirs: "Use theirs",

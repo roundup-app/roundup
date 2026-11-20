@@ -20,6 +20,7 @@
 
 /* U7310b: a Pad's name and a Todo's title are the title role: 24/600. */
 .pad-head-name,
+.pad-head-title .row-name-editor,
 .todo-detail-title .todo-editable {
   flex: 0 1 auto;
   min-width: 0;

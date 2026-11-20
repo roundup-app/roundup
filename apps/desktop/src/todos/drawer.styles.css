@@ -86,6 +86,7 @@ p.todo-comment-body { white-space: pre-wrap; }
   min-width: 0;
 }
 .todo-editable textarea { max-width: 100%; }
+.todo-editable .field-inline:focus-visible { outline: none; }
 .todo-editable button {
   align-self: flex-start;
   font-size: var(--text-body);
