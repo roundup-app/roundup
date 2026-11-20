@@ -19,7 +19,49 @@ export const copy = {
   removedLines: (count: number) => `-${count}`,
   groupLabel: sharedCopy.dotted,
   diff: sharedCopy.diff,
-  loadingDiff: "Loading diff…",
+  comparing: "Comparing…",
+  /** @prose */
+  noChangesAgainst: (from: string) => `No changes against ${from}`,
+  /** @prose */
+  folderMatches: (agent: string, from: string) => `Everything in ${agent}'s folder matches ${from}`,
+  /** @prose */
+  compareFailed: (from: string, to: string) => `Couldn't compare ${from} with ${to}`,
+  /** @prose */
+  folderGone: (agent: string) => `${agent}'s folder no longer exists`,
+  /** @prose */
+  stillMissing: "Checked again: it is still missing",
+  loadingFile: sharedCopy.surfaceLoading,
+  renamedPaths: (from: string, to: string) => `${from} to ${to}`,
+  /** @prose */
+  modeOnly: "This file only has a mode change, so no lines show.",
+  showWhitespace: "Show whitespace changes",
+  /** @prose */
+  tooLarge: "This file is too large to show.",
+  showAnyway: "Show anyway",
+  /** @prose */
+  updatedFile: (agent: string) => `${agent} updated this file`,
+  reload: "Reload",
+  /** @prose */
+  fileGone: (path: string, from: string) => `${path} no longer differs from ${from}`,
+  keys: "Keys",
+  keysList: [
+    /** @prose */
+    "Up and Down move between files.",
+    /** @prose */
+    "Left and Right fold or unfold a directory.",
+    /** @prose */
+    "Tab goes from the list to the diff.",
+    /** @prose */
+    "J and K open the next or previous file.",
+    /** @prose */
+    "Square brackets jump to the next or previous change.",
+    /** @prose */
+    "Enter opens the file in the editor.",
+    /** @prose */
+    "Esc closes this list, then the view.",
+    /** @prose */
+    "? shows this list.",
+  ],
   noDifference: "No remaining difference",
   diffNotLoaded: "Diff not loaded",
   binaryDiff: "Binary file · choose a text file for notes.",

@@ -1,5 +1,5 @@
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
@@ -9,69 +9,30 @@ import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
+import { changeAt, changeStarts, placeOf, sideName } from "./lines";
+import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
+import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead, sameRevisions } from "./fileState";
+import { drawDiff } from "./diffDraw";
+import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
-import diffStyles from "./diff.styles.css?inline";
-
-/** U7674d: the diff is light in both App modes. */
-const DIFF_THEME = "github-light";
-
-let library: Promise<typeof import("@pierre/diffs")> | undefined;
-
-/** U2540d: startup and Agent selection never fetch the renderer. */
-export const diffsLoaded = () => library !== undefined;
 
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
-type PatchFile = { name: string; contents: string };
+/** U7675e: what the pane lets the view do from a key. */
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void };
 
-const MAX_EDITS = 2000;
-
-/** The fewest line insertions and deletions any diff from `old` to `next` needs: each line the other text lacks, counted with its repeats. */
-const lineEditFloor = (old: string, next: string) => {
-  const lines = (text: string) => text === "" ? [] : text.replace(/\n$/, "").split("\n");
-  const before = lines(old);
-  const after = lines(next);
-  const left = new Map<string, number>();
-
-  for (const line of before) left.set(line, (left.get(line) ?? 0) + 1);
-  let shared = 0;
-
-  for (const line of after) {
-    const count = left.get(line) ?? 0;
-
-    if (count > 0) { shared += 1; left.set(line, count - 1); }
-  }
-
-  return before.length + after.length - 2 * shared;
-};
-
-/** U2540’s 10,000-line complete rewrite froze the rendered observer beyond 30 seconds.
- * jsdiff bounds that search; its empty-side patches supply a lossless coarse fallback.
- * U7610b: a rewrite that needs more edits than the bound skips the search, which cannot succeed, and its 100 ms timeout. */
-const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, structuredPatch, formatPatch }: Pick<typeof import("diff"), "createTwoFilesPatch" | "structuredPatch" | "formatPatch">) => {
-  const patch = lineEditFloor(oldFile.contents, newFile.contents) > MAX_EDITS ? undefined : createTwoFilesPatch(oldFile.name, newFile.name, oldFile.contents, newFile.contents, undefined, undefined, { timeout: 100, maxEditLength: MAX_EDITS });
-
-  if (patch !== undefined) return { patch, coarse: false };
-
-  const removed = structuredPatch(oldFile.name, newFile.name, oldFile.contents, "");
-  const added = structuredPatch(oldFile.name, newFile.name, "", newFile.contents);
-  const before = removed.hunks[0];
-  const after = added.hunks[0];
-
-  return { coarse: true, patch: formatPatch({ ...removed, hunks: [{
-    oldStart: before?.oldStart ?? 0, oldLines: before?.oldLines ?? 0,
-    newStart: after?.newStart ?? 0, newLines: after?.newLines ?? 0,
-    lines: [...(before?.lines ?? []), ...(after?.lines ?? [])],
-  }] }) };
-};
+const DiffIdentity = (props: { read: FileComparison | undefined; path: string }) => <div class="diff-identity">
+  <p class="diff-path"><Show when={props.read} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
+  <Show when={props.read}>{value => <Show when={value().status === "added" || value().status === "deleted"}><p class="diff-status">{value().status === "added" ? copy.statusAdded : copy.statusDeleted}</p></Show>}</Show>
+</div>;
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
-  const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
-  const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
+  const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
+  const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
 
   createEffect(() => props.editing, note => {
     if (note) setForm({ comparison: note.comparison, selection: note, editing: note });
@@ -87,25 +48,31 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
   const [loading, setLoading] = createSignal(true);
   const [coarse, setCoarse] = createSignal(false);
   const [host, setHost] = createSignal<HTMLDivElement>();
+  const [painted, setPainted] = createSignal<{ path: string; blob: string | null }>(untrack(() => ({ path: props.path, blob: props.blob ?? null })));
+  const [shown, setShown] = createSignal<{ path: string; kind: "whitespace" | "large" }>();
+  let starts: ChangeStart[] = [];
+  let cursor = -1;
+  let rendered: { path: string; revision: string } | undefined;
+  let focusHost = () => {};
 
-  const notice = createMemo(() => {
-    const value = read();
+  let moveTo = (_side: "old" | "new", _line: number) => {};
 
-    if (!value) return loading() ? (failure() ? null : copy.loadingDiff) : failure() ? null : copy.diffNotLoaded;
+  // U7675b: a read of a file whose entry's blob moved on says so and waits for Reload.
+  const updated = () => !loading() && painted().path === props.path && painted().blob !== (props.blob ?? null);
 
-    if (value.status === null) return copy.noDifference;
+  // Each read starts its own 150 ms: switching files while one is pending names the new file only after its own wait.
+  const slow = createLate(() => loading() ? props.path : undefined);
 
-    if (value.old.kind === "binary" || value.new.kind === "binary") return copy.binaryDiff;
+  const hidden = createMemo(() => hiddenKind(read(), shown()?.path === props.path ? shown()?.kind : undefined));
 
-    return coarse() ? copy.replacementDiff : copy.selectedLines(selection().side, selection().start === selection().end ? `${selection().start}` : `${selection().start}–${selection().end}`, selection().start === selection().end);
-  });
+  const notice = createMemo(() => noticeFor({ value: read(), hidden: hidden(), loading: loading(), slow: slow(), failed: failure() !== null, coarse: coarse(), selection: selection(), path: props.path }));
 
-  const worktree = createMemo(() => worktrees.read(props.id));
   let stopLoading = () => {};
 
   const load = (params: CompareFileParams) => {
     stopLoading();
     setLoading(true);
+    setPainted({ path: params.path, blob: untrack(() => props.blob) ?? null });
     const target = { id: params.id, path: params.path };
     let current = true;
     void reply(() => app.rpc("agent.compareFile", params)).then(result => {
@@ -114,18 +81,10 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
       setLoading(false);
 
       if (result.kind === "ok") {
-        setRead(previous => {
-          const next = result.value;
+        const same = displayed?.id === target.id && displayed.path === target.path;
 
-          const equal = displayed?.id === target.id && displayed.path === target.path && previous
-            && previous.base === next.base && previous.oldPath === next.oldPath && previous.newPath === next.newPath
-            && previous.status === next.status && previous.old.kind === next.old.kind && previous.new.kind === next.new.kind
-            && previous.old.revision === next.old.revision && previous.new.revision === next.new.revision;
-
-          displayed = target;
-
-          return equal ? previous : next;
-        });
+        displayed = target;
+        setRead(previous => same && previous && sameRead(previous, result.value) ? previous : result.value);
         setFailure(null);
       }
       else setFailure(result.text);
@@ -134,10 +93,20 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
     stopLoading = () => { current = false; };
   };
 
-  createEffect(() => [worktree(), compareParams(props.id, props.path, props.to ?? "tree")] as const, ([, params]) => { load(params); });
+  const params = () => compareParams(props.id, props.path, props.to ?? "tree");
+
+  const worktree = createMemo(() => worktrees.read(props.id));
+
+  // U7675b: a refresh reads again only while the entry's blob has not moved on: a changed blob waits for Reload.
+  createEffect(() => [worktree(), params()] as const, ([, next]) => {
+    const now = untrack(() => ({ blob: props.blob ?? null, painted: painted() }));
+
+    if (now.painted.path === next.path && now.blob !== null && now.blob !== now.painted.blob) return;
+    load(next);
+  });
   onCleanup(() => stopLoading());
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return loading() ? undefined : { run: () => load(compareParams(props.id, props.path, props.to ?? "tree")) }; } });
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return loading() ? undefined : { run: () => load(params()) }; } });
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
   const notes = createMemo(() => props.notes.list(props.id));
@@ -145,7 +114,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
   createEffect(() => {
     const value = read();
     const view = renderer();
-    const annotations = notes().filter(note => value && note.comparison.oldPath === value.oldPath && note.comparison.newPath === value.newPath && note.comparison.base === value.base && note.comparison.old.revision === value.old.revision && note.comparison.new.revision === value.new.revision);
+    const annotations = notes().filter(note => value && sameRevisions(note.comparison, value));
 
     return { view, annotations };
   }, ({ view, annotations }) => {
@@ -156,7 +125,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
     const value = read();
     const mount = host();
 
-    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null) return undefined;
+    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null || hidden() !== null) return undefined;
 
     return { value, mount };
   }, target => {
@@ -165,75 +134,79 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const { VirtualizedFileDiff, Virtualizer, processFile, preloadHighlighter, getFiletypeFromFileName } = await (library ??= import("@pierre/diffs").then(module => {
-        // U7674d: the library ships no themes in this build; Pierre's own github-light, a Zed theme for Highlights, loads on first use.
-        module.registerCustomTheme(DIFF_THEME, () => import("@pierre/highlights/themes/github-light"), "zed");
+      const drawn = await drawDiff(value, mount, { current: () => current, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); remember(); } });
 
-        return module;
-      }));
-
-      const { createTwoFilesPatch, structuredPatch, formatPatch } = await import("diff");
-
-      if (!current) return;
-
-      const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
-      const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
-      const { patch, coarse } = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
+      if (!drawn) return;
+      const { view, virtualizer, container, fileDiff, coarse } = drawn;
 
       setCoarse(coarse);
 
-      // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
-      const container = document.createElement("diffs-container");
-      mount.append(container);
-      const virtualizer = new Virtualizer();
+      // U7675d: a file opens at the scroll and line it was left at, else at its top; a comparison that changed starts at its top.
+      const revision = revisionOf(value);
+      const place = placeOf(props.places, value.newPath, revision, firstLine(value));
 
-      const view = new VirtualizedFileDiff<Note>({
-        onLineNumberClick: ({ lineNumber, annotationSide, event }) => {
-          const clickedSide = annotationSide === "deletions" ? "old" : "new";
-          const old = selection();
-          const range: ReturnType<typeof selection> = { side: clickedSide, start: event.shiftKey && old.side === clickedSide ? Math.min(old.start, lineNumber) : lineNumber, end: event.shiftKey && old.side === clickedSide ? Math.max(old.start, lineNumber) : lineNumber };
-          setSelection(range);
-          view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
-        },
-        renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start === metadata.end ? `${metadata.start}` : `${metadata.start}–${metadata.end}`, metadata.start === metadata.end)}: ${metadata.text}`;
-
-        return element; },
-        theme: DIFF_THEME, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
-
-      // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
-      await new Promise(resolve => setTimeout(resolve));
-
-      if (!current) return;
-
-      const fileDiff = processFile(patch, { oldFile, newFile, throwOnError: true });
-
-      if (!fileDiff) throw new Error(copy.comparisonRenderFailed);
-
-      await new Promise(resolve => setTimeout(resolve));
-
-      if (!current) return;
-
-      // Pierre anchors a visible file of no height to its bottom, so a first render left waiting on the highlighter opened the diff at its last line.
-      await preloadHighlighter({ themes: [DIFF_THEME], langs: [...new Set([oldFile.name, newFile.name].map(getFiletypeFromFileName))], preferredHighlighter: "highlights" });
-
-      if (!current) return;
-
+      starts = changeStarts(fileDiff);
+      cursor = changeAt(starts, place.selection);
+      rendered = { path: value.newPath, revision };
+      setSelection(place.selection);
       virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
       setRenderer(view);
 
-      view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
-      dispose = () => { setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
+      view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
+      mount.scrollTop = place.scroll;
+
+      // U7675e: Pierre has no focus row; the focused line is its selection, and its line position scrolls it into view.
+      moveTo = (side, line) => {
+        setSelection({ side, start: line, end: line });
+        view.setSelectedLines({ side: sideName(side), start: line, end: line });
+        const position = view.getLinePosition(line, sideName(side));
+
+        if (position) mount.scrollTop = position.top;
+        remember();
+      };
+
+      focusHost = () => { mount.tabIndex = -1; mount.focus(); };
+
+      // listener-owner: removed with the rendered diff in the dispose below.
+      mount.addEventListener("scroll", remember);
+      dispose = () => {
+        remember();
+        mount.removeEventListener("scroll", remember);
+        rendered = undefined;
+        moveTo = () => {};
+
+        focusHost = () => {};
+
+        setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove();
+      };
     }).then(error => { if (current && error) setFailure(error); });
 
     return () => { current = false; dispose?.(); };
   });
 
+  const remember = () => {
+    const mount = host();
+
+    if (rendered !== undefined && mount) props.places?.set(rendered.path, { revision: rendered.revision, scroll: mount.scrollTop, selection: selection() });
+  };
+
+  createEffect(() => props.keys, keys => keys?.({
+    focus: () => focusHost(),
+    step: direction => {
+      const next = starts[Math.min(Math.max(cursor + direction, 0), starts.length - 1)];
+
+      if (!next) return;
+      cursor = starts.indexOf(next);
+      moveTo(next.side, next.at[next.side]);
+    },
+  }));
+
+  const reload = () => { setShown(undefined); load(params()); };
+
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
-      <div class="diff-identity">
-        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</>}</Show></p>
-      </div>
+      <DiffIdentity read={read()} path={props.path} />
       <div class="diff-actions">
         <Show when={read()}>{value => <>
           <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
@@ -241,13 +214,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
       </div>
     </header>
     <StatusNote text={failure() ? null : notice()} />
-    <Show when={read()}>{value => <>
-      <Show when={value().status !== null}>
-        <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>
-          <div class="diff-content" ref={setHost} />
-        </Show>
-      </Show>
-    </>}</Show>
+    <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
+    <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
+    <Show when={read()}>{value => <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><div class="diff-content" ref={setHost} /></Show>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch fallback={() => addButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;

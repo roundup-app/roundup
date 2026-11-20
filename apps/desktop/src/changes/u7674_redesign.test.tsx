@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { COMPARISON, openChanges, treeRow } from "./noteHarness";
 import { mountControl, WORKTREE } from "./harness";
-import { diffsLoaded } from "./DiffReader";
+import { diffsLoaded } from "./diffDraw";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 

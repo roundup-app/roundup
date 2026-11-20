@@ -1,4 +1,5 @@
 import { createEffect, Show, untrack } from "solid-js";
+import { provideFocusTarget } from "../keys/focus";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
@@ -16,6 +17,9 @@ export const ChangesIcon = (props: { id: string }) => {
   owned.watch(id);
   const read = () => owned.read(id);
   const count = () => ownedCount(read());
+  let button: HTMLElement | undefined;
+
+  provideFocusTarget(`changes.icon.${id}`, () => button);
   const title = () => `${copy.reviewChanges}: `;
 
   // P11: the failed read keeps its cause and Retry in the Rail's own message surface.
@@ -25,7 +29,7 @@ export const ChangesIcon = (props: { id: string }) => {
   });
 
   return <Show when={count() > 0}>
-    <IconButton class="changes-icon" aria-label={copy.changedFiles(count())} onKeyDown={(press) => press.stopPropagation()} onClick={(click) => {
+    <IconButton class="changes-icon" ref={element => { button = element; }} aria-label={copy.changedFiles(count())} onKeyDown={(press) => press.stopPropagation()} onClick={(click) => {
       click.stopPropagation();
 
       if (rail.selected() !== id) rail.select(id);

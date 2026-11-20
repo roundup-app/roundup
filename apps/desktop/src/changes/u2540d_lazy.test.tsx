@@ -1,6 +1,6 @@
 import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { diffsLoaded } from "./DiffReader";
+import { diffsLoaded } from "./diffDraw";
 import { mountControl } from "./harness";
 import { COMPARISON, openChanges } from "./noteHarness";
 

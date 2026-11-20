@@ -29,6 +29,7 @@ export const labels = new Map([
 export const copy = {
   ageNow: "now",
   ageSeconds: (value: number) => `${value}s`,
+  surfaceLoading: (label: string) => `Loading ${label}…`,
   workstream: word.workstream,
   defaultChoice: "Default",
   newWord: "New",
