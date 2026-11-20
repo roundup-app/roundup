@@ -29,6 +29,7 @@ import { createDraftField } from "../state/draftField";
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
 import { usePadRead } from "./padRead";
+import { PadChangesAction, PadChangesView, usePadChanges } from "./PadChanges";
 import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
 
@@ -94,7 +95,7 @@ const PadBody = (props: {
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
-  const maximised = useContext(DrawerMaximisedContext);
+  const maximised = useContext(DrawerMaximisedContext), changes = usePadChanges(list, props.initial, () => props.pads());
   const [width, setWidth] = createSignal(untrack(() => appSettings().padWidth));
   // The body opens on the Pad as it is now, read once.
   const { name, ...opened } = untrack(() => ({ name: props.initial.name, incarnation: props.initial.incarnation, text: props.initial.text, revision: props.initial.revision }));
@@ -480,7 +481,7 @@ const PadBody = (props: {
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
-        </IconButton>
+        </IconButton><PadChangesAction changes={changes} />
         <Show when={!deleted()}>
           <IconButton
             icon="delete" style={wholeWord}
@@ -495,7 +496,7 @@ const PadBody = (props: {
           </IconButton>
         </Show>
       </div>
-      <Loading>
+      <PadChangesView changes={changes}><Loading>
         <PadRichEditor
           toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
           initialFocus={props.initialFocus}
@@ -520,7 +521,7 @@ const PadBody = (props: {
             if (recovered?.selection) ready.restoreSelection(recovered.selection);
           }}
         />
-      </Loading>
+      </Loading></PadChangesView>
       <PadNotes name={name} revision={() => originalRevision} selection={selected} restoreFocus={() => editor?.focus()} />
     </div>
   );
