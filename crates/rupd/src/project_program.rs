@@ -414,17 +414,25 @@ mod tests {
     }
 
     async fn started(project: &Path, count: usize) {
-        for _ in 0..600 {
-            let lines = std::fs::read_to_string(project.join("started.txt"))
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut watcher = notify::recommended_watcher(move |_| {
+            let _ = tx.send(());
+        })
+        .unwrap();
+        notify::Watcher::watch(&mut watcher, project, notify::RecursiveMode::NonRecursive).unwrap();
+        let lines = || {
+            std::fs::read_to_string(project.join("started.txt"))
                 .unwrap_or_default()
                 .lines()
-                .count();
-            if lines >= count {
-                return;
+                .count()
+        };
+        tokio::time::timeout(Duration::from_secs(15), async {
+            while lines() < count {
+                rx.recv().await.unwrap();
             }
-            tokio::time::sleep(Duration::from_millis(25)).await;
-        }
-        panic!("the program did not write {count} start(s)");
+        })
+        .await
+        .unwrap_or_else(|_| panic!("the program did not write {count} start(s)"));
     }
 
     /// A Daemon reopened over the same core: a second host over the first's Terminals stands for
