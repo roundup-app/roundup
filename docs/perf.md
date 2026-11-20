@@ -586,20 +586,26 @@ Linux x86_64, clean `pnpm --filter desktop build`, `python3 tools/release/check.
 
 ## RA5: rust-analyzer on this repo (call paths for Rust)
 
-Measured on a 4-core, 15 GB Linux runner, rust-analyzer 1.99.0 (rustup component), one `prepareCallHierarchy`, `outgoingCalls` and `incomingCalls` on `Git::export_commit`, a fresh `CARGO_TARGET_DIR`, `cargo.extraArgs` of `--offline --locked`, check on save off. Peak is the server process's `VmHWM` (its cargo and proc-macro children are not in it).
+RA6 (#7803) re-measured on a populated registry (`cargo fetch` online first, then offline, 1.2 GB registry). Host: 4-core Intel Xeon 6975P-C, 15 GB, Linux, rust-analyzer 1.99.0 (b940084 2026-09-28), cargo 1.99.0, cargo jobs default (4), no `nice`. One `prepareCallHierarchy`, `outgoingCalls` and `incomingCalls` on `Git::compare_file`, a fresh `CARGO_TARGET_DIR` per row, `cargo.extraArgs` of `--offline --locked`, check on save and cache priming off. Peak is the server's `VmHWM` (its cargo and proc-macro children are not in it). One attempt per row.
 
-| Run | Time to first answer | Time with both directions | Peak RSS |
-|---|---:|---:|---:|
-| Full | 3.5 s | 3.7 s | 788 MB |
-| Lean (no build scripts, no proc macros, no cache priming) | 2.7 s | 3.0 s | 684 MB |
+| Tree | Settings | Ready | First answer | Peak RSS (server) | Target dir |
+|---|---|---:|---:|---:|---:|
+| Old (`77d7a060f^`) | `main`'s (build scripts and proc macros on) | 68.2 s | 79.1 s | 2068 MiB | 875 MiB |
+| New (`77d7a060f`) | `main`'s | 115.6 s | 129.5 s | 2089 MiB | 876 MiB |
+| New | lean (build scripts and proc macros off) | 1.3 s | 8.7 s | 1841 MiB | none |
 
-This runner's cargo has no registry cache, so `cargo metadata --offline` failed and the server fell back to the workspace without dependencies: these numbers are a floor, not the cold cost of a populated machine, and it is no 64-core host. Dispositions:
+Incoming calls took under 0.1 s in every row. The coordinator's Mac, 16 cores (Issue #7803): 76.6 s to ready cold, 4.35 s warm, 2.51 s and 6.8 s to the first answer lean; the shapes agree.
+
+Observation record: the real server answered all three questions (37 outgoing calls, 1 incoming) on the rows above, checked by hand against the source. The three-diff record through the Daemon's `Git::call_paths` is not made: run over `77d7a060f`, `a2e108f76` and `fe7d23d30` (each a worktree whose merge base is its parent, a populated registry, rust-analyzer found), the Daemon answered `done` in 1.1 s with every symbol `callable: false` and no calls, and its two target directories held only the `complete` marker. `crates/agents/src/worktree/call_paths/lsp.rs` sends `prepareCallHierarchy` right after `initialize` and never waits for the server's `quiescent` status, so a Rust trace reads the workspace before it has loaded. That is a failure of the record, not a skip, and is the follow-up named in the PR (the concurrent `cargo build` was not reached).
+
+Dispositions, against the 20% rule:
 
 | Lever | Cut | Disposition |
 |---|---:|---|
-| Lean options | 19% time, 13% RSS | Not kept (under 20%); the switch exists (`Git::with_call_path_levers`) and the reply names it |
-| Outgoing calls only | not measured apart (incoming took 0.1 s) | Not kept |
-| Old side cached by commit | export cached since CP6 | Kept; its cold start (about 3 s here) is under 10 s, so no answers cache (RA6 deleted) |
-| Limit | Rust 120 s | Kept as specified (no run came near it) |
+| Lean options | time to first answer 129.5 to 8.7 s (93%), cold start 115.6 to 1.3 s; RSS 2089 to 1841 MiB (12%) | Kept (time over 20%): Rust traces run lean and the reply names `unresolved: ["macroGenerated"]`; `Git`'s default is still off (RA4 tests read a plain reply), so flipping it is the follow-up |
+| Outgoing calls only | none (incoming under 0.1 s) | Not kept |
+| Old side cached by commit | export cached since CP6 | Kept |
+| Answers cache (RA6 of #7682) | old side's cold start: 68.2 s to ready with `main`'s settings (10 s or more), 8.7 s lean (under 10 s) | Returns for `main`'s settings and stays deleted with lean on; it is not built now, and `scenarios/call-paths-rust.md` says it returns while lean is off, which `Git` still is by default |
+| Limit | Rust 120 s | Kept: two never-traced commits take about 79 s + 130 s with `main`'s settings (over 120 s; the rule's 2 x 130 s = 260 s would apply there), and about 17 s lean, so it holds once lean is on; until then the rule's 260 s applies and is the follow-up's to set |
 
-The observation record (the real server over three recorded diffs of this repo with a populated cargo registry, checked by hand, with a concurrent `cargo build`) is not yet made: this runner cannot populate the registry offline. It is the Mac observation named in the PR.
+Trigger: Rust traces only when the user clicks Trace (#7683, decision 7), so these costs land on a click, never on opening the view.
