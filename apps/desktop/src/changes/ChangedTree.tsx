@@ -48,6 +48,12 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
 
   const status = (list: readonly ChangedFile[]) => list.map(file => ({ path: file.path, status: file.status }));
 
+  // `select()` adds to the selection: drop every other path so exactly the open file is selected.
+  const openOnly = (path: string) => {
+    for (const other of tree?.getSelectedPaths() ?? []) if (other !== path) tree?.getItem(other)?.deselect();
+    tree?.getItem(path)?.select();
+  };
+
   createEffect(() => props.files, list => {
     files = new Map(list.map(file => [file.path, file]));
     tree?.resetPaths(list.map(file => file.path));
@@ -56,7 +62,7 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
 
   // The open file carries the selection: feed it back on every choose.
   createEffect(() => props.selected, path => {
-    if (path) tree?.getItem(path)?.select();
+    if (path) openOnly(path);
   });
 
   onSettled(() => {
@@ -93,7 +99,7 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
 
       if (start) {
         tree.focusPath(start);
-        tree.getItem(start)?.select();
+        openOnly(start);
       }
 
       shadow?.querySelector<HTMLElement>(start ? `[data-item-path="${CSS.escape(start)}"]` : '[tabindex="0"]')?.focus();
