@@ -26,7 +26,7 @@ vi.mock("./PadRichEditor", () => ({ default: (props: ComponentProps<typeof PadRi
       snapshot: () => ({ source: baseline, text, document: "{}", trailingCaret: false }),
       restoreDocument: () => true,
       selection: () => ({ start: 1, end: 1, direction: "none" }),
-      restoreSelection: () => {},
+      selectedText: () => "", restoreSelection: () => {},
       scrollToHeading: () => {},
     });
   });

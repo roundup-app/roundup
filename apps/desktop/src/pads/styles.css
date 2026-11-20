@@ -772,3 +772,38 @@ li[aria-selected="true"] svg {
   flex-direction: column;
   gap: var(--space-2);
 }
+
+.pad-notes {
+  display: grid;
+  justify-items: start;
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.pad-note-list, .pad-notes button { min-width: 0; max-width: 100%; }
+
+.pad-note { display: grid; gap: var(--space-2); }
+
+.pad-note-quote {
+  margin: 0;
+  max-height: 8lh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-muted);
+  background: var(--sunken);
+  border-radius: var(--radius-chip);
+  padding: var(--space-1) var(--space-2);
+}
+
+.pad-note-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pad-note-popover .note-field { display: grid; gap: var(--space-1); }
+.pad-note-popover textarea { resize: none; }

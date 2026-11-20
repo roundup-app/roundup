@@ -25,7 +25,7 @@ import { toggleMark } from "@milkdown/kit/prose/commands";
 import { codeColours } from "./codeColours";
 import { table } from "@milkdown/crepe/feature/table";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
-import { commandsCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { commandsCtx, editorViewCtx, remarkStringifyOptionsCtx, serializerCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
@@ -52,6 +52,8 @@ export type PadEditorHandle = {
   /** Endpoints are ProseMirror document positions; restoration changes no focus. */
   selection(): { start: number; end: number; direction: "forward" | "backward" | "none" };
   restoreSelection(selection: { start: number; end: number; direction: "forward" | "backward" | "none" }): void;
+  /** U7705b: the selected text as Markdown source where the editor can give it, else its plain text; "" for an empty selection. */
+  selectedText(): string;
   /** T27: brings the first heading whose text is `heading` (case, whitespace runs and leading `#` ignored, as P15 reads it) to the top of the view. */
   scrollToHeading(heading: string): void;
   /** The document equals the one last loaded, whatever Markdown it would serialize to. */
@@ -119,6 +121,25 @@ function addDrawingItem(builder: Parameters<NonNullable<BlockEditFeatureConfig["
     },
   });
 }
+
+/** U7705b: the selection as Markdown source where the editor can serialize it, else its plain text; "" when empty. */
+const selectedMarkdown = (ctx: import("@milkdown/kit/ctx").Ctx) => {
+  const { state } = ctx.get(editorViewCtx);
+  const { from, to, empty } = state.selection;
+
+  if (empty) return "";
+  const plain = state.doc.textBetween(from, to, "\n", "\n");
+
+  try {
+    const { content } = state.doc.slice(from, to);
+    const doc = state.schema.topNodeType.create(null, content.firstChild?.isInline ? state.schema.nodes.paragraph!.create(null, content) : content);
+    const source = ctx.get(serializerCtx)(doc).replace(/\n+$/, "");
+
+    return source === "" ? plain : source;
+  } catch {
+    return plain;
+  }
+};
 
 /** Focuses the editor's view with its selection and returns the view's element: a pick in the colour palette leaves focus there, not on the trigger. */
 const focusedView = (crepe: CrepeBuilder | undefined) => crepe?.editor.action((ctx) => {
@@ -565,8 +586,8 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
 
           apply();
         }),
-        focus: focusEditor,
-        unchanged: () => document().eq(originalDocument),
+        selectedText: () => crepe!.editor.action(selectedMarkdown),
+        focus: focusEditor, unchanged: () => document().eq(originalDocument),
         scrollToHeading: (heading) => {
           const wanted = normalHeading(heading);
 

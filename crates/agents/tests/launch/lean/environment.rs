@@ -44,7 +44,7 @@ fn lc26_the_users_hooks_and_permissions_pass_through() {
 
 #[test]
 fn lc24_the_launch_adds_only_its_listed_keys() {
-    const LISTED: [&str; 9] = [
+    const LISTED: [&str; 10] = [
         "ROUNDUP_AGENT",
         "ROUNDUP_AGENT_ID",
         "ROUNDUP_TERMINAL",
@@ -52,6 +52,7 @@ fn lc24_the_launch_adds_only_its_listed_keys() {
         "CLAUDE_CODE_FORCE_SYNC_OUTPUT",
         "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS",
         "CLAUDE_CODE_PLUGIN_DIR_WATCH",
+        "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF",
         "ENABLE_TOOL_SEARCH",
         "", // A15's removed markers: `get_envs` reports a key with no value
     ];

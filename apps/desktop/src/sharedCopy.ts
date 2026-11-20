@@ -85,6 +85,8 @@ export const copy = {
   originalUnavailable: "Original object unavailable",
   storageRetry: "Retry storage only",
   discardRevision: "Discard",
+  addNote: "Add note",
+  note: "Note",
   draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${draftProblem(cause)}`,
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
