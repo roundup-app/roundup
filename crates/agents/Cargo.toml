@@ -38,7 +38,7 @@ libproc = "0.15"
 sysctl = "0.7"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-nix = { version = "0.28", default-features = false, features = ["mman"] }
+nix = { version = "0.28", default-features = false, features = ["mman", "signal"] }
 
 [dev-dependencies]
 git2 = { version = "0.21", default-features = false }
