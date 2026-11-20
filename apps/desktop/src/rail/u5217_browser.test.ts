@@ -14,7 +14,7 @@ it.each(cases)("u5217_rendered_menu_matches_chord $seed $kind", async ({ seed, k
 
     if (menu) {
       await run(`click ${quote('[aria-label="Create"]')}`, wait("!!document.querySelector('[role=menu]')"));
-      expect(await lane.evaluate("[...document.querySelectorAll('[role=menuitem]')].map(item => [item.getAttribute('data-value'), item.getAttribute('aria-keyshortcuts'), item.querySelector('kbd').textContent])")).toEqual([
+      expect(await lane.evaluate("[...document.querySelectorAll('[role=menuitem]')].filter(item => item.querySelector('kbd')).map(item => [item.getAttribute('data-value'), item.getAttribute('aria-keyshortcuts'), item.querySelector('kbd').textContent])")).toEqual([
         ["agent", "Meta+N", "⌘N"], ["workstream", "Alt+Meta+N", "⌥⌘N"], ["mode", "Shift+Meta+M", "⇧⌘M"],
       ]);
       expect((await lane.calls()).filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toEqual([]);

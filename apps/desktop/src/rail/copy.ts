@@ -13,6 +13,14 @@ const dash = "—";
 
 const removalPlurals = new Intl.PluralRules("en");
 
+const adoptRefusals = new Map([
+  ["owned_branch", "Roundup owns this branch. Open it from its own Agent."],
+  ["detached_head", "No branch is checked out here. Check one out first."],
+  ["worktree_missing", "This path is gone. Prune it with git."],
+  ["operation_in_progress", "A merge or rebase is in progress here. Finish it first."],
+  ["worktree_in_use", "Another Agent is working here."],
+]);
+
 export const copy = {
   opening: "Opening…",
   retrying: sharedCopy.retrying,
@@ -161,6 +169,20 @@ export const copy = {
   saveMode: sharedCopy.save,
   modeWord: "Mode",
   createMode: "Create Mode",
+  adoptWord: "Adopt Worktree",
+  adoptTitle: "Adopt a Worktree",
+  adoptHint: "Start an Agent in a Worktree you already work in. Its branch, commits and files stay as they are.",
+  adoptLoading: "Looking for Worktrees",
+  adoptNone: "This Project has no other Worktrees.",
+  adoptDetached: "Detached HEAD",
+  adoptDirty: "Uncommitted changes",
+  adoptAhead: (count: number) => `${count} ahead`,
+  adoptFilterLabel: "Filter Worktrees",
+  adoptFilterPlaceholder: "Branch or path",
+  adoptRefusedLabel: "Refused Worktrees",
+  adoptRefusal: (name: string) => adoptRefusals.get(name) ?? "This Worktree cannot be adopted.",
+  adoptRefusedRow: sharedCopy.dotted,
+  adoptFailed: "The Worktree could not be adopted.",
   modePrompt: sharedCopy.modePrompt,
   modePromptMenu: sharedCopy.modePromptMenu,
   modePromptFor: (name: string) => `First prompt · ${name}`,

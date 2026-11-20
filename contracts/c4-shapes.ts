@@ -295,6 +295,7 @@ type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends Selector
   : BeforeRpcMethods[K] };
 
 // U7610a adds `counts` to ChangedFile; T7708a adds `pr` to Todo.
+// G11 adds `adopted` to Worktree.
 // U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.
 // RO5 replaces the flat RailNode with a union discriminated on `kind`; its fields are pinned in the Daemon's tests.
 type WithGroups<T> = [T] extends [Before["agent/RailNode"]]
@@ -307,6 +308,8 @@ type WithGroups<T> = [T] extends [Before["agent/RailNode"]]
   ? ([Before["todo/Todo"] | null] extends [T] ? import("./generated/todo/Todo").Todo | null : T)
   : [T] extends [Before["agent/ChangedFile"]]
   ? ([Before["agent/ChangedFile"]] extends [T] ? import("./generated/agent/ChangedFile").ChangedFile : T)
+  : [T] extends [Before["agent/Worktree"]]
+  ? ([Before["agent/Worktree"]] extends [T] ? import("./generated/agent/Worktree").Worktree : T)
   : [T] extends [Before["agent/NodeKind"]]
   ? ([Before["agent/NodeKind"]] extends [T] ? T | "group" : T)
   : T extends object ? { [K in keyof T]: WithGroups<T[K]> } : T;
