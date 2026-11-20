@@ -37,10 +37,10 @@ export const createAgentPads = () => {
 /** An empty `title` ends the row's native name at this control, which keeps its own tooltip (U2228a); the count is visible, so U7488c gives it none. */
 const NO_NATIVE_TITLE = { title: "" };
 
-/** U7488c: a ring that fills as an Agent's Todos finish, beside `done/total`; absent at 0 Todos. U4457: it opens the Shelf on the Todos the Agent created. The ring is a plain 16 px SVG (ui-sdk's Progress root renders a wide grid), filled with `--accent` over `--progress-track`. */
+/** U7488c: a ring that fills as an Agent's Todos finish, with no count text, its `done/total` in the control's name; absent at 0 Todos. U4457: it opens the Shelf on the Todos the Agent created. The ring is a plain 12 px SVG (ui-sdk's Progress root renders a wide grid), filled with `--accent` over `--progress-track`. */
 export const PadsControl = (props: { todos: { done: number; total: number }; agent: string }) => {
   const connected = useConnectedProject();
-  const name = () => copy.todoCount(props.todos.total);
+  const name = () => copy.todoProgress(props.todos.done, props.todos.total);
 
   return (
     <Show when={props.todos.total > 0}>
@@ -49,7 +49,6 @@ export const PadsControl = (props: { todos: { done: number; total: number }; age
         class="rail-pads-control"
         data-pads-control
         {...NO_NATIVE_TITLE}
-        bare
         aria-label={name()}
         onClick={click => { click.stopPropagation(); connected.showPadsOf(props.agent, "todos"); }}
       >
@@ -57,7 +56,6 @@ export const PadsControl = (props: { todos: { done: number; total: number }; age
           <circle class="todo-ring-track" cx="8" cy="8" r="7" pathLength="1" />
           <circle class="todo-ring-fill" cx="8" cy="8" r="7" pathLength="1" />
         </svg>
-        <span class="todo-ring-count">{props.todos.done}/{props.todos.total}</span>
       </IconButton>
     </Show>
   );

@@ -66,9 +66,9 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
   it("u178_the_control_is_named_by_what_it_holds", async () => {
     await mount(TREE, [todo(2, { home: "w1", creator: by("a1") }), todo(3, { home: "w1", creator: by("a2") })], [padOf("n")]);
 
-    // U7488c: the count is visible, so the control shows no hover name; its accessible name stays.
+    // U7488c: the count is not visible, so its name reads it.
     for (const row of ["a1", "a2"]) {
-      const button = await waitFor(() => within(document.querySelector(`.rail-row[data-id="${row}"]`)!).getByRole("button", { name: "1 todos" }));
+      const button = await waitFor(() => within(document.querySelector(`.rail-row[data-id="${row}"]`)!).getByRole("button", { name: "0 of 1 Todos done" }));
 
       fireEvent.keyDown(document, { key: "Tab" });
       button.focus();
@@ -113,7 +113,7 @@ it.each([1, 10, 40])("u5645b_one_todo_pass_counts_creators_for_every_agent (%i A
   const visits = observeVisits();
   const nodes = Array.from({ length: count }, (_, at) => agent(`a${at}`, "working", "x", { order: at }));
   const { connected } = await mount(nodes, countedTodos(), [], true);
-  const control = await waitFor(() => within(rowOf("a0")).getByRole("button", { name: "2 todos" }));
+  const control = await waitFor(() => within(rowOf("a0")).getByRole("button", { name: "1 of 2 Todos done" }));
   expect(visits.read()).toBe(4);
 
   for (let at = 1; at < count; at += 1) expect(rowOf(`a${at}`).querySelector("[data-pads-control]")).toBeNull();
@@ -129,7 +129,7 @@ it("u5645b_todo_revisions_update_counts_without_row_rescans", async () => {
   const visits = observeVisits();
   const nodes = [agent("a0", "working", "x"), agent("a1", "working", "x", { order: 1 })];
   const { connected, app, store } = await mount(nodes, countedTodos(), [], true);
-  await waitFor(() => within(rowOf("a0")).getByRole("button", { name: copy.todoCount(2) }));
+  await waitFor(() => within(rowOf("a0")).getByRole("button", { name: copy.todoProgress(1, 2) }));
   expect(visits.read()).toBe(4);
   const built = construction.mock.calls.length;
   fireEvent.click(rowOf("a0"));
@@ -139,14 +139,14 @@ it("u5645b_todo_revisions_update_counts_without_row_rescans", async () => {
   const node = connected.rail.nodes.find(node => node.id === "a0");
   visits.reset();
 
-  const refresh = async (todos: Todo[], expected: number[]) => {
+  const refresh = async (todos: Todo[], expected: [number, number][]) => {
     store.todos = todos;
     app.emit(event({ name: "todo.updated", data: todos[0]! }));
     await waitFor(() => expect(visits.read()).toBe(todos.length));
 
-    for (const [at, count] of expected.entries()) {
+    for (const [at, [done, count]] of expected.entries()) {
       const control = rowOf(`a${at}`).querySelector("[data-pads-control]");
-      expect(control?.getAttribute("aria-label") ?? null).toBe(count ? copy.todoCount(count) : null);
+      expect(control?.getAttribute("aria-label") ?? null).toBe(count ? copy.todoProgress(done, count) : null);
     }
 
     expect(construction.mock.calls.length).toBe(built);
@@ -157,10 +157,10 @@ it("u5645b_todo_revisions_update_counts_without_row_rescans", async () => {
     visits.reset();
   };
 
-  await refresh([...countedTodos(), todo(5, { creator: by("a1") })], [2, 1]);
-  await refresh([...countedTodos().map(todo => ({ ...todo, done: true })), todo(5, { creator: by("a1") })], [2, 1]);
-  await refresh([countedTodos()[0]!, countedTodos()[2]!, countedTodos()[3]!], [1, 0]);
-  await refresh([todo(1, { creator: by("a1") }), countedTodos()[2]!, countedTodos()[3]!], [0, 1]);
+  await refresh([...countedTodos(), todo(5, { creator: by("a1") })], [[1, 2], [0, 1]]);
+  await refresh([...countedTodos().map(todo => ({ ...todo, done: true })), todo(5, { creator: by("a1") })], [[2, 2], [0, 1]]);
+  await refresh([countedTodos()[0]!, countedTodos()[2]!, countedTodos()[3]!], [[0, 1], [0, 0]]);
+  await refresh([todo(1, { creator: by("a1") }), countedTodos()[2]!, countedTodos()[3]!], [[0, 0], [0, 1]]);
   app.handlers["rail.tree"] = () => [...nodes, agent("extra", "working", "x")];
   await connected.rail.refresh();
   connected.rail.select("a1");
