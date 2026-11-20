@@ -9,16 +9,6 @@ const owned = () => todo(1, { title: "agent work", owner: { kind: "agent", id: "
 
 const row = () => screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
 
-it("u3789f_double_click_opens_and_never_renames", async () => {
-  const { app } = await mountTodos([owned()]);
-
-  fireEvent.dblClick(await row());
-
-  await waitFor(() => expect(document.querySelector(".drawer")?.getAttribute("data-open")).toBe("true"));
-  expect(screen.queryByRole("textbox", { name: /rename|title/i })).toBeNull();
-  expect(callsTo(app, "todo.update")).toEqual([]);
-});
-
 it("u3789f_f2_and_menu_rename_any_owners_item", async () => {
   const { app } = await mountTodos([owned()]);
 

@@ -37,7 +37,7 @@ it("u7499b_an_agent_write_after_a_read_returns_the_pad_above_the_folds", async (
   await waitFor(() => expect(idle()).not.toBeNull(), { timeout: 20_000 });
   fireEvent.click(idle() ?? document.body);
   await waitFor(() => expect(document.querySelector('[data-pad="plan"] .pad-name')).not.toBeNull());
-  fireEvent.dblClick(document.querySelector('[data-pad="plan"] .pad-name') ?? document.body);
+  fireEvent.dblClick(document.querySelector('[data-pad="plan"]') ?? document.body);
   await waitFor(() => expect(connected.drawer.content()).not.toBeNull());
   connected.drawer.close();
   fireEvent.click(idle() ?? document.body);
