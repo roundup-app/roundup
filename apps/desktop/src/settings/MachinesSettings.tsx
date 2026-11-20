@@ -32,6 +32,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   };
 
   // Rereads whenever the Project changes; an add, remove or update writes the list the Daemon answers with.
+  // read-guarded: `read` catches the rejection into the page's `failure`.
   const [listed, setListed] = createSignal<Page | undefined>(async () => {
     const project = calls();
 
