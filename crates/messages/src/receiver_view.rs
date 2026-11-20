@@ -57,6 +57,9 @@ pub(crate) fn are_quiet_digests(
 
     let mut entries = Vec::new();
     for message in pending {
+        if crate::pushes::is_passive(message) {
+            continue;
+        }
         let parsed = payloads.of(message).entries();
         if parsed.is_empty() {
             return false;

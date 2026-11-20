@@ -44,6 +44,15 @@ No Builder prompt lists these.
 - `first-run`, 1512x950, dark.
 - `conflict`, 1512x950, dark, a Pad Drawer open.
 
+## Critic scope
+
+What a design-critic run captures and reads. It is the scope the task's "capture on the seeds" names and it outranks `docs/design-system.md`'s "the critic also runs the held-out screens".
+
+- Screens: the seeds and steps the PR's scenarios name, at 1512x950 (the one viewport, `.agents/data/journey.md`; it fits with no clipping or overflow). A scenario with no seed: the one seed whose screen shows its surface. Add `agents-10` or a held-out screen only when a scenario names it or the diff changes a component outside the scenarios' module that the screen draws.
+- Readings before images: judge from `window.__checks()` and the DOM (computed styles, boxes, roles). Open a screenshot only to confirm cut or garbled text or the wrong screen, at most four a run.
+- Later rounds: read the diff since the last judged head first. When it settles an earlier finding, answer that finding from the diff with no capture; capture only the element a finding names.
+- Documents: Grep a document for the rule you score, then Read the lines around the hit. Read whole only the owner's taste list in `journey.md` and `tells.md`.
+
 ## Rules the Checks do not cover
 
 | Rule | Passes when |

@@ -86,9 +86,19 @@ impl Run {
     /// The turns a `rupd` note started after the first `before`, once `at_least` are written and
     /// the Door has answered them.
     async fn started_by_rupd(&self, before: usize, at_least: usize) -> Vec<Vec<String>> {
-        wait(|| started(self).len() >= before + at_least).await;
+        // A quiet `[settled]` or `[stopped]` note alone is the user's prompt turn taking it along (DTC6(b)), not a
+        // turn a `rupd` note started.
+        let own = |run: &Self| {
+            let mut turns = started(run).split_off(before);
+            turns.retain(|turn| {
+                turn.iter()
+                    .any(|e| !e.contains("[settled]") && !e.contains("[stopped]"))
+            });
+            turns
+        };
+        wait(|| own(self).len() >= at_least).await;
         tokio::time::sleep(Duration::from_secs(3)).await;
-        started(self).split_off(before)
+        own(self)
     }
 
     /// No `rupd` note has started a turn for 5 s: the setup's own notes are all written.
@@ -119,9 +129,6 @@ pub(super) fn started(run: &Run) -> Vec<Vec<String>> {
     rupd_turns(run)
         .into_iter()
         .filter(|turn| turn[0].contains(r#"from-name=\"rupd\""#))
-        // DCL6's settlement note starts its own turn whatever the Job does (`scenarios/door-closed-loop.md`):
-        // `[settled]` for a reported Job, `[stopped]` for one with no report.
-        .filter(|turn| !turn[0].contains("[settled]") && !turn[0].contains("[stopped]"))
         .collect()
 }
 
@@ -282,4 +289,101 @@ async fn dtc5_an_unsent_or_changed_summary_is_still_carried() {
     let seen = all(&run.started_by_rupd(before, 1).await);
     assert!(seen.contains("ended with no finding"), "{seen}");
     assert!(seen.contains("[cut]"), "{seen}");
+}
+
+/// The Door's turns whose notes hold `tag`.
+fn turns_with(run: &Run, tag: &str) -> Vec<Vec<String>> {
+    super::dtc3_one_turn::rupd_turns(run)
+        .into_iter()
+        .filter(|turn| turn.iter().any(|e| e.contains(tag)))
+        .collect()
+}
+
+/// A Job told once (the first `[stopped]` note and its digest start a turn, DTC2), then at rest
+/// again after another turn of its own: a second `[stopped]` note is stored and waits (DTC6).
+async fn job_stops_again(run: &Run) -> Job {
+    run.let_settled_pass().await;
+    let door = run.as_door().await;
+    let job = run.spawn_job(&door, "job0").await;
+    run.open_todo(&job).await;
+    wait(|| !turns_with(run, "[stopped]").is_empty()).await;
+    run.calm().await;
+    run.signal(&job.id, json!({"hook_event_name":"UserPromptSubmit"}))
+        .await;
+    run.signal(&job.id, json!({"hook_event_name":"Stop"})).await;
+    tokio::time::timeout(Duration::from_secs(40), async {
+        let mut tick = tokio::time::interval(Duration::from_millis(100));
+        while run.stored("[stopped]").await.len() < 2 {
+            run.user
+                .request("todo.create", json!({"title":"pass"}))
+                .await
+                .unwrap();
+            tick.tick().await;
+        }
+    })
+    .await
+    .expect("the second stop note is stored");
+    run.calm().await;
+    job
+}
+
+#[tokio::test]
+async fn dtc6_a_stopped_note_and_a_compacted_note_wait_for_the_next_turn() {
+    let run = Run::start_live().await;
+    job_stops_again(&run).await;
+    let stopped = turns_with(&run, "[stopped]").len();
+    run.compact(&run.child.clone()).await;
+    run.wait_stored("[compacted]").await;
+    run.calm().await;
+    assert_eq!(turns_with(&run, "[stopped]").len(), stopped, "stop note");
+    assert!(
+        turns_with(&run, "[compacted]").is_empty(),
+        "compaction note"
+    );
+    run.user
+        .request(
+            "message.send",
+            json!({"to":run.door,"kind":"note","body":"next"}),
+        )
+        .await
+        .unwrap();
+    wait(|| {
+        turns_with(&run, "[stopped]").len() > stopped && !turns_with(&run, "[compacted]").is_empty()
+    })
+    .await;
+}
+
+/// `[stalled]` and `[return]` need a stalled Agent the real clock cannot give in a test; their
+/// classification is held by `dtc6_stalled_return_and_ended_notes_are_written_at_once` in `crates/messages`.
+#[tokio::test]
+async fn dtc6_wake_ended_stalled_and_notes_still_start_a_turn_at_once() {
+    let run = Run::start_live().await;
+    let job = job_stops_again(&run).await;
+    let stopped = turns_with(&run, "[stopped]").len();
+    let before = started(&run).len();
+    // The Job's end note starts a turn at once, and the waiting stop note rides in that write.
+    run.report_and_end(&job, "report of job0").await;
+    let at = std::time::Instant::now();
+    wait(|| started(&run).len() > before).await;
+    assert!(at.elapsed() < Duration::from_secs(2), "{:?}", at.elapsed());
+    wait(|| turns_with(&run, "[stopped]").len() > stopped).await;
+    run.calm().await;
+    // A Wake request the Door set fires at once.
+    let before = turns_with(&run, "[wake]").len();
+    super::dtc2_quiet_notes::door_waits_on_child(&run).await;
+    let at = std::time::Instant::now();
+    wait(|| turns_with(&run, "[wake]").len() > before).await;
+    assert!(at.elapsed() < Duration::from_secs(2), "{:?}", at.elapsed());
+    // A Message another Actor sent starts a turn at once.
+    run.calm().await;
+    run.user
+        .request(
+            "message.send",
+            json!({"to":run.door,"kind":"note","body":"ping"}),
+        )
+        .await
+        .unwrap();
+    let at = std::time::Instant::now();
+    wait(|| written(&run.dir.path().join("config"), "ping")).await;
+    assert!(at.elapsed() < Duration::from_secs(2), "{:?}", at.elapsed());
 }
