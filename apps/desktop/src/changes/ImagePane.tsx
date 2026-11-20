@@ -25,7 +25,7 @@ const Version = (props: Side & { decoded: (size: [number, number] | undefined) =
 
   return <figure class="image-version">
     <figcaption>{props.label}</figcaption>
-    <Show when={!failed()} fallback={<p class="image-failed">{copy.imageFailed} · {sizeText(props.picture.size)}</p>}>
+    <Show when={!failed()} fallback={<p class="image-failed">{copy.withSizes(copy.imageFailed, sizeText(props.picture.size))}</p>}>
       <img src={url()} alt={props.label} onLoad={event => props.decoded([event.currentTarget.naturalWidth, event.currentTarget.naturalHeight])} onError={fail} />
     </Show>
   </figure>;

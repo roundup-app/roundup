@@ -23,12 +23,14 @@ export const imageSides = (value: FileComparison): Side[] | null => {
 /** Both sides of a comparison are text or absent: the only ones Pierre draws as lines. */
 export const drawsLines = (value: FileComparison) => [value.old, value.new].every(side => side.kind === "text" || side.kind === "absent");
 
+const MODE = "mode";
+
 /** U7694b: why an image comparison shows no picture: equal bytes on both sides (a rename or a mode change), or a side over the limit; null when it shows or is no image. */
 export const imageHidden = (value: FileComparison): "mode" | "large" | null => {
   const sides = imageSides(value) ?? [];
   const [first, second] = sides;
 
-  if (first && second && first.picture.revision === second.picture.revision) return "mode";
+  if (first && second && first.picture.revision === second.picture.revision) return MODE;
 
   return sides.some(({ picture }) => picture.data === undefined) ? "large" : null;
 };

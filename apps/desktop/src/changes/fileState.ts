@@ -58,7 +58,7 @@ export const noticeFor = (input: NoticeInput): string | null => {
   if (imageSides(value)) {
     const image = imageHidden(value);
 
-    return image === "mode" ? copy.modeOnly : image === "large" ? `${copy.tooLarge} · ${imageSizes(value)}` : null;
+    return image === "mode" ? copy.modeOnly : image === "large" ? copy.withSizes(copy.tooLarge, imageSizes(value)) : null;
   }
 
   if (!drawsLines(value)) return copy.binaryDiff;

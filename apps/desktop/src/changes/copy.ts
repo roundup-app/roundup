@@ -43,6 +43,7 @@ export const copy = {
   beforeAfter: (before: string, after: string) => `${before} → ${after}`,
   sideSize: (side: string, size: string) => `${side} ${size}`,
   sizeNote: (dimensions: string | null, files: string) => dimensions ? sharedCopy.dotted(dimensions, files) : files,
+  withSizes: (text: string, sizes: string) => sharedCopy.dotted(text, sizes),
   /** @prose */
   updatedFile: (agent: string) => `${agent} updated this file`,
   reload: "Reload",
