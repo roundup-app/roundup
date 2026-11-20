@@ -116,7 +116,7 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
          "visibility":"shown", "alert_level":"default", "kind":"agent",
          "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789, "finished":"0"},
          "attempt":"9223372036854775807", "status_revision":"3",
-         "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
+         "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main", "adopted":false},
          "can_resume":false, "has_conversation":false, "yolo":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},
          "stray":[{"pid":123,"command":"claude \t--resume"}], "model":"model", "effort":"high",
          "can_make_workstream":false, "can_save_as_mode":false},

@@ -6,7 +6,6 @@ import { Combobox } from "../ui/Combobox";
 import { Dialog } from "../ui/Dialog";
 import { DialogFailure } from "../ink/MountedLine";
 import { copy } from "./copy";
-import { copy as sharedCopy } from "../sharedCopy";
 
 /** G10: the user's pick of a worktree to start an Agent in. Discovery changes nothing; choosing a row sends `agent.adopt` with the branch the row showed. */
 export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: string) => void }) => {
@@ -67,7 +66,7 @@ export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: stri
             row={item => <span class="adopt-row"><span>{item.label}</span><span>{item.value}</span><Show when={facts(byPath().get(item.value))}><span>{facts(byPath().get(item.value))}</span></Show></span>} />
           <Show when={refused().length > 0}>
             <ul class="adopt-refused" aria-label={copy.adoptRefusedLabel}>
-              <For each={refused()}>{row => <li><span>{sharedCopy.dotted(nameOf(row), row.path)}</span><span>{copy.adoptRefusal(row.refusal ?? "")}</span></li>}</For>
+              <For each={refused()}>{row => <li><span>{copy.adoptRefusedRow(nameOf(row), row.path)}</span><span>{copy.adoptRefusal(row.refusal ?? "")}</span></li>}</For>
             </ul>
           </Show>
         </Show>}

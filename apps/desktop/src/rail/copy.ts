@@ -181,6 +181,7 @@ export const copy = {
   adoptFilterPlaceholder: "Branch or path",
   adoptRefusedLabel: "Refused Worktrees",
   adoptRefusal: (name: string) => adoptRefusals.get(name) ?? "This Worktree cannot be adopted.",
+  adoptRefusedRow: sharedCopy.dotted,
   adoptFailed: "The Worktree could not be adopted.",
   modePrompt: sharedCopy.modePrompt,
   modePromptMenu: sharedCopy.modePromptMenu,
