@@ -99,9 +99,10 @@ async fn identify(o: &Open, kind: &str) {
 
 async fn until<F: std::future::Future<Output = bool>>(what: &str, mut ready: impl FnMut() -> F) {
     let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    let mut tick = tokio::time::interval(Duration::from_millis(25));
     while !ready().await {
         assert!(std::time::Instant::now() < deadline, "timed out: {what}");
-        tokio::time::sleep(Duration::from_millis(25)).await;
+        tick.tick().await;
     }
 }
 
