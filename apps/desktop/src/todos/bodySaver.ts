@@ -24,6 +24,8 @@ export const createBodySaver = (config: {
   let expected = form.expected_change;
   let inflight: Promise<void> | undefined;
   let dirty = false;
+  /** The text a save last failed with: the same text is not sent again, so its failure stays until the user changes it. */
+  let unsent: string | undefined;
 
   const landed = () => { report(null); props.onSaved?.(); };
 
@@ -39,7 +41,7 @@ export const createBodySaver = (config: {
     const value = read();
     const was = expected;
 
-    if (value === saved) return;
+    if (value === saved || value === unsent) return;
 
     inflight = (async () => {
       retain();
@@ -47,6 +49,8 @@ export const createBodySaver = (config: {
       const sent = await draft.send(() => applying(() => props.commit(value, was)));
 
       if (!alive()) return;
+
+      unsent = sent.kind === "applied" ? undefined : value;
 
       if (sent.kind === "applied") {
         saved = value;
