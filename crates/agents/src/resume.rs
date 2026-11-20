@@ -370,6 +370,7 @@ impl Agents {
             let target =
                 nix::unistd::Pid::from_raw(i32::try_from(pid).map_err(RpcError::internal)?);
             let mut waited = 0;
+            let mut tick = tokio::time::interval(Duration::from_millis(50));
             while nix::sys::signal::kill(target, None).is_ok() {
                 if waited >= HOLDER_STOP_BOUND_MS {
                     return Err(RpcError::conflict(format!(
@@ -377,7 +378,7 @@ impl Agents {
                         HOLDER_STOP_BOUND_MS / 1000
                     )));
                 }
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tick.tick().await;
                 waited += 50;
             }
         }
