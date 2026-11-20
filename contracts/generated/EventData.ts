@@ -10,6 +10,7 @@ import type { ExtensionProblem } from "./action/ExtensionProblem";
 import type { LinksEvent } from "./links/LinksEvent";
 import type { Message } from "./message/Message";
 import type { PadName } from "./pad/PadName";
+import type { PrCheck } from "./todo/PrCheck";
 import type { Requested } from "./project/Requested";
 import type { Route } from "./message/Route";
 import type { StatusEvent } from "./agent/StatusEvent";
@@ -38,7 +39,9 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 /**  T27: a ref was added to the Todo; read `todo.refs`. */
 { "name": "todo.refAdded", "data": TodoId } | 
 /**  T27: a ref was removed from the Todo. */
-{ "name": "todo.refRemoved", "data": TodoId } | { "name": "pad.changed", "data": PadName } | 
+{ "name": "todo.refRemoved", "data": TodoId } | 
+/**  T7708b: the Daemon read the Todo's linked pull request. */
+{ "name": "todo.prChecked", "data": PrCheck } | { "name": "pad.changed", "data": PadName } | 
 /**  Accepted name change; the original incarnation remains authoritative. */
 { "name": "pad.renamed", "data": {
 	incarnation: string,

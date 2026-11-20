@@ -639,6 +639,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
             owner: None,
             refs: vec![],
             priority: None,
+            pr: None,
         });
         let changes = seen.changed(&digest::Sources {
             completed: std::collections::HashMap::new(),

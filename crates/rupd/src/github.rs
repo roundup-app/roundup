@@ -189,7 +189,7 @@ struct RawIssue {
 }
 
 impl Daemon {
-    async fn pr_now(&self, number: &str) -> Result<Pr, RpcError> {
+    pub(crate) async fn pr_now(&self, number: &str) -> Result<Pr, RpcError> {
         let raw: RawPr = parse(
             &gh(
                 &self.project,
