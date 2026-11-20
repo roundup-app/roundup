@@ -25,6 +25,27 @@ export const diffsLoaded = () => library !== undefined;
 
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
+type PatchFile = { name: string; contents: string };
+
+/** U2540’s 10,000-line complete rewrite froze the rendered observer beyond 30 seconds.
+ * jsdiff bounds that search; its empty-side patches supply a lossless coarse fallback. */
+const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, structuredPatch, formatPatch }: typeof import("diff")) => {
+  const patch = createTwoFilesPatch(oldFile.name, newFile.name, oldFile.contents, newFile.contents, undefined, undefined, { timeout: 100, maxEditLength: 2000 });
+
+  if (patch !== undefined) return { patch, coarse: false };
+
+  const removed = structuredPatch(oldFile.name, newFile.name, oldFile.contents, "");
+  const added = structuredPatch(oldFile.name, newFile.name, "", newFile.contents);
+  const before = removed.hunks[0];
+  const after = added.hunks[0];
+
+  return { coarse: true, patch: formatPatch({ ...removed, hunks: [{
+    oldStart: before?.oldStart ?? 0, oldLines: before?.oldLines ?? 0,
+    newStart: after?.newStart ?? 0, newLines: after?.newLines ?? 0,
+    lines: [...(before?.lines ?? []), ...(after?.lines ?? [])],
+  }] }) };
+};
+
 /** One read-only comparison, fetched only after View diff. */
 export const DiffReader = (props: { id: string; name: string; path: string; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
@@ -154,24 +175,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
 
       const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
       const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
-      // U2540’s 10,000-line complete rewrite froze the rendered observer beyond 30 seconds.
-      // jsdiff bounds that search; its empty-side patches supply a lossless coarse fallback.
-      let patch = createTwoFilesPatch(oldFile.name, newFile.name, oldFile.contents, newFile.contents, undefined, undefined, { timeout: 100, maxEditLength: 2000 });
+      const { patch, coarse } = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
 
-      setCoarse(patch === undefined);
-
-      if (patch === undefined) {
-        const removed = structuredPatch(oldFile.name, newFile.name, oldFile.contents, "");
-        const added = structuredPatch(oldFile.name, newFile.name, "", newFile.contents);
-        const before = removed.hunks[0];
-        const after = added.hunks[0];
-
-        patch = formatPatch({ ...removed, hunks: [{
-          oldStart: before?.oldStart ?? 0, oldLines: before?.oldLines ?? 0,
-          newStart: after?.newStart ?? 0, newLines: after?.newLines ?? 0,
-          lines: [...(before?.lines ?? []), ...(after?.lines ?? [])],
-        }] });
-      }
+      setCoarse(coarse);
 
       // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
       await new Promise(resolve => setTimeout(resolve));
