@@ -61,6 +61,7 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["k"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(-1); } },
   { chords: ["]"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(1); } },
   { chords: ["["], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(-1); } },
+  { chords: ["v"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.reveal(); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.diff()?.focus(); } },
 ]);
