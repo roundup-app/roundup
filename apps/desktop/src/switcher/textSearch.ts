@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { createEffect, createMemo, createSignal, untrack } from "solid-js";
 import type { Found } from "@contracts/search/Found";
 import type { SearchHit } from "@contracts/search/SearchHit";
 import type { ProjectCalls } from "../app/seam";
@@ -14,68 +14,60 @@ const QUIET_MS = 150;
 
 export const foundValue = (hit: SearchHit): string => `found:${hit.kind}:${hit.id}`;
 
-type Phase =
-  | { kind: "idle" }
-  | { kind: "waiting"; query: string }
-  | { kind: "searching"; query: string }
-  | { kind: "found"; query: string; found: Found }
-  | { kind: "failed"; query: string; cause: string };
+/** The reply to the query asked under `key`: the query and the count of asks of it. */
+type Answer = { key: string } & ({ found: Found } | { cause: string });
 
 /** U7707a, U7707c: the Daemon's text matches for the Switcher's query, asked once per query while the Switcher is open. A reply for an older query is dropped, never shown, even when it arrives last. Nothing here waits on the Daemon: the caller reads `hits` and the states as they change. */
 export const createTextSearch = (app: Pick<ProjectCalls, "rpc">, query: () => string | null) => {
-  const [phase, setPhase] = createSignal<Phase>({ kind: "idle" });
-  let latest = 0;
   const trimmed = createMemo(() => query()?.trim() ?? "");
+  const asking = () => [...trimmed()].length >= MIN_QUERY;
+  const [tries, setTries] = createSignal(0);
+  const key = createMemo(() => `${tries()}:${trimmed()}`);
+  const [answer, setAnswer] = createSignal<Answer | null>(null);
+  const [dismissed, setDismissed] = createSignal("");
+  const [slow, setSlow] = createSignal("");
 
-  const ask = (words: string): void => {
-    const mine = ++latest;
-    const current = () => mine === latest;
+  createEffect(key, asked => {
+    if (!asking()) return;
 
-    setPhase({ kind: "waiting", query: words });
-    const timer = setTimeout(() => { if (current()) setPhase({ kind: "searching", query: words }); }, QUIET_MS);
+    const words = untrack(trimmed);
+    const timer = setTimeout(() => { setSlow(asked); }, QUIET_MS);
+    const settle = (reply: Answer): void => { if (untrack(key) === asked) setAnswer(reply); };
 
     app.rpc("search.find", { query: words }).then(
-      found => { if (current()) setPhase({ kind: "found", query: words, found }); },
-      (thrown: Error) => { if (current()) setPhase({ kind: "failed", query: words, cause: thrown.message }); },
-    ).finally(() => clearTimeout(timer));
-  };
+      found => { settle({ key: asked, found }); },
+      (thrown: Error) => { settle({ key: asked, cause: thrown.message }); },
+    ).finally(() => { clearTimeout(timer); });
 
-  createEffect(trimmed, words => {
-    if ([...words].length < MIN_QUERY) {
-      latest += 1;
-      setPhase({ kind: "idle" });
-    } else ask(words);
+    return () => { clearTimeout(timer); };
   });
 
-  onCleanup(() => { latest += 1; });
+  /** The reply for the query now typed, when it has come in. */
+  const current = (): Answer | null => {
+    const reply = answer();
 
+    return asking() && reply?.key === key() ? reply : null;
+  };
 
   const found = () => {
-    const now = phase();
+    const reply = current();
 
-    return now.kind === "found" ? now.found : null;
+    return reply && "found" in reply ? reply.found : null;
   };
+
+  const awaiting = () => asking() && current() === null;
 
   return {
     hits: (): SearchHit[] => found()?.hits.slice(0, SHOWN_HITS) ?? [],
     more: () => found()?.more === true,
-    /** The reply for the current query has not come in. */
-    awaiting: () => {
-      const now = phase().kind;
-
-      return now === "waiting" || now === "searching";
-    },
-    searching: () => phase().kind === "searching",
+    awaiting,
+    searching: () => awaiting() && slow() === key(),
     failure: () => {
-      const now = phase();
+      const reply = current();
 
-      return now.kind === "failed" ? now.cause : null;
+      return reply && "cause" in reply && dismissed() !== reply.key ? reply.cause : null;
     },
-    retry: () => {
-      const now = phase();
-
-      if (now.kind === "failed") ask(now.query);
-    },
-    dismiss: () => setPhase({ kind: "idle" }),
+    retry: () => { setDismissed(""); setTries(count => count + 1); },
+    dismiss: () => { setDismissed(key()); },
   };
 };

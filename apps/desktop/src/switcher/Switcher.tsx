@@ -4,7 +4,7 @@ import { Dialog, DialogContent } from "@ui-sdk/solid/dialog";
 import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { dismissable } from "../ink/recovery";
-import { DialogFailure, StatusNote } from "../ink/MountedLine";
+import { DialogFailure } from "../ink/MountedLine";
 import { lazy, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -34,7 +34,7 @@ import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX, type En
 import type { ToastQueue } from "../toasts/queue";
 import { strandedSwitcherKeys } from "./strandedKeys";
 import { createTextSearch, foundValue } from "./textSearch";
-import { Marked } from "./Marked";
+import { chooseHit, FoundRow, openItem, SearchStatus, untitledHits } from "./foundHits";
 import type { SearchHit } from "@contracts/search/SearchHit";
 import "./styles.css";
 
@@ -55,10 +55,6 @@ const finalFocus = (closing: Closing): HTMLElement | null => {
 };
 
 const ownerOf = (entry: Entry): string | undefined => "owner" in entry ? entry.owner : undefined;
-
-const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
-
-const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void; notify?: ToastQueue["notify"] | undefined }) => {
@@ -108,16 +104,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const items = createMemo(() => itemsMatching(rail.nodes, todos.all(), pads.pads(), text()));
 
-  // U7707a, U7707c: the Daemon's text matches, asked per query while the Switcher is open; destinations never wait for them.
-  // A query restored on opening is not asked again (U2773a); one typed or given to the leader is.
+  // U7707a, U7707c: the Daemon's text matches, asked per query while open; one restored on opening is not asked again (U2773a), one typed or given to the leader is.
   const [asked, setAsked] = createSignal(false);
   const search = createTextSearch(app, () => open() && asked() ? text() : null);
-
-  // U7707a: a hit that already shows as a title row is not listed twice.
-  const titled = createMemo(() => new Set(items().flatMap(entry => entry.kind === "todo" ? [`todo:${entry.todo.id}`] : entry.kind === "pad" ? [`pad:${entry.pad.name}`] : [])));
-
-  const found = createMemo((): Entry[] => search.hits().filter(hit => !titled().has(`${hit.kind}:${hit.id}`)).map(hit => ({ value: foundValue(hit), label: hit.title, kind: "found", hit })));
-
+  const found = createMemo(() => untitledHits(search.hits(), items()));
   const byValue = createMemo(() => new Map([...entries(), ...items(), ...found()].map(entry => [entry.value, entry])));
 
   // UA9: the Daemon's User actions, read when the Project connects and on each `action.userChanged`, so opening calls nothing; a failed read shows none and says nothing (UA12).
@@ -229,43 +219,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const [gone, setGone] = createSignal<string | null>(null);
 
-  const openTodo = (id: number): void => {
-    // The Rail's own row opens it when the Shelf is mounted; otherwise the Drawer opens alone.
-    if (!openThroughRow("todo", id)) drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
-  };
-
-  const openPad = (name: string): void => {
-    if (!openThroughRow("pad", name)) drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
-  };
-
-  /** U7707b: a Pad or Todo opens as its title row does; a Message selects the Rail row of its Agent and focuses its pane, and with no such row opens nothing and says so. */
-  const chooseHit = (hit: SearchHit): void => {
-    if (hit.kind === "message") {
-      const agent = rail.nodes.find(node => node.id === hit.opens);
-
-      if (!agent) {
-        setGone(foundValue(hit));
-
-        return;
-      }
-
-      rail.select(agent.id);
-      flush();
-      close({ kind: "pane", terminal: null });
-      props.onFailure(null);
-
-      return;
-    }
-
-    close({ kind: "item" });
-    props.onFailure(null);
-
-    if (hit.kind === "todo") openTodo(Number(hit.id));
-    else openPad(hit.id);
-  };
-
   const choose = (entry: Entry): void => {
-    if (entry.kind === "found") return chooseHit(entry.hit);
+    if (entry.kind === "found") return chooseHit(entry.hit, { connected: { drawer, project, rail }, closeWith: close, onFailure: props.onFailure, gone: setGone });
 
     // The chosen row's pane mounts before the Dialog asks `finalFocus` where focus goes.
     if (entry.kind === "node") {
@@ -277,9 +232,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     props.onFailure(null);
 
     // U5240b: the Switcher has closed; the item opens as a click on its row does.
-    if (entry.kind === "todo") return openTodo(entry.todo.id);
+    if (entry.kind === "todo") return openItem({ drawer, project }, "todo", String(entry.todo.id));
 
-    if (entry.kind === "pad") return openPad(entry.pad.name);
+    if (entry.kind === "pad") return openItem({ drawer, project }, "pad", entry.pad.name);
 
     if (entry.kind === "terminal") revealTerminal(rail, project.path, entry.terminal);
   };
@@ -409,15 +364,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     } },
   ]);
 
-  const foundRow = (hit: SearchHit) => <span class="switcher-row switcher-found">
-    {hit.kind === "pad" ? <Icon name={PAD_ICON} /> : hit.kind === "todo" ? <KindGlyph kind="idle" decorative /> : <Icon name="talk" />}
-    <span class="switcher-kind">{hit.kind === "todo" ? copy.kindTodo : hit.kind === "pad" ? copy.kindPad : copy.kindMessage}</span>
-    <span class="switcher-name">{hit.title}</span>
-    <span class="switcher-snippet"><Marked text={hit.snippet} ranges={hit.ranges} /></span>
-    <Show when={gone() === foundValue(hit)}><span class="switcher-owner">{copy.agentGone}</span></Show>
-  </span>;
-
-  const entryRow = (entry: Entry) => entry.kind === "found" ? foundRow(entry.hit) : <span class="switcher-row">
+  const entryRow = (entry: Entry) => entry.kind === "found" ? <FoundRow hit={entry.hit} gone={gone() === entry.value} /> : <span class="switcher-row">
     <Show when={entry.kind === "node" && isDoor(entry.node) && entry.node.status} fallback={entry.kind === "todo" ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.kind === "pad" ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), entry.kind === "node" && rail.dismissed(entry.node))} decorative />}</Show>
     <Show when={entry.kind === "todo" || entry.kind === "pad"}><span class="switcher-kind">{entry.kind === "todo" ? copy.kindTodo : copy.kindPad}</span></Show>
     <span class="switcher-name">{entry.label}</span>
@@ -485,9 +432,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             return entryRow(entry);
           }} />
-        <StatusNote text={search.searching() && copy.searching} live="polite" class="switcher-searching" />
-        <DialogFailure message={search.failure()} dismiss={search.dismiss} recover={{ run: search.retry }} />
-        <Show when={search.more()}><p class="switcher-text-more">{copy.moreMatches}</p></Show>
+        <SearchStatus search={search} />
         <DialogFailure message={makeFailure()} dismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <DialogFailure message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>
