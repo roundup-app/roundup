@@ -574,7 +574,7 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     await browser("press", "Enter");
     await browser("wait", ".drawer .ProseMirror");
     await browser("click", ".drawer .ProseMirror");
-    await browser("wait", ".todo-detail-body button.word");
+    await browser("wait", ".drawer .todo-detail-body .top-bar-item");
     await settle();
     await browser("focus", ".drawer .ProseMirror");
     await settle();
@@ -616,18 +616,20 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     const selected = await evaluate<string[]>("window.__u5631Selected");
     expect(selected).toEqual(offered);
 
-    const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
-    const unfinished = await retained();
+    // The body saves as it is typed (U7641a): what the Daemon holds is the current draft.
+    const saved = () => evaluate<string[]>("window.__fake.app.calls.filter(call => call.method === 'todo.update').map(call => call.params.body)");
+    await browser("wait", "--fn", entry === "slash" ? `window.__fake.app.calls.some(call => call.method === 'todo.update' && call.params.body === ${JSON.stringify(body + "\n\n/For Agents")})` : "window.__fake.app.calls.some(call => call.method === 'todo.update')");
+    const unfinished = await saved();
 
-    if (entry === "slash") expect(unfinished).toEqual([{ destination: { surface: "todos", object: "1", recipient: "body" }, text: body + "\n\n/For Agents" }]);
+    if (entry === "slash") expect(unfinished.at(-1)).toBe(body + "\n\n/For Agents");
 
     await browser("press", "Escape");
     await settle();
-    expect.soft(await retained()).toEqual(unfinished);
+    expect.soft(await saved()).toEqual(unfinished);
     expect.soft(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
     expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
     await shot("dismissed");
-    expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
+    expect((await saved()).filter(text => text.includes("<details"))).toEqual([]);
     expect(offered.includes("For Agents")).toBe(false);
     expect(selected.includes("For Agents")).toBe(false);
 

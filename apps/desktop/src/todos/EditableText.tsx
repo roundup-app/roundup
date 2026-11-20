@@ -436,9 +436,9 @@ export const EditableText = (props: {
     createEffect(createMemo(() => props.todo.body), text => { if (!started) handle?.setText(text); });
 
     return <div ref={host} onFocusIn={event => { if (!started && event.target instanceof Element && event.target.matches(".ProseMirror")) startWith(); }} onDblClick={() => { if (!started) startWith(); }} onKeyDown={event => {
-      // Crepe dismisses block menus in capture; a no-match slash query has already
-      // hidden its menu. Preserve rich drafts, but let an untouched empty body
-      // return to Add notes (U3732).
+      // Crepe closes a block menu in capture and marks that Escape handled: it is the menu's alone (U5631). Otherwise keep rich drafts; an untouched empty body returns to Add notes (U3732).
+      if (event.key === "Escape" && event.defaultPrevented) return event.stopPropagation();
+
       if (event.key === "Escape" && !(started && started.form.base === "" && !started.recovered && handle?.getText() === "")) { event.preventDefault(); event.stopPropagation(); }
 
       if (started) key?.(event);

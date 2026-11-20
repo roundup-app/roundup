@@ -3,6 +3,7 @@ import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import * as v from "valibot";
 import { applying } from "../app/pending";
 import { StatusNote } from "../ink/MountedLine";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField } from "../state/draftField";
 import { copy } from "./copy";
@@ -90,7 +91,9 @@ export const NameField = (props: {
         if (event.key === "Escape") { event.preventDefault(); props.close(); }
       });
 
-      queueMicrotask(() => {
+      // The opening is the user's focus choice; a newer choice made before the frame runs outranks it.
+      captureFocus(true);
+      queueFocus(() => {
         if (!field.isConnected) return;
         field.focus();
         const selection = untrack(draft.draft)?.selection;
@@ -98,7 +101,7 @@ export const NameField = (props: {
         if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
         else field.select();
       });
-    }} onInput={event => capture(event.currentTarget)}
+    }} onClick={event => event.stopPropagation()} onInput={event => capture(event.currentTarget)}
     onSelect={event => { if (event.currentTarget.isConnected && draft.draft()?.status === "draft") capture(event.currentTarget); }}
     onBlur={() => props.close(false)} />
     <StatusNote text={conflict() ? copy.railDraftConflict : null} />

@@ -28,6 +28,39 @@ it("u7641a_double_click_on_a_pad_name_renames_in_place", async () => {
   expect(app.calls.find(call => call.method === "pad.rename")!.params).toMatchObject({ name: "notes", newName: "plan" });
 });
 
+it("u7641a_a_double_click_beside_a_pad_name_opens_the_pad", async () => {
+  const { app } = await openShelf([padOf("notes", AGENT, "a")]);
+
+  fireEvent.dblClick(await padRow());
+
+  await screen.findByRole("textbox", { name: "Pad body" }, { timeout: 5000 });
+  expect(app.calls.filter(call => call.method === "pad.rename")).toEqual([]);
+  expect(screen.queryByText(/failed/i)).toBeNull();
+});
+
+it("u7641a_double_click_on_the_open_pads_title_renames_it_in_place", async () => {
+  const { app } = await openShelf([padOf("notes", AGENT, "a")]);
+  await openPad("notes");
+  const title = () => screen.getByText("notes", { selector: ".pad-head-name" });
+
+  fireEvent.dblClick(title());
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() => expect(field.isConnected).toBe(false));
+  expect(app.calls.filter(call => call.method === "pad.rename")).toEqual([]);
+  expect(title().isConnected).toBe(true);
+
+  fireEvent.dblClick(title());
+  const again = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  flush();
+  fireEvent.input(again, { target: { value: "plan" } });
+  fireEvent.keyDown(again, { key: "Enter" });
+
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.rename")).toHaveLength(1));
+  expect(app.calls.find(call => call.method === "pad.rename")!.params).toMatchObject({ name: "notes", newName: "plan" });
+  await screen.findByText("plan", { selector: ".pad-head-name" });
+});
+
 it("u3789f_f2_and_menu_rename_any_owners_item", async () => {
   const { app } = await openShelf([padOf("notes", AGENT, "a")]);
 
