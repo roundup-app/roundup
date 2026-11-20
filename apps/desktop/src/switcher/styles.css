@@ -121,3 +121,25 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* U7707d: a text match's snippet is the row's second line in the cause's place, one line cut by an ellipsis; its marked words are ink, bold and underlined, no hue (D3). */
+.switcher-snippet {
+  flex-basis: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--grey);
+}
+.switcher-snippet mark {
+  color: var(--text);
+  background: none;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.switcher-text-more {
+  margin: var(--space-2) 0 0;
+  padding-inline: var(--space-2);
+  color: var(--grey);
+}

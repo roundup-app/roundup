@@ -4,18 +4,20 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Pad } from "@contracts/pad/Pad";
+import type { SearchHit } from "@contracts/search/SearchHit";
 import { railOrder } from "../state/railTopology";
 import type { ActionRow } from "@contracts/action/ActionRow";
 import { ACTION_ROWS } from "../keys/chords";
 import { nameOf } from "../bubbles/places";
 
-/** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it, or a Todo or Pad (U5240b). */
+/** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it, or a Todo or Pad (U5240b), or a text match the Daemon found (U7707a). */
 export type Entry = { value: string; label: string } & (
   | { kind: "node"; node: RailNode }
   | { kind: "terminal"; terminal: TerminalInfo; owner: string }
   | { kind: "todo"; todo: Todo; owner: string }
   | { kind: "pad"; pad: Pad; owner: string }
   | { kind: "user" }
+  | { kind: "found"; hit: SearchHit }
 );
 
 const urgency = (entry: Entry): number => {

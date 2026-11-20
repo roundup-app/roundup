@@ -145,6 +145,8 @@ import type { SetMachine as project_SetMachine } from "./project/SetMachine";
 import type { StartParams as project_StartParams } from "./project/StartParams";
 import type { StartedRow as project_StartedRow } from "./project/StartedRow";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
+import type { FindParams as search_FindParams } from "./search/FindParams";
+import type { Found as search_Found } from "./search/Found";
 import type { CatchUp as terminal_CatchUp } from "./terminal/CatchUp";
 import type { CatchUpParams as terminal_CatchUpParams } from "./terminal/CatchUpParams";
 import type { MeasureParams as terminal_MeasureParams } from "./terminal/MeasureParams";
@@ -355,6 +357,7 @@ export type RpcMethods = {
   "provenance.touched": { params: common_TouchedParams; result: common_Touch[] };
   "terminal.output": { params: terminal_TerminalId; result: terminal_OutputStarted };
   "terminal.outputStop": { params: terminal_TerminalId; result: null };
+  "search.find": { params: search_FindParams; result: search_Found };
   "todo.checkPr": { params: todo_TodoId; result: todo_PrCheck };
   "todo.checkPrs": { params: null; result: todo_PrCheck[] };
   "todo.refs": { params: todo_TodoId; result: todo_Ref[] };

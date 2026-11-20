@@ -4,8 +4,8 @@ import { Dialog, DialogContent } from "@ui-sdk/solid/dialog";
 import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { dismissable } from "../ink/recovery";
-import { DialogFailure } from "../ink/MountedLine";
-import { lazy, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
+import { DialogFailure, StatusNote } from "../ink/MountedLine";
+import { createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import type { RpcError } from "../app/seam";
@@ -26,13 +26,14 @@ import { saveAppSettings } from "../settings/preferences";
 import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
-import { openThroughRow } from "../shelf/openItem";
 import { usePadList } from "../pads/padList";
 import { KeyHint } from "../keys/KeyHint";
 import { revealTerminal } from "../bubbles/places";
 import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX, type Entry } from "./entries";
 import type { ToastQueue } from "../toasts/queue";
 import { strandedSwitcherKeys } from "./strandedKeys";
+import { createTextSearch } from "./textSearch";
+import { chooseHit, FoundRow, openItem, SearchStatus, untitledHits } from "./foundHits";
 import "./styles.css";
 
 /** How the Switcher closes decides where focus goes: Escape restores the opener; a chosen row, a dismissal, another modal or a made Workstream goes to the pane (a Terminal's bubble when one was chosen); a Todo or Pad opens its own item; an action keeps the focus its run took, and one that took none leaves focus alone, since its reply may still take it and a return to the opener would end that request. */
@@ -52,10 +53,6 @@ const finalFocus = (closing: Closing): HTMLElement | null => {
 };
 
 const ownerOf = (entry: Entry): string | undefined => "owner" in entry ? entry.owner : undefined;
-
-const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
-
-const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void; notify?: ToastQueue["notify"] | undefined }) => {
@@ -105,7 +102,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const items = createMemo(() => itemsMatching(rail.nodes, todos.all(), pads.pads(), text()));
 
-  const byValue = createMemo(() => new Map([...entries(), ...items()].map(entry => [entry.value, entry])));
+  const [asked, setAsked] = createSignal(false), [gone, setGone] = createSignal<string | null>(null); // U7707a, U7707c: the Daemon's text matches are asked per query while open; one restored on opening is not asked again (U2773a), one typed or given to the leader is.
+  const search = createTextSearch(app, () => open() && asked() ? text() : null);
+  const found = createMemo(() => untitledHits(search.hits(), items()));
+  const byValue = createMemo(() => new Map([...entries(), ...items(), ...found()].map(entry => [entry.value, entry])));
 
   // UA9: the Daemon's User actions, read when the Project connects and on each `action.userChanged`, so opening calls nothing; a failed read shows none and says nothing (UA12).
   const answer = createReply(() => true, (): Promise<ActionRow[]> => app.rpc("action.userList", null).catch((): ActionRow[] => []));
@@ -118,6 +118,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     ...matching(entries(), text()),
     ...items(),
     ...matching([...actions(), ...userActions()], text()),
+    ...found(),
   ]);
 
   /** U5240c: the highlighted row when it is a command that can take a new key (U5240d). */
@@ -214,6 +215,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   const choose = (entry: Entry): void => {
+    if (entry.kind === "found") return chooseHit(entry.hit, { connected: { drawer, project, rail }, closeWith: close, onFailure: props.onFailure, gone: setGone });
+
     // The chosen row's pane mounts before the Dialog asks `finalFocus` where focus goes.
     if (entry.kind === "node") {
       rail.select(entry.node.id);
@@ -224,32 +227,18 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     props.onFailure(null);
 
     // U5240b: the Switcher has closed; the item opens as a click on its row does.
-    if (entry.kind === "todo") {
-      const id = entry.todo.id;
+    if (entry.kind === "todo") return openItem({ drawer, project }, "todo", String(entry.todo.id));
 
-      // The Rail's own row opens it when the Shelf is mounted; otherwise the Drawer opens alone.
-      if (!openThroughRow("todo", id)) drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
-
-      return;
-    }
-
-    if (entry.kind === "pad") {
-      const name = entry.pad.name;
-
-      if (!openThroughRow("pad", name)) drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
-
-      return;
-    }
+    if (entry.kind === "pad") return openItem({ drawer, project }, "pad", entry.pad.name);
 
     if (entry.kind === "terminal") revealTerminal(rail, project.path, entry.terminal);
   };
 
-  const [making, setMaking] = createSignal(false);
-  const [makeFailure, setMakeFailure] = createSignal<string | null>(null);
+  const [making, setMaking] = createSignal(false), [makeFailure, setMakeFailure] = createSignal<string | null>(null);
   // An invalidated captured action must never turn its query into a create request.
   const makeName = () => openingSurvives() && shown().length === 0 && matching(opening().actions, text()).length === 0 ? text().trim() : "";
 
-  createEffect(text, () => { setMakeFailure(null); }, { defer: true });
+  createEffect(text, () => { setMakeFailure(null); setGone(null); }, { defer: true });
 
   /** U5241a: a query nothing matches names a new Workstream; the Switcher closes once the Daemon made it. */
   const make = async (): Promise<void> => {
@@ -306,7 +295,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       return;
     }
 
-    const entry = [...matching(entries(), text()), ...items()].find((candidate) => candidate.value === value);
+    const entry = [...matching(entries(), text()), ...items(), ...found()].find((candidate) => candidate.value === value);
 
     if (entry) choose(entry);
   };
@@ -325,6 +314,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     setRefusal(null);
     savedSelection = query === undefined ? current()?.selection ?? null : null;
     restoring = true;
+
+    setAsked(query !== undefined);
 
     if (query !== undefined) setText(query);
     setOpen(true);
@@ -367,7 +358,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     } },
   ]);
 
-  const entryRow = (entry: Entry) => <span class="switcher-row">
+  const entryRow = (entry: Entry) => entry.kind === "found" ? <FoundRow hit={entry.hit} nodes={rail.nodes} /> : <span class="switcher-row">
     <Show when={entry.kind === "node" && isDoor(entry.node) && entry.node.status} fallback={entry.kind === "todo" ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.kind === "pad" ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), entry.kind === "node" && rail.dismissed(entry.node))} decorative />}</Show>
     <Show when={entry.kind === "todo" || entry.kind === "pad"}><span class="switcher-kind">{entry.kind === "todo" ? copy.kindTodo : copy.kindPad}</span></Show>
     <span class="switcher-name">{entry.label}</span>
@@ -383,6 +374,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         }} inputEvents={{ // Only native edits replace recovery text.
           input: () => {
             restoring = false;
+            setAsked(true);
             setText(input?.value ?? text());
             // `retain` reads the query just typed.
             flush();
@@ -415,9 +407,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .mounted-line")) return;
             retain();
           },
-        }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
+        }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : item.value.startsWith("found:") ? copy.textMatches : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
-          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream} {copy.workstreamName(makeName())} <KeyChip keys={SWITCHER_KEYS.choose} /></>}
+          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={search.awaiting() ? null : makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream} {copy.workstreamName(makeName())} <KeyChip keys={SWITCHER_KEYS.choose} /></>}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = byValue().get(item.value);
@@ -434,6 +426,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             return entryRow(entry);
           }} />
+        <SearchStatus search={search} />
+        <StatusNote text={gone() !== null && copy.agentGone} live="polite" />
         <DialogFailure message={makeFailure()} dismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <DialogFailure message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>

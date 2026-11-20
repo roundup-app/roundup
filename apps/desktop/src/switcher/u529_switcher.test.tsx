@@ -193,7 +193,7 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   const { app } = await mountSwitcher();
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   const write = failure === "write" ? vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); }) : null;
-  const calls = app.calls.length;
+  const calls = app.calls.filter(call => call.method !== "search.find").length;
   openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());
   const dialog = within(screen.getByRole("dialog", { name: "Switch to" }));
@@ -220,7 +220,7 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   expect(field()!.value).toBe(exact);
   expect(document.activeElement).toBe(field());
   expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
-  expect(app.calls.length).toBe(calls);
+  expect(app.calls.filter(call => call.method !== "search.find").length).toBe(calls);
 
   const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
   type("newer query");
@@ -230,7 +230,7 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   flush();
   expect(field()!.value).toBe("");
   await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).drafts).toEqual([]));
-  expect(app.calls.length).toBe(calls);
+  expect(app.calls.filter(call => call.method !== "search.find").length).toBe(calls);
 });
 
 // The U2773a Project/reload observers run in testing/u375_real_daemon.test.tsx,
