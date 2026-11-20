@@ -74,9 +74,13 @@ it("u7672c_choosing_a_value_lists_that_values_files", async () => {
 });
 
 it("u7672c_a_shared_checkout_offers_changes_alone", async () => {
-  await open([agent("a", "idle", "ready")]);
+  const { app } = await open([agent("a", "idle", "ready")]);
 
-  expect((await screen.findAllByRole("radio")).map(value => value.getAttribute("aria-label"))).toEqual(["Changes"]);
+  await screen.findByRole("button", { name: /own\.ts/ });
+  expect(app.calls.filter(call => call.method === "agent.changedFiles")).toEqual([]);
+  // A one-value switch would change nothing when pressed, so the header draws no control for it.
+  expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
 });
 
 it("u7672c_tree_and_branch_show_one_group", async () => {

@@ -137,7 +137,9 @@ const Surface = (props: { id: string; name: string }) => {
     </Show>
     <div class="changes-pickers">
       <span class="changes-from"><span>{copy.compareFrom}</span> {copy.remoteMain}</span>
-      <SegmentGroup label={copy.compareTo} segments={segments()} value={target()} onValueChange={choose} />
+      <Show when={segments().length > 1} fallback={<span class="changes-to"><span>{copy.compareTo}</span> <span class="changes-to-value">{copy.changes}</span></span>}>
+        <SegmentGroup label={copy.compareTo} segments={segments()} value={target()} onValueChange={choose} />
+      </Show>
     </div>
     <BlockedFailure message={own() ? listed()?.failure : null} recover={{ run: () => refresh(listed) }} />
     <div class="changes-body">

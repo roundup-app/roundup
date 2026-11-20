@@ -99,8 +99,15 @@
   gap: var(--space-3);
 }
 
-.changes-from {
-  color: var(--text-muted);
+.changes-from,
+.changes-to {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.changes-to-value {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .changes-groups,
