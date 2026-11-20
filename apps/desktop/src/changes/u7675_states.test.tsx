@@ -8,7 +8,7 @@ import { agent, event } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { COMPARISON, openChanges, saveNote, treeRow } from "./noteHarness";
+import { COMPARISON, openChanges, saveNote, treeRow, startNote } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -116,10 +116,14 @@ const lineKinds = () => [...new Set([...scroller()?.querySelector("diffs-contain
 /** Pierre has drawn the lines of the open file. */
 const drawn = () => waitFor(() => expect(lineKinds().length).toBeGreaterThan(0));
 
-const at = (side: "old" | "new", line: number) => copy.selectedLines(side, String(line), true);
+const at = (side: "old" | "new", line: number) => ({ side, line });
 
-/** The pane says `words`. */
-const says = (words: string) => waitFor(() => expect(pane().textContent).toContain(words));
+/** U7676a: the status line that named the focused line is gone; Pierre marks the selected line in its own DOM. */
+const says = (want: { side: "old" | "new"; line: number }) => waitFor(() => {
+  const marked = [...scroller()?.querySelector("diffs-container")?.shadowRoot?.querySelectorAll("[data-selected-line]") ?? []].map(element => ({ line: Number(element.getAttribute("data-line")), deleted: element.getAttribute("data-line-type") === "change-deletion" }));
+
+  expect(marked.some(each => each.line === want.line && each.deleted === (want.side === "old"))).toBe(true);
+});
 
 const treeShadow = () => [...document.querySelectorAll("file-tree-container")].at(-1)?.shadowRoot ?? null;
 
@@ -333,7 +337,7 @@ it("u7675b_binary_and_mode_only_files_say_so", async () => {
 
   await open(() => ({ files: THREE.slice(0, 2) }), path => there(answers.get(path)));
   await says(copy.binaryDiff);
-  absent(() => screen.queryByRole("button", { name: copy.addNote }));
+  absent(() => screen.queryByRole("button", { name: /Add note/ }));
   expect(scroller()).toBeNull();
   press("j");
   await says(copy.modeOnly);
@@ -599,9 +603,9 @@ it("u7675e_question_mark_lists_the_keys", async () => {
   const keys = await screen.findByRole("region", { name: copy.keys });
   const items = within(keys).getAllByRole("listitem").map(item => item.textContent ?? "");
 
-  // Up and Down, Left and Right, Tab, J and K, ] and [, Enter, Esc and ?; N, V and R wait for the Issues that build them.
-  expect(items).toHaveLength(8);
-  expect(items.some(item => /^[NVR]\b/.test(item))).toBe(false);
+  // Up and Down, Left and Right, Tab, J and K, ] and [, Enter, Esc and ?; N, E and Delete are listed; V and R wait for the Issues that build them.
+  expect(items).toHaveLength(10);
+  expect(items.some(item => /^[VR]\b/.test(item))).toBe(false);
   press("?");
   await gone(() => screen.queryByRole("region", { name: copy.keys }));
 });
@@ -622,10 +626,10 @@ it("u7675e_keys_do_not_fire_while_typing_in_a_note_field", async () => {
   const { app } = await open(() => ({ files: THREE }));
 
   await drawn();
-  fireEvent.click(screen.getByRole("button", { name: copy.addNote }));
+  startNote();
   const box = within(screen.getByRole("form", { name: copy.lineNote })).getByLabelText(copy.note);
 
-  for (const key of ["j", "k", "]", "[", "?"]) press(key, box);
+  for (const key of ["j", "k", "]", "[", "?", "n", "e", "Delete", "Backspace"]) press(key, box);
   await says(at("new", 1));
   absent(() => screen.queryByRole("region", { name: copy.keys }));
   isOpen("a.ts");

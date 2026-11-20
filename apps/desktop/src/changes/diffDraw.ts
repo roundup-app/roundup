@@ -63,6 +63,8 @@ type Hooks = {
   selection: () => LineSelection;
   /** A line number was clicked: the range now selected. */
   pick: (range: LineSelection) => void;
+  /** U7676a: the gutter + or a drag over line numbers asks for a note on this range. */
+  note: (range: LineSelection) => void;
 };
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
@@ -99,6 +101,20 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
       view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
       hooks.pick(range);
+    },
+    // Reuse: Pierre's own gutter utility and line selection; its + sits on the line number and takes its look only through unsafeCSS on [data-utility-button].
+    enableGutterUtility: true,
+    enableLineSelection: true,
+    onGutterUtilityClick: range => {
+      const picked: LineSelection = { side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) };
+
+      view.setSelectedLines({ side: range.side ?? "additions", start: picked.start, end: picked.end });
+      hooks.pick(picked);
+      hooks.note(picked);
+    },
+    onLineSelectionEnd: range => {
+      if (!range || range.start === range.end) return;
+      hooks.note({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
     },
     renderAnnotation: ({ metadata }) => {
       const element = document.createElement("p");

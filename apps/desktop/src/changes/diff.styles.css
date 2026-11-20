@@ -12,3 +12,6 @@
 
 /* The App's chrome is non-selectable; diff text must opt into native selection. */
 [data-line] { user-select: text; }
+
+/* U7676a: the gutter + is Pierre's own button; only its look is ours. */
+[data-utility-button] { color: var(--text); cursor: pointer; }

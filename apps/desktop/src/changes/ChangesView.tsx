@@ -59,12 +59,18 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["k"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(-1); } },
   { chords: ["]"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(1); } },
   { chords: ["["], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(-1); } },
+  { chords: ["n"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.note(); } },
+  { chords: ["e"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.edit(); } },
+  { chords: ["Delete", "Backspace"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.remove(); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.diff()?.focus(); } },
 ]);
 
 /** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
 const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? repo.slice(root.length + 1) : repo.split("/").filter(Boolean).at(-1) ?? repo;
+
+/** U7676b: N, E and Delete act on the focused diff, never while a field or the editor holds the key. */
+const inDiff = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".diff-reader") !== null;
 
 const typing = (event: KeyboardEvent) => event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])") !== null;
 

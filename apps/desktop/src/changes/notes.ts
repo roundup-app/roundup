@@ -62,7 +62,7 @@ const parseRecipient = (data: string): Recipient => {
   return value;
 };
 
-type Send = { kind: "idle"; text: string } | { kind: "failed"; text: string; submission: string; notes: readonly number[] | null } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
+type Send = { kind: "idle"; text: string; sent?: number } | { kind: "failed"; text: string; submission: string; notes: readonly number[] | null } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
 
 /** A signal whose reads return what was last written. rc.21 reads lag writes until flush, so a call that follows its own write would otherwise see the old value; a read still tracks the signal, which shows the value once the write settles. */
 const createReadYourWrites = <K, V>(initial: ReadonlyMap<K, V>) => {
@@ -184,7 +184,17 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
+  // U7676c: notes restored at start are counted on the bar until the user acts on the batch.
+  const [kept, holdKept] = createReadYourWrites(new Map([...restored].flatMap(([id, value]) => value.notes.length ? [[id, value.notes.length] as const] : [])));
+
+  const unkeep = (id: string) => { if (kept().has(id)) holdKept(new Map([...kept()].filter(([key]) => key !== id))); };
+
+  // U7676d: a removed note stays restorable for 5 s from its own removal.
+  const [gone, holdGone] = createReadYourWrites(new Map<string, readonly { note: Note; timer: ReturnType<typeof setTimeout> }[]>());
+
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
+
+  const forget = (id: string, note: Note) => holdGone(new Map(gone()).set(id, (gone().get(id) ?? []).filter(entry => entry.note !== note)));
 
   const clearItem = (id: string, note: number) => {
     const failed = sent().get(id);
@@ -216,7 +226,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     const current = recipient(id);
 
     await retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
-    putState(id, { kind: "idle", text: message.status === "pending" ? copy.notesQueued : copy.notesAccepted(message.status) });
+    putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 
   const settle = async (id: string, submission: Submission, status: "failed" | "unknown", text: string, item = true) => {
@@ -237,6 +247,33 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       return value?.kind === "failed" ? value.text : null;
     },
     dismiss: (id: string) => { if (sent().get(id)?.kind === "failed") putState(id, { kind: "idle", text: "" }); },
+    kept: (id: string) => kept().get(id) ?? 0,
+    dismissKept: unkeep,
+    dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
+    removed: (id: string) => (gone().get(id) ?? []).length > 0,
+    /** Brings back the latest removed note still inside its 5 s. */
+    undo: async (id: string) => {
+      const entry = (gone().get(id) ?? []).at(-1);
+
+      if (!entry) return;
+      clearTimeout(entry.timer);
+      forget(id, entry.note);
+      unkeep(id);
+      const current = recipient(id);
+
+      await retain(id, { ...current, notes: [...current.notes, entry.note].sort((left, right) => left.id - right.id) });
+    },
+    /** What a note says of itself: Sending and Send unknown lock it; Couldn't send keeps it editable. */
+    noteState: (id: string, note: Note): "sending" | "unknown" | "failed" | "unsent" => {
+      const submission = recipient(id).submissions.find(value => value.notes.some(each => each.id === note.id));
+
+      if (submission?.status === "pending") return "sending";
+
+      if (submission?.status === "unknown") return "unknown";
+      const failed = sent().get(id);
+
+      return failed?.kind === "failed" && (failed.notes === null || failed.notes.includes(note.id)) ? "failed" : "unsent";
+    },
     project,
     entries: () => [...recipients().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,
@@ -334,6 +371,9 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const values = current.notes;
 
       if (replacing === undefined && values.length >= 200) return false;
+      unkeep(id);
+
+      if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" });
       const value = { ...note, id: replacing ?? ++next, revision: crypto.randomUUID() };
       const updated = values.some(old => old.id === replacing) ? values.map(old => old.id === replacing ? value : old) : [...values, value];
       await retain(id, { ...current, notes: updated, forms: current.forms.filter(value => value.revision !== form) });
@@ -343,12 +383,22 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       return true;
     },
     remove: async (id: string, note: number) => {
+      const removed = list(id).find(value => value.id === note);
+
+      unkeep(id);
       await retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
+
+      if (removed && !notes.problem()) {
+        const timer = setTimeout(() => forget(id, removed), 5000);
+
+        holdGone(new Map(gone()).set(id, [...(gone().get(id) ?? []), { note: removed, timer }]));
+      }
 
       if (!notes.problem()) clearItem(id, note);
     },
     send: async (id: string) => {
       if (list(id).length === 0 || (state(id).kind === "pending" || state(id).kind === "unknown")) return;
+      unkeep(id);
       const connection = app;
       const notes = [...list(id)];
       const submission: Submission = { revision: crypto.randomUUID(), notes, body: bodyOf(notes), previous: null, status: "pending", text: "" };

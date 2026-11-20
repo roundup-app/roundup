@@ -32,9 +32,11 @@ export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() 
   return row;
 });
 
+export const waitDiff = () => waitFor(() => { if (!document.querySelector(".diff-content")) throw new Error("No diff yet"); });
+
 /** Reads one file's diff in the open Changes view: the first file opens by itself (U7674a), another is chosen in the tree. */
 export const openFile = async (path = "src/a.ts") => {
-  await screen.findByRole("button", { name: "Add note" });
+  await waitFor(() => { if (!document.querySelector(".diff-content")) throw new Error("No diff yet"); });
   const row = await treeRow(path);
 
   row.focus();
@@ -52,11 +54,25 @@ export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts
   return mounted;
 };
 
+/** U7676b: N on the focused diff starts a note. */
+export const startNote = () => { fireEvent.keyDown(document.querySelector(".diff-content")!, { key: "n" }); };
+
+/** U7676d: the bar's count opens the batch list. */
+export const openBatch = async () => {
+  const count = await screen.findByRole("button", { name: /^\d+ notes?$/ });
+
+  if (!noteList()) {
+    fireEvent.click(count);
+    await screen.findByRole("list", { name: copy.notes });
+  }
+};
+
 export const saveNote = async (text: string) => {
-  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  startNote();
   const form = within(screen.getByRole("form", { name: "Line note" }));
   fireEvent.input(form.getByLabelText("Note"), { target: { value: text } });
   fireEvent.click(form.getByRole("button", { name: "Save" }));
+  await openBatch();
   await screen.findByRole("button", { name: "Edit note 1" });
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
 };

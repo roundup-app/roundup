@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { COMPARISON, openChanges, treeRow } from "./noteHarness";
+import { COMPARISON, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
 import { mountControl, WORKTREE } from "./harness";
 import { diffsLoaded } from "./diffDraw";
 
@@ -112,7 +112,7 @@ it("u7674b_escape_closes_the_view_unless_a_note_field_holds_it", async () => {
   await open();
   await showing("src/a.ts");
 
-  fireEvent.click(await screen.findByRole("button", { name: "Add note" }));
+  startNote();
   fireEvent.keyDown(await screen.findByLabelText("Note"), { key: "Escape" });
   screen.getByLabelText("Diff");
   fireEvent.keyDown(screen.getByRole("region", { name: "Changes" }), { key: "Escape" });
@@ -121,7 +121,7 @@ it("u7674b_escape_closes_the_view_unless_a_note_field_holds_it", async () => {
 
 it("u7674b_the_notes_bar_shows_only_while_the_batch_holds_a_note", async () => {
   await open();
-  await screen.findByRole("button", { name: "Add note" });
+  await waitDiff();
 
   absent(() => screen.queryByRole("list", { name: "Notes" }));
 });

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, openDiff, openFile, saveNote, openChanges, treeRow } from "./noteHarness";
+import { COMPARISON, openDiff, openFile, saveNote, openChanges, treeRow, startNote } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
 import { createSignal, flush } from "solid-js";
@@ -153,7 +153,7 @@ it("u5646d_refresh_recovery_and_disposal", async () => {
   await waitFor(() => expect(notices("alert")).toHaveLength(0));
   expect(processFile).toHaveBeenCalledTimes(1);
   expect(rendered()).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  startNote();
   expect(screen.getByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "2");
   expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
   const before = app.calls.filter(call => call.method === "agent.compareFile").length;
@@ -217,7 +217,7 @@ it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s",
   const retainedNote = "  unrelated note e\u0301\n🐝  ";
 
   await saveNote(retainedNote);
-  fireEvent.click(screen.getByRole("button", { name: /Add note/ }));
+  startNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
   const retained = connected.drafts.list();
 
