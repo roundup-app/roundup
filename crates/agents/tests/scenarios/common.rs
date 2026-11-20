@@ -206,6 +206,41 @@ impl Fixture {
         }
     }
 
+    /// UKR2: the Daemon ends and reopens on the same folder while the core keeps its programs
+    /// running, as the product's core does; Terminals ends with the Daemon in production, so a new
+    /// table over the same core stands for the reopen.
+    pub fn reopen_over_core(self) -> Self {
+        let Self {
+            dir,
+            bus,
+            agents,
+            terminals,
+            ..
+        } = self;
+        drop(agents);
+        let bin = dir
+            .path()
+            .join("fake-claude")
+            .to_string_lossy()
+            .into_owned();
+        let events = bus.subscribe();
+        let (agents, terminals) = open_over(
+            dir.path(),
+            &bus,
+            &bin,
+            Git::from_env(),
+            agents::Quiet::default(),
+            terminals,
+        );
+        Self {
+            dir,
+            bus,
+            events,
+            agents,
+            terminals,
+        }
+    }
+
     /// HM7589a: the same folder reopened on a computer with no `herdr-core` on `PATH`.
     pub fn reopen_without_core(self) -> Self {
         let Self {
