@@ -20,6 +20,18 @@ struct Envelope<T> {
     structured_output: T,
 }
 
+/// Which Model and Effort a one-shot call runs on.
+pub(super) enum Pair<'a> {
+    /// Placement and the stop judge: Haiku at low, pinned in argv and in the environment.
+    Pinned,
+    /// A7686: the user's pair for a Role, in argv only; `None` passes nothing, so the vendor's
+    /// default applies.
+    Chosen {
+        model: Option<&'a str>,
+        effort: Option<&'a str>,
+    },
+}
+
 /// A3507a/c: build without starting a program; keep the settings file until the call ends.
 /// `project` names the folder whose settings the call keeps when it runs in an empty `cwd`.
 pub(super) fn command(
@@ -29,13 +41,28 @@ pub(super) fn command(
     system: &str,
     schema: &str,
 ) -> Result<(Command, tempfile::NamedTempFile), String> {
+    command_on(launcher, project, cwd, system, schema, &Pair::Pinned)
+}
+
+pub(super) fn command_on(
+    launcher: &Launcher,
+    project: Option<&Path>,
+    cwd: &Path,
+    system: &str,
+    schema: &str,
+    on: &Pair<'_>,
+) -> Result<(Command, tempfile::NamedTempFile), String> {
     let mut settings = launcher.one_shot_settings(project.unwrap_or(cwd))?;
+    let (model, effort, pinned) = match on {
+        Pair::Pinned => (Some("haiku"), Some("low"), true),
+        Pair::Chosen { model, effort } => (*model, *effort, false),
+    };
     let pair = super::LaunchFacts {
-        model: Some("haiku".into()),
-        effort: Some("low".into()),
+        model: model.map(str::to_owned),
+        effort: effort.map(str::to_owned),
         ..Default::default()
     };
-    for (key, value) in pair.env() {
+    for (key, value) in pair.env().into_iter().filter(|_| pinned) {
         let root = settings
             .as_object_mut()
             .ok_or("settings is not an object")?;
@@ -55,13 +82,14 @@ pub(super) fn command(
     serde_json::to_writer(file.as_file_mut(), &settings)
         .map_err(|err| format!("settings: {err}"))?;
     let mut command = Command::new(&launcher.bin);
+    command.arg("-p");
+    for (flag, value) in [("--model", model), ("--effort", effort)] {
+        if let Some(value) = value {
+            command.args([flag, value]);
+        }
+    }
     command
         .args([
-            "-p",
-            "--model",
-            "haiku",
-            "--effort",
-            "low",
             "--no-session-persistence",
             "--output-format",
             "json",
@@ -84,7 +112,12 @@ pub(super) fn command(
     for name in super::MARKERS {
         command.env_remove(name);
     }
-    command.envs(pair.env());
+    if pinned {
+        command.envs(pair.env());
+    } else if effort.is_some() {
+        // A36: the variable beats `--effort`, so a chosen Effort clears the Daemon's.
+        command.env_remove(super::models::EFFORT_VARIABLE);
+    }
     Ok((command, file))
 }
 
@@ -98,11 +131,32 @@ pub(super) async fn run<T: DeserializeOwned>(
     input: &[u8],
     bound: Duration,
 ) -> Result<T, String> {
+    run_on(
+        launcher,
+        project,
+        system,
+        schema,
+        input,
+        bound,
+        &Pair::Pinned,
+    )
+    .await
+}
+
+pub(super) async fn run_on<T: DeserializeOwned>(
+    launcher: &Launcher,
+    project: Option<&Path>,
+    system: &str,
+    schema: &str,
+    input: &[u8],
+    bound: Duration,
+    on: &Pair<'_>,
+) -> Result<T, String> {
     let dir = tempfile::Builder::new()
         .prefix("roundup-one-shot-")
         .tempdir()
         .map_err(|e| format!("working folder: {e}"))?;
-    let (mut command, _settings) = command(launcher, project, dir.path(), system, schema)?;
+    let (mut command, _settings) = command_on(launcher, project, dir.path(), system, schema, on)?;
     let mut child = command.spawn().map_err(|e| format!("start: {e}"))?;
     let (Some(mut stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
         return Err("start: child pipes missing".into());

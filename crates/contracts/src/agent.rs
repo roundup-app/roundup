@@ -7,6 +7,8 @@ use specta::Type;
 
 use crate::{Error, common::Status};
 
+mod scan;
+pub use scan::{ScanHit, ScanHits, ScanPlace};
 mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod state;

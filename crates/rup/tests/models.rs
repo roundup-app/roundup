@@ -190,6 +190,7 @@ async fn a36_set_models_round_trips_and_survives_a_restart() {
     let roles = json!([
         role("door", Some("opus"), Some("high")),
         role("subagent", Some("haiku"), None),
+        role("readback", None, None),
     ]);
     assert_eq!(
         set_models(&client, roles.clone()).await.unwrap(),
@@ -217,7 +218,7 @@ async fn a36_every_listed_role_is_in_project_get() {
         .iter()
         .map(|entry| entry["role"].as_str().unwrap())
         .collect();
-    assert_eq!(roles, ["door", "subagent"]);
+    assert_eq!(roles, ["door", "subagent", "readback"]);
     for entry in models["roles"].as_array().unwrap() {
         assert_eq!(
             (&entry["model"], &entry["effort"]),
@@ -731,5 +732,59 @@ async fn p14_scribe_role_is_gone() {
         .iter()
         .map(|entry| entry["role"].as_str().unwrap())
         .collect();
-    assert_eq!(roles, ["door", "subagent"]);
+    assert_eq!(roles, ["door", "subagent", "readback"]);
+}
+
+#[tokio::test]
+async fn a7686_project_get_lists_readback_and_set_models_accepts_it() {
+    let mut run = run();
+    let client = run.project.client().await;
+    let models = project_models(&client).await;
+    assert_eq!(models["roles"][2], role("readback", None, None));
+
+    set_models(
+        &client,
+        json!([role("readback", Some("opus"), Some("high"))]),
+    )
+    .await
+    .unwrap();
+    run.project.restart(&[]);
+
+    let models = project_models(&run.project.client().await).await;
+    assert_eq!(
+        models["roles"][2],
+        role("readback", Some("opus"), Some("high"))
+    );
+}
+
+#[tokio::test]
+async fn a7686_readback_pair_is_apart_from_the_subagents() {
+    let run = run();
+    let client = run.project.client().await;
+    let tree = rail_tree(&client).await;
+
+    set_models(
+        &client,
+        json!([
+            role("subagent", Some("sonnet"), None),
+            role("readback", Some("opus"), None)
+        ]),
+    )
+    .await
+    .unwrap();
+    set_models(
+        &client,
+        json!([
+            role("subagent", Some("haiku"), None),
+            role("readback", Some("opus"), None)
+        ]),
+    )
+    .await
+    .unwrap();
+
+    let models = project_models(&client).await;
+    assert_eq!(models["roles"][1], role("subagent", Some("haiku"), None));
+    assert_eq!(models["roles"][2], role("readback", Some("opus"), None));
+    // A7686: setting the pair starts no Agent and adds no node.
+    assert_eq!(rail_tree(&client).await, tree);
 }

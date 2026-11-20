@@ -612,4 +612,60 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
   await waitFor(() => expect(field()?.value).toBe(query));
 };
 
-// U7671a: "Review changes" opens the Changes view and reaches no RPC of its own, so it leaves this guard's inventory with the Worktree Panel read it used to dispatch. `u4690b_leader_clicks_and_keys_share_one_wait` (C key and C pointer) proves the action opens the view; `u7186c_a_failed_read_shows_retry_and_no_count` proves a failed read keeps its Retry.
+/** U7671a: the Switcher's Review changes opens the Changes view; the view's own mount read, project.compareRefs, is the only call the activation starts. */
+export const reviewCases = (["pointer", "enter"] as const).flatMap(how => (["open", "dismiss", "stale-selection"] as const).map(outcome => ({ how, outcome })));
+
+export const reviewChangesSurviveSurfaceClose = async ({ how, outcome }: (typeof reviewCases)[number]) => {
+  const { app, connected } = await mountApp();
+  const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", adopted: false, base: "main" } });
+  app.handlers["rail.tree"] = () => [workstream("ops"), reviewed];
+  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/first", branch: "reviewed", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] }] });
+  await connected.rail.refresh();
+  connected.rail.select("reviewed");
+  // The Rail icon shows once the shared owned read has answered, which is what offers the action.
+  await waitFor(() => expect(document.querySelector(".changes-icon")).not.toBeNull());
+  rowOf("reviewed").focus();
+  const captures = vi.spyOn(registry, "captureActions");
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  const query = "Review changes";
+  fireEvent.input(field()!, { target: { value: query } });
+
+  const option = await waitFor(() => {
+    const option = options().find(row => row.textContent?.includes(query));
+    expect(option).toBeDefined();
+
+    return option!;
+  });
+
+  const before = app.calls.length;
+  const refs = () => app.calls.slice(before).filter(call => call.method === "project.compareRefs");
+
+  if (outcome === "dismiss") {
+    switcherKey("Escape", {}, field()!);
+    await waitFor(() => expect(field()).toBeNull());
+    expect(refs()).toEqual([]);
+    expect(connected.hasView("changes")).toBe(false);
+
+    return;
+  }
+
+  if (outcome === "stale-selection") {
+    const action = captures.mock.results.flatMap(result => result.type === "return" ? result.value : []).findLast(action => action.value === option.dataset.value)!;
+    connected.rail.select("ops");
+    await waitFor(() => expect(connected.rail.selected()).toBe("ops"));
+    action.run();
+    activate(option, how);
+    expect(refs()).toEqual([]);
+    expect(connected.hasView("changes")).toBe(false);
+
+    return;
+  }
+
+  activate(option, how);
+  await waitFor(() => expect(field()).toBeNull());
+  await waitFor(() => expect(connected.hasView("changes")).toBe(true));
+  await waitFor(() => expect(refs()).toHaveLength(1));
+  expect(refs().map(call => call.params)).toEqual([null]);
+  expect(app.calls.slice(before).filter(call => ["terminal.write", "agent.prompt"].includes(call.method))).toEqual([]);
+};

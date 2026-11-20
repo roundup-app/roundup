@@ -62,6 +62,8 @@ pub struct Git {
     /// MC30: the Machine the Project's folder is on; `None` is this Mac.
     machine: Arc<RwLock<Option<String>>>,
     host: Arc<RwLock<Option<Arc<dyn Machines>>>>,
+    /// C7684d: files `repeat_scan` has read, over every scan this Git (and its readers) ran.
+    scan_reads: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl Git {
@@ -80,6 +82,7 @@ impl Git {
             forked: Arc::default(),
             machine: Arc::default(),
             host: Arc::default(),
+            scan_reads: Arc::default(),
         }
     }
 
@@ -119,6 +122,7 @@ impl Git {
         Self {
             machine: self.machine.clone(),
             host: self.host.clone(),
+            scan_reads: self.scan_reads.clone(),
             ..Self::with_path(self.path.clone())
         }
     }
@@ -888,3 +892,4 @@ mod g9;
 
 mod comparison;
 mod owned;
+mod repeat;

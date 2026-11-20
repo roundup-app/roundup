@@ -156,6 +156,18 @@ impl Agents {
         self.changed_files(&id, to).await
     }
 
+    async fn agent_repeat_scan(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::ChangedFilesParams,
+    ) -> Result<contracts::agent::ScanHits, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user scans for repeats"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.repeat_scan(&p.id).await
+    }
+
     async fn agent_owned_changes(
         &self,
         ctx: &Ctx,

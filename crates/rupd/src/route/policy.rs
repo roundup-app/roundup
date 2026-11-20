@@ -154,6 +154,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.makeWorkstream", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.ownedChanges", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.prompt", Policy { actor: Actor::Caller, observed: true, inputs: Inputs::Id, ..PLAIN }),
+    ("agent.repeatScan", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.restartMode", Policy { observes: true, inputs: Inputs::Id, ..PLAIN }),
     ("agent.resume", Policy { actor: Actor::Caller, observes: true, inputs: Inputs::Id, ..PLAIN }),
     ("agent.run", Policy { inputs: Inputs::Id, ..PLAIN }),
