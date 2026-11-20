@@ -1,8 +1,12 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import type { FakeApp } from "../testing/fakeApp";
+import { padNotesOf } from "./unsentNotes";
+import type { ConnectedProject } from "../state/connectedProject";
+import type { Event as DaemonEvent } from "@contracts/Event";
 import type { Touch } from "@contracts/Touch";
 import type { Message } from "@contracts/message/Message";
 
@@ -154,4 +158,42 @@ it("u7705d_a_2000_character_selection_is_quoted_whole", async () => {
 
   await waitFor(() => expect(sends(app)).toHaveLength(1));
   expect(bodyOf(sends(app)[0])).toContain(`Quoted from Revision 1:\n${long}\nUser comment:`);
+});
+
+/** A store on a stand-in Project whose Events the test emits. */
+const storeOn = () => {
+  const listeners: ((event: DaemonEvent) => void)[] = [];
+
+  const owner = { events: { subscribe: (listener: (event: DaemonEvent) => void) => { listeners.push(listener);
+
+ return () => {}; } } };
+
+  return { store: padNotesOf(owner), emit: (event: DaemonEvent) => { for (const listener of listeners) listener(event); } };
+};
+
+it("u7705f_a_renamed_pad_keeps_its_notes_under_the_new_name", () => {
+  const { store, emit } = storeOn();
+  store.save("a", 3, "quote", "text");
+  flush();
+  store.save("b", 1, "other", "kept");
+  flush();
+  emit({ actor: USER, name: "pad.renamed", data: { name: "c", previous_name: "a", incarnation: "i1" } });
+  flush();
+
+  expect(store.list("a")).toEqual([]);
+  expect(store.list("c")).toEqual([{ id: 1, revision: 3, quote: "quote", text: "text" }]);
+  expect(store.list("b")).toHaveLength(1);
+});
+
+it("u7705f_a_deleted_pad_holds_no_notes", () => {
+  const { store, emit } = storeOn();
+  store.save("a", 3, "quote", "text");
+  flush();
+  store.save("b", 1, "other", "kept");
+  flush();
+  emit({ actor: USER, name: "pad.deleted", data: { name: "a" } });
+  flush();
+
+  expect(store.list("a")).toEqual([]);
+  expect(store.list("b")).toHaveLength(1);
 });

@@ -36,8 +36,26 @@ export const createPadNotes = () => {
 
   const remove = (pad: string, id: number) => setNotes(new Map(notes()).set(pad, list(pad).filter(note => note.id !== id)));
 
+  const rekey = (from: string, to: string | null) => {
+    const moved = notes().get(from);
+    const next = new Map(notes());
+
+    next.delete(from);
+
+    if (to !== null && moved) next.set(to, moved);
+    setNotes(next);
+    setSends((current) => new Map([...current].flatMap(([key, value]): [string, NoteSend][] => {
+      if (!key.startsWith(`${from}:`)) return [[key, value]];
+
+      return to === null ? [] : [[`${to}${key.slice(from.length)}`, value]];
+    })));
+  };
+
   return {
     list, send,
+    /** `pad.renamed` moves a Pad's notes to its new name; `pad.deleted` drops them (U7705f). */
+    rename: (from: string, to: string) => rekey(from, to),
+    drop: (pad: string) => rekey(pad, null),
     save: (pad: string, revision: number, quote: string, text: string) => setNotes(new Map(notes()).set(pad, [...list(pad), { id: ++next, revision, quote, text }])),
     remove,
     /** One `message.send`; accepted clears only this note, anything else keeps it with the failure and no resend. */
@@ -59,13 +77,23 @@ export const createPadNotes = () => {
 
 export type PadNotes = ReturnType<typeof createPadNotes>;
 
-const stores = new WeakMap<ConnectedProject, PadNotes>();
+const stores = new WeakMap<Pick<ConnectedProject, "events">, PadNotes>();
 
 /** The store a connected Project keeps, so a Drawer reopened (or another Pad opened) finds its notes. */
-export const padNotesOf = (owner: ConnectedProject): PadNotes => {
+export const padNotesOf = (owner: Pick<ConnectedProject, "events">): PadNotes => {
   let store = stores.get(owner);
 
-  if (!store) { store = createPadNotes(); stores.set(owner, store); }
+  if (!store) {
+    const created = createPadNotes();
+
+    // The store lives as long as its Project, so the subscription needs no owner to end it.
+    owner.events.subscribe((event) => {
+      if (event.name === "pad.renamed") created.rename(event.data.previous_name, event.data.name);
+      else if (event.name === "pad.deleted") created.drop(event.data.name);
+    });
+    store = created;
+    stores.set(owner, store);
+  }
 
   return store;
 };
