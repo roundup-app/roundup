@@ -1,5 +1,5 @@
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
@@ -9,6 +9,8 @@ import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
+import { changeStarts } from "./lines";
+import type { ChangeStart, Places } from "./lines";
 import type { Note, Notes } from "./notes";
 import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
@@ -27,6 +29,16 @@ const compareParams = (id: string, path: string, to: CompareTarget): CompareFile
 type PatchFile = { name: string; contents: string };
 
 const MAX_EDITS = 2000;
+
+/** U7675b: a side over this many lines is offered with Show anyway, not drawn at once. */
+const TOO_LARGE_LINES = 20000;
+
+const lineCount = (text: string) => text.split("\n").length;
+
+const withoutSpace = (text: string) => text.replace(/\s+/g, "");
+
+/** U7675e: what the pane lets the view do from a key. */
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void };
 
 /** The fewest line insertions and deletions any diff from `old` to `next` needs: each line the other text lacks, counted with its repeats. */
 const lineEditFloor = (old: string, next: string) => {
@@ -68,7 +80,7 @@ const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, 
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
@@ -87,32 +99,70 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
   const [loading, setLoading] = createSignal(true);
   const [coarse, setCoarse] = createSignal(false);
   const [host, setHost] = createSignal<HTMLDivElement>();
+  const [slow, setSlow] = createSignal(false);
+  const [painted, setPainted] = createSignal<{ path: string; blob: string | null }>({ path: props.path, blob: props.blob ?? null });
+  const [shown, setShown] = createSignal<{ path: string; kind: "whitespace" | "large" }>();
+  let starts: ChangeStart[] = [];
+  let cursor = -1;
+  let rendered: string | undefined;
+  let focusHost = () => {};
+  let moveTo = (_side: "old" | "new", _line: number) => {};
+
+  // U7675b: a read of a file whose entry's blob moved on says so and waits for Reload.
+  const updated = () => !loading() && painted().path === props.path && painted().blob !== (props.blob ?? null);
+
+  const hidden = createMemo(() => {
+    const value = read();
+
+    if (!value || value.status === null || value.old.kind === "binary" || value.new.kind === "binary") return null;
+    const oldText = value.old.kind === "text" ? value.old.text : "";
+    const newText = value.new.kind === "text" ? value.new.text : "";
+    const revealed = shown()?.path === props.path ? shown()?.kind : undefined;
+
+    if (value.old.kind === "text" && value.new.kind === "text" && oldText === newText) return "mode" as const;
+
+    if (revealed !== "large" && (lineCount(oldText) > TOO_LARGE_LINES || lineCount(newText) > TOO_LARGE_LINES)) return "large" as const;
+
+    if (revealed !== "whitespace" && value.old.kind === "text" && value.new.kind === "text" && withoutSpace(oldText) === withoutSpace(newText)) return "whitespace" as const;
+
+    return null;
+  });
 
   const notice = createMemo(() => {
     const value = read();
 
-    if (!value) return loading() ? (failure() ? null : copy.loadingDiff) : failure() ? null : copy.diffNotLoaded;
+    if (loading() && slow()) return copy.loadingFile(props.path);
+
+    if (!value) return loading() ? null : failure() ? null : copy.diffNotLoaded;
 
     if (value.status === null) return copy.noDifference;
+
+    if (hidden() === "mode") return copy.modeOnly;
+
+    if (hidden() === "whitespace") return copy.noDifference;
+
+    if (hidden() === "large") return copy.tooLarge;
 
     if (value.old.kind === "binary" || value.new.kind === "binary") return copy.binaryDiff;
 
     return coarse() ? copy.replacementDiff : copy.selectedLines(selection().side, selection().start === selection().end ? `${selection().start}` : `${selection().start}–${selection().end}`, selection().start === selection().end);
   });
 
-  const worktree = createMemo(() => worktrees.read(props.id));
   let stopLoading = () => {};
 
   const load = (params: CompareFileParams) => {
     stopLoading();
     setLoading(true);
+    setSlow(false);
+    setPainted({ path: params.path, blob: untrack(() => props.blob) ?? null });
+    const timer = setTimeout(() => setSlow(true), 150);
     const target = { id: params.id, path: params.path };
     let current = true;
     void reply(() => app.rpc("agent.compareFile", params)).then(result => {
       if (!current) return;
 
+      clearTimeout(timer);
       setLoading(false);
-
       if (result.kind === "ok") {
         setRead(previous => {
           const next = result.value;
@@ -131,10 +181,18 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
       else setFailure(result.text);
     });
 
-    stopLoading = () => { current = false; };
+    stopLoading = () => { current = false; clearTimeout(timer); };
   };
 
-  createEffect(() => [worktree(), compareParams(props.id, props.path, props.to ?? "tree")] as const, ([, params]) => { load(params); });
+  const worktree = createMemo(() => worktrees.read(props.id));
+
+  // U7675b: a refresh reads again only while the entry's blob has not moved on: a changed blob waits for Reload.
+  createEffect(() => [worktree(), compareParams(props.id, props.path, props.to ?? "tree")] as const, ([, params]) => {
+    const now = untrack(() => ({ blob: props.blob ?? null, painted: painted() }));
+
+    if (now.painted.path === params.path && now.blob !== null && now.blob !== now.painted.blob) return;
+    load(params);
+  });
   onCleanup(() => stopLoading());
 
   createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return loading() ? undefined : { run: () => load(compareParams(props.id, props.path, props.to ?? "tree")) }; } });
@@ -156,7 +214,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
     const value = read();
     const mount = host();
 
-    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null) return undefined;
+    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null || hidden() !== null) return undefined;
 
     return { value, mount };
   }, target => {
@@ -194,6 +252,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
           const range: ReturnType<typeof selection> = { side: clickedSide, start: event.shiftKey && old.side === clickedSide ? Math.min(old.start, lineNumber) : lineNumber, end: event.shiftKey && old.side === clickedSide ? Math.max(old.start, lineNumber) : lineNumber };
           setSelection(range);
           view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
+          cursor = starts.findLastIndex(each => each.side === clickedSide && each.line <= range.start);
+          remember();
         },
         renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start === metadata.end ? `${metadata.start}` : `${metadata.start}–${metadata.end}`, metadata.start === metadata.end)}: ${metadata.text}`;
 
@@ -218,21 +278,71 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
 
       if (!current) return;
 
+      // U7675d: a file opens at the scroll and line it was left at, else at its top.
+      const place = props.places?.get(value.newPath);
+
+      starts = changeStarts(patch);
+      cursor = -1;
+      rendered = value.newPath;
+      setSelection(place?.selection ?? { side: "new", start: 1, end: 1 });
       virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
       setRenderer(view);
 
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
-      dispose = () => { setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
+      mount.scrollTop = place?.scroll ?? 0;
+
+      // U7675e: Pierre has no focus row; the focused line is its selection, and its line position scrolls it into view.
+      moveTo = (side, line) => {
+        setSelection({ side, start: line, end: line });
+        view.setSelectedLines({ side: side === "old" ? "deletions" : "additions", start: line, end: line });
+        const position = view.getLinePosition(line, side === "old" ? "deletions" : "additions");
+
+        if (position) mount.scrollTop = position.top;
+        remember();
+      };
+      focusHost = () => { mount.tabIndex = -1; mount.focus(); };
+      const onScroll = () => remember();
+
+      // listener-owner: removed with the rendered diff in the dispose below.
+      mount.addEventListener("scroll", onScroll);
+      dispose = () => {
+        remember();
+        mount.removeEventListener("scroll", onScroll);
+        rendered = undefined;
+        moveTo = () => {};
+        focusHost = () => {};
+        setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove();
+      };
     }).then(error => { if (current && error) setFailure(error); });
 
     return () => { current = false; dispose?.(); };
   });
 
+  const remember = () => {
+    const mount = host();
+
+    if (rendered !== undefined && mount) props.places?.set(rendered, { scroll: mount.scrollTop, selection: selection() });
+  };
+
+  props.keys?.({
+    focus: () => focusHost(),
+    step: direction => {
+      const next = starts[Math.min(Math.max(cursor + direction, 0), starts.length - 1)];
+
+      if (!next) return;
+      cursor = starts.indexOf(next);
+      moveTo(next.side, next.line);
+    },
+  });
+
+  const reload = () => { props.places?.forget(props.path); setShown(undefined); load(compareParams(props.id, props.path, props.to ?? "tree")); };
+
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <div class="diff-identity">
-        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</>}</Show></p>
+        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
+        <Show when={read()}>{value => <Show when={value().status === "added" || value().status === "deleted"}><p class="diff-status">{value().status === "added" ? copy.statusAdded : copy.statusDeleted}</p></Show>}</Show>
       </div>
       <div class="diff-actions">
         <Show when={read()}>{value => <>
@@ -241,6 +351,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
       </div>
     </header>
     <StatusNote text={failure() ? null : notice()} />
+    <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
+    <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
     <Show when={read()}>{value => <>
       <Show when={value().status !== null}>
         <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>

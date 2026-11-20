@@ -1,0 +1,61 @@
+/** U7675e: where a change begins, on the side that holds its first line. */
+export type ChangeStart = { side: "old" | "new"; line: number };
+
+/** U7675e: the first line of each run of added or removed lines in a unified patch, in patch order. */
+export const changeStarts = (patch: string): ChangeStart[] => {
+  const starts: ChangeStart[] = [];
+  let oldLine = 0;
+  let newLine = 0;
+  let inRun = false;
+  let inHunk = false;
+
+  for (const text of patch.split("\n")) {
+    const head = /^@@ -(\d+)(?:,\d+)? \+(\d+)/.exec(text);
+
+    if (head) {
+      oldLine = Number(head[1]);
+      newLine = Number(head[2]);
+      inRun = false;
+      inHunk = true;
+      continue;
+    }
+
+    if (!inHunk || text.startsWith("\\")) continue;
+    const mark = text[0];
+
+    if (mark === "+" || mark === "-") {
+      if (!inRun) starts.push(mark === "+" ? { side: "new", line: newLine } : { side: "old", line: oldLine });
+      inRun = true;
+      if (mark === "+") newLine++; else oldLine++;
+    } else {
+      inRun = false;
+      oldLine++;
+      newLine++;
+    }
+  }
+
+  return starts;
+};
+
+/** U7675d: one file's place in the diff: its scroll offset and focused line. */
+export type Place = { scroll: number; selection: { side: "old" | "new"; start: number; end: number } };
+
+/** U7675d, U7675f: each file's place, kept while the view is open and, per Agent, for the App's run. */
+export type Places = { get: (path: string) => Place | undefined; set: (path: string, place: Place) => void; forget: (path: string) => void };
+
+/** U7675f: the open file and every file's place for one Agent. */
+export type Remembered = { open: string | undefined; places: Map<string, Place> };
+
+const remembered = new Map<string, Remembered>();
+
+/** U7675f: the place kept for `key`, made empty on first use. */
+export const rememberedFor = (key: string): Remembered => {
+  const found = remembered.get(key);
+
+  if (found) return found;
+  const made: Remembered = { open: undefined, places: new Map() };
+
+  remembered.set(key, made);
+
+  return made;
+};

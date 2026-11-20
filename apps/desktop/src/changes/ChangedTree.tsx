@@ -12,7 +12,7 @@ const loadTrees = () => (library ??= import("@pierre/trees"));
 const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 
 /** U7674a: the path a tree shows first — folders before files at each level, each in name order. */
-export const firstInTree = (files: readonly ChangedFile[]): string | undefined => {
+export const treeOrder = (files: readonly ChangedFile[]): string[] => {
   const order = (a: ChangedFile, b: ChangedFile): number => {
     const left = a.path.split("/");
     const right = b.path.split("/");
@@ -31,8 +31,10 @@ export const firstInTree = (files: readonly ChangedFile[]): string | undefined =
     return left.length - right.length;
   };
 
-  return [...files].sort(order)[0]?.path;
+  return [...files].sort(order).map(file => file.path);
 };
+
+export const firstInTree = (files: readonly ChangedFile[]): string | undefined => treeOrder(files)[0];
 
 const fileRow = (event: Event): string | undefined => {
   const row = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.itemType === "file");
@@ -41,7 +43,7 @@ const fileRow = (event: Event): string | undefined => {
 };
 
 /** U7674a, U7674c: the changed files as a tree of `@pierre/trees`; a file row that takes focus or a click is chosen, and Enter or a double click on one edits it (U2539d). */
-export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: string | undefined; onChoose: (path: string) => void; onEdit: (path: string) => void }) => {
+export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: string | undefined; onChoose: (path: string) => void; onEdit: (path: string) => void; controls?: (controls: { focus: (path: string) => void }) => void }) => {
   let host: HTMLDivElement | undefined;
   let files = new Map<string, ChangedFile>();
   let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
@@ -54,11 +56,23 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
     tree?.getItem(path)?.select();
   };
 
+  // U7675c: a file that appears or leaves is added or removed in place, so the tree keeps its focused row and scroll.
   createEffect(() => props.files, list => {
+    const before = files;
+
     files = new Map(list.map(file => [file.path, file]));
-    tree?.resetPaths(list.map(file => file.path));
+
+    for (const path of before.keys()) if (!files.has(path)) tree?.remove(path);
+
+    for (const path of files.keys()) if (!before.has(path)) tree?.add(path);
     tree?.setGitStatus(status(list));
   });
+
+  // U7675c: focus moves to a file the view names (the neighbour of one that left) without choosing it.
+  props.controls?.({ focus: path => {
+    tree?.focusPath(path);
+    queueMicrotask(() => host?.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${CSS.escape(path)}"]`)?.focus());
+  } });
 
   // The open file carries the selection: feed it back on every choose.
   createEffect(() => props.selected, path => {

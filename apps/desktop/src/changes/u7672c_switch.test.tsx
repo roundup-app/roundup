@@ -136,6 +136,7 @@ it("u7672d_rows_and_reader_keep_their_rules_for_every_value", async () => {
   const row = await treeRow("tree.ts");
 
   expect(rowText(row)).toMatch(/\+3.*-1/);
+  console.log("CALLS", JSON.stringify(app.calls.filter(call => call.method.startsWith("agent.")).map(c=>[c.method,c.params])));
   // U7674a: each open (the view's, then the Tree value's) reads only its first file, never the rest.
   expect(app.calls.filter(call => call.method === "agent.compareFile").length).toBeLessThanOrEqual(2);
   expect(files().length).toBe(2);
