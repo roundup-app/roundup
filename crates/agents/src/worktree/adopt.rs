@@ -4,9 +4,9 @@
 use std::path::{Path, PathBuf};
 
 use contracts::agent::Adoptable;
-use rpc::{RpcError, code};
+use rpc::RpcError;
 
-use super::{Git, Worktree, canonical_path, failed, invalid};
+use super::{Git, MISSING_REFUSAL, Worktree, WorktreeError, canonical_path, failed, invalid};
 
 /// A directory (or git's own state in it) that means a merge, rebase, cherry-pick, revert or bisect
 /// is running.
@@ -103,7 +103,9 @@ impl Git {
         if position == 0 {
             return Err(invalid("primary_checkout", path.display()));
         }
-        let entry = &listed[position];
+        let Some(entry) = listed.get(position) else {
+            return Err(invalid("not_registered", path.display()));
+        };
         if let Some(refusal) = self.refusal(entry, busy, recorded) {
             return Err(refusal_error(refusal, &path));
         }
@@ -153,7 +155,7 @@ impl Git {
             return Some("detached_head");
         }
         if !self.exists(&entry.path) {
-            return Some("worktree_missing");
+            return Some(MISSING_REFUSAL);
         }
         if self.operation_in_progress(&entry.path) {
             return Some("operation_in_progress");
@@ -219,10 +221,7 @@ impl Git {
 
 fn refusal_error(refusal: &str, path: &Path) -> RpcError {
     match refusal {
-        "worktree_missing" => RpcError::new(
-            code::NOT_FOUND,
-            format!("worktree_missing: {}", path.display()),
-        ),
+        MISSING_REFUSAL => WorktreeError::Missing(path.display().to_string()).into(),
         "worktree_in_use" => RpcError::conflict(format!("worktree_in_use: {}", path.display())),
         name => invalid(name, path.display()),
     }

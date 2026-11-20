@@ -851,7 +851,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
       }} />
       <RailDialogs dialog={dialog} close={() => setDialog(null)} menu={menu} rowElement={rowElement} />
       <RailConfirm menu={menu} rowElement={rowElement} />
-      <RailFooter retained={retained} asking={asking} canSpawn={canSpawn} createWorkstream={createWorkstream} openCreateMode={() => setDialog({ kind: "create-mode" })} />
+      <RailFooter retained={retained} asking={asking} canSpawn={canSpawn} createWorkstream={createWorkstream} openCreateMode={() => setDialog({ kind: "create-mode" })} openAdopt={() => setDialog({ kind: "adopt-worktree" })} />
     </>
   );
 };

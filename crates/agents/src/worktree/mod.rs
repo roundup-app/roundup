@@ -871,7 +871,7 @@ pub fn map_cwd(project: &Path, cwd: &Path, worktree_path: &Path) -> Option<PathB
 
 mod error;
 mod exclude;
-pub(crate) use error::WorktreeError;
+pub(crate) use error::{MISSING_REFUSAL, WorktreeError};
 use exclude::exclude_worktrees;
 
 mod adopt;
