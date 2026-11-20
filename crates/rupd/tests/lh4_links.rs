@@ -232,13 +232,14 @@ async fn lh4_the_link_read_returns_the_last_set() {
 /// The lines of `links.log` once at least `n` are there.
 async fn log(run: &Run, n: usize) -> Vec<String> {
     let path = run.dir.path().join("data").join("links.log");
+    let mut tick = tokio::time::interval(Duration::from_millis(30));
     for _ in 0..100 {
+        tick.tick().await;
         if let Ok(text) = std::fs::read_to_string(&path)
             && text.lines().count() >= n
         {
             return text.lines().map(str::to_owned).collect();
         }
-        tokio::time::sleep(Duration::from_millis(30)).await;
     }
     Vec::new()
 }
