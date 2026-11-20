@@ -12,3 +12,4 @@
 
 /* The App's chrome is non-selectable; diff text must opt into native selection. */
 [data-line] { user-select: text; }
+

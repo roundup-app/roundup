@@ -21,11 +21,13 @@ dependencies = [
  "agents",
  "async-trait",
  "backon",
+ "base64 0.23.1",
  "contracts",
  "flate2",
  "fs-more",
  "getrandom 0.3.4",
  "git2",
+ "imagesize",
  "libproc",
  "lsp-server",
  "messages",
@@ -2272,6 +2274,12 @@ dependencies = [
  "png 0.18.1",
  "tiff",
 ]
+
+[[package]]
+name = "imagesize"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65b27460c2c92b037f3f94c538ed9a3342f3fdf923606781629ccb35f82d042a"
 
 [[package]]
 name = "indexmap"

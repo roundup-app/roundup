@@ -38,6 +38,12 @@ export const copy = {
   /** @prose */
   tooLarge: "This file is too large to show.",
   showAnyway: "Show anyway",
+  imageFailed: "Couldn't show this image",
+  dimensions: (width: number, height: number) => `${width}×${height}`,
+  beforeAfter: (before: string, after: string) => `${before} → ${after}`,
+  sideSize: (side: string, size: string) => `${side} ${size}`,
+  sizeNote: (dimensions: string | null, files: string) => dimensions ? sharedCopy.dotted(dimensions, files) : files,
+  withSizes: (text: string, sizes: string) => sharedCopy.dotted(text, sizes),
   /** @prose */
   updatedFile: (agent: string) => `${agent} updated this file`,
   reload: "Reload",
