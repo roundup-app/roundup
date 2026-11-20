@@ -23,9 +23,9 @@ export const openChanges = async () => {
   action.run();
 };
 
-/** The tree's row for `path`: Pierre draws it inside a shadow root. */
+/** The tree's row for `path` in the newest Changes view: Pierre draws it inside a shadow root. */
 export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
-  const row = document.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${path}"]`);
+  const row = [...document.querySelectorAll("file-tree-container")].at(-1)?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${path}"]`);
 
   if (!row) throw new Error(`No tree row for ${path}`);
 
@@ -38,7 +38,7 @@ export const openFile = async (path = "src/a.ts") => {
   const row = await treeRow(path);
 
   row.focus();
-  await within(screen.getByLabelText("Diff")).findByText(path);
+  await within(screen.getAllByLabelText("Diff").at(-1)!).findByText(path, { selector: ".diff-path" });
   // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
   await new Promise(resolve => setTimeout(resolve, 50));
 };
