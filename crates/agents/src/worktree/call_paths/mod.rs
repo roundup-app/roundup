@@ -463,13 +463,12 @@ fn flows(calls: &[FunctionCalls], changed: &BTreeSet<String>) -> (Vec<Flow>, boo
         for call in function.outgoing.iter().filter(|c| c.key != function.key) {
             called.insert(&call.key);
         }
-        for call in function
+        if function
             .incoming
             .iter()
-            .filter(|c| c.key != function.key && changed.contains(&c.key))
+            .any(|c| c.key != function.key && changed.contains(&c.key))
         {
             called.insert(&function.key);
-            let _ = call;
         }
     }
     let mut capped = false;
@@ -494,16 +493,6 @@ fn flows(calls: &[FunctionCalls], changed: &BTreeSet<String>) -> (Vec<Flow>, boo
                 capped: cut,
             });
         };
-    let status_of = |key: &str| {
-        let mut found = CallStatus::Changed;
-        for function in calls {
-            if let Some(call) = function.outgoing.iter().find(|c| c.key == key) {
-                found = call.status;
-            }
-        }
-        found
-    };
-    let _ = status_of;
     for key in changed.iter().filter(|k| !called.contains(k.as_str())) {
         grow(key, CallStatus::Changed, &mut flows, &mut reached);
     }
