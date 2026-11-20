@@ -9,7 +9,8 @@ import { SegmentGroup } from "../ui/SegmentGroup";
 import { isDoor } from "../state/doorNode";
 import type { ChangeTarget } from "../state/changeTargets";
 import { copy } from "./copy";
-import { causeOf, createRemoteMain, wordsOf } from "./remote";
+import { createRemoteMain } from "./remote";
+import { RemoteChip } from "./RemoteChip";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
 import { createEditor } from "./editor";
@@ -246,12 +247,7 @@ const Surface = (props: { id: string; name: string }) => {
     <header class="changes-head">
       <span class="changes-name">{props.name}</span>
       <span class="changes-from"><span>{copy.compareFrom}</span> {copy.remoteMain}</span>
-      <Show when={remote.chip()}>{chip => <span class="changes-remote" role="status">
-        <span class="changes-remote-words">{wordsOf(chip())} <span>{causeOf(chip())}</span></span>
-        <Show when={chip().kind === "moved"}><button type="button" data-button="quiet" onClick={remote.fetch}>{copy.fetch}</button></Show>
-        <Show when={chip().kind === "fetching"}><button type="button" data-button="quiet" disabled aria-busy="true">{copy.fetching}</button></Show>
-        <Show when={chip().kind === "failed"}><button type="button" data-button="quiet" onClick={remote.retry}>{copy.retry}</button></Show>
-      </span>}</Show>
+      <Show when={remote.chip()}>{chip => <RemoteChip chip={chip()} fetch={remote.fetch} retry={remote.retry} />}</Show>
       <Show when={segments().length > 1} fallback={<span class="changes-to"><span>{copy.compareTo}</span> <span class="changes-to-value">{copy.changes}</span></span>}>
         <SegmentGroup label={copy.compareTo} segments={segments()} value={target()} onValueChange={choose} />
       </Show>
