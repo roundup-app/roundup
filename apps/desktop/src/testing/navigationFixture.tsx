@@ -25,7 +25,7 @@ export const mountNavigation = async (empty = false, projectCount = 1, agentCoun
   daemon.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   const shells: ReturnType<typeof info>[] = [];
   daemon.handlers["terminal.list"] = () => [...shells, ...nodes.flatMap(node => node.terminal_id ? [info(node.terminal_id, { owner: node.id })] : [])];
-  daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] });
+  daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] });
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 1, behind: 0, dirty: true });
   const store = { todos: [todo(1, { title: "Selected work", home: null })] };
   Object.assign(daemon.handlers, todoHandlers(store, () => {}));

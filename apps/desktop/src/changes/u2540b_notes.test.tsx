@@ -514,7 +514,7 @@ it("u2539b_zero_changes_keeps_the_original_note_revision_recoverable", async () 
   const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   expect(recovery.textContent).toContain(text);
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null, blob: null }] });
   await connected.worktrees.refresh("a");
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", text);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);

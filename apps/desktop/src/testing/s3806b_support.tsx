@@ -619,7 +619,7 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, outcome }: (typeof
   const { app, connected } = await mountApp();
   const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", adopted: false, base: "main" } });
   app.handlers["rail.tree"] = () => [workstream("ops"), reviewed];
-  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/first", branch: "reviewed", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null }] }] });
+  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/first", branch: "reviewed", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
   await connected.rail.refresh();
   connected.rail.select("reviewed");
   // The Rail icon shows once the shared owned read has answered, which is what offers the action.

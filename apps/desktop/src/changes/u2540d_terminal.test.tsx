@@ -14,8 +14,8 @@ const mount = async () => {
   const mounted = await mountPane([agent("a", "idle", "ready", { worktree: WORKTREE })], [info("t-a")]);
   const { app, connected } = mounted;
   app.handlers["agent.worktreeState"] = () => STATE;
-  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", line: 1, status: "modified", counts: null }] });
-  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: WORKTREE.path, branch: WORKTREE.branch, base: WORKTREE.base, files: [{ path: "src/a.ts", line: 1, status: "modified", counts: null }] }] });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", line: 1, status: "modified", counts: null, blob: null }] });
+  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: WORKTREE.path, branch: WORKTREE.branch, base: WORKTREE.base, files: [{ path: "src/a.ts", line: 1, status: "modified", counts: null, blob: null }] }] });
   app.handlers["agent.compareFile"] = () => COMPARISON;
   connected.rail.select("a");
   void connected.owned.refresh("a");

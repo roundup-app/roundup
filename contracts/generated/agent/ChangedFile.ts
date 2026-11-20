@@ -5,12 +5,14 @@ import type * as agent$LineCounts from "./LineCounts";
 /**
  *  One file the Agent's Worktree differs in: `line` is the 1-based first differing line in the
  *  working copy (`null` for a deleted or binary file), `counts` its line counts (`null` for a
- *  binary file), `from` the old path of a renamed file.
+ *  binary file), `blob` git's blob id of the To side (`null` for a deleted file), `from` the old
+ *  path of a renamed file.
  */
 export type ChangedFile = {
 	path: string,
 	status: agent$ChangedStatus.ChangedStatus,
 	line: number | null,
 	counts: agent$LineCounts.LineCounts | null,
+	blob: string | null,
 	from?: string,
 };
