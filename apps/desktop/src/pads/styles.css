@@ -777,13 +777,20 @@ li[aria-selected="true"] svg {
 .pad-changes {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   width: 100%;
   max-width: var(--pad-reading-width, var(--reading-width));
   margin: 0 auto;
   padding-inline: var(--reading-gutter);
+}
+
+.pad-changes-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .pad-changes-back {
@@ -802,11 +809,16 @@ li[aria-selected="true"] svg {
   display: flex;
   gap: var(--space-2);
   background: var(--sunken);
-  color: var(--text);
+  color: var(--accent);
+}
+
+.pad-changes-part[data-change="removed"] {
+  color: var(--red);
 }
 
 .pad-changes-part ins,
 .pad-changes-part del {
+  color: var(--text);
   flex: 1;
   min-width: 0;
 }
