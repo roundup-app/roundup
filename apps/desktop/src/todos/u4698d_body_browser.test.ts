@@ -14,9 +14,15 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
   await browser("wait", "--fn", "window.getSelection()?.isCollapsed === false");
   await browser("press", "Backspace");
   await settle();
-  await browser("type", '.drawer .ProseMirror', "Exact body retained after refusal");
-  await evaluate(`(() => { window.__fake.failNext(-32003, 'Body could not be saved. Retry with the original work intact.', 'todo.update'); return true; })()`);
-  await browser("press", "Control+Enter");
+  // The body saves as it is typed (U7641a): while the Daemon refuses, the failure shows and the typed text stays; the next change after it accepts sends the whole text.
+  await evaluate(`(() => {
+    const { app, refusal } = window.__fake;
+    const accept = app.handlers['todo.update'];
+    window.__refusing = true;
+    app.handlers['todo.update'] = params => { if (window.__refusing) throw refusal(-32003, 'Body could not be saved. Retry with the original work intact.'); return accept(params); };
+    return true;
+  })()`);
+  await browser("keyboard", "inserttext", "Exact body retained after refusa");
   await browser("wait", '.app-toast [role="alert"]');
 
   if (output) {
@@ -26,11 +32,10 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
     writeFileSync(join(output, `body-refusal-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   }
 
-  await browser("focus", '.drawer .ProseMirror');
-  await browser("wait", "--fn", "document.activeElement === document.querySelector('.drawer .ProseMirror') && [...document.querySelectorAll('.todo-detail-body button')].some(button => button.textContent === 'Save')");
-  await browser("press", "Control+Enter");
-  await browser("wait", '.drawer .todo-detail-body .ProseMirror');
-  expect(await evaluate(`window.__fake.app.calls.filter(call => call.method === 'todo.update' && call.params.body?.startsWith('Exact body')).map(call => ({ id: call.params.id, body: call.params.body }))`)).toEqual([
+  await evaluate("window.__refusing = false; true");
+  await browser("keyboard", "type", "l");
+  await browser("wait", "--fn", "window.__fake.app.calls.some(call => call.method === 'todo.update' && call.params.body === 'Exact body retained after refusal')");
+  expect(await evaluate(`window.__fake.app.calls.filter(call => call.method === 'todo.update' && call.params.body === 'Exact body retained after refusal').map(call => ({ id: call.params.id, body: call.params.body }))`)).toEqual([
     { id: 1, body: "Exact body retained after refusal" },
   ]);
 });

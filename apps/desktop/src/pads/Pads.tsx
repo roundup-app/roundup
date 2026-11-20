@@ -8,7 +8,8 @@ import { CHORD_ROWS } from "../keys/chords";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
-import { NameField, Editable } from "../ui/Editable";
+import { Editable } from "../ui/Editable";
+import { NameField } from "../ui/NameField";
 import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "./copy";
 import { createSelection } from "../shelf/selection";
@@ -505,7 +506,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; mark: PadMark
               onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}
 
             >
-              <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : asked() ?? pad.name}</span>
+              <span {...nameCut.attrs()} class="shelf-title" onDblClick={event => { event.stopPropagation(); rename(); }}>{copied.copied() ? copy.copied : asked() ?? pad.name}</span>
             </button>
             </Show>
             <Show when={!editing()}>
