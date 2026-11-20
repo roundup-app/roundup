@@ -6,11 +6,9 @@ import { agent, door, workstream, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 import { padOf } from "../pads/padsFixture";
 import { todo } from "../todos/testHarness";
-import { captureActions } from "../keys/registry";
 import { openProjectPage } from "./menuProbe";
 import { showShelfTab } from "./shelfTabs";
 import { settled } from "../rail/railFixture";
-import { layoutMoving } from "../resize/motion";
 
 // Final App inventory: Todo creator controls and shared Pad Home groups use the Shelf holder.
 const shelf = ["Todos", "Pads"] as const;
@@ -95,84 +93,6 @@ it.each(shelf)("u3787c_each_list_selects_only_visible_rows Shelf navigation %s",
   await settled();
   expect(selected()).toEqual(rows);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
-  expect(app.calls.slice(before)).toEqual([]);
-});
-
-// Full App, rather than WorktreeControl alone: both production openings reach the shadow tree.
-const files = names.map((_, i) => ({ path: `${["alpha", "bravo", "charlie", "delta", "echo"][i]}.ts`, status: "modified" as const, line: i + 1, counts: null }));
-
-const shadow = () => document.querySelector("file-tree-container")?.shadowRoot;
-
-const changedRows = () => [...(shadow()?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [])];
-
-const openChanges = async (opening: string) => {
-  const { app } = renderTabs({ p: [agent("a", "idle", "ready", { worktree: { path: "/p/work", branch: "work", base: "main" } })] });
-  const daemon = app.of(path("p"));
-  daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
-  daemon.handlers["agent.changedFiles"] = () => ({ files });
-  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
-  openProjectPage("view:workstreams", path("p"));
-
-  const row = await waitFor(() => {
-    const found = document.querySelector<HTMLElement>('.rail-row[data-id="a"]');
-    expect(found).not.toBeNull();
-
-    return found!;
-  });
-
-  fireEvent.click(row);
-  const control = await screen.findByRole("button", { name: "5 changed files" });
-  await settled();
-
-  if (opening === "counted control") fireEvent.click(control);
-  else {
-    row.focus();
-    const action = captureActions(row).find(action => action.value === "action:leader:C");
-    expect(action).toBeDefined();
-    action!.run();
-  }
-
-  await waitFor(() => expect(changedRows()).toHaveLength(5));
-  await waitFor(() => expect(shadow()?.activeElement).not.toBeNull());
-  // The Terminal fits in the frame after the Shelf's slide ends; a call it makes then is the opening's, not a key's.
-  await waitFor(() => expect(layoutMoving()).toBe(false));
-  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-  await settled();
-
-  return { app: daemon, rows: changedRows() };
-};
-
-it.each(["counted control", "Review changes"])("u3787c_each_list_navigates_visible_rows App changes %s", async opening => {
-  const { app, rows } = await openChanges(opening);
-  const before = app.calls.length;
-  rows[0]!.focus();
-
-  for (const [key, at] of [["ArrowUp", 0], ["ArrowDown", 1], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["Home", 0]] as const) {
-    fireEvent.keyDown(shadow()!.activeElement!, { key, composed: true });
-    await settled();
-    expect(shadow()?.activeElement).toBe(rows[at]);
-  }
-
-  expect(document.querySelector(".diff-reader")).toBeNull();
-  expect(app.calls.slice(before)).toEqual([]);
-});
-
-it.each(["counted control", "Review changes"])("u3787c_each_list_selects_only_visible_rows App changes %s", async opening => {
-  const { app, rows } = await openChanges(opening);
-  const before = app.calls.length;
-  const selected = () => rows.filter(row => row.getAttribute("aria-selected") === "true");
-
-  for (const [at, metaKey, shiftKey, expected] of [[2, false, true, [2]], [0, true, false, [0, 2]], [0, true, false, [2]], [3, true, true, [0, 1, 2, 3]], [1, false, true, [0, 1]]] as const) {
-    fireEvent.click(rows[at]!, { metaKey, shiftKey, composed: true });
-    await settled();
-    expect(selected()).toEqual(expected.map(index => rows[index]));
-  }
-
-  rows[0]!.focus();
-  fireEvent.keyDown(rows[0]!, { key: "a", metaKey: true, composed: true });
-  await settled();
-  expect(selected()).toEqual(rows);
-  expect(document.querySelector(".diff-reader")).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);
 });
 

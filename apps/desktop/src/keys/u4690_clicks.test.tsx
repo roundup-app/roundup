@@ -172,7 +172,6 @@ it.each(["P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] as co
 
     row.focus();
 
-    if (keys === "C") await screen.findByRole("button", { name: /\d+ changed files?/ });
     await activate(keys, source, true);
 
     if (keys === "A") {
@@ -182,7 +181,7 @@ it.each(["P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] as co
 
     if (keys === "P") await screen.findByRole("combobox");
 
-    if (keys === "C") await screen.findByRole("dialog", { name: "Worktree" });
+    if (keys === "C") await screen.findByRole("region", { name: "Changes" });
 
     if (keys === "J") await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
 

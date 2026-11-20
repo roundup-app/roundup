@@ -152,7 +152,10 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   for (const name of ["api", "web"]) {
     const daemon = app.of(path(name));
     daemon.handlers["agent.worktreeState"] = () => STATE;
-    daemon.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", status: "modified", line: 1, counts: null }] });
+    const files = [{ path: "src/a.ts", status: "modified" as const, line: 1, counts: null }];
+
+    daemon.handlers["agent.changedFiles"] = () => ({ files });
+    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: WORKTREE.path, branch: WORKTREE.branch, base: WORKTREE.base, files }] });
     daemon.handlers["agent.compareFile"] = () => COMPARISON;
   }
 
@@ -361,9 +364,7 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
 
   if (selected === "same") await waitFor(() => expect(notesFor(app, "/p").failure("a")).toBeNull());
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
-  await openChanges();
-  await openFile();
-  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add note" }));
   expect(screen.queryByText("current refusal; retry") !== null).toBe(selected === "older");
   expect(screen.getByLabelText("Note", { selector: "textarea" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
   expect(app.calls.filter(call => call.method === "message.send").map(call => call.params)).toEqual([expect.objectContaining({ to: "a" }), expect.objectContaining({ to: "a" })]);

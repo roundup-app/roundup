@@ -33,6 +33,8 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
   const connected = await connectProject(app, { name: "p", path: project }, () => false, () => NOW, () => null, undefined, drafts);
 
   connected.rail.select("a");
+  // The rail icon's `watch` starts this read in the App; no icon mounts here.
+  void connected.owned.refresh("a");
 
   const view = render(() => {
     connected.worktrees.watch(() => true);

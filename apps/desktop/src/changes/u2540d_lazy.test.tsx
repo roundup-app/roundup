@@ -14,7 +14,7 @@ it("u2540d_renderer_loads_only_on_demand", async () => {
   expect(diffsLoaded()).toBe(false);
   app.handlers["agent.compareFile"] = () => COMPARISON;
   await openChanges();
-  await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
+  await screen.findByRole("button", { name: /src\/a\.ts/ });
   expect(diffsLoaded()).toBe(false);
   await openFile();
   await waitFor(() => expect(diffsLoaded()).toBe(true));

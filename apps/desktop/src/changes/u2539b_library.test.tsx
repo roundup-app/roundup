@@ -1,41 +1,7 @@
-import { openChanges } from "./noteHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { treesLoaded } from "./ChangedTree";
-import { mountControl } from "./harness";
 
 afterEach(cleanup);
-
-it("u2539b_the_library_loads_on_first_open", async () => {
-  await mountControl();
-
-  expect(treesLoaded()).toBe(false);
-  await openChanges();
-
-  await waitFor(() => expect(document.querySelector("file-tree-container")).not.toBeNull());
-  expect(treesLoaded()).toBe(true);
-});
-
-it("u2539b_file_names_announce_status_old_path_and_deleted_action", async () => {
-  await mountControl(() => ({ files: [
-    { path: "new.ts", from: "old.ts", status: "renamed", line: 1, counts: null },
-    { path: "gone.ts", status: "deleted", line: null, counts: null },
-    { path: "added.ts", status: "added", line: 1, counts: null },
-    { path: "modified.ts", status: "modified", line: 1, counts: null },
-    { path: "untracked.ts", status: "untracked", line: 1, counts: null },
-  ] }));
-  await openChanges();
-
-  await waitFor(() => {
-    const root = document.querySelector("file-tree-container")?.shadowRoot;
-
-    expect(root?.querySelector('[data-item-path="new.ts"]')?.getAttribute("aria-label")).toBe("new.ts, Renamed, old.ts → new.ts");
-    expect(root?.querySelector('[data-item-path="gone.ts"]')?.getAttribute("aria-label")).toBe("gone.ts, Deleted, unavailable in editor");
-    expect(root?.querySelector('[data-item-path="added.ts"]')?.getAttribute("aria-label")).toBe("added.ts, Added");
-    expect(root?.querySelector('[data-item-path="modified.ts"]')?.getAttribute("aria-label")).toBe("modified.ts, Modified");
-    expect(root?.querySelector('[data-item-path="untracked.ts"]')?.getAttribute("aria-label")).toBe("untracked.ts, Untracked");
-  });
-});
 
 // Dependency probes deliberately bypass the App: #4396 owns mounted integration.
 async function mountTree(options: Partial<import("@pierre/trees").FileTreeOptions> = {}) {

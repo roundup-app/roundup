@@ -40,7 +40,7 @@ export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts
 
 export const saveNote = async (text: string) => {
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  const form = within(screen.getByLabelText("Line note", { selector: "form" }));
+  const form = within(screen.getByRole("form", { name: "Line note" }));
   fireEvent.input(form.getByLabelText("Note"), { target: { value: text } });
   fireEvent.click(form.getByRole("button", { name: "Save" }));
   await screen.findByRole("button", { name: "Edit note 1" });
