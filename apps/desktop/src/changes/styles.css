@@ -118,6 +118,11 @@
   min-block-size: 0;
   padding-block: 0;
   line-height: inherit;
+  font: inherit;
+  box-sizing: border-box;
+  inline-size: 7.5rem;
+  flex: none;
+  text-align: end;
 }
 
 .changes-edit[aria-hidden="true"] { visibility: hidden; }
