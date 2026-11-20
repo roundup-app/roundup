@@ -321,24 +321,24 @@ impl Git {
         let new_files: Vec<String> = files.iter().filter_map(|f| f.new.clone()).collect();
 
         let stopped = |stop: Stop| match stop {
-            Stop::Timeout => Err(CallPathsAnswer::Failed {
+            Stop::Timeout => CallPathsAnswer::Failed {
                 cause: cause("timeout", "the language server did not answer in time"),
-            }),
-            Stop::Cargo(text) => Err(CallPathsAnswer::Failed {
+            },
+            Stop::Cargo(text) => CallPathsAnswer::Failed {
                 cause: cause("cargoOffline", text),
-            }),
-            Stop::Cancelled => Err(CallPathsAnswer::Failed {
+            },
+            Stop::Cancelled => CallPathsAnswer::Failed {
                 cause: cause("cancelled", "the trace was cancelled"),
-            }),
-            Stop::Error(text) if text == "noCallHierarchy" => Err(CallPathsAnswer::NoServer {
+            },
+            Stop::Error(text) if text == "noCallHierarchy" => CallPathsAnswer::NoServer {
                 cause: cause(
                     "noCallHierarchy",
                     format!("{} does not offer call hierarchy", row.name),
                 ),
-            }),
-            Stop::Error(text) => Err(CallPathsAnswer::Failed {
+            },
+            Stop::Error(text) => CallPathsAnswer::Failed {
                 cause: cause("error", text),
-            }),
+            },
         };
         let nothing = BTreeSet::new();
         let head = self
@@ -361,7 +361,7 @@ impl Git {
             deadline,
             cancel,
         ) {
-            return Ok(stopped(stop));
+            return Ok(Err(stopped(stop)));
         }
         if let Err(stop) = run_side(
             &server,
@@ -372,7 +372,7 @@ impl Git {
             deadline,
             cancel,
         ) {
-            return Ok(stopped(stop));
+            return Ok(Err(stopped(stop)));
         }
         let union: BTreeSet<String> = old.touched.union(&new.touched).cloned().collect();
         for side in [&mut old, &mut new] {
@@ -397,7 +397,7 @@ impl Git {
                     cancel,
                 )
             {
-                return Ok(stopped(stop));
+                return Ok(Err(stopped(stop)));
             }
         }
         let levers = if row.language == "rust" {

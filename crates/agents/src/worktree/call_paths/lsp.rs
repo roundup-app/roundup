@@ -133,7 +133,11 @@ impl Client {
                     if note.method == "window/showMessage"
                         || note.method == "window/logMessage" =>
                 {
-                    let text = note.params["message"].as_str().unwrap_or("");
+                    let text = note
+                        .params
+                        .get("message")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
                     if text.contains("offline") || text.contains("no matching package") {
                         self.cargo_failure.get_or_insert_with(|| text.to_owned());
                     }

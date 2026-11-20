@@ -68,15 +68,23 @@ impl Row {
         if self.language != "rust" {
             return (vec![], serde_json::Value::Null);
         }
-        let mut options = serde_json::json!({
-            "cargo": {"extraArgs": ["--offline", "--locked"], "targetDir": target},
+        let off = serde_json::json!({"enable": false});
+        let (build_scripts, proc_macro, priming) = if lean {
+            (off.clone(), off.clone(), off)
+        } else {
+            let on = serde_json::json!({"enable": true});
+            (on.clone(), on.clone(), on)
+        };
+        let options = serde_json::json!({
+            "cargo": {
+                "extraArgs": ["--offline", "--locked"],
+                "targetDir": target,
+                "buildScripts": build_scripts,
+            },
+            "procMacro": proc_macro,
+            "cachePriming": priming,
             "checkOnSave": false,
         });
-        if lean {
-            options["cargo"]["buildScripts"] = serde_json::json!({"enable": false});
-            options["procMacro"] = serde_json::json!({"enable": false});
-            options["cachePriming"] = serde_json::json!({"enable": false});
-        }
         let env = [
             ("CARGO_TARGET_DIR", target.display().to_string()),
             ("CARGO_NET_OFFLINE", "true".into()),
