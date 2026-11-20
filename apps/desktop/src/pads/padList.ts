@@ -39,6 +39,7 @@ const open = (connected: ConnectedProject): Shared =>
     };
 
     // Equal replies still answer: a handler may return the same array twice.
+    // read-guarded: the effect's `error` handler below shows the failure.
     const answer = createMemo(async () => connected.app.rpc("pad.list", null), { equals: false });
 
     createEffect(answer, {
