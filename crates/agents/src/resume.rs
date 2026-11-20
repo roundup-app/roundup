@@ -186,7 +186,19 @@ impl Agents {
             ctx.emit(EventData::RailChanged);
         }
         outcome?;
+        self.save_resumed_owner(id);
         self.shared.node(id)
+    }
+
+    /// UKR1: the resumed Attempt's Terminal is attached, so its owner record is saved.
+    fn save_resumed_owner(&self, id: &str) {
+        let terminal = match self.shared.runs().slot(id) {
+            Some(Slot::Running(run)) => run.terminal_id().to_owned(),
+            _ => return,
+        };
+        if let Err(error) = self.save_owner(id, &terminal) {
+            eprintln!("agents: could not save {id}'s owner after its resume: {error}");
+        }
     }
 
     /// Check the slot, allocate the Attempt and park the old run in `Slot::Resuming`.
