@@ -703,6 +703,7 @@ fn t5642b_narrow_history_matches_actor_semantics() {
                 &Actor::user(),
                 Some(&agent("a")),
                 None,
+                None,
                 0,
             )
             .unwrap();

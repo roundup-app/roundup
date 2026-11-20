@@ -190,6 +190,7 @@ fn t5642a_batched_list_matches_individual_reads() {
                 &agent(&format!("maker {id}")),
                 Some(&agent(&format!("owner {id}"))),
                 None,
+                None,
                 0,
             )
             .unwrap();
@@ -261,7 +262,7 @@ fn t5642a_list_preserves_the_callers_transaction() {
     let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
     for title in ["one", "two"] {
         store
-            .insert(title, "body", &[], &Actor::user(), None, None, 0)
+            .insert(title, "body", &[], &Actor::user(), None, None, None, 0)
             .unwrap();
     }
     let before = store.list().unwrap();

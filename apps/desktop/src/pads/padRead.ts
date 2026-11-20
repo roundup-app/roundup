@@ -10,6 +10,14 @@ const readSchema = storageSchema("roundup:pad-read", v.record(v.string(), v.pipe
 
 export const padReadStorage = (path: string) => storedValue(`roundup:pad-read:${path}`, readSchema);
 
+/** U7706a: the text of the Revision each Pad was last read at, kept beside the record so a change can be shown against it. */
+const textSchema = storageSchema("roundup:pad-read-text", v.record(v.string(), v.string()));
+
+export const padReadTextStorage = (path: string) => storedValue(`roundup:pad-read-text:${path}`, textSchema);
+
+/** A Pad over this many characters keeps no earlier text. */
+export const keptTextCap = 100_000;
+
 export type PadMark = "new" | "changed" | null;
 
 export type PadRead = {
@@ -17,6 +25,8 @@ export type PadRead = {
   isRead(pad: Pad): boolean;
   /** `new` when the user never read the Pad, `changed` when it changed since they did. */
   mark(pad: Pad): PadMark;
+  /** U7706a: the text of the Revision the user read, or null when none was kept. */
+  kept(pad: Pad): string | null;
   /** Takes the Pad's current Revision: the Drawer opened on it, the user saved, or the Drawer left it. */
   record(pad: Pad): void;
   /** A Pad the user creates is read at its creation: it takes its Revision when the list first holds it. */
@@ -35,21 +45,31 @@ const make = (path: string): Shared => {
   const saved = storage.read();
   const [revisions, setRevisions] = createSignal<Record<string, string>>(saved ?? {});
   const [open, setOpen] = createSignal<string | null>(null);
+  const textStorage = padReadTextStorage(path);
+  const [texts, setTexts] = createSignal<Record<string, string>>(textStorage.read() ?? {});
   let baselined = saved !== null;
   const waiting = new Set<string>();
 
-  const write = (changes: Record<string, string>) => {
+  const write = (changes: Record<string, string>, taken: readonly Pad[]) => {
     const next = { ...revisions(), ...changes };
+    const kept = { ...texts() };
+
+    for (const pad of taken) {
+      if (pad.text.length > keptTextCap) delete kept[pad.incarnation];
+      else kept[pad.incarnation] = pad.text;
+    }
 
     setRevisions(next);
     storage.write(next);
+    setTexts(kept);
+    textStorage.write(kept);
   };
 
   // The first answered list of a Project with no record, even an empty one, counts every Pad as read.
   const settle = (pads: readonly Pad[]) => {
     if (!baselined) {
       baselined = true;
-      write(Object.fromEntries(pads.map(pad => [pad.incarnation, String(pad.revision)])));
+      write(Object.fromEntries(pads.map(pad => [pad.incarnation, String(pad.revision)])), pads);
 
       return;
     }
@@ -58,7 +78,7 @@ const make = (path: string): Shared => {
 
     for (const pad of mine) waiting.delete(pad.name);
 
-    if (mine.length > 0) write(Object.fromEntries(mine.map(pad => [pad.incarnation, String(pad.revision)])));
+    if (mine.length > 0) write(Object.fromEntries(mine.map(pad => [pad.incarnation, String(pad.revision)])), mine);
   };
 
   const read: PadRead = {
@@ -68,7 +88,8 @@ const make = (path: string): Shared => {
 
       return recorded === undefined ? "new" : recorded === String(pad.revision) ? null : "changed";
     },
-    record: pad => { if (revisions()[pad.incarnation] !== String(pad.revision)) write({ [pad.incarnation]: String(pad.revision) }); },
+    kept: pad => revisions()[pad.incarnation] === undefined ? null : texts()[pad.incarnation] ?? null,
+    record: pad => { if (revisions()[pad.incarnation] !== String(pad.revision) || (texts()[pad.incarnation] === undefined && pad.text.length <= keptTextCap)) write({ [pad.incarnation]: String(pad.revision) }, [pad]); },
     created: name => { waiting.add(name); },
     open,
     setOpen: name => { setOpen(name); },

@@ -6,8 +6,8 @@ import { Popover } from "../ui/Popover";
 import { StatusNote } from "../ink/MountedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
-import { lastWriter, padNotesOf } from "./padNotes";
-import type { PadNote } from "./padNotes";
+import { lastWriter, padNotesOf } from "./unsentNotes";
+import type { PadNote } from "./unsentNotes";
 
 /** U7705: select text, add a note, send it back quoting the selection. Nothing here writes the Pad. */
 export const PadNotes = (props: { name: string; revision: () => number; selection: () => string; restoreFocus: () => void }) => {

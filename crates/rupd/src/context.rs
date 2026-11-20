@@ -304,6 +304,7 @@ mod tests {
             owner: None,
             refs: vec![],
             priority: None,
+            pr: None,
         }
     }
 

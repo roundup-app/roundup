@@ -175,6 +175,7 @@ import type { HandParams as todo_HandParams } from "./todo/HandParams";
 import type { Handed as todo_Handed } from "./todo/Handed";
 import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
+import type { PrCheck as todo_PrCheck } from "./todo/PrCheck";
 import type { ReadHistoryParams as todo_ReadHistoryParams } from "./todo/ReadHistoryParams";
 import type { RedoParams as todo_RedoParams } from "./todo/RedoParams";
 import type { Ref as todo_Ref } from "./todo/Ref";
@@ -357,6 +358,8 @@ export type RpcMethods = {
   "provenance.touched": { params: common_TouchedParams; result: common_Touch[] };
   "terminal.output": { params: terminal_TerminalId; result: terminal_OutputStarted };
   "terminal.outputStop": { params: terminal_TerminalId; result: null };
+  "todo.checkPr": { params: todo_TodoId; result: todo_PrCheck };
+  "todo.checkPrs": { params: null; result: todo_PrCheck[] };
   "todo.refs": { params: todo_TodoId; result: todo_Ref[] };
   "agent.context": { params: agent_NodeId; result: agent_Context };
   "agent.brief": { params: agent_NodeId; result: agent_Brief };

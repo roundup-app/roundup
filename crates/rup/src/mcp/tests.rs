@@ -678,6 +678,42 @@ async fn t4597_both_roles_read_the_surfaces_they_write() {
 }
 
 #[tokio::test]
+async fn t7708a_mcp_and_rup_carry_the_link() {
+    let (_dir, shim, _user, _state) = reply_fixture(false).await;
+    let offered = shim.client.list_all_tools().await.unwrap();
+    for name in ["todo_create", "todo_update"] {
+        let schema = &offered
+            .iter()
+            .find(|t| t.name == name)
+            .unwrap()
+            .input_schema;
+        assert!(schema["properties"]["pr"].to_string().contains("integer"));
+        assert!(
+            !schema["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("pr"))
+        );
+    }
+    let made = shim
+        .value("todo_create", json!({"title":"linked","pr":12}))
+        .await;
+    assert_eq!(made["pr"], 12);
+    let id = made["id"].clone();
+    assert_eq!(shim.value("todo_get", json!({"id":id})).await["pr"], 12);
+    assert_eq!(
+        shim.value("todo_update", json!({"id":id,"pr":null})).await["pr"],
+        Value::Null
+    );
+    assert_eq!(
+        shim.value("todo_update", json!({"id":id,"pr":3})).await["pr"],
+        3
+    );
+    let listed = shim.value("todo_list", json!({})).await;
+    assert_eq!(listed.as_array().unwrap().last().unwrap()["pr"], 3);
+}
+
+#[tokio::test]
 async fn u4698c_mcp_sets_priority_as_the_authenticated_actor() {
     for door in [false, true] {
         let (_dir, shim, user, state) = reply_fixture(door).await;

@@ -23,4 +23,6 @@ export type Todo = {
 	refs: string[],
 	/**  U4698c: unset is no priority. */
 	priority: todo$Priority.Priority | null,
+	/**  T7708a: the number of the pull request in the Project's repository that completes this Todo when it merges; `None` when unlinked. */
+	pr: number | null,
 };
