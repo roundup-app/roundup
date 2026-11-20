@@ -193,13 +193,23 @@ async fn ra2_the_server_gets_its_own_target_directory_offline_and_locked() {
 }
 
 async fn wait_for(file: &Path) {
-    for _ in 0..200 {
-        if file.exists() {
-            return;
+    use notify::{RecursiveMode, Watcher};
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut watcher = notify::recommended_watcher(move |_| {
+        let _ = tx.send(());
+    })
+    .unwrap();
+    watcher
+        .watch(file.parent().unwrap(), RecursiveMode::NonRecursive)
+        .unwrap();
+    let seen = async {
+        while !file.exists() {
+            rx.recv().await;
         }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-    panic!("{} never appeared", file.display());
+    };
+    tokio::time::timeout(Duration::from_secs(10), seen)
+        .await
+        .unwrap_or_else(|_| panic!("{} never appeared", file.display()));
 }
 
 fn tree(dir: &Path) -> Vec<(PathBuf, u64)> {
