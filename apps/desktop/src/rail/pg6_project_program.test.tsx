@@ -5,7 +5,7 @@ import { mountRail, railCallsTo, settled } from "./railFixture";
 
 afterEach(cleanup);
 
-const mount = async (program: { argv: string[]; dir: string } | null) => {
+const mount = async (program: { argv: string[]; dir: string; adoptDir?: string } | null) => {
   const mounted = await mountRail([]);
   mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: null, machine: null, program, models: { roles: [] } });
   mounted.app.handlers["project.setProgram"] = () => null;
@@ -62,4 +62,21 @@ it("pg6_a_bad_command_or_folder_calls_nothing_and_keeps_the_entry", async () => 
 
   expect(await screen.findByText(/^✕ .*path/i)).toBeTruthy();
   expect(railCallsTo(app, "project.setProgram")).toEqual([]);
+});
+
+it("g13_the_worktree_path_is_saved_with_the_entry_and_a_path_outside_is_refused", async () => {
+  const app = await mount({ argv: ["old"], dir: ".", adoptDir: "trees" });
+  const folder = await field("Worktree path");
+
+  await waitFor(() => expect(folder.value).toBe("trees"));
+  fireEvent.input(folder, { target: { value: "../out" } });
+  fireEvent.keyDown(folder, { key: "Enter" });
+
+  expect(await screen.findByText(/^✕ .*path/i)).toBeTruthy();
+  expect(railCallsTo(app, "project.setProgram")).toEqual([]);
+
+  fireEvent.input(folder, { target: { value: "wt" } });
+  fireEvent.keyDown(folder, { key: "Enter" });
+
+  await waitFor(() => expect(railCallsTo(app, "project.setProgram")).toEqual([{ argv: ["old"], dir: ".", adoptDir: "wt" }]));
 });

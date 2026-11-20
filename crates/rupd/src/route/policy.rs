@@ -41,6 +41,10 @@ pub(crate) enum Gate {
     RailRemove,
     SetVisibility,
     Spawn,
+    /// G14: the user's pick, or the Project's program inside its directory.
+    Adopt,
+    /// G14: the rows for the user, or those inside the program's directory.
+    Adoptable,
 }
 
 /// The effect that follows a call.
@@ -134,8 +138,8 @@ static TABLE: &[(&str, Policy)] = &[
     ("action.run", Policy { actor: Actor::Caller, ..PLAIN }),
     ("action.serve", Policy { actor: Actor::Caller, ..PLAIN }),
     ("action.userList", Policy { actor: Actor::Caller, ..PLAIN }),
-    ("agent.adopt", Policy { observes: true, ..PLAIN }),
-    ("agent.adoptable", PLAIN),
+    ("agent.adopt", Policy { gate: Gate::Adopt, observes: true, ..PLAIN }),
+    ("agent.adoptable", Policy { gate: Gate::Adoptable, ..PLAIN }),
     ("agent.brief", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.changedFiles", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.channelUp", Policy { inputs: Inputs::Id, ..PLAIN }),

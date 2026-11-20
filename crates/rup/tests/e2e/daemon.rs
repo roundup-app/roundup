@@ -217,23 +217,18 @@ impl Project {
     pub async fn spawn_agent(&self, client: &Client) -> RailNode {
         let params = SpawnParams {
             start_attribution: None,
-            visibility: Default::default(),
+            launch: Default::default(),
             cols: None,
             rows: None,
             permission_mode: None,
             engine: None,
             cwd: self.dir.path().to_string_lossy().into_owned(),
             prompt: None,
-            order: None,
             name: None,
             app_named: None,
-            parent: None,
             role: None,
-            model: None,
-            effort: None,
             scout: None,
             extras: None,
-            settings: None,
             machine: None,
         };
         let node = client.request("agent.spawn", params).await.unwrap();

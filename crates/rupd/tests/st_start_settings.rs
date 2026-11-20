@@ -46,7 +46,16 @@ struct Run {
     jobs: std::cell::Cell<u32>,
 }
 
-fn rupd(dir: &Path, data: &Path, root: &Path, child: Option<&Path>) -> rupd_harness::Rupd {
+/// A call an Agent's fake `claude` makes from its own process: `method` with `params`, the reply
+/// written to the file.
+struct Child<'a> {
+    out: &'a Path,
+    method: &'a str,
+    /// The params, given the Project folder; the default is a Job spawn with settings.
+    params: Option<fn(&Path) -> Value>,
+}
+
+fn rupd(dir: &Path, data: &Path, root: &Path, child: Option<Child<'_>>) -> rupd_harness::Rupd {
     let bin = PathBuf::from(env!("CARGO_BIN_EXE_rupd"));
     rupd_harness::start(&bin, dir, true, |cmd| {
         cmd.env("ROUNDUP_RUP_BIN", bin.with_file_name("rup"))
@@ -58,10 +67,17 @@ fn rupd(dir: &Path, data: &Path, root: &Path, child: Option<&Path>) -> rupd_harn
             .env("CLAUDE_CONFIG_DIR", root.join("config"))
             .env("ROUNDUP_DATA_DIR", data)
             .env("FAKE_CLAUDE_LAUNCH_LOG", root.join("launches"));
-        if let Some(out) = child {
+        if let Some(Child {
+            out,
+            method,
+            params,
+        }) = child
+        {
             let socket = dir.join("rupd.sock");
-            let params =
-                json!({"cwd": dir, "role": "job", "prompt": "p", "settings": {"env": {"A": "1"}}});
+            let params = params.map_or_else(
+                || json!({"cwd": dir, "role": "job", "prompt": "p", "settings": {"env": {"A": "1"}}}),
+                |params| params(dir),
+            );
             cmd.env(
                 "FAKE_CLAUDE_CHILD_PROCESS",
                 json!([
@@ -69,7 +85,7 @@ fn rupd(dir: &Path, data: &Path, root: &Path, child: Option<&Path>) -> rupd_harn
                     root.join("caller.py"),
                     socket,
                     "",
-                    "agent.spawn",
+                    method,
                     params.to_string(),
                     out
                 ])
@@ -81,6 +97,15 @@ fn rupd(dir: &Path, data: &Path, root: &Path, child: Option<&Path>) -> rupd_harn
 
 impl Run {
     async fn start(agent_out: Option<&Path>) -> Self {
+        let child = agent_out.map(|out| Child {
+            out,
+            method: "agent.spawn",
+            params: None,
+        });
+        Self::start_with(child).await
+    }
+
+    async fn start_with(child: Option<Child<'_>>) -> Self {
         let root = tempfile::tempdir().unwrap();
         let dir = root.path().canonicalize().unwrap().join("proj");
         std::fs::create_dir_all(dir.join("work")).unwrap();
@@ -88,7 +113,7 @@ impl Run {
         std::fs::write(root.path().join("caller.py"), CALLER).unwrap();
         let data = root.path().canonicalize().unwrap().join("data");
         std::fs::create_dir_all(&data).unwrap();
-        let daemon = rupd(&dir, &data, root.path(), agent_out);
+        let daemon = rupd(&dir, &data, root.path(), child);
         let user = Client::connect(&daemon.socket).await.unwrap();
         Self {
             daemon,
@@ -125,12 +150,22 @@ impl Run {
 
     /// The program: a shell that runs the jobs this test drops beside it.
     async fn program(&self) {
+        self.program_adopting(None).await;
+    }
+
+    /// `program`, whose entry names `adopt_dir` (G13) when given.
+    async fn program_adopting(&self, adopt_dir: Option<&str>) {
         // The jobs folder is beside `work`, which is the program's directory.
         std::os::unix::fs::symlink(self.root.path().join("jobs"), self.dir.join("jobs")).unwrap();
         self.user
             .request(
                 "project.setProgram",
-                json!({"argv": ["sh", "-c", RUNNER], "dir": "work"}),
+                match adopt_dir {
+                    Some(adopt) => {
+                        json!({"argv": ["sh", "-c", RUNNER], "dir": "work", "adoptDir": adopt})
+                    }
+                    None => json!({"argv": ["sh", "-c", RUNNER], "dir": "work"}),
+                },
             )
             .await
             .unwrap();
@@ -432,4 +467,183 @@ async fn st3_a_surviving_program_is_known_after_a_daemon_restart() {
         .below(None, "agent.spawn", run.spawn_params(Some(settings())))
         .await;
     assert!(reply.get("error").is_none(), "{reply}");
+}
+
+fn git(dir: &Path, args: &[&str]) {
+    let status = std::process::Command::new("git")
+        .current_dir(dir)
+        .args([
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "commit.gpgsign=false",
+        ])
+        .args(args)
+        .status()
+        .unwrap();
+    assert!(status.success(), "git {args:?}");
+}
+
+impl Run {
+    /// The Project as a git repository on `main` with worktrees: one inside `trees` (the
+    /// program's directory), one beside it and one outside the Project that a link inside
+    /// `trees` leads to.
+    fn repo(&self) -> [PathBuf; 3] {
+        git(&self.dir, &["init", "-q", "-b", "main"]);
+        git(&self.dir, &["commit", "-q", "--allow-empty", "-m", "base"]);
+        let trees = self.dir.join("trees");
+        std::fs::create_dir_all(&trees).unwrap();
+        let inside = trees.join("inside");
+        let beside = self.dir.join("beside");
+        let out = self.root.path().canonicalize().unwrap().join("outside");
+        for (path, branch) in [(&inside, "inside"), (&beside, "beside"), (&out, "out")] {
+            git(
+                &self.dir,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    branch,
+                    &path.to_string_lossy(),
+                ],
+            );
+        }
+        std::os::unix::fs::symlink(&out, trees.join("link")).unwrap();
+        [inside, beside, out]
+    }
+
+    fn adopt_params(path: &Path, branch: &str) -> Value {
+        json!({"path": path, "branch": branch, "visibility": "internal", "settings": {"env": {"A": "1"}}})
+    }
+
+    async fn nodes(&self) -> Vec<Value> {
+        let tree = self.user.request("rail.tree", Value::Null).await.unwrap();
+        tree.as_array().unwrap().clone()
+    }
+}
+
+#[tokio::test]
+async fn g13_program_adopts_inside_its_directory_with_launch_fields() {
+    let run = Run::start(None).await;
+    let [inside, ..] = run.repo();
+    run.program_adopting(Some("trees")).await;
+    let reply = run
+        .below(None, "agent.adopt", Run::adopt_params(&inside, "inside"))
+        .await;
+    assert!(reply.get("error").is_none(), "{reply}");
+    let node = &reply["result"];
+    assert_eq!(node["worktree"]["adopted"], true, "{reply}");
+    assert_eq!(node["visibility"], "internal", "{reply}");
+}
+
+#[tokio::test]
+async fn g13_outside_and_linked_out_paths_are_refused() {
+    let run = Run::start(None).await;
+    let [_, beside, _] = run.repo();
+    run.program_adopting(Some("trees")).await;
+    let linked = run.dir.join("trees/link");
+    for (path, branch) in [(&beside, "beside"), (&linked, "out")] {
+        let reply = run
+            .below(None, "agent.adopt", Run::adopt_params(path, branch))
+            .await;
+        assert_eq!(reply["error"]["code"], rpc::code::INVALID_PARAMS, "{reply}");
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("outside_program_directory: ")
+        );
+    }
+    assert!(run.nodes().await.iter().all(|n| n["kind"] != "agent"));
+}
+
+#[tokio::test]
+async fn g13_no_directory_adopts_nothing() {
+    let run = Run::start(None).await;
+    let [inside, ..] = run.repo();
+    run.program().await;
+    let reply = run
+        .below(None, "agent.adopt", Run::adopt_params(&inside, "inside"))
+        .await;
+    assert_eq!(reply["error"]["code"], rpc::code::INVALID_PARAMS, "{reply}");
+    assert!(run.nodes().await.iter().all(|n| n["kind"] != "agent"));
+}
+
+#[tokio::test]
+async fn g14_agent_and_claimed_name_are_refused() {
+    let out = tempfile::tempdir().unwrap();
+    let out = out.path().join("agent.json");
+    let inside = |dir: &Path| Run::adopt_params(&dir.join("trees/inside"), "inside");
+    let run = Run::start_with(Some(Child {
+        out: &out,
+        method: "agent.adopt",
+        params: Some(|dir| Run::adopt_params(&dir.join("trees/inside"), "inside")),
+    }))
+    .await;
+    run.repo();
+    run.program_adopting(Some("trees")).await;
+    let before = std::process::Command::new("git")
+        .current_dir(&run.dir)
+        .args(["worktree", "list"])
+        .output()
+        .unwrap()
+        .stdout;
+    // An Agent whose process calls `agent.adopt` is refused.
+    run.user
+        .request("agent.spawn", run.spawn_params(None))
+        .await
+        .unwrap();
+    let reply = reply_at(&out).await;
+    assert_eq!(reply["error"]["code"], FORBIDDEN, "{reply}");
+    // A detached caller claiming the program's name is refused.
+    let client = Client::connect(&run.daemon.socket).await.unwrap();
+    client
+        .request("daemon.identify", json!({"actor": ext("hum")}))
+        .await
+        .unwrap();
+    let err = client
+        .request("agent.adopt", inside(&run.dir))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, FORBIDDEN, "{err:?}");
+    let err = client
+        .request("agent.adoptable", Value::Null)
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, FORBIDDEN, "{err:?}");
+    assert_eq!(
+        run.nodes()
+            .await
+            .iter()
+            .filter(|n| n["kind"] == "agent")
+            .count(),
+        1
+    );
+    let after = std::process::Command::new("git")
+        .current_dir(&run.dir)
+        .args(["worktree", "list"])
+        .output()
+        .unwrap()
+        .stdout;
+    assert_eq!(after, before);
+}
+
+#[tokio::test]
+async fn g14_adoptable_for_the_program_holds_only_its_directory() {
+    let run = Run::start(None).await;
+    let [inside, ..] = run.repo();
+    run.program_adopting(Some("trees")).await;
+    let for_program = run.below(None, "agent.adoptable", Value::Null).await;
+    let rows = for_program["result"].as_array().unwrap();
+    assert_eq!(rows.len(), 1, "{for_program}");
+    assert_eq!(rows[0]["path"], inside.to_str().unwrap());
+    let for_user = run
+        .user
+        .request("agent.adoptable", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(for_user.as_array().unwrap().len(), 3);
 }

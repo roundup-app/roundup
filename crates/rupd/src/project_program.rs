@@ -85,7 +85,15 @@ pub(crate) fn check(project: &Path, entry: &ProjectProgram) -> Result<PathBuf, S
     if entry.argv.is_empty() || entry.argv.iter().any(String::is_empty) {
         return Err("the command is a non-empty list of non-empty words".into());
     }
-    let dir = Path::new(&entry.dir);
+    if let Some(adopt) = &entry.adopt_dir {
+        inside(project, adopt)?;
+    }
+    inside(project, &entry.dir)
+}
+
+/// The real path of `relative`, a folder that stays inside `project` after resolution.
+fn inside(project: &Path, relative: &str) -> Result<PathBuf, String> {
+    let dir = Path::new(relative);
     if dir.is_absolute()
         || dir
             .components()
@@ -96,7 +104,7 @@ pub(crate) fn check(project: &Path, entry: &ProjectProgram) -> Result<PathBuf, S
     let root =
         std::fs::canonicalize(project).map_err(|err| format!("the Project folder: {err}"))?;
     let resolved = std::fs::canonicalize(root.join(dir))
-        .map_err(|err| format!("the folder {:?}: {err}", entry.dir))?;
+        .map_err(|err| format!("the folder {relative:?}: {err}"))?;
     if !resolved.starts_with(&root) || !resolved.is_dir() {
         return Err("the folder is a folder inside the Project folder".into());
     }
@@ -118,6 +126,13 @@ impl ProgramHost {
             ops: Default::default(),
             state: Default::default(),
         }
+    }
+
+    /// G13: the real directory the program adopts worktrees in, when the entry names one that
+    /// still resolves inside the Project.
+    pub(crate) fn adopt_dir(&self) -> Option<PathBuf> {
+        let entry = self.agents.project_program().ok()??;
+        inside(self.agents.project_dir(), entry.adopt_dir.as_deref()?).ok()
     }
 
     pub(crate) fn run(&self) -> ProgramRun {
@@ -446,6 +461,7 @@ mod tests {
         ProjectProgram {
             argv: vec!["sh".into(), "-c".into(), script.into()],
             dir: "work".into(),
+            adopt_dir: None,
         }
     }
 

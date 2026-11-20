@@ -6,4 +6,10 @@
 export type ProjectProgram = {
 	argv: string[],
 	dir: string,
+	/**
+	 *  G13: a folder inside the Project, relative like `dir`, in which the program adopts
+	 *  worktrees with no pick in the App; absent lets it adopt none. The user writes it when they
+	 *  name the program.
+	 */
+	adoptDir?: string,
 };

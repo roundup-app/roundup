@@ -9,18 +9,56 @@ use rpc::RpcError;
 
 use super::*;
 
+/// Who asks to adopt: the user's pick, or the Project's program inside its directory (G13). The
+/// Daemon knows the program by its credential (ST3) before it builds `Program`.
+pub enum AdoptBy {
+    User,
+    Program { dir: PathBuf },
+}
+
+impl AdoptBy {
+    fn dir(&self) -> Option<&Path> {
+        match self {
+            Self::User => None,
+            Self::Program { dir } => Some(dir),
+        }
+    }
+}
+
 impl Agents {
     /// The directories an Agent or Terminal of this Rail works in, and those any node records.
-    async fn adoption_claims(&self) -> Result<(Vec<PathBuf>, Vec<PathBuf>), RpcError> {
-        let recorded: Vec<PathBuf> = self
+    /// G15: for the program, a node of an ended Agent counts in neither.
+    async fn adoption_claims(
+        &self,
+        by: &AdoptBy,
+    ) -> Result<(Vec<PathBuf>, Vec<PathBuf>), RpcError> {
+        let program = matches!(by, AdoptBy::Program { .. });
+        let live: std::collections::HashSet<String> = self
             .shared
-            .rail()
-            .tree()?
+            .runs()
             .iter()
-            .filter_map(|node| node.worktree())
-            .map(|worktree| PathBuf::from(worktree.path))
+            .filter(|(_, agent)| match &agent.slot {
+                Slot::Running(run) => !run.ended(),
+                Slot::Gone => false,
+                _ => true,
+            })
+            .map(|(id, _)| id.to_string())
             .collect();
-        let mut busy = recorded.clone();
+        let mut recorded: Vec<PathBuf> = Vec::new();
+        let mut taken: Vec<PathBuf> = Vec::new();
+        for node in self.shared.rail().tree()? {
+            let Some(worktree) = node.worktree() else {
+                continue;
+            };
+            let path = PathBuf::from(worktree.path);
+            if !program {
+                recorded.push(path.clone());
+            }
+            if !program || live.contains(&node.id) {
+                taken.push(path);
+            }
+        }
+        let mut busy = taken;
         busy.extend(
             self.shared
                 .terminals
@@ -43,35 +81,51 @@ impl Agents {
         }
     }
 
-    pub(super) async fn adoptable(&self, ctx: &Ctx) -> Result<Vec<Adoptable>, RpcError> {
-        Self::require_user(ctx)?;
-        let (busy, recorded) = self.adoption_claims().await?;
+    /// G10, G14: the rows the App's user sees, or only those inside the program's directory.
+    pub async fn adoptable_by(&self, ctx: &Ctx, by: AdoptBy) -> Result<Vec<Adoptable>, RpcError> {
+        if matches!(by, AdoptBy::User) {
+            Self::require_user(ctx)?;
+        }
+        let (busy, recorded) = self.adoption_claims(&by).await?;
         let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
-        tokio::task::spawn_blocking(move || git.adoptable(&project, &busy, &recorded))
+        tokio::task::spawn_blocking(move || git.adoptable(&project, &busy, &recorded, by.dir()))
             .await
             .map_err(RpcError::internal)?
     }
 
-    pub(super) async fn adopt(&self, ctx: &Ctx, params: AdoptParams) -> Result<RailNode, RpcError> {
-        Self::require_user(ctx)?;
+    /// G10, G13: start an Agent in `params.path`, on the user's pick or the program's call.
+    pub async fn adopt_by(
+        &self,
+        ctx: &Ctx,
+        by: AdoptBy,
+        params: AdoptParams,
+    ) -> Result<RailNode, RpcError> {
+        if matches!(by, AdoptBy::User) {
+            Self::require_user(ctx)?;
+        }
         let AdoptParams {
             path,
             branch,
-            parent,
+            launch,
         } = params;
-        let (busy, recorded) = self.adoption_claims().await?;
+        let (busy, recorded) = self.adoption_claims(&by).await?;
         let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let checked = tokio::task::spawn_blocking({
             let path = PathBuf::from(&path);
-            move || git.adopt_check(&project, &path, &branch, &busy, &recorded)
+            move || git.adopt_check(&project, &path, &branch, &busy, &recorded, by.dir())
         })
         .await
         .map_err(RpcError::internal)??;
         let spawn: contracts::agent::SpawnParams = serde_json::from_value(serde_json::json!({
             "cwd": checked.path.to_string_lossy(),
             "prompt": null,
-            "parent": parent,
         }))
+        .map(
+            |spawn: contracts::agent::SpawnParams| contracts::agent::SpawnParams {
+                launch,
+                ..spawn
+            },
+        )
         .map_err(RpcError::internal)?;
         let request = self.spawn_request(ctx, spawn)?;
         let (id, attempt) = self.insert_spawned(&request)?;

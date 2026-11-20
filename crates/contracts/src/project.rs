@@ -54,6 +54,12 @@ pub struct SetMachine {
 pub struct ProjectProgram {
     pub argv: Vec<String>,
     pub dir: String,
+    /// G13: a folder inside the Project, relative like `dir`, in which the program adopts
+    /// worktrees with no pick in the App; absent lets it adopt none. The user writes it when they
+    /// name the program.
+    #[serde(default, rename = "adoptDir", skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub adopt_dir: Option<String>,
 }
 
 /// PG3: where the Project program is: its Terminal runs, the user stopped it, or it waits to
