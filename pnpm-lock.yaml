@@ -160,6 +160,9 @@ importers:
       '@pierre/diffs':
         specifier: ^1.6.1
         version: 1.6.1(patch_hash=08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03aca2c0c974)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@pierre/highlights':
+        specifier: 0.2.0
+        version: 0.2.0
       '@pierre/trees':
         specifier: 1.0.0-beta.6
         version: 1.0.0-beta.6(patch_hash=f3b43cd7e08876aa8479f5c32f3b3e6e14fa166b842b5c22ea2ffc1a8aa68f77)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)

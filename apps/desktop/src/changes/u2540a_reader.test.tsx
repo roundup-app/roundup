@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, openDiff, openFile, saveNote, openChanges } from "./noteHarness";
+import { COMPARISON, openDiff, openFile, saveNote, openChanges, treeRow } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
 import { createSignal, flush } from "solid-js";
@@ -90,7 +90,7 @@ it.each([{ id: "plain", path: "src/a.ts" }, { id: "a", path: "src/deep/b.ts" }])
   const notes = notesFor(app, "/p");
 
   app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
-  render(() => <ToastHost><ConnectedProjectContext value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext></ToastHost>);
+  render(() => <ToastHost><ConnectedProjectContext value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} recover={() => {}} /></ConnectedProjectContext></ToastHost>);
   await waitFor(() => expect(rendered()).toHaveLength(1));
   let finish!: (value: typeof COMPARISON) => void;
 
@@ -175,9 +175,7 @@ it("u2540a_open_back_close_and_editor_actions", async () => {
   await openChanges();
   await openFile();
   expect(app.calls.filter(c => c.method === "agent.compareFile").at(-1)?.params).toMatchObject({ id: "a", path: "src/a.ts" });
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  await screen.findByRole("button", { name: /src\/a\.ts/ });
-  expect(screen.queryByRole("button", { name: /Add note/ })).toBeNull();
+  await treeRow("src/a.ts");
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(connected.hasView("changes")).toBe(false));
 });
@@ -187,7 +185,6 @@ it("u2540a_late_content_cannot_cross_agents", async () => {
   let resolve!: (value: typeof COMPARISON) => void;
   app.handlers["agent.compareFile"] = () => new Promise(done => { resolve = done; });
   await openChanges();
-  fireEvent.click(await screen.findByRole("button", { name: /src\/a\.ts/ }));
   await waitFor(() => expect(app.calls.some(call => call.method === "agent.compareFile")).toBe(true));
   connected.rail.select("plain");
   resolve(COMPARISON);

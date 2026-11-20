@@ -12,7 +12,6 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 it("u2540c_one_message_contains_all_original_context", async () => {
   const { app } = await openDiff();
   await saveNote("  exact\ncomment <script>  ");
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await openFile("src/deep/b.ts");
   await saveNote("second");
   let accepted: unknown;
@@ -31,7 +30,7 @@ it("u2540c_one_message_contains_all_original_context", async () => {
 
 it("u2540c_empty_batch_sends_nothing", async () => {
   const { app } = await openDiff();
-  expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).queryByRole("button", { name: /Send notes:/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Send notes:/ })).toBeNull();
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
 

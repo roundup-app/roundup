@@ -100,14 +100,30 @@ impl Agents {
         let worktree = worktree::Worktree::from(&record);
         let stop = Stop(Default::default());
         let cancel = stop.0.clone();
-        let answer = tokio::task::spawn_blocking(move || {
-            git.call_paths(&worktree, to, language.as_deref(), &cache, cancel)
+        // RB9: a trace in flight hides the kept one, and a kept one names the diff it started on.
+        let running = language
+            .is_some()
+            .then(|| self.shared.readbacks.trace_started(id, to));
+        let marked = running.is_some();
+        let (signature, answer) = tokio::task::spawn_blocking(move || {
+            let signature = if marked {
+                git.changed_files(&worktree, to)?
+                    .files
+                    .into_iter()
+                    .map(|f| (f.path, f.blob))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let answer = git.call_paths(&worktree, to, language.as_deref(), &cache, cancel)?;
+            Ok::<_, RpcError>((signature, answer))
         })
         .await
         .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))??;
         if let contracts::agent::CallPaths::Answer(done) = &answer {
-            self.shared.readbacks.traced(id, to, done);
+            self.shared.readbacks.traced(id, to, signature, done);
         }
+        drop(running);
         Ok(answer)
     }
 

@@ -44,10 +44,7 @@
 [data-type="item"][data-pressed="true"] { color: var(--ink-pressed); transition-duration: var(--duration-instant); }
 [data-type="item"] { color: var(--grey); }
 [data-item-section="decoration"]:empty { display: none; }
-[data-item-section="content"] {
-  flex: 1 1 auto;
-  white-space: nowrap;
-}
+[data-item-section="content"] { white-space: nowrap; }
 [data-item-section="decoration"] {
   flex: 0 0 auto;
   margin-left: 0;

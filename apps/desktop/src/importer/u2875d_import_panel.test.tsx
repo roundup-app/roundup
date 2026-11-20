@@ -744,8 +744,6 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await browser("open", `${server.resolvedUrls.local[0]}src/changes/u2540.html`);
     await wait("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await wait("!!document.querySelector('.changes-file')");
-    await browser("click", ".changes-file");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await click("Add note");
     await browser("fill", ".note-field textarea", "  keep this exact unfinished note 🐝  ");
@@ -764,9 +762,6 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!document.querySelector('.diff-reader [role=alert]') && document.querySelector('diffs-container')?.shadowRoot?.textContent.includes('recovered comparison')");
     expect(await evaluate("document.querySelector('.note-field textarea').value")).toBe("  keep this exact unfinished note 🐝  ");
     await capture("U5558e", "diff-keyboard-recovered");
-    await browser("focus", ".diff-header [aria-label=Close]");
-    await browser("press", "Enter");
-    await wait("!document.querySelector('.diff-reader') && !!document.querySelector('.changes-files')");
     await browser("focus", ".changes-head button");
     await browser("press", "Enter");
     await wait("!document.querySelector('.changes-view')");

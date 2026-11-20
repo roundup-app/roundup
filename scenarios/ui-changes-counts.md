@@ -11,7 +11,7 @@ Opening Changes froze the App: each file row fetched both full versions through 
 
 **U7610b the Changes list shows the Daemon's counts and neither fetches nor diffs file text.** Given the open Changes view, then:
 - **Counts shown.** Each file row shows `+added -removed` from its entry's `counts`, and none when `counts` is `null`. Asserted in `u7610b_rows_show_the_daemon_counts_and_a_binary_file_shows_none`.
-- **No text in the list.** Opening the list calls `agent.changedFiles` once and `agent.compareFile` zero times; `agent.compareFile` is called only when the user chooses a file, and the App imports no line-diff library for the list. Asserted in `u7610b_opening_the_list_never_calls_compare_file`.
+- **No text in the list.** Opening the list calls `agent.changedFiles` once and `agent.compareFile` only for the first file in tree order (U7674a, which amends "zero times"); every other file's `agent.compareFile` waits for the user to choose it, and the App imports no line-diff library for the list. Asserted in `u7610b_opening_the_list_never_calls_compare_file`.
 - **Responsive.** Opening Changes for an Agent whose list holds a 10,000-line rewrite (the `u2540.html?dense` seed) runs no main-thread task over 200 ms, in Chromium and in WebKit. Asserted in `u7610b_a_ten_thousand_line_rewrite_keeps_the_page_responsive`.
 
 Checks on main (numbered references, not claims that this specification implements them):
