@@ -1,6 +1,6 @@
 import { createInlineEdit, definePrimitive } from "@ui-sdk/core";
 import { usePart, usePrimitive } from "@ui-sdk/solid/primitive";
-import { createContext, createEffect, createMemo, createSignal, createUniqueId, omit, onCleanup, onSettled, untrack, useContext, type Accessor } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, createUniqueId, omit, onSettled, untrack, useContext, type Accessor } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { captureFocus } from "../keys/focus";
 import { withOptions } from "./primitiveOptions";

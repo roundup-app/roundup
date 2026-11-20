@@ -9,7 +9,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "./copy";
 import { createItemFailures } from "../ink/itemFailures";
-import { lazy, createEffect, createSignal, For, Show } from "solid-js";
+import { lazy, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../pads/padList";
 import { useTodoList } from "../todos/todoList";
