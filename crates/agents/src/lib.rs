@@ -403,7 +403,7 @@ use door::{Scan, scan_interval_from_env};
 use ending::{Ending, RailPublication};
 pub use events::InboxObserver;
 use events::{channel_deadline_from_env, channel_in, interrupt_bound_from_env, watch};
-use rail_view::{agent_lock, valid_explicit_order, valid_order, waiting_on};
+use rail_view::{agent_lock, valid_explicit_order, waiting_on};
 use registration::{hold, save_signal_conversation};
 use resume::{Abandoned, Resumption};
 use spawn::{Attach, Launch, Origin};
