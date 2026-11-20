@@ -16,9 +16,9 @@ const removalPlurals = new Intl.PluralRules("en");
 const adoptRefusals = new Map([
   ["owned_branch", "Roundup owns this branch. Open it from its own Agent."],
   ["detached_head", "No branch is checked out here. Check one out first."],
-  ["worktree_missing", "The folder is gone. Run git worktree prune."],
+  ["worktree_missing", "This path is gone. Prune it with git."],
   ["operation_in_progress", "A merge or rebase is in progress here. Finish it first."],
-  ["worktree_in_use", "Another Agent already works here."],
+  ["worktree_in_use", "Another Agent is working here."],
 ]);
 
 export const copy = {
@@ -178,8 +178,8 @@ export const copy = {
   adoptDirty: "Uncommitted changes",
   adoptAhead: (count: number) => `${count} ahead`,
   adoptFilterLabel: "Filter Worktrees",
-  adoptFilterPlaceholder: "Filter by branch or path",
-  adoptRefusedLabel: "Worktrees that cannot be adopted",
+  adoptFilterPlaceholder: "Branch or path",
+  adoptRefusedLabel: "Refused Worktrees",
   adoptRefusal: (name: string) => adoptRefusals.get(name) ?? "This Worktree cannot be adopted.",
   adoptFailed: "The Worktree could not be adopted.",
   modePrompt: sharedCopy.modePrompt,
