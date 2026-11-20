@@ -612,7 +612,7 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
   await waitFor(() => expect(field()?.value).toBe(query));
 };
 
-/** U7671a: the Switcher's Review changes opens the Changes view; the activation starts no free-compare read and writes nothing (U7672c). */
+/** U7671a: the Switcher's Review changes opens the Changes view; the activation starts no Tree or Branch read and writes nothing (U7672c). */
 export const reviewCases = (["pointer", "enter"] as const).flatMap(how => (["open", "dismiss", "stale-selection"] as const).map(outcome => ({ how, outcome })));
 
 export const reviewChangesSurviveSurfaceClose = async ({ how, outcome }: (typeof reviewCases)[number]) => {
@@ -639,7 +639,7 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, outcome }: (typeof
   });
 
   const before = app.calls.length;
-  const refs = () => app.calls.slice(before).filter(call => call.method === "project.compareRefs");
+  const refs = () => app.calls.slice(before).filter(call => ["agent.changedFiles", "agent.compareFile"].includes(call.method));
 
   if (outcome === "dismiss") {
     switcherKey("Escape", {}, field()!);

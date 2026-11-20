@@ -33,9 +33,16 @@ const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boo
 };
 
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
-const Surface = (props: { id: string; name: string; worktree: string | null }) => {
-  const { app, owned, hideView, showView, project, drafts, changeTargets } = useConnectedProject();
+const Surface = (props: { id: string; name: string }) => {
+  const { app, rail, owned, hideView, showView, project, drafts, changeTargets } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
+
+  // Read live, not through the keyed Agent: losing or regaining the Worktree must not remount the view and its open note form.
+  const worktree = () => {
+    const node = rail.nodes.find(candidate => candidate.id === props.id);
+
+    return node && isDoor(node) ? node.worktree?.path ?? null : null;
+  };
 
   const groups = () => {
     const read = owned.read(props.id);
@@ -50,7 +57,7 @@ const Surface = (props: { id: string; name: string; worktree: string | null }) =
   const target = (): ChangeTarget => {
     const chosen = changeTargets.read(props.id);
 
-    return chosen !== "changes" && props.worktree === null ? "changes" : chosen;
+    return chosen !== "changes" && worktree() === null ? "changes" : chosen;
   };
 
   const own = (): "tree" | "branch" | null => {
@@ -86,7 +93,7 @@ const Surface = (props: { id: string; name: string; worktree: string | null }) =
     return next;
   });
 
-  const root = () => own() ? props.worktree ?? undefined : group()?.repo;
+  const root = () => own() ? worktree() ?? undefined : group()?.repo;
 
   const editable = (file: ChangedFile) => file.status !== "deleted" && root() !== undefined;
 
@@ -114,7 +121,7 @@ const Surface = (props: { id: string; name: string; worktree: string | null }) =
   };
 
   const segments = (): { value: ChangeTarget; label: string }[] => [
-    ...props.worktree === null ? [] : [{ value: "tree" as const, label: copy.targetTree }, { value: "branch" as const, label: copy.targetBranch }],
+    ...worktree() === null ? [] : [{ value: "tree" as const, label: copy.targetTree }, { value: "branch" as const, label: copy.targetBranch }],
     { value: "changes", label: copy.targetChanges },
   ];
 
@@ -150,8 +157,8 @@ export const ChangesView = () => {
   const agent = createMemo(() => {
     const node = rail.nodes.find(candidate => candidate.id === rail.selected());
 
-    return node?.kind === "agent" ? { id: node.id, name: node.name, worktree: isDoor(node) ? node.worktree?.path ?? null : null } : null;
-  }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name && a?.worktree === b?.worktree });
+    return node?.kind === "agent" ? { id: node.id, name: node.name } : null;
+  }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name });
 
-  return <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} worktree={each.worktree} /></Loading>}</Show>;
+  return <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>;
 };
