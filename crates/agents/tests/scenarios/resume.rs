@@ -398,6 +398,12 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
     let err = resuming.await.unwrap().unwrap_err();
 
     assert_eq!(err.code, code::CONFLICT);
+    // RLH3: a run that never acknowledges names its step and cause.
+    assert!(
+        err.message.contains("acknowledge failed") && err.message.contains("no start signal"),
+        "{}",
+        err.message
+    );
     let tree = f.tree().await;
     let after = tree.iter().find(|n| n.id == id).unwrap();
     assert!(after.can_resume());
@@ -667,6 +673,8 @@ mod history;
 
 #[path = "resume/conversion.rs"]
 mod conversion;
+
+mod holder;
 
 #[tokio::test]
 async fn a5213_an_exited_workstream_resumes_in_its_last_mode() {
