@@ -30,11 +30,15 @@ const MANIFEST: &str = "[package]\nname = \"p\"\nversion = \"0.0.0\"\nedition = 
 
 /// The server loop of every stub: it records what it was started with in `gate/start.json`,
 /// answers symbols and calls in rust-analyzer's shape, and obeys the flag files of `gate`:
-/// `nocall`, `offline`, `silent`, `hold` (waits for `go`), `child` (starts a long `sleep`).
+/// `late` (loads for half a second before it says quiescent; calls before that answer empty), `nocall`, `offline`, `silent`, `hold` (waits for `go`), `child` (starts a long `sleep`).
 fn serve(gate: &Path) -> String {
     format!(
         r#"gate = {gate:?}
-import json, subprocess
+import json, subprocess, threading
+READY = [False]
+def ready():
+    READY[0] = True
+    send({{'method': 'experimental/serverStatus', 'params': {{'health': 'ok', 'quiescent': True}}}})
 def flag(n): return os.path.exists(gate + '/' + n)
 def read():
     n = 0
@@ -69,11 +73,14 @@ while True:
         if flag('hold'):
             open(gate + '/started', 'w').write('')
             while not flag('go'): time.sleep(0.05)
+    elif method == 'initialized':
+        if flag('late'): threading.Timer(0.5, ready).start()
+        else: ready()
     elif method == 'textDocument/documentSymbol': send({{'id': id, 'result': TABLE}})
     elif method == 'textDocument/prepareCallHierarchy':
         l = m['params']['position']['line']
         name = {{2: 'run', 4: 'free', 6: 'area'}}.get(l)
-        send({{'id': id, 'result': [item(name, m['params']['textDocument']['uri'])] if name else []}})
+        send({{'id': id, 'result': [item(name, m['params']['textDocument']['uri'])] if name and READY[0] else []}})
     elif method == 'callHierarchy/outgoingCalls':
         uri = m['params']['item']['uri']
         if m['params']['item']['name'] != 'run': send({{'id': id, 'result': []}}); continue
@@ -397,7 +404,7 @@ async fn ra4_a_call_through_a_trait_object_ends_at_the_trait_method() {
 #[tokio::test]
 async fn ra4_a_reply_names_the_levers_that_cut_calls() {
     let (bin, gate) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    let git = tool(&bin, gate.path(), "1.99.0");
+    let git = tool(&bin, gate.path(), "1.99.0").with_call_path_levers(false, false);
     let (f, id, _path, _origin) = rust(git.clone(), gate.path(), &[]).await;
     let plain = done(&f, &id).await;
     assert!(plain.get("unresolved").is_none() && plain.get("directions").is_none());
@@ -412,6 +419,16 @@ async fn ra4_a_reply_names_the_levers_that_cut_calls() {
     let start = started(gate.path());
     assert_eq!(start["options"]["procMacro"]["enable"], false);
     assert_eq!(start["options"]["cargo"]["buildScripts"]["enable"], false);
+}
+
+#[tokio::test]
+async fn ra6_a_rust_trace_waits_for_the_server_to_report_quiescent() {
+    let (bin, gate) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let git = tool(&bin, gate.path(), "1.99.0");
+    std::fs::write(gate.path().join("late"), "").unwrap();
+    let (f, id, _path, _origin) = rust(git, gate.path(), &[]).await;
+    let reply = done(&f, &id).await;
+    assert_eq!(calls_of(&reply, "run")["incoming_unchanged"], 1, "{reply}");
 }
 
 #[tokio::test]

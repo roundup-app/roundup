@@ -66,8 +66,8 @@ pub struct Git {
     scan_reads: Arc<std::sync::atomic::AtomicUsize>,
     /// CP5: the time one call-path trace has.
     call_limit: Duration,
-    /// RA4: (build scripts and proc macros off, outgoing calls only) for Rust traces. Both off:
-    /// the measurement of RA5 did not cut a run by 20%.
+    /// RA4: (build scripts and proc macros off, outgoing calls only) for Rust traces. Lean on, outgoing
+    /// calls off: RA6's measurement cut time to the first answer by 93%, and incoming calls cost nothing.
     call_levers: (bool, bool),
 }
 
@@ -89,7 +89,7 @@ impl Git {
             host: Arc::default(),
             scan_reads: Arc::default(),
             call_limit: call_paths::LIMIT,
-            call_levers: (false, false),
+            call_levers: (true, false),
         }
     }
 

@@ -37,7 +37,7 @@ pub(super) struct Client {
 
 impl Client {
     /// Start `program args` in `root` with `env` added and complete `initialize` with
-    /// `options`; the whole client has until `deadline`.
+    /// `options`; with `await_quiescent` it returns once the server reports it has loaded; the whole client has until `deadline`.
     pub(super) fn start(
         program: &Path,
         args: &[&str],
@@ -45,6 +45,7 @@ impl Client {
         (env, options): (&[(String, String)], Value),
         deadline: Instant,
         cancel: Arc<AtomicBool>,
+        await_quiescent: bool,
     ) -> Result<Self, Stop> {
         let mut child = Command::new(program)
             .args(args)
@@ -85,14 +86,20 @@ impl Client {
                 "rootUri": uri,
                 "workspaceFolders": [{"uri": uri, "name": "root"}],
                 "initializationOptions": options,
-                "capabilities": {"textDocument": {
-                    "documentSymbol": {"hierarchicalDocumentSymbolSupport": true},
-                    "callHierarchy": {"dynamicRegistration": false},
-                }},
+                "capabilities": {
+                    "textDocument": {
+                        "documentSymbol": {"hierarchicalDocumentSymbolSupport": true},
+                        "callHierarchy": {"dynamicRegistration": false},
+                    },
+                    "experimental": {"serverStatusNotification": true},
+                },
             }),
         )?;
         client.capabilities = init.get("capabilities").cloned().unwrap_or(Value::Null);
         client.notify("initialized", json!({}))?;
+        if await_quiescent {
+            client.wait_quiescent()?;
+        }
         Ok(client)
     }
 
@@ -109,6 +116,31 @@ impl Client {
         Message::from(Request::new(id.clone(), method.into(), params))
             .write(&mut self.stdin)
             .map_err(|err| Stop::Error(err.to_string()))?;
+        let got = self.pump(
+            |message| matches!(message, Message::Response(Response { id: got, .. }) if *got == id),
+        )?;
+        match got {
+            Message::Response(Response {
+                response_result, ..
+            }) => response_result.map_err(|err| Stop::Error(err.message)),
+            _ => unreachable!("pump returns only the message `take` accepted"),
+        }
+    }
+
+    /// Block until the server says `quiescent`: rust-analyzer answers call hierarchy as empty
+    /// until it has loaded the workspace.
+    fn wait_quiescent(&mut self) -> Result<(), Stop> {
+        self.pump(|message| {
+            matches!(message, Message::Notification(note)
+                if note.method == "experimental/serverStatus"
+                    && note.params.get("quiescent").and_then(Value::as_bool) == Some(true))
+        })
+        .map(drop)
+    }
+
+    /// Read messages until `take` accepts one, answering the server's own requests with null
+    /// and noting cargo's offline failures meanwhile.
+    fn pump(&mut self, take: impl Fn(&Message) -> bool) -> Result<Message, Stop> {
         loop {
             if self.cancel.load(Ordering::Relaxed) {
                 return Err(Stop::Cancelled);
@@ -118,12 +150,7 @@ impl Client {
                 return Err(Stop::Timeout);
             }
             match self.inbox.recv_timeout(left.min(Duration::from_millis(50))) {
-                Ok(Message::Response(Response {
-                    id: got,
-                    response_result,
-                })) if got == id => {
-                    return response_result.map_err(|err| Stop::Error(err.message));
-                }
+                Ok(message) if take(&message) => return Ok(message),
                 Ok(Message::Request(ask)) => {
                     Message::from(Response::new_ok(ask.id, Value::Null))
                         .write(&mut self.stdin)
