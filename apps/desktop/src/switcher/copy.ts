@@ -23,6 +23,7 @@ export const copy = {
   kindTodo: sharedCopy.todo,
   kindPad: sharedCopy.pad,
   kindMessage: "Message",
+  messageTo: "to",
   footerRecord: "Set key",
   pressAKey: sharedCopy.pressAKey,
   switchProject: sharedCopy.switchProject,

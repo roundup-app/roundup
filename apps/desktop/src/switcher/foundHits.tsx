@@ -59,9 +59,10 @@ export const chooseHit = (hit: SearchHit, on: {
 /** U7707b: a Message's `<from> to <to>` title with each Agent id shown as its Rail name, never the raw id. */
 export const messageTitle = (title: string, nodes: readonly { id: string; name: string }[]): string => {
   const name = (id: string) => nodes.find(node => node.id === id)?.name ?? id;
-  const at = title.indexOf(" to ");
+  const join = ` ${copy.messageTo} `;
+  const at = title.indexOf(join);
 
-  return at < 0 ? title : `${name(title.slice(0, at))} to ${name(title.slice(at + 4))}`;
+  return at < 0 ? title : `${name(title.slice(0, at))}${join}${name(title.slice(at + join.length))}`;
 };
 
 export const FoundRow = (props: { hit: SearchHit; gone: boolean; nodes: readonly { id: string; name: string }[] }) => <span class="switcher-row switcher-found">
