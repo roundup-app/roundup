@@ -284,7 +284,7 @@ type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends Selector
   : K extends "rail.startDoor" ? { params: BeforeRpcMethods[K]["params"] & { prompt?: string }; result: BeforeRpcMethods[K]["result"] }
   : K extends "terminal.spawn" ? { params: BeforeRpcMethods[K]["params"] & { unset: string[] }; result: BeforeRpcMethods[K]["result"] }
   : K extends "pad.create" ? { params: BeforeRpcMethods[K]["params"] & { visibility?: import("./generated/agent/RailVisibility").RailVisibility }; result: BeforeRpcMethods[K]["result"] }
-  : K extends "project.get" ? { params: BeforeRpcMethods[K]["params"]; result: BeforeRpcMethods[K]["result"] & { machine: string | null } }
+  : K extends "project.get" ? { params: BeforeRpcMethods[K]["params"]; result: BeforeRpcMethods[K]["result"] & { machine: string | null; program: import("./generated/project/ProjectProgram").ProjectProgram | null } }
   : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"] & { machine?: string | null }; result: { path: string } }
   : BeforeRpcMethods[K] };
 

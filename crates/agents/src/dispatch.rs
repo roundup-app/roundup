@@ -615,13 +615,15 @@ impl Agents {
             let models = self.project_models()?;
             let mcp = shared.rail().get_mcp()?;
             let machine = shared.rail().get_machine()?;
+            let workstream_cap = shared.rail().get_workstream_cap()?;
+            let program = shared.rail().get_program()?;
             Ok(ProjectSettings {
                 machine,
                 worktrees,
                 models,
                 mcp,
-                workstream_cap: shared.rail().get_workstream_cap()?,
-                program: shared.rail().get_program()?,
+                workstream_cap,
+                program,
             })
         }
     }

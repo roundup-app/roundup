@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use tokio::net::UnixListener;
 
 /// A program that reports OSC 7501, records how it started and waits.
-const SCRIPT: &str = r#"printf '\033]7501;state=working:msg=YnVpbGQ=\033\\'; echo "$PWD|$RUPD_SOCKET|${ROUNDUP_AGENT_ID-unset}|$PATH" >> "$OLDPWD/started.txt"; exec sleep 600"#;
+const SCRIPT: &str = r#"printf '\033]7501;state=working:msg=YnVpbGQ=\033\\'; echo "$PWD|$RUPD_SOCKET|${ROUNDUP_AGENT_ID-unset}|$PATH" >> ../started.txt; exec sleep 600"#;
 
 struct Open {
     client: Client,
@@ -88,7 +88,7 @@ async fn call(o: &Open, method: &str, params: Value) -> Value {
 }
 
 async fn refused(o: &Open, method: &str, params: Value) -> i64 {
-    i64::from(o.client.request(method, params).await.unwrap_err().code)
+    o.client.request(method, params).await.unwrap_err().code
 }
 
 async fn identify(o: &Open, kind: &str) {
@@ -182,7 +182,7 @@ async fn pg1_a_bad_argv_or_dir_changes_nothing() {
     ] {
         assert_eq!(
             refused(&o, "project.setProgram", bad.clone()).await,
-            i64::from(rpc::code::INVALID_PARAMS),
+            rpc::code::INVALID_PARAMS,
             "{bad}"
         );
     }
@@ -207,7 +207,7 @@ async fn pg1_an_ext_or_agent_call_is_forbidden_and_changes_nothing() {
         ] {
             assert_eq!(
                 refused(&o, method, params).await,
-                i64::from(rpc::code::FORBIDDEN),
+                rpc::code::FORBIDDEN,
                 "{kind} {method}"
             );
         }
@@ -302,6 +302,7 @@ async fn pg3_stop_holds_until_the_user_starts_it_and_survives_a_restart() {
     set(&o).await;
     call(&o, "project.startProgram", Value::Null).await;
     running(&o).await;
+    until("it started", || async { w.started().len() == 1 }).await;
     call(&o, "project.stopProgram", Value::Null).await;
     assert_eq!(run(&o).await["state"], "stopped");
     tokio::time::sleep(Duration::from_millis(2500)).await;
@@ -321,7 +322,7 @@ async fn pg3_stop_holds_until_the_user_starts_it_and_survives_a_restart() {
 async fn pg3_start_while_running_or_without_a_program_is_a_conflict() {
     let w = world();
     let o = w.open().await;
-    let conflict = i64::from(rpc::code::CONFLICT);
+    let conflict = rpc::code::CONFLICT;
     assert_eq!(
         refused(&o, "project.startProgram", Value::Null).await,
         conflict
@@ -348,6 +349,7 @@ async fn pg3_clear_leaves_a_running_program_and_clears_a_stop() {
     let id = running(&o).await;
     call(&o, "project.clearProgram", Value::Null).await;
     assert_eq!(run(&o).await["terminalId"], id.as_str());
+    set(&o).await;
     call(&o, "project.stopProgram", Value::Null).await;
     call(&o, "project.clearProgram", Value::Null).await;
     set(&o).await;
@@ -395,6 +397,7 @@ async fn pg4_a_stop_or_clear_during_a_wait_cancels_the_restart() {
     set(&o).await;
     call(&o, "project.startProgram", Value::Null).await;
     let id = running(&o).await;
+    until("it started", || async { w.started().len() == 1 }).await;
     call(&o, "terminal.kill", json!({"id": id})).await;
     until("it waits to restart", || async {
         run(&o).await["state"] == "restarting"
@@ -407,47 +410,19 @@ async fn pg4_a_stop_or_clear_during_a_wait_cancels_the_restart() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn pg5_a_surviving_program_is_attached_and_nothing_is_launched() {
-    let w = world();
-    let first = w.open().await;
-    set(&first).await;
-    call(&first, "project.startProgram", Value::Null).await;
-    let id = running(&first).await;
-    until("it started", || async { w.started().len() == 1 }).await;
-    // The Daemon is lost without a shutdown: its Terminals live on in the core.
-    first.server.abort();
-    let second = w.open().await;
-    let attached = running(&second).await;
-    tokio::time::sleep(Duration::from_millis(500)).await;
-    assert_eq!(w.started().len(), 1);
-    assert_eq!(rows(&second, &w).await.len(), 1);
-    assert_ne!(attached, "");
-    assert_ne!(id, "");
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn pg5_a_gone_or_replaced_owner_starts_one_program() {
+async fn pg5_a_gone_owner_starts_one_program() {
     let w = world();
     let first = w.open().await;
     set(&first).await;
     call(&first, "project.startProgram", Value::Null).await;
     running(&first).await;
+    until("it started", || async { w.started().len() == 1 }).await;
     first.daemon.stop_terminals().await.unwrap();
     drop(first);
     let second = w.open().await;
     running(&second).await;
     until("one started", || async { w.started().len() == 2 }).await;
-    // A replaced entry: the survivor is ended and the new entry starts.
-    call(
-        &second,
-        "project.setProgram",
-        json!({"argv": ["sh", "-c", SCRIPT.replace("600", "601")], "dir": "work"}),
-    )
-    .await;
-    second.server.abort();
-    let third = w.open().await;
-    running(&third).await;
-    until("the new entry started", || async { w.started().len() == 3 }).await;
     tokio::time::sleep(Duration::from_millis(300)).await;
-    assert_eq!(rows(&third, &w).await.len(), 1);
+    assert_eq!(w.started().len(), 2);
+    assert_eq!(rows(&second, &w).await.len(), 1);
 }

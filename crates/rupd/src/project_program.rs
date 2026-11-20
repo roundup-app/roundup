@@ -398,3 +398,87 @@ impl ProgramHost {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Daemon;
+
+    const SCRIPT: &str = "echo started >> ../started.txt; exec sleep 600";
+
+    fn entry(script: &str) -> ProjectProgram {
+        ProjectProgram {
+            argv: vec!["sh".into(), "-c".into(), script.into()],
+            dir: "work".into(),
+        }
+    }
+
+    async fn started(project: &Path, count: usize) {
+        for _ in 0..600 {
+            let lines = std::fs::read_to_string(project.join("started.txt"))
+                .unwrap_or_default()
+                .lines()
+                .count();
+            if lines >= count {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        panic!("the program did not write {count} start(s)");
+    }
+
+    /// A Daemon reopened over the same core: a second host over the first's Terminals stands for
+    /// it, since a test core belongs to one `Terminals`.
+    async fn world() -> (
+        tempfile::TempDir,
+        tempfile::TempDir,
+        Daemon,
+        Arc<ProgramHost>,
+    ) {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::create_dir(project.path().join("work")).unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let (daemon, _watchers) = Daemon::open_project(project.path(), data.path()).unwrap();
+        daemon
+            .agents
+            .store_project_program(Some(&entry(SCRIPT)))
+            .unwrap();
+        daemon.program.start().await.unwrap();
+        started(project.path(), 1).await;
+        let dir = crate::data::project_data(data.path(), project.path()).unwrap();
+        let reopened = Arc::new(ProgramHost::new(
+            Arc::clone(&daemon.terminals),
+            Arc::clone(&daemon.agents),
+            daemon.bus.clone(),
+            &dir,
+        ));
+        (project, data, daemon, reopened)
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pg5_a_surviving_program_is_attached_and_nothing_is_launched() {
+        let (project, _data, _daemon, reopened) = world().await;
+        reopened.open().await;
+        assert!(matches!(reopened.run(), ProgramRun::Running { .. }));
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert_eq!(
+            std::fs::read_to_string(project.path().join("started.txt"))
+                .unwrap()
+                .lines()
+                .count(),
+            1
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pg5_a_replaced_entry_ends_the_survivor_and_starts_the_new_one() {
+        let (project, _data, daemon, reopened) = world().await;
+        daemon
+            .agents
+            .store_project_program(Some(&entry(&SCRIPT.replace("600", "601"))))
+            .unwrap();
+        reopened.open().await;
+        started(project.path(), 2).await;
+        assert!(matches!(reopened.run(), ProgramRun::Running { .. }));
+    }
+}
