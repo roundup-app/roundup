@@ -207,7 +207,7 @@ const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream",
     work: null,
   };
 
-  return kind === "agent" ? { ...door, kind, can_make_workstream: false, can_save_as_mode: false } : { ...door, kind, auto: false };
+  return kind === "agent" ? { ...door, kind, can_make_workstream: false, can_save_as_mode: false } : { ...door, kind, auto: true };
 };
 
 /** U5991f: the Row a pending change adds, as the Daemon's own Row will arrive: of `kind`, under `parent`, with an id not in `known`. */

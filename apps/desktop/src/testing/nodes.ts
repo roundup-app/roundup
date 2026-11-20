@@ -53,7 +53,7 @@ export function node(id: string, over: Partial<RailNode> = {}): RailNode {
 
   if (over.kind === "workstream") {
     // SAFETY: the workstream branch carries every Workstream field.
-    return { ...base, ...doorFacts(id), auto: false, work: clarifying("What is this Workstream for?"), ...over } as RailNode;
+    return { ...base, ...doorFacts(id), auto: true, work: clarifying("What is this Workstream for?"), ...over } as RailNode;
   }
 
   // SAFETY: the default branch carries every Agent field.
