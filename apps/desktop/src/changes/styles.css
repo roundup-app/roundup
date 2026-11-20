@@ -12,9 +12,9 @@
 }
 
 .diff-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
-.diff-reader { flex: none; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; }
+.diff-reader { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; min-width: 0; }
 .diff-path { margin: 0; overflow-wrap: anywhere; }
-.diff-content { overflow-anchor: none; max-height: min(40vh, calc(var(--space-6) * 12)); flex: none; overflow: auto; overscroll-behavior: contain; min-height: 0; }
+.diff-content { overflow-anchor: none; flex: 1; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 .note-form { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .note-form label { display: flex; flex-direction: column; gap: var(--space-1); }
 .note-form input { width: calc(var(--space-6) * 3); }
@@ -72,10 +72,23 @@
 
 .changes-body {
   flex: 1;
+  display: flex;
+  gap: var(--space-3);
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: clip;
 }
+
+.changes-side {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: min(40%, calc(var(--space-6) * 10));
+  min-height: 0;
+  background: var(--sunken);
+}
+
+.changes-tree { flex: 1; min-height: 0; }
 
 .changes-head {
   display: flex;
@@ -84,19 +97,24 @@
   gap: var(--space-3);
 }
 
-.changes-head h2 {
+.changes-name {
   min-width: 0;
-  margin: 0;
   overflow: hidden;
-  font-size: inherit;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.changes-pickers {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+.changes-head > .changes-from,
+.changes-head > .changes-to { flex: none; }
+
+.changes-totals {
+  flex: 1;
+  min-width: 0;
+  color: var(--grey);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .changes-from,
@@ -110,8 +128,7 @@
   font-weight: 600;
 }
 
-.changes-groups,
-.changes-files {
+.changes-groups {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -120,51 +137,8 @@
   list-style: none;
 }
 
-.changes-row { display: flex; align-items: baseline; gap: var(--space-3); }
-
-.changes-row:focus-within .changes-edit { opacity: 1; }
-
-/* The action column exists on every row (an empty slot for a deleted file), and its line box is the path's, so the row keeps one height and one right edge. */
-.changes-edit {
-  opacity: 0;
-  min-block-size: 0;
-  padding-block: 0;
-  line-height: inherit;
-  font-family: var(--font-mono);
-  box-sizing: border-box;
-  inline-size: max-content;
-  flex: none;
-  text-align: end;
-}
-
-.changes-edit[aria-hidden="true"] { visibility: hidden; }
-
-.changes-file {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  flex: 1;
-  min-width: 0;
-  text-align: start;
-}
-
-.changes-path {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.changes-status {
-  color: var(--grey);
-}
-
 .changes-groups button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
 
-.changes-counts [data-sign="added"] { color: var(--text); }
-
-.changes-counts [data-sign="removed"] { color: var(--grey); }
 
 /* The count is part of the button, so the button is as wide as its mark and count and the revealed icon beside it never covers a digit. */
 .changes-icon[data-button="icon"] {

@@ -1,4 +1,3 @@
-import { ExitButton } from "../ui/IconButton";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
@@ -15,6 +14,9 @@ import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
 import diffStyles from "./diff.styles.css?inline";
 
+/** U7674d: the diff is light in both App modes. */
+const DIFF_THEME = "github-light";
+
 let library: Promise<typeof import("@pierre/diffs")> | undefined;
 
 /** U2540d: startup and Agent selection never fetch the renderer. */
@@ -23,7 +25,7 @@ export const diffsLoaded = () => library !== undefined;
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void; recover: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
@@ -33,8 +35,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
   });
 
   let addButton: HTMLButtonElement | undefined;
-  let backButton: HTMLButtonElement | undefined;
-  const closeForm = () => { setForm(undefined); props.onEdited(); (addButton ?? backButton)?.focus(); };
+  const closeForm = () => { setForm(undefined); props.onEdited(); addButton?.focus(); };
 
   let displayed: { id: string; path: string } | undefined;
   const [renderer, setRenderer] = createSignal<VirtualizedFileDiff<Note>>();
@@ -122,7 +123,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
       const { VirtualizedFileDiff, Virtualizer, processFile } = await (library ??= import("@pierre/diffs").then(module => {
-        module.registerCustomCSSVariableTheme("roundup", {});
+        // U7674d: the library ships no themes in this build; Pierre's own github-light, a Zed theme for Highlights, loads on first use.
+        module.registerCustomTheme(DIFF_THEME, () => import("@pierre/highlights/themes/github-light"), "zed");
 
         return module;
       }));
@@ -147,7 +149,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
         renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start === metadata.end ? `${metadata.start}` : `${metadata.start}–${metadata.end}`, metadata.start === metadata.end)}: ${metadata.text}`;
 
         return element; },
-        theme: "roundup", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
+        theme: DIFF_THEME, overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
       const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
       const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
@@ -202,8 +204,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
         <Show when={read()}>{value => <>
           <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
         </>}</Show>
-        <ExitButton ref={element => { backButton = element; }} onClick={props.onBack} />
-        <button type="button" data-button="quiet" onClick={props.onClose}>{copy.closeChanges}</button>
       </div>
     </header>
     <StatusNote text={failure() ? null : notice()} />
@@ -215,6 +215,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; to?:
       </Show>
     </>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
-    <NoteBatch fallback={() => backButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
+    <NoteBatch fallback={() => addButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;
 };

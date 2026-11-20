@@ -51,7 +51,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
     get action() { return <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show>; },
   });
 
-  return <section class="note-batch" aria-label={copy.notesRegion}>
+  return <Show when={props.notes.list(props.id).length > 0 || status()}><section class="note-batch" aria-label={copy.notesRegion}>
       <StatusNote text={noteLine.message() ? null : status()} />
       <Show when={uncertain()}><BusyButton kind="quiet" busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</BusyButton></Show>
       <Show when={props.notes.list(props.id).length}>
@@ -86,7 +86,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
           if (focused && (document.activeElement === button || document.activeElement === document.body) && props.notes.list(props.id).length === 0) focus(() => props.fallback?.());
         });
       }}>{copy.sendNotesTo(props.name)}</BusyButton></Show>
-    </section>;
+    </section></Show>;
 };
 
 

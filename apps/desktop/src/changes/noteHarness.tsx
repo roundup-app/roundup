@@ -1,3 +1,4 @@
+import { expect } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -23,10 +24,20 @@ export const openChanges = async () => {
   action.run();
 };
 
-/** Opens the Changes view for the selected Agent and reads one file's diff in it (U7186c). */
+/** The tree's row for `path`: Pierre draws it inside a shadow root. */
+export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
+  const row = document.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${path}"]`);
+
+  if (!row) throw new Error(`No tree row for ${path}`);
+
+  return row;
+});
+
+/** Reads one file's diff in the open Changes view: the first file opens by itself (U7674a), another is chosen in the tree. */
 export const openFile = async (path = "src/a.ts") => {
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }));
   await screen.findByRole("button", { name: "Add note" });
+  (await treeRow(path)).focus();
+  await waitFor(() => expect(screen.getByLabelText("Diff").textContent).toContain(path));
 };
 
 export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
