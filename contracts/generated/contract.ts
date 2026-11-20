@@ -26,6 +26,8 @@ export const CONTRACT = {
     "agent.makeWorkstream": "b0bf88e3e19a3664",
     "agent.ownedChanges": "87a1a536ad077489",
     "agent.prompt": "827059ae7d416823",
+    "agent.readback": "aafebd1602afbfd1",
+    "agent.readbackStart": "3b2b64a17a17b22f",
     "agent.repeatScan": "b4464fafcdfb80de",
     "agent.restartMode": "3fb7f13656fa7b80",
     "agent.resume": "03d50d8e10ea3910",

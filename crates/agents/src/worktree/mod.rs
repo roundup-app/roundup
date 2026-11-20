@@ -911,5 +911,7 @@ mod g9;
 
 mod call_paths;
 mod comparison;
+mod hunks;
+pub use hunks::{DiffInput, Hunk};
 mod owned;
 mod repeat;

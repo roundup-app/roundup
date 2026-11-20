@@ -9,6 +9,8 @@ use crate::{Error, common::Status};
 
 mod call_paths;
 pub use call_paths::*;
+mod readback;
+pub use readback::*;
 mod scan;
 pub use scan::{ScanHit, ScanHits, ScanPlace};
 mod alert;
@@ -23,7 +25,7 @@ mod rail_node;
 pub use rail_node::{AgentNode, DoorFacts, NodeBase, RailNode, Role, WorkstreamNode};
 mod launch;
 pub use launch::{
-    CreateModeParams, CreateWorkstreamParams, Extras, ExtrasAddParams, HandoffParams,
+    CreateModeParams, CreateWorkstreamParams, Extras, ExtrasAddParams, HandoffParams, LaunchParams,
     ModeRestartParams, PermissionMode, SpawnParams, SpawnRole, StartAttribution, StartDoorParams,
 };
 
@@ -52,16 +54,18 @@ pub struct Adoptable {
     pub branch: Option<String>,
     pub ahead: u32,
     pub dirty: bool,
+    /// G15: the files `git diff --stat` reports against the Base, untracked ones not counted.
+    pub changed: u32,
     pub refusal: Option<String>,
 }
 /// G10: the user's pick; `branch` is the branch the row showed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct AdoptParams {
     pub path: String,
     pub branch: String,
-    #[serde(default)]
-    #[specta(optional, type = String)]
-    pub parent: Option<String>,
+    /// G13: the launch fields of `agent.spawn`; the program sends them, the App's pick sends none.
+    #[serde(flatten)]
+    pub launch: LaunchParams,
 }
 /// A34: what a Workstream's removal took off the Rail, the Todos and the Pads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]

@@ -25,6 +25,43 @@ impl Daemon {
                 .is_some_and(|root| agents::descends_from(peer, root))
     }
 
+    /// G14: `agent.adopt` and `agent.adoptable` come from the user's pick or from the Project's
+    /// program, never from an Agent's process tree or a caller that claims a name. The program
+    /// is answered here, inside its directory (G13); the user's pick goes on to the module.
+    pub(crate) async fn adopt_as_program(
+        &self,
+        conn: &Conn,
+        listing: bool,
+        params: &Value,
+    ) -> Result<Option<Value>, RpcError> {
+        if !self.is_program(conn) {
+            if self.terminal_writer(conn).kind != ActorKind::User
+                || conn.actor.kind != ActorKind::User
+            {
+                return Err(RpcError::forbidden(
+                    "only the user's own pick or the Project's program adopts a worktree",
+                ));
+            }
+            return Ok(None);
+        }
+        let dir = self.program.adopt_dir().ok_or_else(|| {
+            RpcError::new(
+                code::INVALID_PARAMS,
+                "outside_program_directory: the Project's program names no directory to adopt in",
+            )
+        })?;
+        let ctx = self.ctx(Actor::user());
+        let by = agents::AdoptBy::Program { dir };
+        if listing {
+            return rpc::reply(&self.agents.adoptable_by(&ctx, by).await?).map(Some);
+        }
+        let adopted = self
+            .agents
+            .adopt_by(&ctx, by, rpc::params(params.clone())?)
+            .await?;
+        rpc::reply(&adopted).map(Some)
+    }
+
     /// ST4: `settings` come from the user or the Project's program, from no Agent and no other
     /// Ext; the program sends no `permissionMode` field. Decided from the caller's process, before
     /// anything is made.

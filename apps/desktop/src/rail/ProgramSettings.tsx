@@ -41,9 +41,28 @@ const inside = (dir: string): boolean => {
 
 const quoted = (word: string) => word === "" || /[\s'"\\]/.test(word) ? `"${word.replace(/(["\\])/g, "\\$1")}"` : word;
 
-type Refusal = { field: "command" | "folder"; text: string } | null;
+type Field = "command" | "folder" | "adopt";
 
-const ProgramField = (props: { name: "command" | "folder"; label: string; refusal: Refusal; value: string; setValue: (value: string) => void; ref: (element: HTMLTextAreaElement) => void; commit: () => void; keys: (event: KeyboardEvent) => void }) => {
+type Refusal = { field: Field; text: string } | null;
+
+type Saved = { argv: string[]; dir: string; adoptDir?: string };
+
+const same = (current: Saved | null, next: Saved) => current !== null && current.dir === next.dir && current.adoptDir === next.adoptDir && current.argv.length === next.argv.length && current.argv.every((word, at) => word === next.argv[at]);
+
+const checked = (folder: string, adopt: string): { dir: string; adoptDir: string } | { refusal: NonNullable<Refusal> } => {
+  const typed = folder.trim();
+  const dir = typed === "" ? "." : typed;
+
+  if (!inside(dir)) return { refusal: { field: "folder", text: copy.programFolderRefusal } };
+
+  const adoptDir = adopt.trim();
+
+  if (adoptDir !== "" && !inside(adoptDir)) return { refusal: { field: "adopt", text: copy.programAdoptRefusal } };
+
+  return { dir, adoptDir };
+};
+
+const ProgramField = (props: { name: Field; label: string; refusal: Refusal; value: string; setValue: (value: string) => void; ref: (element: HTMLTextAreaElement) => void; commit: () => void; keys: (event: KeyboardEvent) => void }) => {
   const failed = () => props.refusal !== null && props.refusal.field === props.name;
   const errorId = () => `program-${props.name}-error`;
 
@@ -60,17 +79,19 @@ const ProgramField = (props: { name: "command" | "folder"; label: string; refusa
 /** PG6: the Project's `Program` section. Enter or blur with a changed value is one `project.setProgram`; a bad entry is refused in the field and calls nothing. */
 export const ProgramSettings = () => {
   const { app } = useConnectedProject();
-  const [saved, setSaved] = createSignal<{ argv: string[]; dir: string } | null>(null);
+  const [saved, setSaved] = createSignal<Saved | null>(null);
   const [command, setCommand] = createSignal("");
   const [folder, setFolder] = createSignal("");
-  const [refusal, setRefusal] = createSignal<{ field: "command" | "folder"; text: string } | null>(null);
+  const [adopt, setAdopt] = createSignal("");
+  const [refusal, setRefusal] = createSignal<Refusal>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [loaded, setLoaded] = createSignal(false);
 
-  const show = (program: { argv: string[]; dir: string } | null) => {
+  const show = (program: Saved | null) => {
     setSaved(program);
     setCommand(program ? program.argv.map(quoted).join(" ") : "");
     setFolder(program && program.dir !== "." ? program.dir : "");
+    setAdopt(program?.adoptDir ?? "");
   };
 
   onSettled(() => void (async () => {
@@ -82,6 +103,7 @@ export const ProgramSettings = () => {
 
   let commandField: HTMLTextAreaElement | undefined;
   let folderField: HTMLTextAreaElement | undefined;
+  let adoptField: HTMLTextAreaElement | undefined;
   let saving = false;
 
   const run = async (call: () => Promise<null>, after: () => void) => {
@@ -107,18 +129,19 @@ export const ProgramSettings = () => {
 
     if (argv.length === 0) return setRefusal({ field: "command", text: copy.programCommandRefusal });
 
-    const typed = (folderField?.value ?? folder()).trim();
-    const dir = typed === "" ? "." : typed;
+    const entry = checked(folderField?.value ?? folder(), adoptField?.value ?? adopt());
 
-    if (!inside(dir)) return setRefusal({ field: "folder", text: copy.programFolderRefusal });
+    if ("refusal" in entry) return setRefusal(entry.refusal);
+
+    const { dir, adoptDir } = entry;
 
     setRefusal(null);
 
-    const current = saved();
+    const program: Saved = adoptDir === "" ? { argv, dir } : { argv, dir, adoptDir };
 
-    if (current && current.dir === dir && current.argv.length === argv.length && current.argv.every((word, at) => word === argv[at])) return;
+    if (same(saved(), program)) return;
 
-    void run(() => app.rpc("project.setProgram", { argv, dir }), () => setSaved({ argv, dir }));
+    void run(() => app.rpc("project.setProgram", program), () => setSaved(program));
   };
 
   const clear = () => run(() => app.rpc("project.clearProgram", null), () => { setRefusal(null); show(null); });
@@ -130,6 +153,7 @@ export const ProgramSettings = () => {
   return <SettingsGroup name={copy.program}><div class="app-dialog-form">
     <ProgramField name="command" label={copy.programCommand} refusal={refusal()} value={command()} setValue={setCommand} ref={element => { commandField = element; }} commit={commit} keys={keys} />
     <ProgramField name="folder" label={copy.programFolder} refusal={refusal()} value={folder()} setValue={setFolder} ref={element => { folderField = element; }} commit={commit} keys={keys} />
+    <ProgramField name="adopt" label={copy.programAdopt} refusal={refusal()} value={adopt()} setValue={setAdopt} ref={element => { adoptField = element; }} commit={commit} keys={keys} />
     <p>{copy.programNote}</p>
     <Show when={saved() !== null}><BusyButton kind="quiet" busyLabel={copy.programClearing} onClick={clear}>{copy.programClear}</BusyButton></Show>
   </div></SettingsGroup>;
