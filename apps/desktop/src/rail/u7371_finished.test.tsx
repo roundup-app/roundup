@@ -4,7 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, rowOf } from "./railFixture";
 
-const at = (name: string) => ({ path: `/p/${name}`, branch: name, base: "base" });
+const at = (name: string) => ({ path: `/p/${name}`, branch: name, base: "base", adopted: false });
 
 const done: WorktreeState = { ahead: 0, behind: 3, dirty: false, integrated: true };
 

@@ -280,9 +280,9 @@ mod tests {
             })
             .sum();
         eprintln!("forty Workstreams: {steps} SQLite instructions");
-        // Start attribution and the Machine each add one projected column: one instruction per row.
+        // Start attribution, the Machine and the adopted flag each add one projected column: one instruction per row.
         assert!(
-            steps <= 980,
+            steps <= 1020,
             "Rail read executed {steps} SQLite instructions for forty Workstreams"
         );
     }

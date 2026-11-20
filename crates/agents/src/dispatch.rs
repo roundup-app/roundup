@@ -201,6 +201,22 @@ impl Agents {
         }
     }
 
+    async fn agent_adoptable(
+        &self,
+        ctx: &Ctx,
+        _p: (),
+    ) -> Result<Vec<contracts::agent::Adoptable>, RpcError> {
+        self.adoptable(ctx).await
+    }
+
+    async fn agent_adopt(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::AdoptParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.adopt(ctx, p).await
+    }
+
     async fn agent_discard(&self, ctx: &Ctx, p: contracts::agent::NodeId) -> Result<(), RpcError> {
         let shared = &self.shared;
         {

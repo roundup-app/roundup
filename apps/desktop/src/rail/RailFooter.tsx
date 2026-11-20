@@ -22,6 +22,7 @@ export const RailFooter = (props: {
   canSpawn: () => boolean;
   createWorkstream: () => void;
   openCreateMode: () => void;
+  openAdopt: () => void;
 }) => {
   const { project, rail, held } = useConnectedProject();
   const failure = rail.commandFailure;
@@ -67,6 +68,9 @@ export const RailFooter = (props: {
     { kind: "mode", name: "mode.new" as const, label: copy.modeWord, run: props.openCreateMode },
   ] as const;
 
+  // G10: adoption is the user's pick from a list, so it has no chord.
+  const adoptValue = "adopt-worktree";
+
   return (
       <div class="rail-footer" ref={element => { footer = element; }}>
         <StatusNote text={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null} />
@@ -80,7 +84,9 @@ export const RailFooter = (props: {
         </Disclosure></Show>
         <ProgramRow />
         <div class="rail-actions">
-          <Menu.Root open={open()} onOpenChange={details => { if (!details.open || canSpawn()) setOpen(details.open); }} onAction={value => { if (canSpawn()) choices.find(choice => choice.kind === value)?.run(); }}>
+          <Menu.Root open={open()} onOpenChange={details => { if (!details.open || canSpawn()) setOpen(details.open); }} onAction={value => { if (!canSpawn()) return;
+
+ if (value === adoptValue) props.openAdopt(); else choices.find(choice => choice.kind === value)?.run(); }}>
             <Menu.Trigger onPointerDown={() => setPointer(true)} onKeyDown={() => setPointer(false)} onClick={event => setPointer(activationSource(event) === "pointer")} data-button="add" aria-label={copy.create} aria-disabled={canSpawn() ? undefined : "true"}><Icon name="plus" /></Menu.Trigger>
             <Menu.Content side="top" align="start" anchor={failure.surface() === "rail" && failure.retry() && footer ? footer : null} aria-label={copy.create} class="rail-create-menu" data-pointer={pointer() ? "true" : undefined}>
               <For each={choices}>{choice => {
@@ -88,6 +94,7 @@ export const RailFooter = (props: {
 
                 return <Menu.Item value={choice.kind} disabled={!canSpawn()} aria-keyshortcuts={ariaChord(chord())}><Icon name={KIND_ICON[choice.kind]} />{choice.label}<KeyChip keys={chord().keys} /></Menu.Item>;
               }}</For>
+              <Menu.Item value={adoptValue} disabled={!canSpawn()}><Icon name={KIND_ICON.agent} />{copy.adoptWord}</Menu.Item>
             </Menu.Content>
           </Menu.Root>
         </div>

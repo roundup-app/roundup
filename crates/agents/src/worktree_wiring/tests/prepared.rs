@@ -76,6 +76,7 @@ async fn u2875c_retained_closed_worktree_survives_each_commit_boundary() {
                             path: made.path.to_string_lossy().into_owned(),
                             branch: made.branch.clone(),
                             base: made.base.clone(),
+                            adopted: false,
                         },
                     )
                     .unwrap();
