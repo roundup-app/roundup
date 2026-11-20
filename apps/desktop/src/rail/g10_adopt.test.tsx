@@ -20,3 +20,14 @@ it("g10_the_user_picks_a_listed_worktree_and_adopt_sends_the_branch_shown", asyn
   fireEvent.click(await screen.findByRole("option", { name: /feature/ }));
   await waitFor(() => expect(railCallsTo(m.app, "agent.adopt")).toEqual([{ path: "/w/feature", branch: "feature" }]));
 });
+
+it("g10_focus_moving_inside_the_adopt_dialog_keeps_it_open", async () => {
+  const m = await mountRail([agent("a", "idle", "")]);
+  m.app.handlers["agent.adoptable"] = () => [{ path: "/w/feature", branch: "feature", ahead: 0, dirty: false, refusal: null }];
+  fireEvent.click(pinnedAdd());
+  fireEvent.click(await screen.findByRole("menuitem", { name: /^Adopt Worktree/ }));
+  await screen.findByRole("option", { name: /feature/ });
+  fireEvent.focusIn(screen.getByRole("dialog"));
+  await new Promise(resolve => setTimeout(resolve, 50));
+  expect(screen.getByRole("option", { name: /feature/ })).toBeTruthy();
+});

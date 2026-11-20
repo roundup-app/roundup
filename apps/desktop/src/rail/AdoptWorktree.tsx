@@ -13,6 +13,8 @@ export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: stri
   const [rows, setRows] = createSignal<readonly Adoptable[] | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
+  // The dialog owns focus: focus moving inside it must not dismiss the picker.
+  let content: HTMLElement | undefined;
 
   void failureOf(async () => { setRows(await app.rpc("agent.adoptable", null)); }).then(failed => { if (failed !== null) { setFailure(failed); setRows([]); } });
 
@@ -48,13 +50,13 @@ export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: stri
   const facts = (row: Adoptable | undefined) => row === undefined ? "" : [row.dirty ? copy.adoptDirty : null, row.ahead > 0 ? copy.adoptAhead(row.ahead) : null].filter(Boolean).join(" · ");
 
   return <Dialog.Root open onOpenChange={({ open }) => { if (!open) props.onClose(); }}>
-    <Dialog.Content class="app-dialog-form">
+    <Dialog.Content class="app-dialog-form" ref={element => { content = element; }}>
       <Dialog.Title>{copy.adoptTitle}</Dialog.Title>
       <Dialog.Description>{copy.adoptHint}</Dialog.Description>
       <Show when={rows()} fallback={<p>{copy.adoptLoading}</p>}>{list =>
         <Show when={list().length > 0} fallback={<p>{copy.adoptNone}</p>}>
           <Combobox.Root items={items()} inputValue={query()} onInput={setQuery} highlightedValue={highlight()} onHighlightChange={setHighlight}
-            autoFocus={false} onDismiss={props.onClose} focusScope={() => undefined}
+            autoFocus={false} onDismiss={props.onClose} focusScope={() => content}
             onSelect={path => {
               const row = byPath().get(path);
 
