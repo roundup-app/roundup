@@ -2,6 +2,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import * as v from "valibot";
 import { applying } from "../app/pending";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { StatusNote } from "../ink/MountedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField } from "../state/draftField";
@@ -90,7 +91,8 @@ export const NameField = (props: {
         if (event.key === "Escape") { event.preventDefault(); props.close(); }
       });
 
-      queueMicrotask(() => {
+      captureFocus(true);
+      queueFocus(() => {
         if (!field.isConnected) return;
         field.focus();
         const selection = untrack(draft.draft)?.selection;
