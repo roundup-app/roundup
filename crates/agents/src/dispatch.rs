@@ -156,6 +156,18 @@ impl Agents {
         self.changed_files(&id, to).await
     }
 
+    async fn agent_call_paths(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::CallPathsParams,
+    ) -> Result<contracts::agent::CallPaths, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user traces call paths"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.call_paths(&p.id, p.to, p.language).await
+    }
+
     async fn agent_repeat_scan(
         &self,
         ctx: &Ctx,

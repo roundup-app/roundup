@@ -8,6 +8,7 @@ export const CONTRACT = {
     "agent.adopt": "89276f7472c24052",
     "agent.adoptable": "82fbcb145c127bc9",
     "agent.brief": "578d4809b6cafc1b",
+    "agent.callPaths": "16c5ff0dafbde73a",
     "agent.changedFiles": "fe8a92641bddec69",
     "agent.channelUp": "f25fe63dfa04b01a",
     "agent.compareFile": "0fa0a30f9a7d6897",

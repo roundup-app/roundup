@@ -77,6 +77,36 @@ impl Agents {
             .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
     }
 
+    /// CP1 to CP7: the languages the Worktree's changes hold, or one language's call paths.
+    /// Dropping the call kills the language server, which runs off the async runtime.
+    pub(super) async fn call_paths(
+        &self,
+        id: &str,
+        to: CompareTarget,
+        language: Option<String>,
+    ) -> Result<contracts::agent::CallPaths, RpcError> {
+        struct Stop(std::sync::Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for Stop {
+            fn drop(&mut self) {
+                self.0.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+        let record = self.shared.node(id)?.worktree();
+        let Some(record) = record else {
+            return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
+        };
+        let git = self.shared.git.clone();
+        let cache = self.shared.rail_view.data_dir.join("cache");
+        let worktree = worktree::Worktree::from(&record);
+        let stop = Stop(Default::default());
+        let cancel = stop.0.clone();
+        tokio::task::spawn_blocking(move || {
+            git.call_paths(&worktree, to, language.as_deref(), &cache, cancel)
+        })
+        .await
+        .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
+    }
+
     /// C7684: where the changed lines of the Agent's Worktree repeat in the repo. Dropping the
     /// call stops the scan, which runs off the async runtime.
     pub(super) async fn repeat_scan(

@@ -42,6 +42,7 @@ const emptyReads: Handlers = {
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "agent.ownedChanges": () => ({ groups: [] }),
   "agent.repeatScan": ({ id }) => repeatScanFixture(id),
+  "agent.callPaths": ({ language }) => (language ? { state: "noServer", cause: { kind: "notInstalled", detail: `no language server is known for ${language}` } } : { languages: [] }),
   "agent.links": () => ({ entries: [] }),
   "terminal.list": () => [],
   "project.programRun": () => ({ state: "none" }),
