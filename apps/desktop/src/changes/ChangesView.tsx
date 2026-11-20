@@ -34,7 +34,7 @@ const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boo
     <span class="changes-status">{statusText[props.file.status]}</span>
     <Show when={props.file.counts}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
   </button>
-  <Show when={props.editable}><button type="button" data-button="quiet" class="changes-edit" aria-describedby={pathId} onClick={() => props.onEdit()}>{copy.openInEditor}</button></Show>
+  <Show when={props.editable} fallback={<span class="changes-edit" aria-hidden="true">{copy.openInEditor}</span>}><button type="button" data-button="quiet" class="changes-edit" aria-describedby={pathId} onClick={() => props.onEdit()}>{copy.openInEditor}</button></Show>
   </li>;
 };
 

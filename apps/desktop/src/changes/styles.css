@@ -110,10 +110,17 @@
 
 .changes-row { display: flex; align-items: baseline; gap: var(--space-3); }
 
-.changes-edit { opacity: 0; }
-
-.changes-row:hover .changes-edit,
 .changes-row:focus-within .changes-edit { opacity: 1; }
+
+/* The action column exists on every row (an empty slot for a deleted file), and its line box is the path's, so the row keeps one height and one right edge. */
+.changes-edit {
+  opacity: 0;
+  min-block-size: 0;
+  padding-block: 0;
+  line-height: inherit;
+}
+
+.changes-edit[aria-hidden="true"] { visibility: hidden; }
 
 .changes-file {
   display: flex;
