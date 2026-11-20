@@ -69,6 +69,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
 | Start choice | same | — |
+| Start settings (`SpawnParams.settings`, `start_settings`, `LaunchFacts.start_settings`, `Launcher::save_start_settings`, `Launcher::load_start_settings`: the Claude Code settings a starter sends with `agent.spawn`, kept with the Agent) | none | — |
 | Queue | same | — |
 | Workstream cap | same | — |
 | Running | same | — |

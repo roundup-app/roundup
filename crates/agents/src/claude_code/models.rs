@@ -69,6 +69,8 @@ pub struct LaunchFacts {
     /// LC2, LC4, LC7: a child a Door or an Agent started launches lean; `None` is an Agent the
     /// user started, which keeps the user's full setup (LC6). A Door is always lean.
     pub lean: Option<Lean>,
+    /// ST1, ST2: what the starter sent with `agent.spawn`, merged into the `--settings` file.
+    pub start_settings: Option<serde_json::Value>,
 }
 
 /// What distinguishes a lean child within its Role, kept in the Project's data folder beside its

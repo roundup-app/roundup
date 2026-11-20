@@ -439,7 +439,15 @@ fn value_of(
         Kind::Number => matches.get_one::<f64>(name).map(|n| Value::from(*n)),
         Kind::Bool => matches.get_flag(name).then_some(Value::Bool(true)),
         Kind::Json => match matches.get_one::<String>(name) {
-            Some(raw) => Some(json(&input.text(raw)?)?),
+            // ST1: `@file` names a file that holds the JSON.
+            Some(raw) => match raw.strip_prefix('@') {
+                Some(file) => {
+                    Some(json(&std::fs::read_to_string(file).map_err(|err| {
+                        Usage(format!("--{name} cannot read {file}: {err}"))
+                    })?)?)
+                }
+                None => Some(json(&input.text(raw)?)?),
+            },
             None => None,
         },
         Kind::Array(item) => {

@@ -48,6 +48,11 @@ pub(in crate::claude_code) fn lean_path(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.lean.json"))
 }
 
+/// ST2: what the starter sent, kept for every launch after.
+pub(in crate::claude_code) fn start_settings_path(dir: &Path, id: AgentId) -> PathBuf {
+    agents_dir(dir).join(format!("{id}.start.json"))
+}
+
 pub(in crate::claude_code) fn extras_dir(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.extras"))
 }

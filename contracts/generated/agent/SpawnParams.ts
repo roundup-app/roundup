@@ -61,4 +61,11 @@ export type SpawnParams = {
 	 *  beyond its Role's start. An unknown name fails the call.
 	 */
 	extras?: agent$Extras.Extras,
+	/**
+	 *  ST1: the Claude Code settings, a JSON object of at most 64 KiB that roundup merges with its
+	 *  own keys into the Agent's `--settings` file and keeps for every resume. Only the user and
+	 *  the Project's program send it; any other caller's is `FORBIDDEN` (ST4). `rup` reads
+	 *  `--settings @file` from a file.
+	 */
+	settings?: { [key in string]: unknown },
 };

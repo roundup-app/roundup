@@ -577,6 +577,30 @@ async fn i6_a_dash_reads_the_text_from_stdin() {
 }
 
 #[tokio::test]
+async fn st1_rup_spawn_sends_settings() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("s.sock");
+    let mut seen = stand_in(&socket, false, Vec::new(), &[]);
+    let file = dir.path().join("settings.json");
+    std::fs::write(&file, r#"{"permissions":{"deny":["Bash"]}}"#).unwrap();
+    let at_file = format!("@{}", file.display());
+    for (arg, want) in [
+        (r#"{"env":{"A":"1"}}"#, json!({"env": {"A": "1"}})),
+        (at_file.as_str(), json!({"permissions": {"deny": ["Bash"]}})),
+    ] {
+        let output = on(&socket)
+            .rup(&["agent", "spawn", "/tmp", "--settings", arg])
+            .await;
+        assert_eq!(code(&output), 0, "{}", err(&output));
+        assert_eq!(request_of(&mut seen, "agent.spawn").await["settings"], want);
+    }
+    let output = on(&socket)
+        .rup(&["agent", "spawn", "/tmp", "--settings", "@/no/such/file"])
+        .await;
+    assert_eq!(code(&output), 2);
+}
+
+#[tokio::test]
 async fn i6_invalid_utf8_on_stdin_exits_2() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("s.sock");

@@ -233,6 +233,7 @@ impl Project {
             effort: None,
             scout: None,
             extras: None,
+            settings: None,
             machine: None,
         };
         let node = client.request("agent.spawn", params).await.unwrap();

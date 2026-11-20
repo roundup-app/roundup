@@ -934,3 +934,6 @@ fn sc11_the_brief_tells_an_agent_to_write_a_statechart_block_with_a_script() {
         }
     }
 }
+
+#[path = "launch/start.rs"]
+mod start;

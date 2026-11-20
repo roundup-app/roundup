@@ -14,7 +14,7 @@ use shlex::try_quote;
 
 use super::super::models::{LaunchFacts, LaunchMode, Lean, Permission, permission_mode};
 use super::super::profiles::profile;
-use super::super::{brief, extras};
+use super::super::{brief, extras, start_settings};
 use super::paths::Paths;
 use super::{INTENT_MISSING, Launcher, STATE_EVENTS};
 use brief::Role;
@@ -135,7 +135,35 @@ fn settings(spec: &Spec<'_>, facts: &Facts) -> Result<Value, RpcError> {
         // inbox class vocabulary differs from the launch-mode label on our notes.
         fields.insert("crossSessionInbound".into(), json!("accept"));
     }
+    if let Some(theirs) = &spec.facts.start_settings {
+        // ST1: the starter's keys join roundup's; roundup's value wins on a shared key.
+        start_settings::merge(&mut settings, theirs);
+        // ST5: the file names the mode the launch's argv does.
+        if start_settings::mode_of(theirs).is_some() {
+            let mode = start_mode(spec).unwrap_or("bypassPermissions");
+            if let Some(permissions) = settings
+                .pointer_mut("/permissions")
+                .and_then(Value::as_object_mut)
+            {
+                permissions.insert("defaultMode".into(), json!(mode));
+            }
+        }
+    }
     Ok(settings)
+}
+
+/// ST5: the mode `settings` and the user's choice settle on: the user's field wins over the
+/// starter's; `None` under bypass.
+fn start_mode<'a>(spec: &'a Spec<'_>) -> Option<&'a str> {
+    match spec.facts.permission {
+        Permission::Bypass => None,
+        Permission::Selected(mode) => Some(permission_mode(mode)),
+        Permission::Inherit => spec
+            .facts
+            .start_settings
+            .as_ref()
+            .and_then(start_settings::mode_of),
+    }
 }
 
 /// A20: the hook command, not the program, carries the launch's Attempt.
@@ -280,7 +308,7 @@ fn mode(spec: &Spec<'_>, facts: &Facts) -> Option<LaunchMode> {
             selected: Some(mode),
         }),
         Permission::Inherit => Some(LaunchMode {
-            effective: facts.inherited_mode.clone(),
+            effective: start_mode(spec).map_or_else(|| facts.inherited_mode.clone(), str::to_owned),
             selected: None,
         }),
     }
@@ -322,6 +350,10 @@ fn argv(
             .map(String::from),
         ),
         (Permission::Selected(_), Some(mode)) => {
+            argv.extend(["--permission-mode".into(), mode.effective.clone()]);
+        }
+        // ST5: the starter's mode rides the command line as well as the file.
+        (Permission::Inherit, Some(mode)) if start_mode(spec).is_some() => {
             argv.extend(["--permission-mode".into(), mode.effective.clone()]);
         }
         _ => {}

@@ -44,6 +44,8 @@ pub(super) struct SpawnRequest {
     spawner: Option<String>,
     pair: LaunchFacts,
     lean: Option<claude_code::Lean>,
+    /// ST1: the settings the starter sent, kept with the Agent.
+    start_settings: Option<serde_json::Value>,
     start_attribution: Option<contracts::agent::StartAttribution>,
     by_user_named: bool,
     settle_name: bool,
@@ -206,6 +208,7 @@ impl Agents {
             spawner: by_agent.then(|| ctx.actor.id.clone()),
             pair,
             lean,
+            start_settings: params.settings,
             start_attribution: params.start_attribution,
             size,
             cwd: params.cwd,
@@ -286,6 +289,16 @@ impl Agents {
         let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
+        if let Some(settings) = &params.settings {
+            // ST4: the Daemon refuses any caller but the user and the program before this; an
+            // Agent never sends them.
+            if ctx.actor.kind == ActorKind::Agent {
+                return Err(RpcError::forbidden(
+                    "only the user or the Project's program starts an Agent with settings",
+                ));
+            }
+            claude_code::start_settings::check(settings)?;
+        }
         if ctx.actor.kind == ActorKind::Agent {
             let agent = self
                 .shared
@@ -377,6 +390,9 @@ impl Agents {
         })?;
         if let Some(lean) = &request.lean {
             Launcher::save_lean(&self.dir, &node.id, lean)?;
+        }
+        if let Some(settings) = &request.start_settings {
+            Launcher::save_start_settings(&self.dir, &node.id, settings)?;
         }
         if let Some(before) = &request.before {
             rail.take_place(
@@ -631,6 +647,7 @@ impl Agents {
                 self.shared.rail().get_mcp()?.on,
             ),
             lean: Launcher::load_lean(&self.dir, id)?,
+            start_settings: Launcher::load_start_settings(&self.dir, id)?,
         };
         let started = attempt.to_owned();
         let adopted = node

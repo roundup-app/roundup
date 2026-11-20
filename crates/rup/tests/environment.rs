@@ -201,6 +201,7 @@ async fn agent_env(method: &str) -> String {
                     effort: None,
                     scout: None,
                     extras: None,
+                    settings: None,
                     machine: None,
                 },
             )

@@ -328,6 +328,7 @@ impl Launcher {
             mcp_config_path(dir, id),
             brief_path(dir, id),
             lean_path(dir, id),
+            start_settings_path(dir, id),
         ] {
             match std::fs::remove_file(file) {
                 Err(err) if err.kind() != ErrorKind::NotFound => return Err(err),
@@ -358,6 +359,6 @@ mod seam;
 mod write;
 
 use self::paths::Paths;
-pub(in crate::claude_code) use paths::lean_path;
 pub use paths::settings_marker;
 use paths::*;
+pub(in crate::claude_code) use paths::{lean_path, start_settings_path};

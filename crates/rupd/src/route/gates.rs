@@ -14,6 +14,40 @@ impl Daemon {
         }
     }
 
+    /// ST3: the caller is the Project's program when its process descends from the program's
+    /// running Terminal and no Agent's `claude` is between; never by a name it claims.
+    fn is_program(&self, conn: &Conn) -> bool {
+        let Some(peer) = conn.peer else { return false };
+        self.agents.agent_of_peer(peer).is_none()
+            && self
+                .program
+                .pid()
+                .is_some_and(|root| agents::descends_from(peer, root))
+    }
+
+    /// ST4: `settings` come from the user or the Project's program, from no Agent and no other
+    /// Ext; the program sends no `permissionMode` field. Decided from the caller's process, before
+    /// anything is made.
+    pub(crate) fn guard_spawn(&self, conn: &Conn, params: &Value) -> Result<(), RpcError> {
+        let sent = |key: &str| params.get(key).is_some_and(|value| !value.is_null());
+        let settings = sent("settings");
+        if !settings && !sent("permissionMode") {
+            return Ok(());
+        }
+        let program = self.is_program(conn);
+        if settings && !program && conn.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the user or the Project's program starts an Agent with settings",
+            ));
+        }
+        if program && sent("permissionMode") {
+            return Err(RpcError::forbidden(
+                "only the user selects a permission mode: the program sends it in settings",
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn terminal_writer(&self, conn: &Conn) -> Actor {
         match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
             Some(agent) => Actor {

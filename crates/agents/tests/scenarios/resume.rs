@@ -675,6 +675,7 @@ mod history;
 mod conversion;
 
 mod holder;
+mod start_settings;
 
 #[tokio::test]
 async fn a5213_an_exited_workstream_resumes_in_its_last_mode() {
