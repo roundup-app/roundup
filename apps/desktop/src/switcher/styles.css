@@ -122,7 +122,7 @@
   white-space: nowrap;
 }
 
-/* U7707d: a text match's snippet is the row's second line in the cause's place, one line cut by an ellipsis; its marked words use the Pad highlight Tokens. */
+/* U7707d: a text match's snippet is the row's second line in the cause's place, one line cut by an ellipsis; its marked words are ink, bold and underlined, no hue (D3). */
 .switcher-snippet {
   flex-basis: 100%;
   min-width: 0;
@@ -132,8 +132,10 @@
   color: var(--grey);
 }
 .switcher-snippet mark {
-  color: var(--pad-highlight-ink);
-  background: var(--pad-highlight);
+  color: var(--ink);
+  background: none;
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .switcher-text-more {

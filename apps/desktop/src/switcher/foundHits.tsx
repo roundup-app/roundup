@@ -56,10 +56,18 @@ export const chooseHit = (hit: SearchHit, on: {
   openItem(on.connected, hit.kind, hit.id);
 };
 
-export const FoundRow = (props: { hit: SearchHit; gone: boolean }) => <span class="switcher-row switcher-found">
+/** U7707b: a Message's `<from> to <to>` title with each Agent id shown as its Rail name, never the raw id. */
+export const messageTitle = (title: string, nodes: readonly { id: string; name: string }[]): string => {
+  const name = (id: string) => nodes.find(node => node.id === id)?.name ?? id;
+  const at = title.indexOf(" to ");
+
+  return at < 0 ? title : `${name(title.slice(0, at))} to ${name(title.slice(at + 4))}`;
+};
+
+export const FoundRow = (props: { hit: SearchHit; gone: boolean; nodes: readonly { id: string; name: string }[] }) => <span class="switcher-row switcher-found">
   {props.hit.kind === "pad" ? <Icon name={PAD_ICON} /> : props.hit.kind === "todo" ? <KindGlyph kind="idle" decorative /> : <Icon name="talk" />}
   <span class="switcher-kind">{props.hit.kind === "todo" ? copy.kindTodo : props.hit.kind === "pad" ? copy.kindPad : copy.kindMessage}</span>
-  <span class="switcher-name">{props.hit.title}</span>
+  <span class="switcher-name">{props.hit.kind === "message" ? messageTitle(props.hit.title, props.nodes) : props.hit.title}</span>
   <span class="switcher-snippet"><Marked text={props.hit.snippet} ranges={props.hit.ranges} /></span>
   <Show when={props.gone}><span class="switcher-owner">{copy.agentGone}</span></Show>
 </span>;

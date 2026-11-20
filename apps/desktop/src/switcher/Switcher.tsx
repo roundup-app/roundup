@@ -359,7 +359,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     } },
   ]);
 
-  const entryRow = (entry: Entry) => entry.kind === "found" ? <FoundRow hit={entry.hit} gone={gone() === entry.value} /> : <span class="switcher-row">
+  const entryRow = (entry: Entry) => entry.kind === "found" ? <FoundRow hit={entry.hit} nodes={rail.nodes} gone={gone() === entry.value} /> : <span class="switcher-row">
     <Show when={entry.kind === "node" && isDoor(entry.node) && entry.node.status} fallback={entry.kind === "todo" ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.kind === "pad" ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), entry.kind === "node" && rail.dismissed(entry.node))} decorative />}</Show>
     <Show when={entry.kind === "todo" || entry.kind === "pad"}><span class="switcher-kind">{entry.kind === "todo" ? copy.kindTodo : copy.kindPad}</span></Show>
     <span class="switcher-name">{entry.label}</span>
