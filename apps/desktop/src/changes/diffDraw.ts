@@ -2,6 +2,7 @@ import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
 import { selectedNotice } from "./fileState";
+import type { LineSelection } from "./lines";
 import type { Note } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
 
@@ -57,13 +58,11 @@ const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, 
 };
 
 
-type Range = { side: "old" | "new"; start: number; end: number };
-
 type Hooks = {
   current: () => boolean;
-  selection: () => Range;
+  selection: () => LineSelection;
   /** A line number was clicked: the range now selected. */
-  pick: (range: Range) => void;
+  pick: (range: LineSelection) => void;
 };
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
@@ -96,7 +95,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
       const side = annotationSide === "deletions" ? "old" : "new";
       const old = hooks.selection();
       const extend = event.shiftKey && old.side === side;
-      const range: Range = { side, start: extend ? Math.min(old.start, lineNumber) : lineNumber, end: extend ? Math.max(old.start, lineNumber) : lineNumber };
+      const range: LineSelection = { side, start: extend ? Math.min(old.start, lineNumber) : lineNumber, end: extend ? Math.max(old.start, lineNumber) : lineNumber };
 
       view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
       hooks.pick(range);

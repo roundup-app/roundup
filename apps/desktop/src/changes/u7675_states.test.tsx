@@ -12,7 +12,11 @@ import { COMPARISON, openChanges, saveNote, treeRow } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
-/** Every offset the code wrote to each scroller, in order: jsdom lays nothing out, so a scroll is the offset the code asks for. */
+/**
+ * Every offset the code wrote to each scroller, in order. U7675d and U7675e assert a scroll offset in Vitest, but jsdom lays nothing out
+ * (a read of `scrollTop` is only what was last assigned) and the web-assertions lint bars asserting such a read. The offset the code
+ * asks for is the behaviour, so these tests assert the writes: a file restored at its offset, a key scrolling to its line, nothing else.
+ */
 const scrolls = new Map<Element, number[]>();
 
 const offsets = new WeakMap<Element, number>();
@@ -32,6 +36,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 
   if (plain) Object.defineProperty(Element.prototype, "scrollTop", plain); else Reflect.deleteProperty(Element.prototype, "scrollTop");
@@ -70,7 +75,7 @@ const multi = (path: string, revision = "one") => comparison(path, {
 
 let project = 0;
 
-/** Each test gets its own Project path, so the view's kept place (U7675f) never crosses tests. */
+/** Each test gets its own Project path, so a note one test saves never shows in another. */
 const fresh = () => {
   project += 1;
 
@@ -389,8 +394,12 @@ it("u7675c_when_the_open_file_leaves_its_pane_says_so", async () => {
 });
 
 it("u7675c_a_changing_list_leaves_the_trees_focus_and_scroll_alone", async () => {
-  const names = Array.from({ length: 6 }, (_, index) => "f" + index + ".ts");
-  let list = names.map(file);
+  // jsdom lays nothing out, so the tree's scroll offset is the critic's: `just capture U7675g` draws it before and after (tree-scrolled, tree-list-changed). What keeps it here is the library contract: a file leaves or arrives by an edit in place, never by resetting the paths.
+  const { FileTree } = await import("@pierre/trees");
+  const reset = vi.spyOn(FileTree.prototype, "resetPaths");
+  const added = vi.spyOn(FileTree.prototype, "add");
+  const removed = vi.spyOn(FileTree.prototype, "remove");
+  let list = Array.from({ length: 6 }, (_, index) => file("f" + index + ".ts"));
   const { connected } = await open(() => ({ files: list }));
   const row = await treeRow("f3.ts");
 
@@ -399,7 +408,7 @@ it("u7675c_a_changing_list_leaves_the_trees_focus_and_scroll_alone", async () =>
 
   const counted = (count: number) => waitFor(() => expect(totals()).toContain(copy.changedFiles(count)));
 
-  // A file leaves, then one appears: neither is the focused row, so focus and the open file stay. The tree's scroll offset is the design critic's: `just capture U7675g` draws it before and after (U7675g's `tree-list-changed`).
+  // A file leaves, then one appears: neither is the focused row, so focus and the open file stay.
   list = list.slice(1);
   await connected.owned.refresh("a");
   await counted(5);
@@ -408,6 +417,9 @@ it("u7675c_a_changing_list_leaves_the_trees_focus_and_scroll_alone", async () =>
   await connected.owned.refresh("a");
   await counted(6);
   expect(treeFocus()).toBe("f3.ts");
+  expect(removed).toHaveBeenCalledWith("f0.ts");
+  expect(added).toHaveBeenCalledWith("z.ts");
+  expect(reset).not.toHaveBeenCalled();
   isOpen("f3.ts");
   absent(() => screen.queryByText(copy.fileGone("f0.ts", copy.remoteMain)));
 });

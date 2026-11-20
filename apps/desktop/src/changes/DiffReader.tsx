@@ -10,7 +10,7 @@ import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
 import { changeAt, changeStarts, placeOf, sideName } from "./lines";
-import type { ChangeStart, Places } from "./lines";
+import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead, sameRevisions } from "./fileState";
 import { drawDiff } from "./diffDraw";
@@ -31,8 +31,8 @@ const DiffIdentity = (props: { read: FileComparison | undefined; path: string })
 /** One read-only comparison, fetched only after View diff. */
 export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
-  const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
-  const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
+  const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
+  const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
 
   createEffect(() => props.editing, note => {
     if (note) setForm({ comparison: note.comparison, selection: note, editing: note });
@@ -60,7 +60,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   // U7675b: a read of a file whose entry's blob moved on says so and waits for Reload.
   const updated = () => !loading() && painted().path === props.path && painted().blob !== (props.blob ?? null);
 
-  const slow = createLate(loading);
+  // Each read starts its own 150 ms: switching files while one is pending names the new file only after its own wait.
+  const slow = createLate(() => loading() ? props.path : undefined);
 
   const hidden = createMemo(() => hiddenKind(read(), shown()?.path === props.path ? shown()?.kind : undefined));
 

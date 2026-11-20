@@ -34,11 +34,11 @@ type NoticeInput = {
   slow: boolean;
   failed: boolean;
   coarse: boolean;
-  selection: { side: "old" | "new"; start: number; end: number };
+  selection: LineSelection;
   path: string;
 };
 
-export const selectedNotice = ({ side, start, end }: NoticeInput["selection"]) => copy.selectedLines(side, start === end ? `${start}` : `${start}–${end}`, start === end);
+export const selectedNotice = ({ side, start, end }: LineSelection) => copy.selectedLines(side, start === end ? `${start}` : `${start}–${end}`, start === end);
 
 /** The line under the file's header: what the reader waits for, what is not drawn, or the selected lines. */
 export const noticeFor = (input: NoticeInput): string | null => {
