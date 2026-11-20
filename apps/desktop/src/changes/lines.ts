@@ -1,67 +1,31 @@
-/** U7675e: where a change begins, on the side that holds its first line. */
-export type ChangeStart = { side: "old" | "new"; line: number };
+import type { FileDiffMetadata } from "@pierre/diffs";
 
-/** The starts of the runs of added or removed lines in one hunk's body, from its first old and new line. */
-const hunkStarts = (oldFrom: number, newFrom: number, body: readonly string[]): ChangeStart[] => {
-  const starts: ChangeStart[] = [];
-  let oldLine = oldFrom;
-  let newLine = newFrom;
-  let inRun = false;
+/** U7675e: where a run of added or removed lines begins: the side holding its first line, and the old and new line numbers it starts at. */
+export type ChangeStart = { side: "old" | "new"; at: { old: number; new: number } };
 
-  for (const text of body) {
-    const mark = text[0] ?? " ";
-    const changed = mark === "+" || mark === "-";
+/** U7675e: each run of added or removed lines in `diff`, in order, from the library's own parse of the patch. */
+export const changeStarts = (diff: FileDiffMetadata): ChangeStart[] => diff.hunks.flatMap(hunk => hunk.hunkContent.flatMap(block => block.type === "change"
+  ? [{ side: block.deletions > 0 ? "old" as const : "new" as const, at: { old: block.deletionLineIndex + 1, new: block.additionLineIndex + 1 } }]
+  : []));
 
-    if (changed && !inRun) starts.push(mark === "+" ? { side: "new", line: newLine } : { side: "old", line: oldLine });
-    inRun = changed;
+/** U7675e: the index of the last change that begins at or before the selected line, or -1 before the first. */
+export const changeAt = (starts: readonly ChangeStart[], selection: { side: "old" | "new"; start: number }): number => starts.findLastIndex(each => each.at[selection.side] <= selection.start);
 
-    if (mark !== "+") oldLine++;
+/** U7675d: the focused line, or the run of lines, on one side of the diff. */
+export type LineSelection = { side: "old" | "new"; start: number; end: number };
 
-    if (mark !== "-") newLine++;
-  }
+/** U7675d: one file's place in the diff: its scroll offset and focused line, kept for the comparison (`revision`) it was left in. */
+export type Place = { revision: string; scroll: number; selection: LineSelection };
 
-  return starts;
+/** U7675d, U7675f: each file's place, kept while the view is open and, per Agent, for the connection's session. */
+export type Places = { get: (path: string) => Place | undefined; set: (path: string, place: Place) => void };
+
+/** U7675d: the place a file opens at: the one kept for this comparison, else its top and `first` line; a file whose comparison changed starts at its top. */
+export const placeOf = (places: Places | undefined, path: string, revision: string, first: LineSelection): Place => {
+  const kept = places?.get(path);
+
+  return kept?.revision === revision ? kept : { revision, scroll: 0, selection: first };
 };
-
-/** U7675e: the first line of each run of added or removed lines in a unified patch, in patch order. */
-export const changeStarts = (patch: string): ChangeStart[] => {
-  const hunks: { old: number; next: number; body: string[] }[] = [];
-
-  for (const text of patch.split("\n")) {
-    const head = /^@@ -(\d+)(?:,\d+)? \+(\d+)/.exec(text);
-
-    if (head) hunks.push({ old: Number(head[1]), next: Number(head[2]), body: [] });
-    else if (!text.startsWith("\\")) hunks.at(-1)?.body.push(text);
-  }
-
-  return hunks.flatMap(hunk => hunkStarts(hunk.old, hunk.next, hunk.body));
-};
-
-/** U7675d: one file's place in the diff: its scroll offset and focused line. */
-export type Place = { scroll: number; selection: { side: "old" | "new"; start: number; end: number } };
-
-/** U7675d, U7675f: each file's place, kept while the view is open and, per Agent, for the App's run. */
-export type Places = { get: (path: string) => Place | undefined; set: (path: string, place: Place) => void; forget: (path: string) => void };
-
-/** U7675f: the open file and every file's place for one Agent. */
-export type Remembered = { open: string | undefined; places: Map<string, Place> };
-
-const remembered = new Map<string, Remembered>();
-
-/** U7675f: the place kept for `key`, made empty on first use. */
-export const rememberedFor = (key: string): Remembered => {
-  const found = remembered.get(key);
-
-  if (found) return found;
-  const made: Remembered = { open: undefined, places: new Map() };
-
-  remembered.set(key, made);
-
-  return made;
-};
-
-/** U7675d: the place a file opens at: the one kept for it, else its top and first line. */
-export const placeOf = (places: Places | undefined, path: string): Place => places?.get(path) ?? { scroll: 0, selection: { side: "new", start: 1, end: 1 } };
 
 /** The side's name in `@pierre/diffs`. */
 export const sideName = (side: "old" | "new"): "deletions" | "additions" => side === "old" ? "deletions" : "additions";

@@ -175,7 +175,7 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
     return () => {
       gone = true;
       mount?.removeEventListener("click", choose);
-        mount?.removeEventListener("keydown", onKeyDown);
+      mount?.removeEventListener("keydown", onKeyDown);
       mount?.removeEventListener("dblclick", onDoubleClick);
 
       for (const stop of cleanups) stop();

@@ -22,15 +22,15 @@ export const copy = {
   diff: sharedCopy.diff,
   comparing: "Comparing…",
   /** @prose */
-  noChangesAgainst: (from: string) => `There are no changes against ${from}.`,
+  noChangesAgainst: (from: string) => `No changes against ${from}`,
   /** @prose */
-  folderMatches: (agent: string, from: string) => `Everything in ${agent}'s Worktree matches ${from}.`,
+  folderMatches: (agent: string, from: string) => `Everything in ${agent}'s folder matches ${from}`,
   /** @prose */
   compareFailed: (from: string, to: string) => `Couldn't compare ${from} with ${to}`,
   /** @prose */
-  folderGone: (agent: string) => `${agent}'s Worktree no longer exists.`,
+  folderGone: (agent: string) => `${agent}'s folder no longer exists`,
   /** @prose */
-  stillMissing: "Checked again, and it is still missing.",
+  stillMissing: "Checked again: it is still missing",
   loadingFile: ui.surfaceLoading,
   renamedPaths: (from: string, to: string) => `${from} to ${to}`,
   /** @prose */
@@ -40,10 +40,10 @@ export const copy = {
   tooLarge: "This file is too large to show.",
   showAnyway: "Show anyway",
   /** @prose */
-  updatedFile: (agent: string) => `${agent} has updated this file.`,
+  updatedFile: (agent: string) => `${agent} updated this file`,
   reload: "Reload",
   /** @prose */
-  fileGone: (path: string, from: string) => `${path} no longer differs from ${from}.`,
+  fileGone: (path: string, from: string) => `${path} no longer differs from ${from}`,
   keys: "Keys",
   keysList: [
     /** @prose */

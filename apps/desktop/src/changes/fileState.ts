@@ -1,5 +1,6 @@
 import { copy } from "./copy";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { LineSelection } from "./lines";
 
 /** U7675b: a side over this many lines is offered with Show anyway, not drawn at once. */
 const TOO_LARGE_LINES = 20000;
@@ -59,6 +60,12 @@ export const noticeFor = (input: NoticeInput): string | null => {
 /** Two reads of one comparison that differ in no revision, path, status or kind: the pane keeps the earlier one. */
 export const sameRead = (previous: FileComparison, next: FileComparison) => previous.base === next.base && previous.oldPath === next.oldPath && previous.newPath === next.newPath
   && previous.status === next.status && previous.old.kind === next.old.kind && previous.new.kind === next.new.kind && sameRevisions(previous, next);
+
+/** U7675d: a file's first line: on the new side, else on the old side of a deleted file. */
+export const firstLine = (value: FileComparison): LineSelection => ({ side: value.new.kind === "absent" ? "old" : "new", start: 1, end: 1 });
+
+/** What a comparison reads: its base and the two revisions it compares. */
+export const revisionOf = (value: FileComparison) => [value.base, value.old.revision, value.new.revision].join(" ");
 
 /** The same two revisions of the same two paths from the same base. */
 export const sameRevisions = (left: FileComparison, right: FileComparison) => left.oldPath === right.oldPath && left.newPath === right.newPath && left.base === right.base

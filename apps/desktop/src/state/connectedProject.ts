@@ -18,6 +18,7 @@ import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
 import { createWorktreeState } from "./worktrees";
 import { createChangeTargets } from "./changeTargets";
+import { createChangePlaces } from "./changePlaces";
 import { createLinkSets } from "./linkSets";
 import type { LinkSets } from "./linkSets";
 import { createOwnedChanges } from "../changes/owned";
@@ -139,6 +140,8 @@ export type ConnectedProject = ProjectView & {
   owned: ReturnType<typeof createOwnedChanges>;
   /** U7672d: each Agent's Changes view choice. */
   changeTargets: ReturnType<typeof createChangeTargets>;
+  /** U7675f: each Agent's open file and every file's place in the Changes view. */
+  changePlaces: ReturnType<typeof createChangePlaces>;
   /** MC3, MC15: the Machines Agents run on. */
   machines: ReturnType<typeof createMachines>;
   drawer: DrawerState;
@@ -292,7 +295,7 @@ export const connectProject = async (
 
   const projectView = createProjectView(rail.selected, openShelf);
 
-  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, program, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), links: inChildren(() => createLinkSets(app, events, daemonExit)), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), changeTargets: createChangeTargets(), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
+  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, program, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), links: inChildren(() => createLinkSets(app, events, daemonExit)), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), changeTargets: createChangeTargets(), changePlaces: createChangePlaces(), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

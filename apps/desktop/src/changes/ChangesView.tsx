@@ -1,8 +1,8 @@
-import { createEffect, createMemo, createSignal, For, lazy, Loading, refresh, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { failureOf } from "../app/failureOf";
 import { BlockedFailure, StatusNote } from "../ink/MountedLine";
-import { focusTarget } from "../keys/focus";
+import { captureFocus, focusTarget, returnFocus } from "../keys/focus";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { SegmentGroup } from "../ui/SegmentGroup";
@@ -12,14 +12,13 @@ import { copy } from "./copy";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
 import { createEditor } from "./editor";
+import { createLate } from "./late";
 import { ChangedTree, firstInTree, treeOrder } from "./ChangedTree";
-import { rememberedFor } from "./lines";
 import type { DiffKeys } from "./DiffReader";
 import "./styles.css";
 
 const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
 
-/** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
 /** U7674b: the shown listing's totals; a `null` count adds nothing. */
 const totalsOf = (files: readonly ChangedFile[]) => files.reduce((sum, file) => ({ added: sum.added + (file.counts?.added ?? 0), removed: sum.removed + (file.counts?.removed ?? 0) }), { added: 0, removed: 0 });
 
@@ -30,20 +29,27 @@ const neighbourOf = (before: readonly string[], list: readonly string[], gone: s
   return before.slice(at + 1).find(each => list.includes(each)) ?? before.slice(0, at).reverse().find(each => list.includes(each));
 };
 
-/** U7675a: true once `pending` has held for 150 ms. */
-const createLate = (pending: () => boolean) => {
-  const [late, setLate] = createSignal(false);
+/** U7675c: the open file that leaves the listing: its name until the reader acts, and `leave` told its neighbour in tree order. */
+const createLeaving = (watch: () => { list: string[]; key: string }, open: () => string | undefined, leave: (neighbour: string | undefined) => void) => {
+  const [left, setLeft] = createSignal<string>();
+  let before: string[] = [];
+  let source = "";
 
-  createEffect(pending, waiting => {
-    setLate(false);
+  createEffect(watch, ({ list, key }) => {
+    const chosen = untrack(open);
+    const was = chosen !== undefined && before.includes(chosen) ? chosen : before[0];
+    const gone = key === source && was !== undefined && !list.includes(was) ? was : undefined;
 
-    if (!waiting) return undefined;
-    const timer = setTimeout(() => setLate(true), 150);
+    if (gone !== undefined) {
+      setLeft(gone);
+      leave(neighbourOf(before, list, gone));
+    } else if (key !== source) setLeft(undefined);
 
-    return () => clearTimeout(timer);
+    source = key;
+    before = list;
   });
 
-  return late;
+  return [left, setLeft] as const;
 };
 
 type KeyActions = { step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void };
@@ -57,13 +63,14 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.diff()?.focus(); } },
 ]);
 
+/** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
 const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? repo.slice(root.length + 1) : repo.split("/").filter(Boolean).at(-1) ?? repo;
 
 const typing = (event: KeyboardEvent) => event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])") !== null;
 
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
-  const { app, rail, owned, hideView, showView, project, drafts, changeTargets } = useConnectedProject();
+  const { app, rail, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
 
   // Read live, not through the keyed Agent: losing or regaining the Worktree must not remount the view and its open note form.
@@ -89,16 +96,19 @@ const Surface = (props: { id: string; name: string }) => {
     return chosen !== "changes" && worktree() === null ? "changes" : chosen;
   };
 
-  const own = (): "tree" | "branch" | null => target() === "changes" ? null : target();
+  const own = (): "tree" | "branch" | null => {
+    const chosen = target();
 
-  // U7675d, U7675f: the open file and each file's place outlive the view for the App's run.
-  const memory = rememberedFor(`${project.path}\0${untrack(() => props.id)}`);
+    return chosen === "changes" ? null : chosen;
+  };
+
+  // U7675d, U7675f: the open file and each file's place outlive the view for the connection's session.
+  const memory = changePlaces.of(untrack(() => props.id));
   const [path, setPath] = createSignal<string | undefined>(memory.open);
 
   const places = {
     get: (file: string) => memory.places.get(file),
     set: (file: string, place: NonNullable<ReturnType<typeof memory.places.get>>) => { memory.places.set(file, place); },
-    forget: (file: string) => { memory.places.delete(file); },
   };
 
   const [listed] = createSignal<{ failure: string | null; files: ChangedFile[] } | undefined>(async () => {
@@ -123,7 +133,8 @@ const Surface = (props: { id: string; name: string }) => {
   const failure = () => own() ? listed()?.failure ?? null : owned.read(props.id)?.failure ?? null;
   const late = createLate(pending);
 
-  const missing = () => /no longer exists|no such file or directory|does not exist/i.test(failure() ?? "");
+  // The Daemon names a Worktree whose folder is gone with `worktree_missing` (code NOT_FOUND); any other failure keeps its own cause.
+  const missing = () => (failure() ?? "").startsWith("worktree_missing");
   const [checked, setChecked] = createSignal(false);
   let asked = false;
 
@@ -142,28 +153,14 @@ const Surface = (props: { id: string; name: string }) => {
 
   const empty = () => !pending() && failure() === null && files().length === 0;
 
-  // U7675c: the open file that leaves says so, and focus moves to its neighbour in tree order.
-  const [left, setLeft] = createSignal<string>();
-  let before: string[] = [];
-  let lastOpen: string | undefined;
-  let source = "";
+  // U7675c: the open file that leaves says so, and focus moves to its neighbour in tree order, else to the view.
+  let section: HTMLElement | undefined;
   let focusTree = (_path: string) => {};
 
-  createEffect(() => ({ list: treeOrder(files()), key: `${target()}|${active()}` }), ({ list, key }) => {
-    const gone = key === source && lastOpen !== undefined && before.includes(lastOpen) && !list.includes(lastOpen) ? lastOpen : undefined;
-    let neighbour: string | undefined;
+  const [left, setLeft] = createLeaving(() => ({ list: treeOrder(files()), key: `${target()}|${active()}` }), path, neighbour => {
+    setPath(neighbour);
 
-    if (gone !== undefined) {
-      neighbour = neighbourOf(before, list, gone);
-      setLeft(gone);
-      setPath(neighbour);
-
-      if (neighbour) focusTree(neighbour);
-    } else if (key !== source) setLeft(undefined);
-
-    source = key;
-    before = list;
-    lastOpen = gone === undefined ? untrack(opened) : neighbour;
+    if (neighbour) focusTree(neighbour); else section?.focus();
   });
 
   const choosePath = (file: string) => {
@@ -181,7 +178,6 @@ const Surface = (props: { id: string; name: string }) => {
   // U7675e: J and K step files from anywhere, ] and [ step changes, Tab crosses from the list to the diff, ? lists them.
   const [help, setHelp] = createSignal(false);
   let diffKeys: DiffKeys | undefined;
-  let section: HTMLElement | undefined;
 
   const step = (direction: 1 | -1) => {
     const order = treeOrder(files());
@@ -200,7 +196,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const close = () => {
     hideView("changes");
-    queueMicrotask(() => focusTarget(`changes.icon.${iconId}`)?.focus());
+    returnFocus(focusTarget(`changes.icon.${iconId}`) ?? null);
   };
 
   const choose = (value: ChangeTarget) => {
@@ -213,20 +209,33 @@ const Surface = (props: { id: string; name: string }) => {
     { value: "changes", label: copy.changes },
   ];
 
+  const editChosen = (chosen: string) => {
+    const file = files().find(each => each.path === chosen);
+
+    if (file && editable(file)) edit(file);
+  };
+
   // Escape closes the keys list first, else the view unless a note field holds it.
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || event.defaultPrevented) return;
 
     if (typing(event)) return;
 
-    if (help()) { setHelp(false);
+    if (help()) {
+      setHelp(false);
 
- return; }
+      return;
+    }
 
     close();
   };
 
-  return <section class="changes-view" aria-label={copy.changes} onKeyDown={onKeyDown} ref={element => { section = element; }}>
+  // Opening moves focus into the view, so Escape reaches its handler before any file does; the tree takes it when it draws.
+  const initialFocus = captureFocus();
+
+  onSettled(() => { initialFocus(() => section?.focus()); });
+
+  return <section class="changes-view" aria-label={copy.changes} tabindex="-1" onKeyDown={onKeyDown} ref={element => { section = element; }}>
     <header class="changes-head">
       <span class="changes-name">{props.name}</span>
       <span class="changes-from"><span>{copy.compareFrom}</span> {copy.remoteMain}</span>
@@ -257,9 +266,7 @@ const Surface = (props: { id: string; name: string }) => {
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <ChangedTree files={files()} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={chosen => { const file = files().find(each => each.path === chosen);
-
- if (file && editable(file)) edit(file); }} />
+          <ChangedTree files={files()} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={editChosen} />
         </Show>
       </div>
       <Show when={opened()}>

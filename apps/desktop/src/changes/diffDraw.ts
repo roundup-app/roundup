@@ -1,7 +1,6 @@
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
-import { failureOf } from "../app/failureOf";
 import { selectedNotice } from "./fileState";
 import type { Note } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
@@ -67,8 +66,8 @@ type Hooks = {
   pick: (range: Range) => void;
 };
 
-/** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the patch it draws. */
-export type Drawn = { view: VirtualizedFileDiff<Note>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; patch: string; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
+/** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
+export type Drawn = { view: VirtualizedFileDiff<Note>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
@@ -128,5 +127,5 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   // Pierre anchors a visible file of no height to its bottom, so a first render left waiting on the highlighter opened the diff at its last line.
   await preloadHighlighter({ themes: [DIFF_THEME], langs: [...new Set([oldFile.name, newFile.name].map(getFiletypeFromFileName))], preferredHighlighter: "highlights" });
 
-  return hooks.current() ? { view, virtualizer, container, patch, fileDiff, coarse } : undefined;
+  return hooks.current() ? { view, virtualizer, container, fileDiff, coarse } : undefined;
 };

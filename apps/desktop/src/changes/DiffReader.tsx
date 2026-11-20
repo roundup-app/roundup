@@ -9,11 +9,12 @@ import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
-import { changeStarts, placeOf, sideName } from "./lines";
+import { changeAt, changeStarts, placeOf, sideName } from "./lines";
 import type { ChangeStart, Places } from "./lines";
 import type { Note, Notes } from "./notes";
-import { hiddenKind, noticeFor, sameRead, sameRevisions } from "./fileState";
+import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead, sameRevisions } from "./fileState";
 import { drawDiff } from "./diffDraw";
+import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
 
@@ -47,18 +48,19 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const [loading, setLoading] = createSignal(true);
   const [coarse, setCoarse] = createSignal(false);
   const [host, setHost] = createSignal<HTMLDivElement>();
-  const [slow, setSlow] = createSignal(false);
   const [painted, setPainted] = createSignal<{ path: string; blob: string | null }>(untrack(() => ({ path: props.path, blob: props.blob ?? null })));
   const [shown, setShown] = createSignal<{ path: string; kind: "whitespace" | "large" }>();
   let starts: ChangeStart[] = [];
   let cursor = -1;
-  let rendered: string | undefined;
+  let rendered: { path: string; revision: string } | undefined;
   let focusHost = () => {};
 
   let moveTo = (_side: "old" | "new", _line: number) => {};
 
   // U7675b: a read of a file whose entry's blob moved on says so and waits for Reload.
   const updated = () => !loading() && painted().path === props.path && painted().blob !== (props.blob ?? null);
+
+  const slow = createLate(loading);
 
   const hidden = createMemo(() => hiddenKind(read(), shown()?.path === props.path ? shown()?.kind : undefined));
 
@@ -69,15 +71,12 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const load = (params: CompareFileParams) => {
     stopLoading();
     setLoading(true);
-    setSlow(false);
     setPainted({ path: params.path, blob: untrack(() => props.blob) ?? null });
-    const timer = setTimeout(() => setSlow(true), 150);
     const target = { id: params.id, path: params.path };
     let current = true;
     void reply(() => app.rpc("agent.compareFile", params)).then(result => {
       if (!current) return;
 
-      clearTimeout(timer);
       setLoading(false);
 
       if (result.kind === "ok") {
@@ -90,7 +89,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       else setFailure(result.text);
     });
 
-    stopLoading = () => { current = false; clearTimeout(timer); };
+    stopLoading = () => { current = false; };
   };
 
   const params = () => compareParams(props.id, props.path, props.to ?? "tree");
@@ -134,19 +133,20 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const drawn = await drawDiff(value, mount, { current: () => current, selection, pick: range => { setSelection(range); cursor = starts.findLastIndex(each => each.side === range.side && each.line <= range.start); remember(); } });
+      const drawn = await drawDiff(value, mount, { current: () => current, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); remember(); } });
 
       if (!drawn) return;
-      const { view, virtualizer, container, patch, fileDiff, coarse } = drawn;
+      const { view, virtualizer, container, fileDiff, coarse } = drawn;
 
       setCoarse(coarse);
 
-      // U7675d: a file opens at the scroll and line it was left at, else at its top.
-      const place = placeOf(props.places, value.newPath);
+      // U7675d: a file opens at the scroll and line it was left at, else at its top; a comparison that changed starts at its top.
+      const revision = revisionOf(value);
+      const place = placeOf(props.places, value.newPath, revision, firstLine(value));
 
-      starts = changeStarts(patch);
-      cursor = -1;
-      rendered = value.newPath;
+      starts = changeStarts(fileDiff);
+      cursor = changeAt(starts, place.selection);
+      rendered = { path: value.newPath, revision };
       setSelection(place.selection);
       virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
@@ -187,7 +187,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const remember = () => {
     const mount = host();
 
-    if (rendered !== undefined && mount) props.places?.set(rendered, { scroll: mount.scrollTop, selection: selection() });
+    if (rendered !== undefined && mount) props.places?.set(rendered.path, { revision: rendered.revision, scroll: mount.scrollTop, selection: selection() });
   };
 
   createEffect(() => props.keys, keys => keys?.({
@@ -197,11 +197,11 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
       if (!next) return;
       cursor = starts.indexOf(next);
-      moveTo(next.side, next.line);
+      moveTo(next.side, next.at[next.side]);
     },
   }));
 
-  const reload = () => { props.places?.forget(props.path); setShown(undefined); load(params()); };
+  const reload = () => { setShown(undefined); load(params()); };
 
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
@@ -215,13 +215,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     <StatusNote text={failure() ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
-    <Show when={read()}>{value => <>
-      <Show when={value().status !== null}>
-        <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>
-          <div class="diff-content" ref={setHost} />
-        </Show>
-      </Show>
-    </>}</Show>
+    <Show when={read()}>{value => <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><div class="diff-content" ref={setHost} /></Show>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch fallback={() => addButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;
