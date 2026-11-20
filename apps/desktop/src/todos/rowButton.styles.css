@@ -331,11 +331,17 @@ input.todo-tick {
   padding: 0;
   border: 0;
   font: inherit;
-  line-height: inherit;
+  height: var(--name-field-height, auto);
+  line-height: var(--name-field-line, inherit);
   color: var(--text);
   background: var(--transparent);
 }
 .row-name-editor input.shelf-title:focus-visible { outline: none; }
+/* U7641a, D6: in a Shelf row the field is the row's 24 px head with the name's 16 px line centred in it, where the name sits. */
+.shelf-row .row-name-editor {
+  --name-field-height: var(--space-5);
+  --name-field-line: var(--space-4);
+}
 
 .row-secondary { opacity: 0; pointer-events: none; }
 :is(.shelf-row, .rail-row):focus-within .row-secondary,
