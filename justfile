@@ -21,6 +21,7 @@ ready:
 # The size, typos and ruff scans cover the whole repo, so the PR that adds a break fails its own `pre` (L5398).
 lint-repo:
     just lint-artifacts
+    python3 tools/path-case/guard.py
     pnpm exec ast-grep --version
     python3 tools/lint/setup.py web
     python3 tools/lint/scan.py web
@@ -32,6 +33,7 @@ lint-rust base="": lint-repo
     just pad-save-model
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
+    python3 tools/path-case/guard.test.py
     cargo fmt --check
     just clippy {{quote(base)}}
     cargo machete crates

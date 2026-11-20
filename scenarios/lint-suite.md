@@ -92,3 +92,11 @@ Principles: this changes engineering checks only. No product Gate gains a new pa
 - `pre.yml` is frozen (L118), so the lane is a `justfile` change: a `lint-repo` recipe running `python3 tools/lint/setup.py web` and `python3 tools/lint/scan.py web`, called by `lint-rust` and removed from `lint-web`'s `pnpm lint:boundaries`. The scans add under one minute to a PR with no web change.
 - No scan is dropped, no `tools/lint/debt.json` exception is added and the web lane does not run for a scenario-only change.
 - Test `l5398_repo_wide_scans_run_in_the_lane_every_pr_runs` runs `just --dry-run lint-rust` and `just --dry-run lint-web` and asserts that only the first prints the `scan.py web` command (policy: it pins a gate boundary, which of the two lanes runs the scans). The first observer is `pre` on the implementing PR's head (policy).
+
+## Tracked path names
+
+**T7745a no two tracked paths clash by letter case.** Given the tracked paths, when `just lint-rust` runs `tools/path-case/guard.py` through `lint-repo`, then it exits 1 and names each group of paths that differ only by letter case, and exits 0 when none does. A path drops its extension first when Vite resolves it without the extension being written (`.mjs`, `.js`, `.mts`, `.ts`, `.jsx`, `.tsx`, `.json`), because `import "./PadNotes"` finds `padNotes.ts` on a case-insensitive file system.
+Source: #7745 merged `pads/PadNotes.tsx` beside `pads/padNotes.ts`. Every Linux lane passed; on macOS `./PadNotes` resolved to `padNotes.ts` and `mac-package` failed `main`.
+
+- One name with two extensions (`u5561aBrowser.ts` and `u5561aBrowser.tsx`) and a stylesheet beside its component (`FailureLine.tsx` and `failureLine.css`) are no clash.
+- Test `test_t7745a_*` in `tools/path-case/guard.test.py` calls `clashes` on literal path lists: one pair across `.tsx` and `.ts`, one set across directory and file case, and the two allowed pairs (no Git, no macOS needed).
