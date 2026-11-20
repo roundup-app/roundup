@@ -102,8 +102,9 @@ impl Run {
 
     pub(super) async fn wait_stored(&self, tag: &str) {
         let found = tokio::time::timeout(Duration::from_secs(40), async {
+            let mut tick = tokio::time::interval(Duration::from_millis(50));
             while self.stored(tag).await.is_empty() {
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tick.tick().await;
             }
         })
         .await;

@@ -302,12 +302,13 @@ async fn job_stops_again(run: &Run) -> Job {
         .await;
     run.signal(&job.id, json!({"hook_event_name":"Stop"})).await;
     tokio::time::timeout(Duration::from_secs(40), async {
+        let mut tick = tokio::time::interval(Duration::from_millis(100));
         while run.stored("[stopped]").await.len() < 2 {
             run.user
                 .request("todo.create", json!({"title":"pass"}))
                 .await
                 .unwrap();
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tick.tick().await;
         }
     })
     .await
