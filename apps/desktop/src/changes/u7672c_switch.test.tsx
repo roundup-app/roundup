@@ -67,7 +67,7 @@ it("u7672c_choosing_a_value_lists_that_values_files", async () => {
   await treeRow("tree.ts");
   fireEvent.click(await treeRow("tree.ts"));
   await waitFor(() => expect(app.calls.some(call => call.method === "agent.compareFile")).toBe(true));
-  expect(app.calls.find(call => call.method === "agent.compareFile")?.params).toEqual({ id: "a", path: "tree.ts", to: "tree" });
+  expect(app.calls.filter(call => call.method === "agent.compareFile").at(-1)?.params).toEqual({ id: "a", path: "tree.ts", to: "tree" });
   fireEvent.click(screen.getByRole("radio", { name: "Changes" }));
   await treeRow("own.ts");
   await waitFor(() => expect(files().length).toBe(1));
@@ -136,7 +136,8 @@ it("u7672d_rows_and_reader_keep_their_rules_for_every_value", async () => {
   const row = await treeRow("tree.ts");
 
   expect(rowText(row)).toMatch(/\+3.*-1/);
-  expect(app.calls.filter(call => call.method === "agent.compareFile")).toEqual([]);
+  // U7674e: only the first file in tree order is read, never the rest.
+  expect(app.calls.filter(call => call.method === "agent.compareFile").length).toBeLessThanOrEqual(1);
   expect(files().length).toBe(2);
 });
 

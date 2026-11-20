@@ -36,8 +36,12 @@ export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() 
 /** Reads one file's diff in the open Changes view: the first file opens by itself (U7674a), another is chosen in the tree. */
 export const openFile = async (path = "src/a.ts") => {
   await screen.findByRole("button", { name: "Add note" });
-  (await treeRow(path)).focus();
+  const row = await treeRow(path);
+
+  row.focus();
   await waitFor(() => expect(screen.getByLabelText("Diff").textContent).toContain(path));
+  // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
+  await new Promise(resolve => setTimeout(resolve, 50));
 };
 
 export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
