@@ -9,7 +9,7 @@ import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
-import { changeStarts } from "./lines";
+import { changeStarts, placeOf, sideName } from "./lines";
 import type { ChangeStart, Places } from "./lines";
 import type { Note, Notes } from "./notes";
 import { NoteForm } from "./NoteForm";
@@ -281,24 +281,24 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       if (!current) return;
 
       // U7675d: a file opens at the scroll and line it was left at, else at its top.
-      const place = props.places?.get(value.newPath);
+      const place = placeOf(props.places, value.newPath);
 
       starts = changeStarts(patch);
       cursor = -1;
       rendered = value.newPath;
-      setSelection(place?.selection ?? { side: "new", start: 1, end: 1 });
+      setSelection(place.selection);
       virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
       setRenderer(view);
 
-      view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
-      mount.scrollTop = place?.scroll ?? 0;
+      view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
+      mount.scrollTop = place.scroll;
 
       // U7675e: Pierre has no focus row; the focused line is its selection, and its line position scrolls it into view.
       moveTo = (side, line) => {
         setSelection({ side, start: line, end: line });
-        view.setSelectedLines({ side: side === "old" ? "deletions" : "additions", start: line, end: line });
-        const position = view.getLinePosition(line, side === "old" ? "deletions" : "additions");
+        view.setSelectedLines({ side: sideName(side), start: line, end: line });
+        const position = view.getLinePosition(line, sideName(side));
 
         if (position) mount.scrollTop = position.top;
         remember();
