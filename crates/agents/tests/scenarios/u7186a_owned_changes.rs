@@ -113,7 +113,7 @@ fn u7186a_a_file_changed_by_another_hand_is_not_owned() {
 }
 
 #[test]
-fn u7186a_an_own_worktree_lists_commits_and_uncommitted_files_against_the_merge_base() {
+fn u7672b_changes_lists_only_files_the_agent_wrote_in_its_own_worktree() {
     let (_tmp, dir) = repo("main");
     let (_trees, tree) = linked(&dir, "own/x");
     let written = write(&tree, "a.txt", "a\n");
@@ -125,7 +125,7 @@ fn u7186a_an_own_worktree_lists_commits_and_uncommitted_files_against_the_merge_
         (groups[0].branch.as_str(), groups[0].base.as_str()),
         ("own/x", "main")
     );
-    assert_eq!(paths(&groups[0]), ["a.txt", "b.txt"]);
+    assert_eq!(paths(&groups[0]), ["a.txt"]);
 }
 
 #[test]
@@ -224,4 +224,48 @@ fn u7186a_changes_nothing_and_skips_a_missing_repo() {
     assert_eq!(groups.len(), 1);
     assert_eq!(git(&dir, &["status", "--porcelain=v2", "--branch"]), before);
     assert!(Git::from_env().owned_groups(&[]).is_empty());
+}
+
+/// Gives `dir` an origin holding its `main`, with `origin/HEAD` set.
+fn with_origin(dir: &Path) -> tempfile::TempDir {
+    let origin = tempfile::tempdir().unwrap();
+    git(origin.path(), &["init", "-q", "--bare", "-b", "main"]);
+    git(
+        dir,
+        &[
+            "remote",
+            "add",
+            "origin",
+            &origin.path().display().to_string(),
+        ],
+    );
+    git(dir, &["push", "-q", "origin", "main"]);
+    git(dir, &["fetch", "-q", "origin"]);
+    git(dir, &["remote", "set-head", "origin", "main"]);
+    origin
+}
+
+#[test]
+fn u7672b_a_later_remote_commit_never_shows_as_a_change() {
+    let (_tmp, dir) = repo("main");
+    let _origin = with_origin(&dir);
+    let (_trees, tree) = linked(&dir, "own/x");
+    let mine = write(&tree, "mine.txt", "m\n");
+    commit_all(&tree, "mine");
+    // The remote's main moves on after the branch point.
+    let (_other, other) = linked(&dir, "other");
+    write(&other, "landed.txt", "l\n");
+    commit_all(&other, "landed");
+    git(&other, &["push", "-q", "origin", "other:main"]);
+    git(&dir, &["fetch", "-q", "origin"]);
+    let landed = write(&tree, "landed.txt", "l\n");
+    let groups = Git::from_env().owned_groups(&[mine, landed]);
+    assert_eq!(groups[0].base, "main");
+    assert_eq!(paths(&groups[0]), ["landed.txt", "mine.txt"]);
+    let base = git(&tree, &["merge-base", "origin/main", "HEAD"]);
+    assert_eq!(
+        git(&tree, &["rev-parse", "origin/main~1"]),
+        base,
+        "the base is the branch point, before the remote's new commit"
+    );
 }

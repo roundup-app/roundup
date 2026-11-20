@@ -104,7 +104,6 @@ export const CONTRACT = {
     "pad.setVisibility": "e87c5e4a5edd2431",
     "pad.write": "199ebeaeca039911",
     "project.clearProgram": "f94d653b04b4a1af",
-    "project.compareRefs": "ed4c48096b3c5dfb",
     "project.get": "9e13168ca3fdc9f9",
     "project.importCommit": "4e0b7f511051067a",
     "project.importDiscover": "5e6586583f8fc491",

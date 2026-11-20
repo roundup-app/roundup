@@ -36,7 +36,6 @@ const SAMPLED: [&str; 18] = [
     "machine.list",
     "models.list",
     "pad.list",
-    "project.compareRefs",
     "project.get",
     "project.programRun",
     "project.resources",

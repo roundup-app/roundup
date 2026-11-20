@@ -41,7 +41,6 @@
     Method { name: "project.importCommit", params: "project_ImportCommitParams", result: "project_ImportResult" },
     Method { name: "project.prepareDirectory", params: "project_PrepareParams", result: "null" },
     Method { name: "project.get", params: "null", result: "project_ProjectSettings" },
-    Method { name: "project.compareRefs", params: "null", result: "agent_CompareRefs" },
     Method { name: "project.setModels", params: "project_ProjectModels", result: "null" },
     Method { name: "models.list", params: "null", result: "project_ModelList" },
     Method { name: "project.rename", params: "project_RenameParams", result: "null" },

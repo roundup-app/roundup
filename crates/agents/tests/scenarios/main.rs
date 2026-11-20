@@ -35,7 +35,7 @@ mod u2539a_changed_files;
 mod u3566;
 mod u3780a_tool_call;
 mod u7186a_owned_changes;
-mod u7186b_compare;
 mod u7610a_changed_counts;
+mod u7672a_remote_main;
 mod worktree_state;
 mod worktrees;
