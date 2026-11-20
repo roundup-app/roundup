@@ -506,12 +506,14 @@ pre {
 
 /* U7761: the one fill and ink for code and fenced blocks on the Markdown surfaces only (.reading, .pad-body, .markdown); --key-chip-fill differs from --ground in both Modes. */
 :is(.reading, .pad-body, .markdown) :is(code, pre:not(.pad-changes-part, .call-text)) {
-  background: var(--key-chip-fill);
+  background: var(--code-fill, var(--key-chip-fill));
   color: var(--text);
 }
 
-:is(.reading, .pad-body, .markdown) pre code {
-  background: none;
+/* A code inside a fenced pre inherits no second fill. */
+:is(.reading, .pad-body, .markdown) pre:not(.pad-changes-part, .call-text) {
+  --code-fill: none;
+  background: var(--key-chip-fill);
 }
 
 /* Content must remain copyable even when its editor is read-only. */
