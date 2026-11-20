@@ -48,6 +48,9 @@ pub enum EventData {
     /// T27: a ref was removed from the Todo.
     #[serde(rename = "todo.refRemoved")]
     TodoRefRemoved(todo::TodoId),
+    /// T7708b: the Daemon read the Todo's linked pull request.
+    #[serde(rename = "todo.prChecked")]
+    TodoPrChecked(todo::PrCheck),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
     /// Accepted name change; the original incarnation remains authoritative.

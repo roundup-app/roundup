@@ -43,6 +43,9 @@ pub struct Todo {
     /// U4698c: unset is no priority.
     #[serde(default)]
     pub priority: Option<Priority>,
+    /// T7708a: the number of the pull request in the Project's repository that completes this Todo when it merges; `None` when unlinked.
+    #[serde(default)]
+    pub pr: Option<u32>,
 }
 
 /// One qualifying Hand-off for a Todo's current owner after its last owner change.
@@ -66,6 +69,10 @@ pub struct CreateParams {
     #[serde(default)]
     #[specta(optional, type = Option<Priority>)]
     pub priority: Option<Priority>,
+    /// T7708a: a pull request number of the Project's repository, at least 1; omitted or `null` is unlinked.
+    #[serde(default)]
+    #[specta(optional, type = Option<u32>)]
+    pub pr: Option<u32>,
 }
 
 /// Sets the owner, `None` for Unassigned. `expected_change` is the last captured History Change
@@ -89,7 +96,7 @@ pub struct TodoId {
     pub id: u32,
 }
 
-/// Changes title/body/priority. `expected_change` is the last captured History Change sequence;
+/// Changes title, body, priority or the PR link. `expected_change` is the last captured History Change sequence;
 /// mismatch is CONFLICT, a removed Todo is NOT_FOUND, and omission is unconditional.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct UpdateParams {
@@ -104,6 +111,14 @@ pub struct UpdateParams {
     )]
     #[specta(optional, type = Option<Priority>)]
     pub priority: Option<Option<Priority>>,
+    /// T7708a: omitted preserves the link; null clears it; a number of at least 1 sets it.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[specta(optional, type = Option<u32>)]
+    pub pr: Option<Option<u32>>,
     #[specta(optional, type = u32)]
     pub expected_change: Option<u32>,
 }
@@ -228,6 +243,26 @@ pub enum RefState {
 pub struct Ref {
     pub url: String,
     pub state: RefState,
+}
+
+/// What the Daemon read of a Todo's linked pull request (T7708b). Only `merged` completes the Todo.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum PrState {
+    Merged,
+    Open,
+    Draft,
+    Closed,
+    Unknown,
+}
+
+/// One read of a Todo's linked pull request; `cause` is one line, set only when `state` is `unknown`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct PrCheck {
+    pub id: u32,
+    pub pr: u32,
+    pub state: PrState,
+    pub cause: Option<String>,
 }
 
 /// An unread Agent comment with the Todo it sits on (T23).

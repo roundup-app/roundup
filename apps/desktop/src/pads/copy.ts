@@ -27,6 +27,8 @@ export const copy = {
   exportMd: sharedCopy.exportMd,
   delete: sharedCopy.delete,
   padChanged: "Pad changed",
+  changesSince: "Changes since you read",
+  noEarlierVersion: "No earlier version kept",
   addNote: sharedCopy.addNote,
   padNote: "Note on selection",
   padNoteText: sharedCopy.note,

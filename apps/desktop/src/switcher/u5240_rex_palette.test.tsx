@@ -14,7 +14,7 @@ afterEach(async () => { cleanup(); await saveAppSettings({ shortcuts: {}, quickA
 // SAFETY: every name passed is one of the table's own rows.
 const chord = (name: ChordName) => CHORDS[name];
 
-const todo = (id: number, title: string, home: string | null = null): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner: null, refs: [], priority: null });
+const todo = (id: number, title: string, home: string | null = null): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner: null, refs: [], priority: null, pr: null });
 
 const pad = (name: string, home: string | null = null): Pad => ({ incarnation: `i-${name}`, name, text: "", updated_at: 0, revision: 1, home, visibility: "shown" as const });
 
