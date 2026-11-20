@@ -241,6 +241,9 @@ impl Shared {
             moves
         };
         if changed {
+            if let Err(error) = self.save_channel(id, attempt, channel) {
+                eprintln!("agents: could not save {id}'s Channel: {error}");
+            }
             self.bus.emit(
                 by,
                 EventData::AgentChannel(ChannelEvent {

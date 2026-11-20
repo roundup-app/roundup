@@ -19,6 +19,7 @@ impl Launcher {
         for key in [
             "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS",
             "CLAUDE_CODE_PLUGIN_DIR_WATCH",
+            "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF",
         ] {
             if !self.user_defaults.contains(key)
                 && let Some(value) = settings

@@ -755,6 +755,18 @@ impl Agents {
             .unwrap_or_default();
         let labels =
             terminal::reconcile::labels(&self.project_dir().to_string_lossy(), id, &attempt);
+        // UKR3: a live program of this node is never adopted as a launch, whose rollback would
+        // stop it; the start is refused and the program keeps running.
+        if self
+            .shared
+            .terminals
+            .has_live_program(spawn.machine.as_deref(), &labels)
+            .await
+        {
+            return Err(RpcError::conflict(format!(
+                "{id} already has a running program"
+            )));
+        }
         let spawned = self.shared.terminals.spawn_labelled(spawn, labels).await?;
         if attach == Attach::Now {
             let attached = self

@@ -25,7 +25,7 @@ impl Rail {
         // Insert source and nodes in the same transaction: even interruption between writes
         // cannot expose an untracked node or lose a reserved identity.
         tx.execute(
-            "INSERT INTO nodes(kind,name,ord,work) VALUES('workstream',?,0,?)",
+            "INSERT INTO nodes(kind,name,ord,work,auto) VALUES('workstream',?,0,?,1)",
             params![title, serde_json::to_string(&workstream_order())?],
         )?;
         let workstream = tx.last_insert_rowid();
