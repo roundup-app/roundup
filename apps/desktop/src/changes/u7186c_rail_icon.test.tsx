@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent, event } from "../testing/nodes";
 import { mountRail, rowOf, settled } from "../rail/railFixture";
-import { diffsLoaded } from "./DiffReader";
+import { diffsLoaded } from "./diffDraw";
 import { COMPARISON, treeRow } from "./noteHarness";
 
 afterEach(cleanup);

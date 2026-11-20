@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 
 /** U7675b: a side over this many lines is offered with Show anyway, not drawn at once. */
@@ -22,3 +23,43 @@ export const hiddenKind = (value: FileComparison | undefined, revealed: Hidden |
 
   return revealed !== "whitespace" && withoutSpace(before) === withoutSpace(after) ? "whitespace" : null;
 };
+
+const HIDDEN_NOTICE = { mode: copy.modeOnly, whitespace: copy.noDifference, large: copy.tooLarge } as const;
+
+type NoticeInput = {
+  value: FileComparison | undefined;
+  hidden: Hidden | null;
+  loading: boolean;
+  slow: boolean;
+  failed: boolean;
+  coarse: boolean;
+  selection: { side: "old" | "new"; start: number; end: number };
+  path: string;
+};
+
+export const selectedNotice = ({ side, start, end }: NoticeInput["selection"]) => copy.selectedLines(side, start === end ? `${start}` : `${start}–${end}`, start === end);
+
+/** The line under the file's header: what the reader waits for, what is not drawn, or the selected lines. */
+export const noticeFor = (input: NoticeInput): string | null => {
+  const { value } = input;
+
+  if (input.loading && input.slow) return copy.loadingFile(input.path);
+
+  if (!value) return input.loading || input.failed ? null : copy.diffNotLoaded;
+
+  if (value.status === null) return copy.noDifference;
+
+  if (input.hidden) return HIDDEN_NOTICE[input.hidden];
+
+  if (value.old.kind === "binary" || value.new.kind === "binary") return copy.binaryDiff;
+
+  return input.coarse ? copy.replacementDiff : selectedNotice(input.selection);
+};
+
+/** Two reads of one comparison that differ in no revision, path, status or kind: the pane keeps the earlier one. */
+export const sameRead = (previous: FileComparison, next: FileComparison) => previous.base === next.base && previous.oldPath === next.oldPath && previous.newPath === next.newPath
+  && previous.status === next.status && previous.old.kind === next.old.kind && previous.new.kind === next.new.kind && sameRevisions(previous, next);
+
+/** The same two revisions of the same two paths from the same base. */
+export const sameRevisions = (left: FileComparison, right: FileComparison) => left.oldPath === right.oldPath && left.newPath === right.newPath && left.base === right.base
+  && left.old.revision === right.old.revision && left.new.revision === right.new.revision;

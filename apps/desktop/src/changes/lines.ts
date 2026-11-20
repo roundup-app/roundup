@@ -14,7 +14,9 @@ const hunkStarts = (oldFrom: number, newFrom: number, body: readonly string[]): 
 
     if (changed && !inRun) starts.push(mark === "+" ? { side: "new", line: newLine } : { side: "old", line: oldLine });
     inRun = changed;
+
     if (mark !== "+") oldLine++;
+
     if (mark !== "-") newLine++;
   }
 

@@ -74,10 +74,10 @@ export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: st
   });
 
   // U7675c: focus moves to a file the view names (the neighbour of one that left) without choosing it.
-  props.controls?.({ focus: path => {
+  createEffect(() => props.controls, controls => controls?.({ focus: path => {
     tree?.focusPath(path);
     queueMicrotask(() => host?.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${CSS.escape(path)}"]`)?.focus());
-  } });
+  } }));
 
   // The open file carries the selection: feed it back on every choose.
   createEffect(() => props.selected, path => {
