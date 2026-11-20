@@ -243,9 +243,7 @@ export const Pads = (props: {
           aria-label={copy.addPad}
           class="shelf-add"
           ref={(button) => (plusButton = button)}
-          onClick={() => {
-            openField();
-          }}
+          onClick={() => openField()}
         >
           <Icon name="plus" />
           <span>{copy.pad}</span>
