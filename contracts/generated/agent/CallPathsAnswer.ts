@@ -4,4 +4,11 @@ import type * as agent$CallPathCause from "./CallPathCause";
 import type * as agent$ChangedSymbol from "./ChangedSymbol";
 import type * as agent$Flow from "./Flow";
 import type * as agent$FunctionCalls from "./FunctionCalls";
-export type CallPathsAnswer = { state: "done"; symbols: agent$ChangedSymbol.ChangedSymbol[]; calls: agent$FunctionCalls.FunctionCalls[]; flows: agent$Flow.Flow[]; capped: boolean; oldSideResolvedThroughNewDependencies: boolean } | { state: "noServer"; cause: agent$CallPathCause.CallPathCause } | { state: "failed"; cause: agent$CallPathCause.CallPathCause };
+export type CallPathsAnswer = { state: "done"; symbols: agent$ChangedSymbol.ChangedSymbol[]; calls: agent$FunctionCalls.FunctionCalls[]; flows: agent$Flow.Flow[]; capped: boolean; oldSideResolvedThroughNewDependencies: boolean; 
+/**
+ *  RA4: what the server could not resolve, `macroGenerated` when its build scripts
+ *  and proc macros were off.
+ */
+unresolved?: string[]; 
+/**  RA4: `outgoing` when incoming calls were not read. */
+directions?: string } | { state: "noServer"; cause: agent$CallPathCause.CallPathCause } | { state: "failed"; cause: agent$CallPathCause.CallPathCause };

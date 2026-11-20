@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 use crate::common::Fixture;
 
-fn git(dir: &Path, args: &[&str]) -> String {
+pub(crate) fn git(dir: &Path, args: &[&str]) -> String {
     let output = std::process::Command::new("git")
         .current_dir(dir)
         .args(args)
@@ -20,13 +20,13 @@ fn git(dir: &Path, args: &[&str]) -> String {
         .to_owned()
 }
 
-fn write(dir: &Path, name: &str, text: &str) {
+pub(crate) fn write(dir: &Path, name: &str, text: &str) {
     let path = dir.join(name);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, text).unwrap();
 }
 
-fn commit_all(dir: &Path, message: &str) {
+pub(crate) fn commit_all(dir: &Path, message: &str) {
     git(dir, &["add", "-A"]);
     git(dir, &["commit", "-q", "-m", message]);
 }
@@ -60,7 +60,7 @@ fn repo_node_modules() -> PathBuf {
 
 /// A project with an origin on `main`, TypeScript `files` committed, one Agent in its own
 /// Worktree with the repository's `node_modules` (and so its real `tsc`) linked in.
-async fn fixture(
+pub(crate) async fn fixture(
     git_tool: Git,
     files: &[(&str, &str)],
 ) -> (Fixture, String, PathBuf, tempfile::TempDir) {
@@ -86,13 +86,13 @@ async fn fixture(
     (f, node.base.id, path, origin)
 }
 
-async fn trace(f: &Fixture, id: &str, language: &str) -> Value {
+pub(crate) async fn trace(f: &Fixture, id: &str, language: &str) -> Value {
     f.call("agent.callPaths", json!({"id": id, "language": language}))
         .await
         .unwrap()
 }
 
-fn symbol<'a>(reply: &'a Value, name: &str) -> &'a Value {
+pub(crate) fn symbol<'a>(reply: &'a Value, name: &str) -> &'a Value {
     reply["symbols"]
         .as_array()
         .unwrap()
@@ -101,7 +101,7 @@ fn symbol<'a>(reply: &'a Value, name: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("no symbol {name} in {reply}"))
 }
 
-fn calls_of<'a>(reply: &'a Value, name: &str) -> &'a Value {
+pub(crate) fn calls_of<'a>(reply: &'a Value, name: &str) -> &'a Value {
     let key = symbol(reply, name)["key"].clone();
     reply["calls"]
         .as_array()
@@ -127,28 +127,33 @@ fn status_of(calls: &Value, name: &str) -> String {
 async fn cp1_the_lookup_lists_languages_and_starts_no_process() {
     let (f, id, path, _origin) = fixture(Git::from_env(), &[("a.ts", SEED)]).await;
     write(&path, "a.ts", EDITED);
-    write(&path, "lib.rs", "fn x() {}\n");
+    write(&path, "lib.py", "def x(): pass\n");
     let reply = f.call("agent.callPaths", json!({"id": id})).await.unwrap();
     let rows = reply["languages"].as_array().unwrap();
     let row = |language: &str| rows.iter().find(|r| r["language"] == language).unwrap();
     assert_eq!(row("typescript")["files"], 1);
     assert_eq!(row("typescript")["server"]["found"], true);
     assert_eq!(row("typescript")["server"]["name"], "tsc");
-    assert_eq!(row("rust")["server"]["found"], false);
+    assert_eq!(row("python")["server"]["found"], false);
 }
 
 #[tokio::test]
 async fn cp1_a_language_with_no_server_row_is_reported_as_that() {
     let (f, id, path, _origin) = fixture(Git::from_env(), &[("a.ts", SEED)]).await;
     write(&path, "a.ts", EDITED);
-    let reply = trace(&f, &id, "rust").await;
+    let reply = trace(&f, &id, "python").await;
     assert_eq!(reply["state"], "noServer");
     assert_eq!(reply["cause"]["kind"], "notInstalled");
-    assert!(reply["cause"]["detail"].as_str().unwrap().contains("rust"));
+    assert!(
+        reply["cause"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("python")
+    );
 }
 
 /// A `git`-only PATH, so no `tsc` outside the project is found.
-fn git_only() -> (tempfile::TempDir, Git) {
+pub(crate) fn git_only() -> (tempfile::TempDir, Git) {
     let bin = tempfile::tempdir().unwrap();
     let real = String::from_utf8(
         std::process::Command::new("which")
@@ -164,7 +169,7 @@ fn git_only() -> (tempfile::TempDir, Git) {
 }
 
 /// A project-local `tsc` that reads `Version` and, for `--lsp`, runs `serve` (python).
-fn stub_tsc(worktree: &Path, version: &str, serve: &str) {
+pub(crate) fn stub_tsc(worktree: &Path, version: &str, serve: &str) {
     let dir = worktree.join("node_modules/.bin");
     let _ = std::fs::remove_file(worktree.join("node_modules"));
     std::fs::create_dir_all(&dir).unwrap();
@@ -199,7 +204,7 @@ async fn cp1_a_project_without_a_typescript_7_server_answers_no_server_with_its_
 }
 
 /// A server that completes `initialize` and then stays silent, writing its pid to `pid`.
-fn silent_server(pid: &Path) -> String {
+pub(crate) fn silent_server(pid: &Path) -> String {
     format!(
         "open({:?}, 'w').write(str(os.getpid()))
 def read():
@@ -218,7 +223,7 @@ time.sleep(600)",
     )
 }
 
-fn alive(pid: &Path) -> bool {
+pub(crate) fn alive(pid: &Path) -> bool {
     let pid: i32 = std::fs::read_to_string(pid)
         .unwrap()
         .trim()
@@ -471,7 +476,7 @@ async fn cp5_closing_the_connection_kills_the_server() {
     assert!(!alive(&pid));
 }
 
-fn outgoing_names(reply: &Value, function: &str) -> Vec<String> {
+pub(crate) fn outgoing_names(reply: &Value, function: &str) -> Vec<String> {
     calls_of(reply, function)["outgoing"]
         .as_array()
         .unwrap()
@@ -486,7 +491,7 @@ async fn cp1_a_language_answers_done_no_server_or_failed() {
     let (f, id, path, _origin) = fixture(tool, &[("a.ts", SEED)]).await;
     write(&path, "a.ts", EDITED);
     assert_eq!(trace(&f, &id, "typescript").await["state"], "done");
-    assert_eq!(trace(&f, &id, "rust").await["state"], "noServer");
+    assert_eq!(trace(&f, &id, "python").await["state"], "noServer");
     stub_tsc(&path, "7.0.2", &silent_server(&path.join("../s.pid")));
     assert_eq!(trace(&f, &id, "typescript").await["state"], "failed");
 }
@@ -739,7 +744,7 @@ async fn cp5_no_language_server_child_is_alive_after_any_outcome() {
     logging_tsc(&path, &log);
     write(&path, "a.ts", EDITED);
     assert_eq!(trace(&f, &id, "typescript").await["state"], "done");
-    assert_eq!(trace(&f, &id, "rust").await["state"], "noServer");
+    assert_eq!(trace(&f, &id, "python").await["state"], "noServer");
     let pid = path.join("../silent.pid");
     stub_tsc(&path, "7.0.2", &silent_server(&pid));
     assert_eq!(trace(&f, &id, "typescript").await["state"], "failed");

@@ -25,6 +25,7 @@ mod parked_signal;
 mod prepared_observer;
 mod prepared_support;
 mod ps9;
+mod ra_call_paths;
 mod rail;
 mod rb_readback;
 mod remove;

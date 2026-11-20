@@ -26,7 +26,8 @@ impl Git {
         {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if name.starts_with(".tmp-") || (!entry.path().join(MARKER).exists() && name != commit)
+            if name.starts_with(".tmp-")
+                || (!entry.path().join(MARKER).exists() && name != commit && name != "target")
             {
                 let _ = std::fs::remove_dir_all(entry.path());
             }
@@ -82,6 +83,30 @@ impl Git {
         } else {
             Err(format!("could not export {commit}"))
         }
+    }
+}
+
+/// RA2: the target directories of Rust traces, one per commit, bounded to the last four. The
+/// directories of `current` stay, and are touched so they are the newest.
+pub(super) fn prune_targets(targets: &Path, current: &[&str]) {
+    for commit in current {
+        let _ = std::fs::create_dir_all(targets.join(commit));
+        let _ = std::fs::write(targets.join(commit).join(MARKER), "");
+    }
+    let mut kept: Vec<_> = std::fs::read_dir(targets)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            Some((
+                e.path().join(MARKER).metadata().ok()?.modified().ok()?,
+                e.path(),
+            ))
+        })
+        .collect();
+    kept.sort();
+    while kept.len() > KEEP {
+        let _ = std::fs::remove_dir_all(kept.remove(0).1);
     }
 }
 

@@ -31,6 +31,9 @@ const DEPTH: usize = 6;
 /// The default time a trace has (CP5).
 pub(super) const LIMIT: Duration = Duration::from_secs(30);
 
+/// RA3: the time a Rust trace has, since rust-analyzer loads the whole workspace first.
+pub(super) const RUST_LIMIT: Duration = Duration::from_secs(120);
+
 /// One changed file: lines are 1-based and inclusive.
 struct FileChange {
     old: Option<String>,
@@ -113,6 +116,7 @@ fn run_side(
     data: &mut SideData,
     files: &[String],
     want: &BTreeSet<String>,
+    launch: (Vec<(String, String)>, serde_json::Value),
     deadline: Instant,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(), Stop> {
@@ -120,6 +124,7 @@ fn run_side(
         &server.program,
         server.row.args,
         &data.root,
+        (&launch.0, launch.1),
         deadline,
         cancel.clone(),
     )?;
@@ -138,7 +143,10 @@ fn run_side(
     for key in keys {
         data.read_calls(&mut client, &key)?;
     }
-    Ok(())
+    client
+        .cargo_failure
+        .take()
+        .map_or(Ok(()), |text| Err(Stop::Cargo(text)))
 }
 
 fn cause(kind: &str, detail: impl Into<String>) -> CallPathCause {
@@ -183,7 +191,11 @@ impl Git {
             return Ok(CallPaths::Languages(Languages { languages }));
         };
         let _one = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
-        let deadline = Instant::now() + self.call_limit;
+        let limit = match server::row(language) {
+            Some(row) if self.call_limit == LIMIT => row.limit,
+            _ => self.call_limit,
+        };
+        let deadline = Instant::now() + limit;
         let answer = match self.trace(
             worktree, &base, end, language, &changed, cache, deadline, &cancel,
         )? {
@@ -303,36 +315,64 @@ impl Git {
                 })
                 .collect()
         };
-        let mut old = SideData::new(&old_export, key_paths.clone(), ranges(true));
-        let mut new = SideData::new(&new_root, HashMap::new(), ranges(false));
+        let mut old = SideData::new(row, &old_export, key_paths.clone(), ranges(true));
+        let mut new = SideData::new(row, &new_root, HashMap::new(), ranges(false));
         let old_files: Vec<String> = files.iter().filter_map(|f| f.old.clone()).collect();
         let new_files: Vec<String> = files.iter().filter_map(|f| f.new.clone()).collect();
 
         let stopped = |stop: Stop| match stop {
-            Stop::Timeout => Err(CallPathsAnswer::Failed {
+            Stop::Timeout => CallPathsAnswer::Failed {
                 cause: cause("timeout", "the language server did not answer in time"),
-            }),
-            Stop::Cancelled => Err(CallPathsAnswer::Failed {
+            },
+            Stop::Cargo(text) => CallPathsAnswer::Failed {
+                cause: cause("cargoOffline", text),
+            },
+            Stop::Cancelled => CallPathsAnswer::Failed {
                 cause: cause("cancelled", "the trace was cancelled"),
-            }),
-            Stop::Error(text) if text == "noCallHierarchy" => Err(CallPathsAnswer::NoServer {
+            },
+            Stop::Error(text) if text == "noCallHierarchy" => CallPathsAnswer::NoServer {
                 cause: cause(
                     "noCallHierarchy",
                     format!("{} does not offer call hierarchy", row.name),
                 ),
-            }),
-            Stop::Error(text) => Err(CallPathsAnswer::Failed {
+            },
+            Stop::Error(text) => CallPathsAnswer::Failed {
                 cause: cause("error", text),
-            }),
+            },
         };
         let nothing = BTreeSet::new();
+        let head = self
+            .run(&worktree.path, &["rev-parse", "HEAD"])
+            .map_err(failed)?;
+        let targets = cache.join("call-paths/target");
+        let (lean, outgoing_only) = self.call_levers;
+        old.outgoing_only = outgoing_only;
+        new.outgoing_only = outgoing_only;
+        let launch = |commit: &str| row.launch(&targets.join(commit), lean);
+        let (old_launch, new_launch) = (launch(base), launch(&head));
         // One server after the other: the old side, the new side, then the symbols touched on
         // one side only, on the side that had not read their calls.
-        if let Err(stop) = run_side(&server, &mut old, &old_files, &nothing, deadline, cancel) {
-            return Ok(stopped(stop));
+        if let Err(stop) = run_side(
+            &server,
+            &mut old,
+            &old_files,
+            &nothing,
+            old_launch.clone(),
+            deadline,
+            cancel,
+        ) {
+            return Ok(Err(stopped(stop)));
         }
-        if let Err(stop) = run_side(&server, &mut new, &new_files, &nothing, deadline, cancel) {
-            return Ok(stopped(stop));
+        if let Err(stop) = run_side(
+            &server,
+            &mut new,
+            &new_files,
+            &nothing,
+            new_launch.clone(),
+            deadline,
+            cancel,
+        ) {
+            return Ok(Err(stopped(stop)));
         }
         let union: BTreeSet<String> = old.touched.union(&new.touched).cloned().collect();
         for side in [&mut old, &mut new] {
@@ -341,18 +381,40 @@ impl Git {
                 .filter(|key| !side.callable.contains_key(*key) && side.by_key.contains_key(*key))
                 .cloned()
                 .collect();
-            let side_files = if std::ptr::eq(side.root.as_path(), old_export.as_path()) {
-                &old_files
+            let (side_files, side_launch) = if side.root == old_export {
+                (&old_files, old_launch.clone())
             } else {
-                &new_files
+                (&new_files, new_launch.clone())
             };
             if !missing.is_empty()
-                && let Err(stop) = run_side(&server, side, side_files, &missing, deadline, cancel)
+                && let Err(stop) = run_side(
+                    &server,
+                    side,
+                    side_files,
+                    &missing,
+                    side_launch,
+                    deadline,
+                    cancel,
+                )
             {
-                return Ok(stopped(stop));
+                return Ok(Err(stopped(stop)));
             }
         }
-        Ok(Ok(assemble(&old, &new, &union, linked && manifests)))
+        let levers = if row.language == "rust" {
+            self.call_levers
+        } else {
+            (false, false)
+        };
+        if row.language == "rust" {
+            cache::prune_targets(&targets, &[base, &head]);
+        }
+        Ok(Ok(assemble(
+            &old,
+            &new,
+            &union,
+            linked && manifests,
+            levers,
+        )))
     }
 }
 
@@ -361,6 +423,7 @@ fn assemble(
     new: &SideData,
     union: &BTreeSet<String>,
     shared: bool,
+    (lean, outgoing_only): (bool, bool),
 ) -> CallPathsAnswer {
     let mut symbols = Vec::new();
     let mut calls = Vec::new();
@@ -414,6 +477,12 @@ fn assemble(
         flows,
         capped: capped || flow_capped,
         old_side_resolved_through_new_dependencies: shared,
+        unresolved: if lean {
+            vec!["macroGenerated".into()]
+        } else {
+            vec![]
+        },
+        directions: outgoing_only.then(|| "outgoing".to_owned()),
     }
 }
 

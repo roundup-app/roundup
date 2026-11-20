@@ -66,6 +66,9 @@ pub struct Git {
     scan_reads: Arc<std::sync::atomic::AtomicUsize>,
     /// CP5: the time one call-path trace has.
     call_limit: Duration,
+    /// RA4: (build scripts and proc macros off, outgoing calls only) for Rust traces. Both off:
+    /// the measurement of RA5 did not cut a run by 20%.
+    call_levers: (bool, bool),
 }
 
 impl Git {
@@ -86,12 +89,19 @@ impl Git {
             host: Arc::default(),
             scan_reads: Arc::default(),
             call_limit: call_paths::LIMIT,
+            call_levers: (false, false),
         }
     }
 
     /// Give each call-path trace `limit`, not the default: a test ends a silent server quickly.
     pub fn with_call_path_limit(mut self, limit: Duration) -> Self {
         self.call_limit = limit;
+        self
+    }
+
+    /// Run Rust traces with the cost levers of RA4 on: a test reads how a reply names them.
+    pub fn with_call_path_levers(mut self, lean: bool, outgoing_only: bool) -> Self {
+        self.call_levers = (lean, outgoing_only);
         self
     }
 
