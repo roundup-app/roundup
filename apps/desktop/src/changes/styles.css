@@ -108,11 +108,14 @@
   list-style: none;
 }
 
+.changes-row { display: flex; align-items: baseline; gap: var(--space-3); }
+
 .changes-file {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: start;
 }
 

@@ -4,12 +4,13 @@ import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
 import type { CompareRef } from "@contracts/agent/CompareRef";
 import { failureOf } from "../app/failureOf";
 import { BlockedFailure } from "../ink/MountedLine";
+import { createMessageToasts } from "../ink/messageToast";
 import { useConnectedProject } from "../state/connectedProject";
 import { Select } from "../ui/Select";
 import { copy } from "./copy";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
-import { statusText } from "./paths";
+import { changedPath, statusText } from "./paths";
 import "./styles.css";
 
 const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
@@ -24,11 +25,14 @@ const sameEndpoint = (a: CompareEndpoint, b: CompareEndpoint) => keyOf(a) === ke
 const labelOf = (refs: readonly CompareRef[], endpoint: CompareEndpoint) => refs.find(ref => sameEndpoint(ref, endpoint))?.label ?? endpoint.branch;
 
 /** U7610b: the file's `+added -removed` counts as the Daemon counted them; none for a binary file. */
-const FileRow = (props: { file: ChangedFile; onChoose: () => void }) => <li><button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
-  <span class="changes-path">{props.file.path}</span>
-  <span class="changes-status">{statusText[props.file.status]}</span>
-  <Show when={props.file.counts}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
-</button></li>;
+const FileRow = (props: { file: ChangedFile; onChoose: () => void; editable: boolean; onEdit: () => void }) => <li class="changes-row">
+  <button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
+    <span class="changes-path">{props.file.path}</span>
+    <span class="changes-status">{statusText[props.file.status]}</span>
+    <Show when={props.file.counts}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
+  </button>
+  <Show when={props.editable}><button type="button" data-button="quiet" aria-label={`${copy.openInEditor}: ${props.file.path}`} onClick={() => props.onEdit()}>{copy.openInEditor}</button></Show>
+</li>;
 
 /** U7186c, U7186d: the centre's diff of what one Agent owns, with From and To pickers over every worktree and branch head. */
 const Surface = (props: { id: string; name: string }) => {
@@ -85,6 +89,43 @@ const Surface = (props: { id: string; name: string }) => {
 
   const files = (): readonly ChangedFile[] => picked() ? listed()?.files ?? [] : group()?.files ?? [];
 
+  // U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card.
+  const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
+
+  const clear = (key: string) => setFailures(previous => {
+    const next = new Map(previous);
+
+    next.delete(key);
+
+    return next;
+  });
+
+  const root = () => {
+    const end = picked()?.to;
+
+    return end ? (end.kind === "worktree" ? end.path : undefined) : group()?.repo;
+  };
+
+  const editable = (file: ChangedFile) => file.status !== "deleted" && root() !== undefined;
+
+  const edit = (file: ChangedFile) => {
+    const target = changedPath(root() ?? "", file);
+
+    void failureOf(() => app.openInEditor(target, file.line ?? undefined)).then(error => {
+      if (error) setFailures(previous => new Map(previous).set(file.path, error));
+      else clear(file.path);
+    });
+  };
+
+  createMessageToasts(() => [...failures().keys()], key => ({
+    get message() {
+      const error = failures().get(key);
+
+      return error === undefined ? null : `${key.split("/").pop()}: ${error}`;
+    },
+    dismiss: () => clear(key),
+  }));
+
   const choose = (side: "from" | "to", value: string) => {
     const base = ends();
     const found = choices().find(ref => keyOf(ref) === value);
@@ -119,7 +160,7 @@ const Surface = (props: { id: string; name: string }) => {
     <BlockedFailure message={listed()?.failure} recover={{ run: () => refresh(listed) }} />
     <div class="changes-body">
     <Show when={path()} fallback={<ul class="changes-files" aria-label={copy.changedFilesList}>
-      <For each={files()}>{file => <FileRow file={file} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
+      <For each={files()}>{file => <FileRow file={file} editable={editable(file)} onEdit={() => edit(file)} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
     </ul>}>
       {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} from={ends()?.from} to={ends()?.to} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Loading>}
     </Show>

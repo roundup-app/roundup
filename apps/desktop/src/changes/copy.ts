@@ -11,6 +11,7 @@ export const copy = {
   compareFrom: "From",
   compareTo: "To",
   changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
+  openInEditor: sharedCopy.openInEditor,
   reviewChanges: sharedCopy.reviewChanges,
   dismissFailure: sharedCopy.dismissFailure,
   comparisonRenderFailed: "Comparison failed · reopen the file to retry.",
