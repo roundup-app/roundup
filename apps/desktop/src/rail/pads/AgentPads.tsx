@@ -34,7 +34,7 @@ export const createAgentPads = () => {
   return (agent: string) => counts().get(agent) ?? { done: 0, total: 0 };
 };
 
-/** An empty `title` ends the row's native name at this control, which keeps its own tooltip (U2228a); U7488c gives it none, its name being the aria-label. */
+/** An empty `title` ends the row's native name at this control, which keeps its own tooltip (U2228a); its name shows in the shared Tooltip, as `done/total Todos` (U7488c). */
 const NO_NATIVE_TITLE = { title: "" };
 
 /** U7488c: a ring that fills as an Agent's Todos finish, with no count text, its `done/total` in the control's name; absent at 0 Todos. U4457: it opens the Shelf on the Todos the Agent created. The ring is a plain 12 px SVG (ui-sdk's Progress root renders a wide grid), filled with `--accent` over `--progress-track`. */
@@ -49,7 +49,6 @@ export const PadsControl = (props: { todos: { done: number; total: number }; age
         class="rail-pads-control"
         data-pads-control
         {...NO_NATIVE_TITLE}
-        bare
         aria-label={name()}
         onClick={click => { click.stopPropagation(); connected.showPadsOf(props.agent, "todos"); }}
       >

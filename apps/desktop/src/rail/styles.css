@@ -735,12 +735,12 @@
 .rail-row .row-tail { justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
-/* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
-.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
+/* The changes mark and its count are wider than an icon, and have their own room. */
+.rail-row .action-slot[data-slot="changes"] { justify-content: flex-start; font-size: var(--text-caption); }
 /* U7590a: the Todos slot is one fixed size, so the ring's x never depends on the Todos. */
 .rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot[data-slot="todos"]:empty { display: none; }
-.rail-row .rail-pads-control { min-inline-size: 0; inline-size: auto; }
+.rail-row .rail-pads-control { min-inline-size: 0; inline-size: var(--rail-slot); justify-content: center; }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
 .rail-row .row-icons { display: inline-flex; flex: none; align-items: center; } /* U7590b: the actions hold their slots at rest (hidden, not removed), so revealing them moves no mark. */
 .rail:has(.empty-state) .rail-scroll { flex: none; }
