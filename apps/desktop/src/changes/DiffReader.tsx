@@ -27,7 +27,10 @@ import { drawsLines, imageHidden, imageSides } from "./images";
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
 /** U7675e: what the pane lets the view do from a key. */
-export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void };
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean };
+
+/** U7690c: a line the jump list chose, for the file that draws it. */
+export type DiffTarget = { path: string; side: "old" | "new"; line: number };
 
 const DiffIdentity = (props: { read: FileComparison | undefined; path: string }) => <div class="diff-identity">
   <p class="diff-path"><Show when={props.read} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
@@ -101,7 +104,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
   const [focused, setFocused] = createSignal(false);
@@ -257,7 +260,16 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     if (rendered !== undefined && mount) props.places?.set(rendered.path, { revision: rendered.revision, scroll: mount.scrollTop, selection: selection() });
   };
 
+  // U7690c: the line a note's jump chose takes the focus once its file is drawn.
+  createEffect(() => ({ view: renderer(), target: props.target }), ({ view, target }) => {
+    if (!view || !target || rendered?.path !== target.path) return;
+    moveTo(target.side, target.line);
+    focusHost();
+    props.arrived?.();
+  });
+
   createEffect(() => props.keys, keys => keys?.({
+    at: () => ({ path: props.path, side: selection().side, line: selection().start }), outdated: note => outdated(note, read()),
     focus: () => focusHost(), reload: () => reload(), reveal: () => revealNearest(), note: () => openNote(selection()), edit: () => edit(noteOnLine()),
     remove: () => { const note = noteOnLine();
 

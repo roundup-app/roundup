@@ -60,7 +60,8 @@ it("u5646b_annotation_updates_keep_content", async () => {
 
 it("u2540b_save_cancel_and_invalid_ranges", async () => {
   await openDiff();
-  startNote();
+  // The pane's read lands after its element: N waits for it, as a user's key does.
+  await waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
   const save = screen.getByRole("button", { name: "Save" });
   expect(save.getAttribute("aria-disabled")).toBe("true");
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  keep exact\ntext  " } });

@@ -29,17 +29,26 @@ const line = v.pipe(v.number(), v.integer(), v.minValue(1));
 
 const caret = v.nullable(v.strictObject({ start: offset, end: offset, direction: v.picklist(["forward", "backward", "none"]) }));
 
+/** U7690a: a note's optional label; its data value is its word in lower case. */
+export const LABELS = ["question", "nit", "issue"] as const;
+
+const label = v.picklist(LABELS);
+
+export type Label = v.InferOutput<typeof label>;
+
 const noteSchema = v.strictObject({
   id: line, revision: v.string(), comparison, side: v.picklist(["old", "new"]),
   start: line, end: line, source: v.string(), text: v.string(), selection: v.optional(caret),
   // U7677e: when the Agent accepted the note (ms); a note without it is unsent.
   sent: v.optional(offset),
+  // U7690a, U7690b: the label and the replacement text, each only when set.
+  label: v.optional(label), replacement: v.optional(v.string()),
 });
 
 const formSchema = v.strictObject({
   revision: v.string(), comparison, replacing: v.nullable(line),
   side: v.picklist(["old", "new"]), start: v.string(), end: v.string(), text: v.string(),
-  selection: caret,
+  selection: caret, label: v.optional(label), replacement: v.optional(v.string()),
 });
 
 const submissionSchema = v.strictObject({
@@ -115,14 +124,20 @@ export const reply = async <T>(call: () => Promise<T>): Promise<{ kind: "ok"; va
   } finally { clearTimeout(timer); }
 };
 
-const bodyOf = (notes: readonly Note[]) => JSON.stringify({
-  description: copy.notesDescription,
-  notes: notes.map(note => ({ "File:": { old: note.comparison.oldPath, new: note.comparison.newPath }, "Base:": note.comparison.base, "Content revisions:": { old: note.comparison.old.revision, new: note.comparison.new.revision }, "Lines:": `${note.side} ${note.start}-${note.end}`, "Selected source:": note.source, "User comment:": note.text })),
-}, null, 2);
+/** One note's entry in the Message body: `Label:` and `Replacement:` only when set (U7690a, U7690b). */
+const entryOf = (note: Note) => {
+  const entry = { "File:": { old: note.comparison.oldPath, new: note.comparison.newPath }, "Base:": note.comparison.base, "Content revisions:": { old: note.comparison.old.revision, new: note.comparison.new.revision }, "Lines:": `${note.side} ${note.start}-${note.end}`, "Selected source:": note.source, "User comment:": note.text };
+  const labelled = note.label === undefined ? entry : { ...entry, "Label:": note.label };
+
+  return note.replacement === undefined ? labelled : { ...labelled, "Replacement:": note.replacement };
+};
+
+const bodyOf = (notes: readonly Note[]) => JSON.stringify({ description: copy.notesDescription, notes: notes.map(entryOf) }, null, 2);
 
 /** A form that repeats another: native selection events can repeat after restoring the same caret, and a no-op must not rebuild the editor. */
-const sameForm = (left: NoteFormDraft, right: NoteFormDraft) => left.comparison === right.comparison && left.replacing === right.replacing && left.side === right.side && left.start === right.start && left.end === right.end && left.text === right.text
-  && left.selection?.start === right.selection?.start && left.selection?.end === right.selection?.end && left.selection?.direction === right.selection?.direction;
+const sameCaret = (left: NoteFormDraft, right: NoteFormDraft) => left.selection?.start === right.selection?.start && left.selection?.end === right.selection?.end && left.selection?.direction === right.selection?.direction;
+
+const sameForm = (left: NoteFormDraft, right: NoteFormDraft) => left.comparison === right.comparison && left.replacing === right.replacing && left.side === right.side && left.start === right.start && left.end === right.end && left.text === right.text && left.label === right.label && left.replacement === right.replacement && sameCaret(left, right);
 
 /** The rows a record that would not load still holds: copy preserves even records without readable note fields. */
 const previewOf = (data: string): (Note | NoteFormDraft)[] => {
