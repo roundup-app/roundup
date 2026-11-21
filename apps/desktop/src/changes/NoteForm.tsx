@@ -9,6 +9,9 @@ import type { Note, Notes, NoteFormDraft } from "./notes";
 
 type Fields = Pick<NoteFormDraft, "side" | "start" | "end" | "text">;
 
+/** A present attribute while `on`. */
+const flag = (on: boolean) => on ? "" : undefined;
+
 /** Keyboard selection uses the same source and inclusive range as Pierre's gutter selection. */
 export const NoteForm = (props: { id: string; comparison: FileComparison; notes: Notes; selection: { side: "old" | "new"; start: number; end: number }; editing?: Note | undefined; recovered?: NoteFormDraft | undefined; close: () => void; /** U7677d: the field holds or loses focus, for the gutter bar. */ focus?: ((active: boolean) => void) | undefined }) => {
   const restored = untrack(() => props.recovered ?? props.notes.form(props.id, props.comparison, props.editing?.id));
@@ -94,7 +97,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   };
 
   // SAFETY: relatedTarget is null or the Node focus moved to.
-  return <form class="note-form" data-surface="diff" data-focused={active() ? "" : undefined} aria-label={copy.lineNote} onFocusIn={() => { setActive(true); props.focus?.(true); }} onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setActive(false); props.focus?.(false); } }} onKeyDown={event => {
+  return <form class="note-form" data-surface="diff" data-focused={flag(active())} aria-label={copy.lineNote} onFocusIn={() => { setActive(true); props.focus?.(true); }} onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setActive(false); props.focus?.(false); } }} onKeyDown={event => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save(); }
     else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); leave(); }
   }} onSubmit={event => { event.preventDefault(); void save(); }}>

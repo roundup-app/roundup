@@ -181,9 +181,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const [problem, setProblem] = createSignal(untrack(storage.problem));
   const [invalidCount, setInvalidCount] = createSignal(invalid.size);
   const recipient = (id: string): Recipient => recipients().get(id) ?? { version: 1, notes: [], forms: [], submissions: [], recovered: [] };
-  /** U7677e: every note the diff draws, sent ones included. */
+  /** U7677e: `all` is every note the diff draws, sent ones included; the batch `list` is the unsent. */
   const all = (id: string): readonly Note[] => recipient(id).notes;
-  /** The batch: unsent notes only. */
   const list = (id: string): readonly Note[] => all(id).filter(note => note.sent === undefined);
 
   const state = (id: string): Send => {
@@ -228,10 +227,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     const revisions = new Set(submission.notes.map(note => note.revision));
     const current = recipient(id);
 
-    // U7677e: an accepted note stays on the diff, marked Sent.
-    const at = Date.now();
-
-    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? { ...note, sent: at } : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
+    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? { ...note, sent: Date.now() } : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
     putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 

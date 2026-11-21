@@ -16,15 +16,15 @@
 .diff-path { margin: 0; overflow-wrap: anywhere; }
 .diff-content { overflow-anchor: none; flex: 1; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 /* U7677a: the diff is a light surface in both App modes; a note drawn under its lines takes the diff's colours, the notes bar keeps the App's. */
-[data-surface="diff"] { --text: #1f2328; --grey: #59636e; --sunken: #f6f8fa; --accent: #b23300; color-scheme: light; color: var(--text); background: var(--sunken); }
-.note-view { display: flex; flex-direction: column; gap: var(--space-1); position: relative; padding: var(--space-2) var(--space-3); margin-inline-start: var(--space-8, 3rem); font: var(--text-small) var(--font-ui); outline: none; }
+[data-surface="diff"] { --text: var(--diff-text); --grey: var(--diff-grey); --sunken: var(--diff-ground); --accent: var(--diff-accent); color-scheme: light; color: var(--text); background: var(--sunken); }
+.note-view { display: flex; flex-direction: column; gap: var(--space-1); position: relative; padding: var(--space-2) var(--space-3); margin-inline-start: var(--space-6); font: var(--text-small) var(--font-ui); outline: none; }
 .note-view[data-state="sent"], .note-view[data-state="outdated"] { opacity: 0.6; }
 .note-view p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .note-body { cursor: text; }
 .note-meta { color: var(--grey); }
 .note-actions { position: absolute; inset-block-start: var(--space-1); inset-inline-end: var(--space-2); display: flex; gap: var(--space-1); }
-.note-form { display: flex; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-2) var(--space-3); margin-inline-start: var(--space-8, 3rem); font: var(--text-small) var(--font-ui); }
-.note-input { width: 100%; border: 0; outline: none; background: transparent; color: inherit; font: inherit; resize: none; overflow-y: auto; }
+.note-form { display: flex; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-2) var(--space-3); margin-inline-start: var(--space-6); font: var(--text-small) var(--font-ui); }
+.note-input { width: 100%; border: 0; outline: none; background: var(--transparent); color: inherit; font: inherit; resize: none; overflow-y: auto; overscroll-behavior: contain; }
 .note-hint { margin-inline-end: auto; color: var(--grey); }
 .note-form label { display: flex; flex-direction: column; gap: var(--space-1); }
 .note-form input { width: calc(var(--space-6) * 3); }
