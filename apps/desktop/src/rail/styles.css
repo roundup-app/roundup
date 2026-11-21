@@ -346,14 +346,13 @@
 .todo-ring {
   flex: none;
   display: block;
-  inline-size: var(--space-4);
-  block-size: var(--space-4);
+  inline-size: var(--space-3);
+  block-size: var(--space-3);
   transform: rotate(-90deg);
 }
 .todo-ring-track, .todo-ring-fill { fill: none; stroke-width: var(--stroke-width); }
 .todo-ring-track { stroke: var(--progress-track); }
 .todo-ring-fill { stroke: var(--accent); stroke-dasharray: var(--ring-ratio) 1; }
-.todo-ring-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .rail-fold button {
   min-height: var(--space-6);
@@ -730,18 +729,18 @@
   width: var(--rail-slot);
   flex: none;
 }
-/* U7590: names first. Every row holds the same slots at rest, in one fixed place: the changes mark when it has one, the Todos ring and count, the three action slots (hidden until hover, focus or selection) and the age at the end edge. Revealing the actions moves no mark. A group's chevron keeps its one slot. */
-:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-todos-room: calc(var(--space-4) + var(--text-caption) * 3); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
+/* U7590: names first. Every row holds the same slots at rest, in one fixed place: the changes mark when it has one, the Todos ring, the three action slots (hidden until hover, focus or selection) and the age at the end edge. Revealing the actions moves no mark. A group's chevron keeps its one slot. */
+:root { --rail-age-room: calc(var(--text-caption) * 3.6); --rail-changes-room: calc(var(--space-4) + var(--text-caption) * 1.8); }
 .rail-row .line { position: relative; }
 .rail-row .row-tail { justify-content: flex-end; }
 .rail-row .row-tail:has(.rail-group-chevron) { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
-/* The ring and the count, and the changes mark and its count, are wider than an icon, and each has its own room. */
-.rail-row .action-slot:is([data-slot="todos"], [data-slot="changes"]) { justify-content: flex-start; font-size: var(--text-caption); }
-/* U7590a: the Todos slot is one fixed size wide enough for "34/34", so the ring's x never depends on the count. */
-.rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-todos-room); min-inline-size: var(--rail-todos-room); }
+/* The changes mark and its count are wider than an icon, and have their own room. */
+.rail-row .action-slot[data-slot="changes"] { justify-content: flex-start; font-size: var(--text-caption); }
+/* U7590a: the Todos slot is one fixed size, so the ring's x never depends on the Todos. */
+.rail-row .action-slot[data-slot="todos"] { inline-size: var(--rail-slot); min-inline-size: var(--rail-slot); }
 .rail-row .action-slot[data-slot="todos"]:empty { display: none; }
-.rail-row .rail-pads-control { min-inline-size: 0; inline-size: auto; }
+.rail-row .rail-pads-control { min-inline-size: 0; inline-size: var(--rail-slot); justify-content: center; }
 .rail-row .action-slot[data-slot="changes"] { inline-size: var(--rail-changes-room); min-inline-size: var(--rail-changes-room); }
 .rail-row .row-icons { display: inline-flex; flex: none; align-items: center; } /* U7590b: the actions hold their slots at rest (hidden, not removed), so revealing them moves no mark. */
 .rail:has(.empty-state) .rail-scroll { flex: none; }
