@@ -159,6 +159,7 @@
     Method { name: "daemon.methods", params: "null", result: "string[]" },
     Method { name: "api.list", params: "null", result: "describe_MethodList" },
     Method { name: "api.describe", params: "describe_DescribeParams", result: "describe_MethodDescription" },
+    Method { name: "agent.made", params: "agent_NodeId", result: "links_MadeItem[]" },
     Method { name: "link.read", params: "link_LinkUrl", result: "link_LinkContent" },
     Method { name: "shortcuts.export", params: "link_ShortcutFileExport", result: "null" },
     Method { name: "daemon.identify", params: "common_IdentifyParams", result: "null" },

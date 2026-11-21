@@ -4,6 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::Actor;
 use crate::agent::RailVisibility;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -22,6 +23,9 @@ pub struct Pad {
     /// `internal` Pads fold on the Pads tab (P7499a); nothing else treats them differently.
     #[serde(default)]
     pub visibility: RailVisibility,
+    /// LH19: who made the Pad. A Pad from before the Daemon kept it reads as the user's.
+    #[serde(default = "Actor::user")]
+    pub creator: Actor,
 }
 
 /// Create a shared Pad. An Agent's Pad starts `internal` unless `visibility` says otherwise; the user's starts `shown`.

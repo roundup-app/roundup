@@ -337,6 +337,7 @@ mod tests {
                 revision: 1,
                 home: None,
                 visibility: contracts::agent::RailVisibility::Shown,
+                creator: contracts::Actor::user(),
             }]),
             reads,
         });

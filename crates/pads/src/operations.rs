@@ -32,6 +32,7 @@ impl Pads {
             updated_at: now_ms().max(0),
             revision: 1,
             home: None,
+            creator: ctx.actor.clone(),
             // P7499a: an Agent's Pad starts internal; the user's and an Extension's start shown.
             visibility: p.visibility.unwrap_or(match ctx.actor.kind {
                 ActorKind::Agent => RailVisibility::Internal,

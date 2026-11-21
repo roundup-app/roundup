@@ -9,6 +9,7 @@ import type { ExitedEvent } from "./terminal/ExitedEvent";
 import type { ExtensionProblem } from "./action/ExtensionProblem";
 import type { LinksEvent } from "./links/LinksEvent";
 import type { Message } from "./message/Message";
+import type { NodeId } from "./agent/NodeId";
 import type { PadName } from "./pad/PadName";
 import type { PrCheck } from "./todo/PrCheck";
 import type { Requested } from "./project/Requested";
@@ -50,6 +51,8 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 } } | { "name": "pad.deleted", "data": PadName } | { "name": "message.sent", "data": Message } | { "name": "message.delivered", "data": Message } | { "name": "message.dropped", "data": Message } | { "name": "route.changed", "data": Route } | { "name": "agent.status", "data": StatusEvent } | { "name": "agent.channel", "data": ChannelEvent } | { "name": "agent.stray", "data": StrayEvent } | { "name": "agent.toolCall", "data": ToolCallEvent } | 
 /**  LH4: the Agent's link set changed; read `agent.links`. */
 { "name": "agent.links", "data": LinksEvent } | 
+/**  LH20: what the Agent made for the user changed; read `agent.made`. */
+{ "name": "agent.made", "data": NodeId } | 
 /**  U504: a matched completed turn, independent of Kind or final text contents. */
 { "name": "agent.completed", "data": Completion } | 
 /**  U504: a new publication committed; retries, moves and removals never emit this fact. */

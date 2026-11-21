@@ -1,4 +1,4 @@
-//! LH2, LH4: the links header's set of one Agent. One definition of the entry serves the side
+//! LH2, LH4, LH19: the links header's set of one Agent. One definition of the entry serves the side
 //! call's structured-output schema (`schema`) and, through the generated types, the App's
 //! catalogue for `@json-render/solid`.
 
@@ -11,6 +11,9 @@ pub const MAX_ENTRIES: usize = 12;
 
 /// The most words a tooltip holds.
 pub const MAX_TOOLTIP_WORDS: usize = 5;
+
+/// LH19: the most made items `agent.made` lists.
+pub const MAX_MADE: usize = 12;
 
 /// What a link is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -54,4 +57,22 @@ pub struct LinksEvent {
 #[allow(clippy::expect_used)]
 pub fn schema() -> String {
     serde_json::to_string(&schemars::schema_for!(LinkSet)).expect("a schema serialises")
+}
+
+/// LH19: what an item the Agent made for the user is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum MadeKind {
+    Pad,
+    Todo,
+    File,
+}
+
+/// LH19: one item an Agent made for the user to read. `id` is what the App opens it by: a Pad's
+/// name, a Todo's number or a Deliverable's id.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct MadeItem {
+    pub kind: MadeKind,
+    pub id: String,
+    pub title: String,
 }

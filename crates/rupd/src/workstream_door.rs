@@ -57,6 +57,9 @@ for line in sys.stdin:
         .unwrap(),
     );
     let touches = Arc::new(provenance::Touches::open(&dir).unwrap());
+    let todos = Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap());
+    let pads = Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap());
+    let publications = Arc::new(crate::deliverables::Publications::in_memory(dir.join("deliverables")));
     let mut daemon = Daemon {
         naming: Arc::new(parking_lot::Mutex::new(
             crate::data::open_naming(&crate::data::naming_path(&dir)).unwrap(),
@@ -70,8 +73,8 @@ for line in sys.stdin:
             &dir,
         )),
         modules: Default::default(),
-        todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
-        pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
+        todos: Arc::clone(&todos),
+        pads: Arc::clone(&pads),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         project_key: String::new(),
@@ -81,7 +84,8 @@ for line in sys.stdin:
         rail_told: Default::default(),
         observers: Default::default(),
         resources: Default::default(),
-        publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
+        made: Arc::new(crate::made::Made::new(todos, pads, Arc::clone(&publications))),
+        publications,
         prompt_effect_gate: None,
         actions: Default::default(),
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),

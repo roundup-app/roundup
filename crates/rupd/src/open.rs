@@ -88,6 +88,7 @@ impl Daemon {
         let agents_at = begun.elapsed();
         let agents_module: Arc<dyn Module> = agents.clone();
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
+        let publications = Arc::new(deliverables::Publications::open(dir)?);
         let mut daemon = Self {
             naming,
             modules: HashMap::new(),
@@ -122,7 +123,12 @@ impl Daemon {
             rail_told: Default::default(),
             observers: observers.clone(),
             resources: Default::default(),
-            publications: deliverables::Publications::open(dir)?,
+            made: Arc::new(crate::made::Made::new(
+                Arc::clone(&todos),
+                Arc::clone(&pads),
+                Arc::clone(&publications),
+            )),
+            publications,
             prompt_effect_gate: observers.prompt_effect_gate.clone(),
             actions: Default::default(),
             extensions: extensions::Host::new(dir.join("extensions")),
@@ -188,6 +194,7 @@ impl Daemon {
             auto: self.bus.subscribe(),
             queue: self.bus.subscribe(),
             rail: self.bus.subscribe(),
+            made: self.bus.subscribe(),
             #[cfg(test)]
             extra: Vec::new(),
         })
@@ -266,6 +273,7 @@ pub struct Watchers {
     auto: tokio::sync::broadcast::Receiver<contracts::Event>,
     queue: tokio::sync::broadcast::Receiver<contracts::Event>,
     rail: tokio::sync::broadcast::Receiver<contracts::Event>,
+    made: tokio::sync::broadcast::Receiver<contracts::Event>,
     #[cfg(test)]
     extra: Vec<std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>>,
 }
@@ -299,6 +307,7 @@ impl Watchers {
             self.resumes,
         ));
         set.spawn(owner_told::tell_owners(daemon.reader(), self.owners));
+        set.spawn(Arc::clone(&daemon.made).watch(self.made, daemon.bus.clone()));
         if let Some(waker) = daemon.waker() {
             set.spawn(waker.run(self.wakes));
         }

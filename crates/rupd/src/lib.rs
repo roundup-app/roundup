@@ -45,6 +45,7 @@ mod naming_tests;
 mod observers;
 mod open;
 mod output;
+mod made;
 mod owner_told;
 mod pr_checks;
 mod program_status;
@@ -141,7 +142,9 @@ pub struct Daemon {
     program: Arc<project_program::ProgramHost>,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
-    publications: deliverables::Publications,
+    publications: Arc<deliverables::Publications>,
+    /// LH19, LH20: what each Agent made for the user.
+    made: Arc<made::Made>,
     /// An isolated observer pauses a guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
     /// NA6: the App that answers `action.list` and `action.run`.
