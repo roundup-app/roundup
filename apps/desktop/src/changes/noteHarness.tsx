@@ -61,6 +61,8 @@ export const openFile = async (path = "src/a.ts") => {
   shown = path;
   take(row);
   await waitFor(() => { if (!screen.getAllByText(path, { selector: ".diff-path" }).some(each => each.closest(".diff-reader")?.querySelector(".diff-content"))) throw new Error(`${path} is not drawn`); });
+  // The module that was open stays until this one's first screen has painted (U7674e): the view is one scroll only after it leaves.
+  await waitFor(() => { if (document.querySelector('.module-slot[data-pending="true"]')) throw new Error(`${path}'s module is still painting`); });
   // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
   await new Promise(resolve => setTimeout(resolve, 50));
 };

@@ -363,10 +363,9 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     enter: direction => {
       const next = changes.enter(direction);
 
-      if (!next) return loading() || (drawableOf(read(), hidden()) && rendered === undefined) ? "wait" : "none";
-      moveTo(next.side, next.at[next.side]);
+      if (next) moveTo(next.side, next.at[next.side]);
 
-      return "moved";
+      return next ? "moved" : loading() || (drawableOf(read(), hidden()) && rendered === undefined) ? "wait" : "none";
     },
   }));
 

@@ -206,7 +206,7 @@
 .module-file .diff-reader { flex: none; }
 .module-file .diff-content { flex: none; overflow: visible; }
 .changes-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.changes-tree .changes-row { align-items: baseline; min-height: 0; padding: var(--space-1) var(--space-3); font: var(--text-small) var(--font-ui); text-align: start; }
+.changes-tree .changes-row { align-items: baseline; min-height: var(--space-5); padding: var(--space-1) var(--space-3); font: var(--text-small) var(--font-ui); text-align: start; }
 .changes-tree .changes-row[data-level="2"] { padding-inline-start: var(--space-5); }
 .changes-tree .changes-noise { color: var(--grey); }
 .changes-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }

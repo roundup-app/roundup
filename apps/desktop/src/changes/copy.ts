@@ -18,6 +18,7 @@ export const copy = {
   generated: "Generated",
   lockfiles: "Lockfiles",
   filesCount: filesOf,
+  rowLabel: sharedCopy.named,
   noiseRow: (kind: string, count: number) => sharedCopy.dotted(kind, filesOf(count)),
   remoteMain: "remote main",
   changeGroups: "Repositories and branches",

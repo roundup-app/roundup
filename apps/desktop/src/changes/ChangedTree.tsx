@@ -35,7 +35,7 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
 
   const marked = (files: readonly ChangedFile[]) => files.some(file => props.unfinished.has(file.path));
 
-  const label = (text: string, files: readonly ChangedFile[]) => marked(files) ? `${text}, ${copy.unfinishedWork}` : text;
+  const label = (text: string, files: readonly ChangedFile[]) => marked(files) ? copy.rowLabel(text, copy.unfinishedWork) : text;
 
   /** Each file row's module key, by the file's tree value. */
   const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(file.path), moduleKey(module.name)] as const))));
@@ -56,7 +56,7 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
   // Opening lands focus on the open row, so Escape and the keys act from the list.
   onSettled(() => { if (props.selected) controller.focus(props.selected); });
 
-  const File = (each: { file: ChangedFile; value: string; key: string; owner: string; noise?: true }) => <TreeItem value={each.value} class={each.noise ? "changes-row changes-noise row-wash" : "changes-row row-wash"} data-row="file" data-key={each.key} data-owner={each.owner} data-path={each.file.path} aria-label={`${each.file.path}, ${statusText[each.file.status]}`}
+  const File = (each: { file: ChangedFile; value: string; key: string; owner: string; noise?: true }) => <TreeItem value={each.value} class={each.noise ? "changes-row changes-noise row-wash" : "changes-row row-wash"} data-row="file" data-key={each.key} data-owner={each.owner} data-path={each.file.path} aria-label={copy.rowLabel(each.file.path, statusText[each.file.status])}
     onDblClick={() => props.onEdit(each.file.path)} onKeyDown={event => { if (event.key === "Enter") props.onEdit(each.file.path); }}>
     <Name text={each.file.path} />
     <Show when={each.file.counts}>{counts => <Counts added={counts().added} removed={counts().removed} />}</Show>
@@ -64,7 +64,7 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
 
   return <AppTree class="changes-tree" aria-label={copy.modules} items={treeItems(props.grouped)} controller={controller} activation="automatic" expanded={expanded()} onExpandedChange={setExpanded} value={props.selected ?? null} onValueChange={choose}>
     <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
-      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} aria-label={label(`${module().name}, ${copy.filesCount(module().files.length)}`, module().files)}>
+      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} aria-label={label(copy.rowLabel(module().name, copy.filesCount(module().files.length)), module().files)}>
         <Name text={module().name} />
         <span class="changes-row-files">{copy.filesCount(module().files.length)}</span>
         <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>

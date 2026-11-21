@@ -13,7 +13,7 @@ export const copy = {
   working: sharedCopy.working,
   idle: sharedCopy.idle,
   done: sharedCopy.done,
-  tabWithStatus: (name: string, status: string) => `${name}, ${status}`,
+  tabWithStatus: sharedCopy.named,
   newAgent: sharedCopy.newAgent,
   noSelectionTitle: "Nothing selected",
   noSelectionLine: "Pick an Agent in the Rail, or start one.",
