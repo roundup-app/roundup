@@ -266,12 +266,12 @@ export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number;
 };
 
 /** U7690c: G opens the list; a choice opens its file (`open`) and aims the reader at its line until `arrived`. */
-export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; opened: () => string | undefined; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean } | undefined; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
+export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean } | undefined; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
   const [jumping, setJumping] = createSignal(false);
   const [aim, setAim] = createSignal<{ path: string; side: "old" | "new"; line: number }>();
   let origin: Element | null = null;
 
-  const status = (note: Note): NoteStatus => note.sent === undefined ? deps.notes.noteState(deps.id, note) : note.comparison.newPath === deps.opened() && deps.keys()?.outdated(note) ? "outdated" : "sent";
+  const status = (note: Note): NoteStatus => note.sent === undefined ? deps.notes.noteState(deps.id, note) : deps.keys()?.outdated(note) ? "outdated" : "sent";
 
   const rows = () => jumpOrder(deps.notes.all(deps.id)).map(note => ({ note, status: status(note), listed: deps.files().some(file => file.path === note.comparison.newPath) }));
 
