@@ -219,3 +219,11 @@
 /* The next module paints over the one that stays until its first screen is drawn. */
 .changes-body { position: relative; }
 .module-slot[data-pending="true"] { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: calc(100% - min(40%, calc(var(--space-6) * 10)) - var(--space-3)); opacity: 0; pointer-events: none; }
+.note-label button[aria-pressed="true"], .note-form button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
+.note-label { display: flex; gap: var(--space-3); }
+.note-replacement { margin: 0; font: var(--text-small) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.note-jump .app-combobox-input { border-bottom: 0; }
+.note-jump-path { font-family: var(--font-mono); }
+.note-jump-path, .note-jump-meta { flex-shrink: 0; white-space: nowrap; }
+.note-jump-text { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-field .note-input { font-family: var(--font-mono); }

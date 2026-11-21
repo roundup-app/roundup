@@ -2,14 +2,14 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import { DiffReader } from "./DiffReader";
-import type { DiffKeys } from "./DiffReader";
+import type { DiffKeys, DiffTarget } from "./DiffReader";
 import type { Shared } from "./diffDraw";
 import type { Places } from "./lines";
 import { NoteBatch } from "./NoteBatch";
 import type { Note, Notes } from "./notes";
 
 /** U7678c: one module's hunks as one scroll: each file under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
-export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; onReady: () => void; to: CompareTarget; notes: Notes; recover: () => void }) => {
+export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; notes: Notes; recover: () => void }) => {
   let scroller: HTMLDivElement | undefined;
   const sections = new Map<string, HTMLElement>();
   const readers = new Map<string, DiffKeys>();
@@ -130,13 +130,15 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
     note: () => here()?.note(),
     edit: () => here()?.edit(),
     remove: () => here()?.remove(),
+    at: () => here()?.at() ?? { path: current, side: "new", line: 1 },
+    outdated: note => readers.get(note.comparison.newPath)?.outdated(note) ?? false,
   }));
 
   return <div class="module-pane">
     <div class="module-scroll" tabindex="-1" aria-label={props.name} ref={element => { scroller = element; shared.scroller = element; }}>
     <For each={paths()}>{path => <section class="module-file" data-path={path} style={{ "min-block-size": `calc(var(--space-5) * ${lines(path)})` }} ref={element => { sections.set(path, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(path); readers.delete(path); }); }}>
       <Show when={wanted().has(path)} fallback={<header class="diff-header"><p class="diff-path">{path}</p></header>}>
-        <DiffReader shared={shared} batch={false} counts={fileOf(path)?.counts} id={props.id} name={props.name} path={path} blob={fileOf(path)?.blob} places={props.places} to={props.to} notes={props.notes} editing={editing()?.comparison.newPath === path ? editing() : undefined} onEdited={() => setEditing(undefined)} onFocus={() => { current = path; }} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(path, api); resume(); }} recover={props.recover} />
+        <DiffReader shared={shared} batch={false} counts={fileOf(path)?.counts} id={props.id} name={props.name} path={path} blob={fileOf(path)?.blob} places={props.places} to={props.to} notes={props.notes} editing={editing()?.comparison.newPath === path ? editing() : undefined} onEdited={() => setEditing(undefined)} onFocus={() => { current = path; }} target={props.target?.path === path ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(path, api); resume(); }} recover={props.recover} />
       </Show>
     </section>}</For>
     </div>

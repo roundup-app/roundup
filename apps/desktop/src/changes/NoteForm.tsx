@@ -4,10 +4,15 @@ import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { Tabs } from "../ui/Tabs";
 import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
+import { extrasOf, changed, LabelRow, optionalOf, ReplacementField, sameExtras, sourceOf, suggestionOf } from "./NoteExtras";
+import type { Extras } from "./NoteExtras";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Note, Notes, NoteFormDraft } from "./notes";
 
-type Fields = Pick<NoteFormDraft, "side" | "start" | "end" | "text">;
+type Fields = Pick<NoteFormDraft, "side" | "start" | "end" | "text"> & Extras;
+
+/** The note the field was opened on, with nothing changed. */
+const unedited = (note: Note, fields: Fields) => fields.text === note.text && fields.side === note.side && fields.start === String(note.start) && fields.end === String(note.end) && sameExtras(fields, extrasOf(note));
 
 /** Keyboard selection uses the same source and inclusive range as Pierre's gutter selection. */
 export const NoteForm = (props: { id: string; comparison: FileComparison; notes: Notes; selection: { side: "old" | "new"; start: number; end: number }; editing?: Note | undefined; recovered?: NoteFormDraft | undefined; close: () => void; /** U7677d: the field holds or loses focus, for the gutter bar. */ focus?: ((active: boolean) => void) | undefined }) => {
@@ -23,6 +28,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
     start: restored?.start ?? String(editing?.start ?? selection.start),
     end: restored?.end ?? String(editing?.end ?? selection.end),
     text: restored?.text ?? editing?.text ?? "",
+    ...extrasOf(restored, editing),
   };
 
   const [fields, setFields] = createSignal(initial);
@@ -32,6 +38,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   const start = () => fields().start;
   const end = () => fields().end;
   const text = () => fields().text;
+  const replacement = () => fields().replacement;
   let field: HTMLTextAreaElement | undefined;
   let disposed = false;
   const [active, setActive] = createSignal(false);
@@ -52,13 +59,13 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
     if (closing) return;
 
     props.notes.editForm(props.id, {
-      revision, comparison, replacing: replacing ?? null, ...written,
+      revision, comparison, replacing: replacing ?? null, side: written.side, start: written.start, end: written.end, text: written.text, ...optionalOf(written),
       selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : restored?.selection ?? props.editing?.selection ?? null,
     });
   };
 
   const edit = (change: Partial<Fields>) => {
-    written = { ...written, ...change };
+    written = changed(comparison, written, change);
     setFields(written);
     persist();
   };
@@ -81,7 +88,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
 
     if (!valid()) return;
     closing = true;
-    const stored = await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision);
+    const stored = await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: sourceOf(comparison, fields()), text: text(), ...optionalOf({ label: fields().label, replacement: suggestionOf(comparison, fields()) }), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision);
 
     closing = stored && !disposed && text() === submitted;
 
@@ -91,7 +98,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   // U170: the Save click holds the save, so the button is busy while it runs; Enter clicks it too.
   // U7676b: Esc keeps typed text as unfinished work; an empty or unchanged field leaves nothing behind.
   const leave = () => {
-    const untouched = text().trim() === "" || (editing !== undefined && text() === editing.text && side() === editing.side && start() === String(editing.start) && end() === String(editing.end));
+    const untouched = text().trim() === "" || (editing !== undefined && unedited(editing, fields()));
 
     if (untouched) void props.notes.discardForm(props.id, revision);
     props.close();
@@ -119,6 +126,8 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
         if (selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
       });
     }} /></label>
+    <LabelRow fields={fields()} comparison={comparison} edit={edit} />
+    <ReplacementField value={replacement()} edit={text => edit({ replacement: text })} />
     <StatusNote text={(comparison.oldPath !== props.comparison.oldPath || comparison.newPath !== props.comparison.newPath || comparison.base !== props.comparison.base || comparison.old.revision !== props.comparison.old.revision || comparison.new.revision !== props.comparison.new.revision ? copy.originalContextStatus : null) || (props.notes.list(props.id).length >= 200 ? copy.notesFull : copy.chooseLines) || null} />
     <div class="diff-actions"><p class="note-hint">{copy.saveHint}</p><BusyButton kind="quiet" type="submit" disabled={!valid()} busyLabel={copy.saving} onClick={event => {
       event.preventDefault();

@@ -18,6 +18,7 @@ import { createLate } from "./late";
 import { ChangedTree, moduleKey, noiseKey } from "./ChangedTree";
 import { groupModules } from "./modules";
 import type { DiffKeys } from "./DiffReader";
+import { createJump } from "./NoteBatch";
 import "./styles.css";
 
 const ModuleScroll = lazy(() => loadReader().then(module => ({ default: module.ModuleScroll })));
@@ -55,7 +56,7 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void };
+type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
@@ -66,9 +67,16 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["n"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.note(); } },
   { chords: ["e"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.edit(); } },
   { chords: ["Delete", "Backspace"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.remove(); } },
+  { chords: ["g"], when: event => !typing(event), run: event => { event.preventDefault(); actions.jump(); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.diff()?.focus(); } },
 ]);
+
+/** The targets a comparison can end on: a Tree and a Branch only for an Agent with a Worktree. */
+const segmentsOf = (hasWorktree: boolean): { value: ChangeTarget; label: string }[] => [
+  ...hasWorktree ? [{ value: "tree" as const, label: copy.targetTree }, { value: "branch" as const, label: copy.targetBranch }] : [],
+  { value: "changes", label: copy.changes },
+];
 
 /** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
 const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? repo.slice(root.length + 1) : repo.split("/").filter(Boolean).at(-1) ?? repo;
@@ -256,7 +264,17 @@ const Surface = (props: { id: string; name: string }) => {
     focusTree(next);
   };
 
-  registerChangesKeys(() => section, { step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on) });
+  // U7690c: a note's file opens in its module's scroll, at that file.
+  const openPath = (path: string) => {
+    const module = grouped().modules.find(each => each.files.some(file => file.path === path));
+    const key = module ? moduleKey(module.name) : noiseKey(path);
+
+    if (rows().includes(key)) choosePath(key, path);
+  };
+
+  const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, section: () => section, open: openPath });
+
+  registerChangesKeys(() => section, { jump: jump.open, step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on) });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
@@ -270,11 +288,6 @@ const Surface = (props: { id: string; name: string }) => {
     changeTargets.choose(props.id, value);
     setPicked(undefined);
   };
-
-  const segments = (): { value: ChangeTarget; label: string }[] => [
-    ...worktree() === null ? [] : [{ value: "tree" as const, label: copy.targetTree }, { value: "branch" as const, label: copy.targetBranch }],
-    { value: "changes", label: copy.changes },
-  ];
 
   const editChosen = (chosen: string) => {
     const file = files().find(each => each.path === chosen);
@@ -294,8 +307,8 @@ const Surface = (props: { id: string; name: string }) => {
       <span class="changes-name">{props.name}</span>
       <span class="changes-from"><span>{copy.compareFrom}</span> {copy.remoteMain}</span>
       <Show when={remote.chip()}>{chip => <RemoteChip chip={chip()} fetch={remote.fetch} retry={remote.retry} />}</Show>
-      <Show when={segments().length > 1} fallback={<span class="changes-to"><span>{copy.compareTo}</span> <span class="changes-to-value">{copy.changes}</span></span>}>
-        <SegmentGroup label={copy.compareTo} segments={segments()} value={target()} onValueChange={choose} />
+      <Show when={worktree() !== null} fallback={<span class="changes-to"><span>{copy.compareTo}</span> <span class="changes-to-value">{copy.changes}</span></span>}>
+        <SegmentGroup label={copy.compareTo} segments={segmentsOf(worktree() !== null)} value={target()} onValueChange={choose} />
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
       <button type="button" data-button="quiet" onClick={close}>{copy.closeChanges}</button>
@@ -314,6 +327,7 @@ const Surface = (props: { id: string; name: string }) => {
         </ul>
       </section>
     </Show>
+    {jump.list()}
     <div class="changes-body">
       <div class="changes-side">
         <Show when={groups().length > 1 && !own()}>
@@ -326,7 +340,7 @@ const Surface = (props: { id: string; name: string }) => {
         </Show>
       </div>
       <For each={panes()}>{pane => <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} notes={notes} recover={() => showView("notes")} /></Loading>
+        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} notes={notes} recover={() => showView("notes")} /></Loading>
       </div>}</For>
     </div>
   </section>;

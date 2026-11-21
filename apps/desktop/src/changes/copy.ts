@@ -95,6 +95,8 @@ export const copy = {
     /** @prose */
     "E edits and Delete removes the note on the focused line.",
     /** @prose */
+    "G lists every note and jumps to the one you choose.",
+    /** @prose */
     "? shows this list.",
   ],
   noDifference: "No remaining difference",
@@ -127,6 +129,11 @@ export const copy = {
   removeNote: (number: number) => `Remove note ${number}`,
   sendNotesTo: (name: string) => `Send notes: ${name}`,
   lineNote: "Line note",
+  /** U7690a: the label's words, by data value; the group, the replacement button and field (U7690b). */
+  label: "Label",
+  labels: { question: "Question", nit: "Nit", issue: "Issue" },
+  suggestChange: "Suggest a change",
+  replacement: "Replacement",
   noteSide: "Side",
   oldSide: "Old",
   newSide: sharedCopy.newWord,
@@ -158,6 +165,11 @@ export const copy = {
   /** A line range under a path: "51" or "51–53". */
   lineSpan: (start: number, end: number) => start === end ? `${start}` : `${start}-${end}`,
   outdated: "Outdated",
+  /** U7690c: the jump list. */
+  jumpToNote: "Jump to note",
+  jumpPlaceholder: "Find a note",
+  noNotesFound: "No note matches.",
+  noLongerChanged: "No longer changed",
   showAll: "Show all",
   editTip: "Edit (E)",
   removeTip: "Remove (Delete)",

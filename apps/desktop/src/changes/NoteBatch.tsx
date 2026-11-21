@@ -1,3 +1,4 @@
+import "../ui/Combobox.css";
 import { EmptyState } from "../ink/EmptyState";
 import { captureFocus } from "../keys/focus";
 import { createItemFailures } from "../ink/itemFailures";
@@ -7,7 +8,11 @@ import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { createWritableMemo } from "@solid-primitives/memo";
-import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@ui-sdk/solid/command";
+import { range, words } from "./NoteView";
+import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import type { NoteStatus } from "./NoteView";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { dismissable } from "../ink/recovery";
 import { DialogFailure, InlineStatus, StatusNote } from "../ink/MountedLine";
@@ -216,3 +221,89 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 
 /** Recovery uses the same path, range and text presentation as live notes. */
 const RecordPreview = (props: { rows: readonly (Note | NoteFormDraft)[]; older?: (comparison: FileComparison) => boolean | undefined }) => <For each={props.rows} fallback={<p>{copy.unreadableNoteDraft}</p>}>{note => <div class="note-recovered-batch"><p class="note-path">{note.comparison.newPath}<Show when={props.older?.(note.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(note.side, Number(note.start) === Number(note.end) ? `${Number(note.start)}` : `${Number(note.start)}–${Number(note.end)}`, Number(note.start) === Number(note.end))}</p><p class="note-text">{note.text}</p></div>}</For>;
+
+
+/** U7690c: a note in the jump list: its state, and whether its file is still in the change. */
+export type JumpRow = { note: Note; status: NoteStatus; listed: boolean };
+
+/** U7690c: the notes of one Agent in file order: the files in path order, then line, the old side before the new. */
+export const jumpOrder = (notes: readonly Note[]) => [...notes].sort((left, right) => (left.comparison.newPath < right.comparison.newPath ? -1 : left.comparison.newPath > right.comparison.newPath ? 1 : 0) || left.start - right.start || Number(left.side === "new") - Number(right.side === "new") || left.id - right.id);
+
+/** U7690c: every note of the Agent in one list; ui-sdk's Command owns the highlight, Up, Down and Enter, and the query only narrows it. */
+export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number; choose: (note: Note) => void; close: () => void }) => {
+  const [query, setQuery] = createSignal("");
+  const [value, setValue] = createSignal<string | null>(null);
+  const text = (row: JumpRow) => `${row.note.comparison.newPath} ${range(row.note)} ${row.note.label ?? ""} ${row.note.text}`.toLowerCase();
+  const shown = () => props.rows.filter(row => text(row).includes(query().trim().toLowerCase()));
+  const key = (row: JumpRow) => String(row.note.id);
+  let input: HTMLInputElement | undefined;
+
+  // ui-sdk 0.1.0-beta.5 recurses without end when a Command unmounts in the turn it mounted while its value names a row, so the value names one only once settled.
+  onSettled(() => {
+    const row = props.rows[props.highlighted];
+
+    setValue(row ? key(row) : null);
+    input?.focus({ preventScroll: true });
+  });
+
+  return <section class="note-jump" aria-label={copy.jumpToNote}>
+    <Command class="app-combobox" value={value()} loop={false} filter={false} query={query()} onValueChange={(next, details) => { if (details.reason === "item-hover") details.cancel(); else setValue(next); }} onQueryChange={(next, details) => { if (details.reason === "escape-key") details.cancel(); else setQuery(next); }} onAction={chosen => {
+      const row = props.rows.find(each => key(each) === chosen);
+
+      if (row?.listed) props.choose(row.note);
+    }}>
+      <CommandInput class="app-combobox-input" aria-label={copy.jumpToNote} placeholder={copy.jumpPlaceholder} spellcheck="false" autocorrect="off" autocapitalize="off" ref={element => { input = element; }} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.close(); } }} />
+      <CommandEmpty class="app-combobox-empty">{copy.noNotesFound}</CommandEmpty>
+      <CommandList class="app-combobox-list" aria-label={copy.notes}>
+        <For each={shown()}>{row => <CommandItem class="app-combobox-item" value={key(row)} label={`${row.note.comparison.newPath} ${range(row.note)}`}>
+          <span class="note-jump-path">{row.note.comparison.newPath}</span>
+          <span class="note-jump-meta">{range(row.note)}{row.note.label === undefined ? "" : copy.dottedAfter(copy.labels[row.note.label])}{copy.dottedAfter(words(row.status, row.note))}{row.listed ? "" : copy.dottedAfter(copy.noLongerChanged)}</span>
+          <span class="note-jump-text">{row.note.text.split("\n")[0]}</span>
+        </CommandItem>}</For>
+      </CommandList>
+    </Command>
+  </section>;
+};
+
+/** U7690c: G opens the list; a choice opens its file (`open`) and aims the reader at its line until `arrived`. */
+export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; opened: () => string | undefined; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean } | undefined; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
+  const [jumping, setJumping] = createSignal(false);
+  const [aim, setAim] = createSignal<{ path: string; side: "old" | "new"; line: number }>();
+  let origin: Element | null = null;
+
+  const status = (note: Note): NoteStatus => note.sent === undefined ? deps.notes.noteState(deps.id, note) : note.comparison.newPath === deps.opened() && deps.keys()?.outdated(note) ? "outdated" : "sent";
+
+  const rows = () => jumpOrder(deps.notes.all(deps.id)).map(note => ({ note, status: status(note), listed: deps.files().some(file => file.path === note.comparison.newPath) }));
+
+  // The first note after the focused line in file order, else the first.
+  const start = (list: readonly JumpRow[]) => {
+    const at = deps.keys()?.at();
+    const after = at === undefined ? -1 : list.findIndex(({ note }) => note.comparison.newPath > at.path || (note.comparison.newPath === at.path && (note.start > at.line || (note.start === at.line && note.side === "new" && at.side === "old"))));
+
+    return Math.max(after, 0);
+  };
+
+  // Esc returns focus to where it was, the view when that element cannot take it; the view first, so the list's field never holds it as it leaves.
+  const close = () => {
+    deps.section()?.focus();
+
+    if (origin instanceof HTMLElement && origin.isConnected && deps.section()?.contains(origin)) origin.focus();
+    setJumping(false);
+  };
+
+  const choose = (note: Note) => {
+    setJumping(false);
+    deps.open(note.comparison.newPath);
+    setAim({ path: note.comparison.newPath, side: note.side, line: note.start });
+  };
+
+  return {
+    aim, arrived: () => setAim(undefined),
+    open: () => {
+      if (deps.notes.all(deps.id).length === 0) return;
+      origin = document.activeElement;
+      setJumping(true);
+    },
+    list: () => <Show when={jumping()}><NoteJump rows={untrack(rows)} highlighted={untrack(() => start(rows()))} choose={choose} close={close} /></Show>,
+  };
+};

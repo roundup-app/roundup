@@ -17,7 +17,13 @@ const dense = new URLSearchParams(location.search).has("dense");
 // U7677f: 60 edited lines with 50 notes on them, one of 2,000 characters.
 const worst = new URLSearchParams(location.search).has("worst");
 
+// U7690d: ?worst=100 holds 100 notes, a fifth of them on a second file; ?spread holds three notes over two files, so the jump list reads across files.
+const count = Number(new URLSearchParams(location.search).get("worst")) || 50;
+
+const spread = new URLSearchParams(location.search).has("spread");
+
 const size = dense ? 10000 : worst ? 60 : 0;
+
 
 const controls = seedApp("tree-40", Date.now());
 
@@ -83,7 +89,9 @@ if (new URLSearchParams(location.search).has("submit-failure")) {
 
 render(() => createComponent(App, { app, reducedMotion: () => true, clock: Date.now, prepareIdle: open => { window.__worktrees = open.worktrees; } }), document.getElementById("root"));
 
-if (size) {
+const elsewhere = { ...comparison, oldPath: "src/file-0.ts", newPath: "src/file-0.ts" };
+
+if (size || spread) {
   // The bottom bar's mounted control registers the App-owned holder before fixture edits enter it.
   if (!document.querySelector(".resource-strip")) await new Promise(resolve => {
     const observer = new MutationObserver(() => {
@@ -93,7 +101,8 @@ if (size) {
     });
     observer.observe(document.getElementById("root"), { childList: true, subtree: true });
   });
-  for (let i = 0; i < (dense ? 100 : 50); i++) notesFor(app, app.opened.project.path).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: worst && i === 0 ? "Rename this once the callers agree. ".repeat(56).slice(0, 2000) : `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
+  if (spread) for (const [i, where] of [comparison, elsewhere, comparison].entries()) notesFor(app, app.opened.project.path).save("agent-1", { comparison: where, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: `Note ${i + 1}: retain original context` });
+  if (size) for (let i = 0; i < (dense ? 100 : count); i++) notesFor(app, app.opened.project.path).save("agent-1", { comparison: count > 50 && i % 5 === 4 ? elsewhere : comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: worst && i === 0 ? "Rename this once the callers agree. ".repeat(56).slice(0, 2000) : `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
 }
 
 </script></body></html>
