@@ -26,7 +26,7 @@ export const NoteView = (props: { note: Note; status: NoteStatus; edit: () => vo
   const removable = () => props.status !== "sending" && props.status !== "unknown";
 
   // SAFETY: relatedTarget is null or the Node focus moved to.
-  return <article class="note-view" data-surface="diff" data-state={props.status} tabindex="0" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusIn={() => setFocused(true)} onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
+  return <article class="note-view" data-surface="diff" data-state={props.status} data-focused={focused() || undefined} tabindex="0" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusIn={() => setFocused(true)} onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
     <p class="note-body" onClick={() => { if (editable()) props.edit(); }}>{(folded() ? lines().slice(0, limit()) : lines()).join("\n")}</p>
     <p class="note-meta">{range(props.note)}{copy.dottedAfter(words(props.status, props.note))}<Show when={folded()}>{copy.dottedAfter("")}<button type="button" data-button="quiet" onClick={() => setOpen(true)}>{copy.showAll}</button></Show></p>
     <Show when={hovered() || focused()}><div class="note-actions">

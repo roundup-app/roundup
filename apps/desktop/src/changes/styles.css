@@ -16,25 +16,30 @@
 .diff-path { margin: 0; overflow-wrap: anywhere; }
 .diff-content { overflow-anchor: none; flex: 1; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 /* U7677a: the diff is a light surface in both App modes; a note drawn under its lines takes the diff's colours, the notes bar keeps the App's. */
-[data-surface="diff"] { --text: var(--diff-text); --grey: var(--diff-grey); --sunken: var(--diff-ground); --accent: var(--diff-accent); color-scheme: light; color: var(--text); background: var(--sunken); }
+[data-surface="diff"] { --text: var(--diff-text); --grey: var(--diff-grey); --sunken: var(--diff-ground); --accent: var(--diff-accent); --form-ground: var(--diff-ground); --form-border: var(--diff-grey); color-scheme: light; color: var(--text); background: var(--sunken); }
 /* U7677a: the note starts on the code text and carries the bar down beside it, so it reads as attached to its lines. */
 .note-view { display: flex; flex-direction: column; gap: var(--space-1); position: relative; padding: var(--space-2) var(--space-3); font: var(--text-body) var(--font-ui); outline: none; background: var(--note-surface); }
 /* U7677e: a Sent or Outdated note is dimmed by its grey ink, so its text keeps D5. */
 .note-view[data-state="sent"], .note-view[data-state="outdated"] { color: var(--grey); }
+/* U7677c: a note that holds focus draws the full bar, as the composer does. */
+.note-view[data-focused] { background: var(--note-surface-focused); }
 .note-view p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .note-body { cursor: text; }
 .note-meta { color: var(--grey); font-size: var(--text-small); }
 .note-actions { position: absolute; inset-block-start: var(--space-1); inset-inline-end: var(--space-2); display: flex; gap: var(--space-1); }
 .note-form { display: flex; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-2) var(--space-3); font: var(--text-body) var(--font-ui); background: var(--note-surface); }
 .note-form[data-focused] { background: var(--note-surface-focused); }
-.note-input { width: 100%; border: 0; outline: none; background: var(--transparent); color: inherit; font: inherit; resize: none; overflow-y: auto; overscroll-behavior: contain; }
+/* U7677d: the field is borderless on the note's ground; the form's bar marks focus, so no ring and no grip. It outranks the shared `.note-form textarea` paint. */
+.note-form .note-input { width: 100%; padding: 0; border: 0; outline: none; background: var(--transparent); color: inherit; font: inherit; resize: none; overflow-y: auto; overscroll-behavior: contain; }
+.note-form .note-input:focus-visible { outline: none; }
 .note-hint { margin-inline-end: auto; color: var(--grey); font-size: var(--text-small); }
 .note-form label { display: flex; flex-direction: column; gap: var(--space-1); }
 .note-form input { width: calc(var(--space-6) * 3); }
 .note-field { flex: 1 0 100%; }
-.note-form textarea { min-height: calc(var(--space-6) * 2); resize: vertical; }
 .note-batch { min-height: 0; max-height: calc(var(--space-6) * 8); overflow-y: auto; overscroll-behavior: contain; flex: none; }
-.note-batch ul { margin: 0; padding: 0; list-style: none; }
+.note-batch ul, .note-group { margin: 0; padding: 0; list-style: none; }
+.note-group li { padding-block: var(--space-2); }
+.note-group p { margin: 0; }
 .note-batch li { padding-block: var(--space-2); }
 .note-batch p { margin: 0; overflow-wrap: anywhere; }
 .note-text { white-space: pre-wrap; }
@@ -51,7 +56,8 @@
 .note-batch li { padding-inline-end: var(--space-3); }
 
 .note-form p { flex: 1; }
-.note-form .diff-actions { margin-inline-start: auto; }
+/* U7677d: the footer takes its own row, the hint left and Save right. */
+.note-form .diff-actions { flex: 1 0 100%; }
 
 .note-batch button { margin-block-start: var(--space-2); }
 /* U7676d: the bar's controls sit in one wrapped row with a gap between them; its lines and list take a row each. */

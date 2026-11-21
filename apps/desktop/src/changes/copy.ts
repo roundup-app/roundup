@@ -140,12 +140,12 @@ export const copy = {
   notSent: "Not sent",
   /** U7677b: the meta line's range: "Line 51", "Lines 51-53", "Old lines 4-6". */
   newLine: (line: number) => `Line ${line}`,
-  newLines: (start: number, end: number) => `Lines ${start}-${end}`,
+  newLines: (start: number, end: number) => `Lines ${copy.lineSpan(start, end)}`,
   oldLine: (line: number) => `Old line ${line}`,
-  oldLines: (start: number, end: number) => `Old lines ${start}-${end}`,
+  oldLines: (start: number, end: number) => `Old lines ${copy.lineSpan(start, end)}`,
   sentAt: (at: number | undefined) => `Sent ${clockTime.format(at)}`,
   /** A line range under a path: "51" or "51–53". */
-  lineSpan: (start: number, end: number) => start === end ? `${start}` : `${start}–${end}`,
+  lineSpan: (start: number, end: number) => start === end ? `${start}` : `${start}-${end}`,
   outdated: "Outdated",
   showAll: "Show all",
   editTip: "Edit (E)",
