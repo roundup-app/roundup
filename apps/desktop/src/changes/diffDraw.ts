@@ -20,6 +20,15 @@ export const lineAnnotations = (value: FileComparison | undefined, notes: readon
     : []),
 ];
 
+/** U7676c: draws the annotations under their lines, opens the folds that hide them (U7692b: an unchanged line is a new-side line) and keeps the focused line selected (U7676a). */
+export const annotate = (view: VirtualizedFileDiff<Annotated>, lines: readonly DiffLineAnnotation<Annotated>[], at: LineSelection) => {
+  view.render({ lineAnnotations: [...lines] });
+
+  for (const { side, lineNumber, metadata } of lines) if (side === "additions") { view.revealLine("unfinished" in metadata ? lineNumber : metadata.start); view.revealLine(lineNumber); }
+
+  view.setSelectedLines({ side: sideName(at.side), start: at.start, end: at.end });
+};
+
 /** U7676c: the notes whose comparison is not the open one; they stay in the batch and gather after the file's last line. */
 export const gatheredNotes = (value: FileComparison | undefined, notes: readonly Note[]) => value ? notes.filter(note => note.comparison.newPath === value.newPath && !sameRevisions(note.comparison, value)) : [];
 

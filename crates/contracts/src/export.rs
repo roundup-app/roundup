@@ -82,6 +82,8 @@ pub fn types() -> specta::Types {
         .register::<crate::agent::ChangedFilesParams>()
         .register::<crate::agent::CompareTarget>()
         .register::<crate::agent::CompareFileParams>()
+        .register::<crate::agent::RemoteMain>()
+        .register::<crate::agent::FetchedMain>()
         .register::<crate::agent::FileContent>()
         .register::<crate::agent::FileComparison>()
         .register::<crate::agent::Landed>()

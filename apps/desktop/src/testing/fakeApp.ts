@@ -41,6 +41,7 @@ const emptyReads: Handlers = {
   "machine.sshHosts": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "agent.ownedChanges": () => ({ groups: [] }),
+  "agent.remoteMain": () => ({ kind: "none" }),
   "agent.repeatScan": ({ id }) => repeatScanFixture(id),
   "agent.callPaths": ({ language }) => (language ? { state: "noServer", cause: { kind: "notInstalled", detail: `no language server is known for ${language}` } } : { languages: [] }),
   "agent.readback": () => ({ state: "notRead" }),

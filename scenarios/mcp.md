@@ -38,6 +38,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `project.resources` | the App's Resource strip (D8, U408): an Agent reading how hungry its peers are would gain nothing it can act on, and each call samples the operating system |
 | `open_target` | the user's Cmd+click on a Terminal's link (U365): an Agent that could open a URL or a path launches an app on the user's Mac |
 | `agent.changedFiles`, `agent.compareFile` | the App's Worktree panel and file comparison (U2539b, U2540a): an Agent reads its own diff with git, and a peer's Worktree is not its to list or read |
+| `agent.remoteMain`, `agent.fetchRemoteMain` | U7693: the App's Changes header asks the remote and fetches with the owner's own git credentials; an Agent runs git itself |
 | `open_in_editor` | the user's click on a Rail row's editor icon (U429): an Agent that could call it launches an app on the user's Mac |
 | `plugin:clipboard-manager\|write_text` | the user’s clipboard; Agents cannot overwrite it (U3560a) |
 | `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |

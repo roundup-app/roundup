@@ -9,6 +9,8 @@ import { SegmentGroup } from "../ui/SegmentGroup";
 import { isDoor } from "../state/doorNode";
 import type { ChangeTarget } from "../state/changeTargets";
 import { copy } from "./copy";
+import { causeOf, createRemoteMain } from "./remote";
+import { RemoteChip } from "./RemoteChip";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
 import { createEditor } from "./editor";
@@ -59,6 +61,7 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["k"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(-1); } },
   { chords: ["]"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(1); } },
   { chords: ["["], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(-1); } },
+  { chords: ["v"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.reveal(); } },
   { chords: ["n"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.note(); } },
   { chords: ["e"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.edit(); } },
   { chords: ["Delete", "Backspace"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.remove(); } },
@@ -155,6 +158,13 @@ const Surface = (props: { id: string; name: string }) => {
     if (own()) refresh(listed); else void owned.refresh(props.id);
   };
 
+  // U7693c: only the Fetch click lists again and reads the open file again, once, after the list answers.
+  let diffKeys: DiffKeys | undefined;
+
+  const remote = createRemoteMain(app, untrack(() => props.id), () => !pending(), () => {
+    void (own() ? refresh(listed) : owned.refresh(props.id)).then(() => diffKeys?.reload());
+  });
+
   const toLabel = () => target() === "tree" ? copy.targetTree : target() === "branch" ? copy.targetBranch : copy.changes;
 
   const empty = () => !pending() && failure() === null && files().length === 0;
@@ -183,7 +193,6 @@ const Surface = (props: { id: string; name: string }) => {
 
   // U7675e: J and K step files from anywhere, ] and [ step changes, Tab crosses from the list to the diff, ? lists them.
   const [help, setHelp] = createSignal(false);
-  let diffKeys: DiffKeys | undefined;
 
   const step = (direction: 1 | -1) => {
     const order = treeOrder(files());
@@ -245,12 +254,14 @@ const Surface = (props: { id: string; name: string }) => {
     <header class="changes-head">
       <span class="changes-name">{props.name}</span>
       <span class="changes-from"><span>{copy.compareFrom}</span> {copy.remoteMain}</span>
+      <Show when={remote.chip()}>{chip => <RemoteChip chip={chip()} fetch={remote.fetch} retry={remote.retry} />}</Show>
       <Show when={segments().length > 1} fallback={<span class="changes-to"><span>{copy.compareTo}</span> <span class="changes-to-value">{copy.changes}</span></span>}>
         <SegmentGroup label={copy.compareTo} segments={segments()} value={target()} onValueChange={choose} />
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
       <button type="button" data-button="quiet" onClick={close}>{copy.closeChanges}</button>
     </header>
+    <Show when={remote.chip()}>{chip => <Show when={causeOf(chip()) !== ""}><p class="changes-remote-cause">{causeOf(chip())}</p></Show>}</Show>
     <Show when={failure() !== null}>
       <BlockedFailure message={missing() ? copy.folderGone(props.name) : `${copy.compareFailed(copy.remoteMain, toLabel())}: ${failure()}`} recover={{ run: retry }} />
       <StatusNote text={missing() && checked() ? copy.stillMissing : null} />
