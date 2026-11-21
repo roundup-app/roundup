@@ -8,7 +8,7 @@ import { agent, event } from "../testing/nodes";
 import { WORKTREE } from "./harness";
 import { message } from "../testing/centreFixture";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch, cancelNote } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch, leaveNote } from "./noteHarness";
 
 import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
@@ -79,7 +79,7 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
   expect(noteCount()).toBe(1);
   startNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "cancel me" } });
-  cancelNote();
+  leaveNote();
   expect(noteCount()).toBe(1);
 });
 
@@ -109,7 +109,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   startNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished a 🐝\n  " } });
-  cancelNote();
+  leaveNote();
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("b", "working", "building", { worktree: { ...WORKTREE, branch: "roundup/b", path: "/p/b" } })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "b")).toBe(true));
@@ -135,7 +135,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   expect(batch.textContent).not.toContain(secondText);
   startNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished a 🐝\n  ");
-  cancelNote();
+  leaveNote();
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
   fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
@@ -164,13 +164,13 @@ it("u2540b_refresh_keeps_original_context", async () => {
   await waitFor(() => expect(document.activeElement).toBe(field));
   expect(field).toHaveProperty("value", "  unfinished 🐝\nexact  ");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-  cancelNote();
+  leaveNote();
   await openBatch();
   await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
   await openBatch();
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "original");
-  cancelNote();
+  leaveNote();
   app.handlers["message.send"] = params => message(1, { body: params.body, to: params.to });
   fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
@@ -286,7 +286,7 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   read?.mockRestore();
 
   if (original) expect(localStorage.getItem("roundup:drafts:/p")).toBe(original);
-  cancelNote();
+  leaveNote();
   startNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "retain exact newer");
 });
@@ -510,7 +510,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", exact);
 
   if (action === "save") fireEvent.click(within(recovery).getByRole("button", { name: "Save" }));
-  else cancelNote();
+  else leaveNote();
   await waitFor(() => expect(within(recovery).queryByRole("alert") !== null).toBe(action === "cancel"));
   expect(recovery.textContent).toContain(exact);
   expect(recovery.textContent).toContain(saved);
