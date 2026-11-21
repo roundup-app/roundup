@@ -8,6 +8,7 @@ export const copy = {
   sending: sharedCopy.sending,
   saving: sharedCopy.saving,
   changes: "Changes",
+  topLevel: "Top level",
   remoteMain: "remote main",
   changeGroups: "Repositories and branches",
   compareFrom: "From",

@@ -1,7 +1,8 @@
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import { copy } from "./copy";
 
 /** U7678b: the name of the module a file with no directory left belongs to. */
-export const TOP_LEVEL = "Top level";
+export const TOP_LEVEL = copy.topLevel;
 
 const SOURCE_ROOTS = new Set(["src", "lib", "test", "tests", "__tests__", "spec"]);
 
@@ -32,13 +33,17 @@ export const isTest = (path: string): boolean => {
 
 export type NoiseKind = "generated" | "lockfile";
 
+const GENERATED: NoiseKind = "generated";
+
+const LOCKFILE: NoiseKind = "lockfile";
+
 /** U7678b: a lockfile or a generated file by its path, else `undefined`. */
 export const noiseOf = (path: string): NoiseKind | undefined => {
   const base = nameOf(path);
 
-  if (base === "go.sum" || base === "bun.lockb" || base.endsWith(".lock") || base.endsWith("-lock.json") || base.endsWith("-lock.yaml")) return "lockfile";
+  if (base === "go.sum" || base === "bun.lockb" || base.endsWith(".lock") || base.endsWith("-lock.json") || base.endsWith("-lock.yaml")) return LOCKFILE;
 
-  if (directoriesOf(path).some(each => GENERATED_DIRECTORIES.has(each)) || base.includes(".generated.") || base.endsWith(".min.js") || base.endsWith(".min.css")) return "generated";
+  if (directoriesOf(path).some(each => GENERATED_DIRECTORIES.has(each)) || base.includes(".generated.") || base.endsWith(".min.js") || base.endsWith(".min.css")) return GENERATED;
 
   return undefined;
 };
