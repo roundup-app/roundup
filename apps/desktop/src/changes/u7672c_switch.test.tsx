@@ -36,7 +36,8 @@ const rowText = (row: HTMLElement) => row.textContent ?? "";
 
 const groupLists = () => screen.queryAllByRole("list", { name: "Repositories and branches" });
 
-const files = () => [...document.querySelector("file-tree-container")?.shadowRoot?.querySelectorAll("[data-item-type=file]") ?? []];
+/** The file rows the newest list shows: only the unfolded modules' files. */
+const files = () => [...[...document.querySelectorAll(".changes-tree")].at(-1)?.querySelectorAll("[data-row=file]") ?? []];
 
 it("u7672c_from_is_a_label_not_a_control", async () => {
   await open();

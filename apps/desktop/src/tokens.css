@@ -347,7 +347,7 @@
 }
 
 /* U510/U133: native buttons and shadow-root controls dim their pressed ink. */
-button, file-tree-container, diffs-container {
+button, diffs-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
 }
 

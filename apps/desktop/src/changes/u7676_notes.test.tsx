@@ -130,17 +130,42 @@ it("u7676b_the_keys_list_gains_n_e_and_delete", async () => {
   expect(items.some(item => /^E\b.*Delete/.test(item))).toBe(true);
 });
 
-it("u7676c_unfinished_work_survives_a_file_switch_and_marks_its_row", async () => {
-  await openDiff();
+it("u7676c_unfinished_work_survives_a_file_switch", async () => {
+  const { app } = await openDiff();
   startNote();
   fireEvent.input(field(), { target: { value: "half" } });
   await openFile("src/deep/b.ts");
-  await waitFor(async () => expect((await treeRow("src/a.ts")).getAttribute("aria-label")).toContain(copy.unfinishedWork));
+  await waitFor(() => expect(notesFor(app, "/p").unfinished("a").map(draft => draft.text)).toEqual(["half"]));
   await openFile("src/a.ts");
+  // The field the switch left comes back as the line's mark, which reopens it with its text.
+  fireEvent.click(await waitFor(() => present(document.querySelector<HTMLElement>(".diff-note"))));
   await waitFor(() => expect(field().value).toBe("half"));
   fireEvent.keyDown(field(), { key: "Escape" });
   await waitFor(() => expect(document.querySelector("diffs-container")).not.toBeNull());
   expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.flatMap(([input]) => input?.lineAnnotations ?? []).some(entry => "unfinished" in entry.metadata)).toBe(true);
+});
+
+/** The rows of the newest list whose label says Unfinished work, as "<kind>:<key>". */
+const marked = () => [...[...document.querySelectorAll(".changes-tree")].at(-1)?.querySelectorAll<HTMLElement>("[data-row]") ?? []].flatMap(row => row.getAttribute("aria-label")?.includes(copy.unfinishedWork) ? [`${row.dataset.row}:${row.dataset.key}`] : []);
+
+it("u7678a_unfinished_work_marks_its_module_row_or_its_noise_row", async () => {
+  const files = ["src/a.ts", "src/deep/b.ts", "yarn.lock"].map(path => ({ path, status: "modified" as const, line: 1, counts: null, blob: null }));
+
+  await openDiff("/p", undefined, () => ({ files }));
+  startNote();
+  fireEvent.input(field(), { target: { value: "half" } });
+  await openFile("src/deep/b.ts");
+  // The file's own row stays plain: only its module's row carries the label.
+  await treeRow("src/a.ts");
+  await waitFor(() => expect(marked()).toEqual(["module:m:" + copy.topLevel]));
+
+  // A file under a noise row marks that row.
+  for (const noise of document.querySelectorAll('[data-row="noise"]')) fireEvent.click(noise);
+  await openFile("yarn.lock");
+  startNote();
+  fireEvent.input(field(), { target: { value: "locked" } });
+  await openFile("src/deep/b.ts");
+  await waitFor(() => expect(marked()).toEqual(["module:m:" + copy.topLevel, "noise:k:lockfile"]));
 });
 
 it("u7676c_a_stored_note_leaves_no_unfinished_work_behind", async () => {

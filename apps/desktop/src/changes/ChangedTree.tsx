@@ -1,197 +1,85 @@
-import { createEffect, onSettled, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createTreeController, TreeItem, type TreeItemData } from "@ui-sdk/solid/tree";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import { AppTree } from "../ui/TreeView";
 import { copy } from "./copy";
+import type { Grouped, NoiseKind } from "./modules";
 import { statusText } from "./paths";
-import treeStyles from "./tree.styles.css?inline";
 
-/** The library is fetched when the view first has files to draw (rule 7). */
-let library: Promise<typeof import("@pierre/trees")> | undefined;
+/** U7678a: a row's key in the open view: a module by its name, a noise file by its path. */
+export const moduleKey = (name: string) => `m:${name}`;
 
-const loadTrees = () => (library ??= import("@pierre/trees"));
+export const noiseKey = (path: string) => `n:${path}`;
 
-const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+const noiseName: Record<NoiseKind, string> = { generated: copy.generated, lockfile: copy.lockfiles };
 
-/** U7674a: the path a tree shows first — folders before files at each level, each in name order. */
-export const treeOrder = (files: readonly ChangedFile[]): string[] => {
-  const order = (a: ChangedFile, b: ChangedFile): number => {
-    const left = a.path.split("/");
-    const right = b.path.split("/");
+const Counts = (props: { added: number; removed: number }) => <span class="changes-row-counts">{copy.addedLines(props.added)} {copy.removedLines(props.removed)}</span>;
 
-    for (let depth = 0; depth < Math.min(left.length, right.length); depth++) {
-      const leftFolder = depth < left.length - 1;
-      const rightFolder = depth < right.length - 1;
+const Name = (props: { text: string }) => <span class="changes-row-name">{props.text}</span>;
 
-      if (leftFolder !== rightFolder) return leftFolder ? -1 : 1;
+/** A file row's tree value: its path under the module that holds it. */
+const fileValue = (path: string) => `f:${path}`;
 
-      const same = byName(left[depth] ?? "", right[depth] ?? "");
+const kindValue = (kind: NoiseKind) => `k:${kind}`;
 
-      if (same !== 0) return same;
-    }
+const treeItems = (grouped: Grouped): TreeItemData[] => [
+  ...grouped.modules.map(module => ({ value: moduleKey(module.name), label: module.name, children: module.files.map(file => ({ value: fileValue(file.path), label: file.path })) })),
+  ...grouped.noise.map(noise => ({ value: kindValue(noise.kind), label: noiseName[noise.kind], children: noise.files.map(file => ({ value: noiseKey(file.path), label: file.path })) })),
+];
 
-    return left.length - right.length;
+/** U7678a, U7678b: the change as modules in path order, each folded to its files, and a quiet row for each noise kind; a module row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). */
+export const ChangedTree = (props: { grouped: Grouped; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; controls?: (controls: { focus: (key: string) => void }) => void }) => {
+  const controller = createTreeController();
+  const [expanded, setExpanded] = createSignal<string[]>([]);
+  const open = (value: string) => expanded().includes(value);
+
+  const marked = (files: readonly ChangedFile[]) => files.some(file => props.unfinished.has(file.path));
+
+  const label = (text: string, files: readonly ChangedFile[]) => marked(files) ? copy.rowLabel(text, copy.unfinishedWork) : text;
+
+  /** Each file row's module key, by the file's tree value. */
+  const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(file.path), moduleKey(module.name)] as const))));
+
+  /** A module row chooses itself, a file row its module at that file; a noise row (`k:`) chooses nothing, so the open scroll stays. */
+  const choose = (value: string | null) => {
+    if (value === null) return;
+
+    const owner = owners().get(value);
+
+    if (owner !== undefined) props.onChoose(owner, value.slice(2));
+    else if (value.startsWith("m:")) props.onChoose(value);
+    else if (value.startsWith("n:")) props.onChoose(value, value.slice(2));
   };
 
-  return [...files].sort(order).map(file => file.path);
-};
+  createEffect(() => props.controls, controls => controls?.({ focus: key => controller.focus(key) }));
 
-export const firstInTree = (files: readonly ChangedFile[]): string | undefined => treeOrder(files)[0];
+  // Opening lands focus on the open row, so Escape and the keys act from the list.
+  onSettled(() => { if (props.selected) controller.focus(props.selected); });
 
-const fileRow = (event: Event): string | undefined => {
-  const row = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.itemType === "file");
+  const File = (each: { file: ChangedFile; value: string; key: string; owner: string; noise?: true }) => <TreeItem value={each.value} class={each.noise ? "changes-row changes-noise row-wash" : "changes-row row-wash"} data-row="file" data-key={each.key} data-owner={each.owner} data-path={each.file.path} aria-label={copy.rowLabel(each.file.path, statusText[each.file.status])}
+    onDblClick={() => props.onEdit(each.file.path)} onKeyDown={event => { if (event.key === "Enter") props.onEdit(each.file.path); }}>
+    <Name text={each.file.path} />
+    <Show when={each.file.counts}>{counts => <Counts added={counts().added} removed={counts().removed} />}</Show>
+  </TreeItem>;
 
-  return row?.dataset.itemPath;
-};
-
-/** U7674a, U7674c: the changed files as a tree of `@pierre/trees`; a file row that takes focus or a click is chosen, and Enter or a double click on one edits it (U2539d). */
-export const ChangedTree = (props: { files: readonly ChangedFile[]; selected: string | undefined; onChoose: (path: string) => void; onEdit: (path: string) => void; unfinished?: ReadonlySet<string>; controls?: (controls: { focus: (path: string) => void }) => void }) => {
-  let host: HTMLDivElement | undefined;
-  let files = new Map<string, ChangedFile>();
-  let describe = () => {};
-
-  let marked: ReadonlySet<string> | undefined;
-
-  let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
-
-  const status = (list: readonly ChangedFile[]) => list.map(file => ({ path: file.path, status: file.status }));
-
-  // `select()` adds to the selection: drop every other path so exactly the open file is selected.
-  const openOnly = (path: string) => {
-    for (const other of tree?.getSelectedPaths() ?? []) if (other !== path) tree?.getItem(other)?.deselect();
-    tree?.getItem(path)?.select();
-  };
-
-  // U7675c: a file that appears or leaves is added or removed in place, so the tree keeps its focused row and scroll.
-  createEffect(() => props.files, list => {
-    const before = files;
-
-    files = new Map(list.map(file => [file.path, file]));
-
-    // A list sharing no file with the last one is a new comparison: the tree starts over at its first row.
-    if (![...files.keys()].some(path => before.has(path))) tree?.resetPaths(list.map(file => file.path));
-    else {
-      for (const path of before.keys()) if (!files.has(path)) tree?.remove(path);
-
-      for (const path of files.keys()) if (!before.has(path)) tree?.add(path);
-    }
-
-    tree?.setGitStatus(status(list));
-  });
-
-  // U7675c: focus moves to a file the view names (the neighbour of one that left) without choosing it.
-  createEffect(() => props.controls, controls => controls?.({ focus: path => {
-    tree?.focusPath(path);
-    queueMicrotask(() => host?.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${CSS.escape(path)}"]`)?.focus());
-  } }));
-
-  // U7676c: a file holding unfinished work says so to assistive tech.
-  createEffect(() => props.unfinished, set => {
-    marked = set;
-    describe();
-  });
-
-  // The open file carries the selection: feed it back on every choose.
-  createEffect(() => props.selected, path => {
-    if (path) openOnly(path);
-  });
-
-  onSettled(() => {
-    let gone = false;
-    const cleanups: (() => void)[] = [];
-    const mount = host;
-    const initial = untrack(() => ({ list: props.files, selected: props.selected }));
-
-    files = new Map(initial.list.map(file => [file.path, file]));
-
-    void loadTrees().then(({ FileTree }) => {
-      if (gone || !mount) return;
-
-      tree = new FileTree({
-        paths: initial.list.map(file => file.path),
-        initialExpansion: "open",
-        itemHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24,
-        stickyFolders: false,
-        rangeSelection: "replace",
-        icons: { set: "minimal", colored: false },
-        // The library defines its palette on :host, inside its shadow root; keep the overrides there too.
-        unsafeCSS: treeStyles,
-        gitStatus: status(initial.list),
-        renderRowDecoration: ({ item }) => {
-          const counts = files.get(item.path)?.counts;
-
-          return counts ? { text: `${copy.addedLines(counts.added)} ${copy.removedLines(counts.removed)}` } : null;
-        },
-      });
-      tree.render({ containerWrapper: mount });
-
-      const shadow = mount.querySelector("file-tree-container")?.shadowRoot;
-      const start = initial.selected;
-
-      if (start) {
-        tree.focusPath(start);
-        openOnly(start);
-      }
-
-      shadow?.querySelector<HTMLElement>(start ? `[data-item-path="${CSS.escape(start)}"]` : '[tabindex="0"]')?.focus();
-
-      // Virtualization replaces rows; restore accessible names on every rendered batch.
-      describe = () => {
-        for (const row of shadow?.querySelectorAll<HTMLElement>('[data-item-type="file"]') ?? []) {
-          const file = files.get(row.dataset.itemPath ?? "");
-          const label = file ? `${file.path}, ${statusText[file.status]}${marked?.has(file.path) ? `, ${copy.unfinishedWork}` : ""}` : "";
-
-          if (file && row.getAttribute("aria-label") !== label) row.setAttribute("aria-label", label);
-        }
-      };
-
-      if (shadow) {
-        // `focus` does not bubble and is not retargeted out of the shadow root everywhere: listen inside it, in the capture phase.
-        // listener-owner: removed with the tree in the cleanup below; the shadow root is the tree library's and has no solid-primitives target.
-        shadow.addEventListener("focus", choose, true);
-        cleanups.push(() => shadow.removeEventListener("focus", choose, true));
-
-        const observer = new MutationObserver(describe);
-
-        observer.observe(shadow, { subtree: true, childList: true });
-        describe();
-        cleanups.push(() => observer.disconnect());
-      }
-    });
-
-    const choose = (event: Event) => {
-      const path = fileRow(event);
-
-      if (path) props.onChoose(path);
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const path = tree?.getFocusedPath();
-
-      if (event.key === "Enter" && path && files.has(path)) props.onEdit(path);
-    };
-
-    const onDoubleClick = (event: MouseEvent) => {
-      const path = fileRow(event);
-
-      if (path) props.onEdit(path);
-    };
-
-    // listener-owner: removed in the cleanup below with the tree it listens on.
-    mount?.addEventListener("click", choose);
-    // listener-owner: removed in the cleanup below.
-    mount?.addEventListener("keydown", onKeyDown);
-    // listener-owner: removed in the cleanup below.
-    mount?.addEventListener("dblclick", onDoubleClick);
-
-    return () => {
-      gone = true;
-      mount?.removeEventListener("click", choose);
-      mount?.removeEventListener("keydown", onKeyDown);
-      mount?.removeEventListener("dblclick", onDoubleClick);
-
-      for (const stop of cleanups) stop();
-      tree?.cleanUp();
-    };
-  });
-
-  return <div ref={element => { host = element; }} class="changes-tree" />;
+  return <AppTree class="changes-tree" aria-label={copy.modules} items={treeItems(props.grouped)} controller={controller} activation="automatic" expanded={expanded()} onExpandedChange={setExpanded} value={props.selected ?? null} onValueChange={choose}>
+    <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
+      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} aria-label={label(copy.rowLabel(module().name, copy.filesCount(module().files.length)), module().files)}>
+        <Name text={module().name} />
+        <span class="changes-row-files">{copy.filesCount(module().files.length)}</span>
+        <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
+      </TreeItem>
+      <Show when={open(moduleKey(module().name))}>
+        <For each={module().files}>{file => <File file={file} value={fileValue(file.path)} key={moduleKey(module().name)} owner={moduleKey(module().name)} />}</For>
+      </Show>
+    </>}</For>
+    <For each={props.grouped.noise}>{noise => <>
+      <TreeItem value={kindValue(noise.kind)} class="changes-row changes-noise row-wash row-wash-inert" data-row="noise" data-key={kindValue(noise.kind)} aria-label={label(copy.noiseRow(noiseName[noise.kind], noise.files.length), noise.files)}>
+        <Name text={copy.noiseRow(noiseName[noise.kind], noise.files.length)} />
+      </TreeItem>
+      <Show when={open(kindValue(noise.kind))}>
+        <For each={noise.files}>{file => <File file={file} value={noiseKey(file.path)} key={noiseKey(file.path)} owner={kindValue(noise.kind)} noise />}</For>
+      </Show>
+    </>}</For>
+  </AppTree>;
 };

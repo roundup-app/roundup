@@ -14,6 +14,10 @@
 [data-line][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer); }
 :focus { outline: none; }
 
+/* U7678c: a hunk's function sits beside its fold's count, in the count's ink, and gives way before the count does. */
+[data-unmodified-lines] { flex: none; }
+[data-hunk-function] { flex: 1 1 0; min-width: 0; margin-inline-start: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* The App's chrome is non-selectable; diff text must opt into native selection. */
 [data-line] { user-select: text; }
 
