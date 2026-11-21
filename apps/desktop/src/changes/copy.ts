@@ -20,6 +20,15 @@ export const copy = {
   groupLabel: sharedCopy.dotted,
   diff: sharedCopy.diff,
   comparing: "Comparing…",
+  checkingRemote: "Checking remote main",
+  /** @prose */
+  remoteMoved: "Remote main has moved",
+  fetch: "Fetch",
+  fetching: "Fetching",
+  /** @prose */
+  fetched: (commits: number) => commits === 0 ? "Fetched, nothing new" : `Fetched ${commits} new ${commits === 1 ? "commit" : "commits"} on main`,
+  /** @prose */
+  remoteUnreachable: "Couldn't reach the remote",
   /** @prose */
   noChangesAgainst: (from: string) => `No changes against ${from}`,
   /** @prose */

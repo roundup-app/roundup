@@ -15,6 +15,8 @@ mod readback;
 pub use readback::*;
 mod scan;
 pub use scan::{ScanHit, ScanHits, ScanPlace};
+mod remote_main;
+pub use remote_main::{FetchedMain, RemoteMain};
 mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod state;

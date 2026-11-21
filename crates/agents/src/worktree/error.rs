@@ -24,6 +24,9 @@ pub(crate) enum WorktreeError {
     Dirty,
     #[error("worktree_failed: {0}")]
     Failed(String),
+    /// U7693: the remote did not answer, or git refused; the text is git's cause in full.
+    #[error("remote_unreachable: {0}")]
+    RemoteUnreachable(String),
 }
 
 impl From<WorktreeError> for RpcError {
@@ -31,7 +34,9 @@ impl From<WorktreeError> for RpcError {
         let message = err.to_string();
         match err {
             WorktreeError::Missing(_) => RpcError::new(code::NOT_FOUND, message),
-            WorktreeError::Failed(_) => RpcError::internal(message),
+            WorktreeError::Failed(_) | WorktreeError::RemoteUnreachable(_) => {
+                RpcError::internal(message)
+            }
             WorktreeError::BranchMissing(_)
             | WorktreeError::Mismatched
             | WorktreeError::Detached

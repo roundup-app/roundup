@@ -393,6 +393,7 @@ mod registration;
 mod removal;
 mod resume_wait;
 pub use resume_wait::RESUME_BODY;
+mod remote_wiring;
 mod resume;
 mod spawn;
 mod steer;

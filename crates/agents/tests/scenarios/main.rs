@@ -43,5 +43,6 @@ mod u7186a_owned_changes;
 mod u7610a_changed_counts;
 mod u7672a_remote_main;
 mod u7673_blob;
+mod u7693_remote_moved;
 mod worktree_state;
 mod worktrees;

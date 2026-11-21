@@ -224,6 +224,30 @@ impl Agents {
         }
     }
 
+    async fn agent_remote_main(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::RemoteMain, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user asks the remote"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.remote_main(&p.id).await
+    }
+
+    async fn agent_fetch_remote_main(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::FetchedMain, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user fetches"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.fetch_remote_main(&p.id).await
+    }
+
     async fn agent_land(
         &self,
         ctx: &Ctx,
