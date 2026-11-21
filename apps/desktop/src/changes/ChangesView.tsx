@@ -106,6 +106,11 @@ const Surface = (props: { id: string; name: string }) => {
   const [active, setActive] = createSignal(0);
   const group = () => groups()[active()] ?? groups()[0];
 
+  // U7853a: the open group as the Daemon reads it, stable while a refresh brings the same repository and branch.
+  const groupKey = createMemo(() => { const open = group();
+
+ return open && { repo: open.repo, branch: open.branch }; }, { equals: (a, b) => a?.repo === b?.repo && a?.branch === b?.branch });
+
   // U7672d: a remembered Tree or Branch for an Agent without a Worktree of its own falls back to Changes.
   const target = (): ChangeTarget => {
     const chosen = changeTargets.read(props.id);
@@ -293,7 +298,7 @@ const Surface = (props: { id: string; name: string }) => {
         </Show>
       </div>
       <Show when={opened()}>
-        {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} blob={files().find(file => file.path === chosen())?.blob} places={places} keys={api => { diffKeys = api; }} target={jump.aim()} arrived={jump.arrived} to={own() ?? "tree"} notes={notes} onEdited={() => {}} recover={() => showView("notes")} /></Loading>}
+        {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} blob={files().find(file => file.path === chosen())?.blob} places={places} keys={api => { diffKeys = api; }} target={jump.aim()} arrived={jump.arrived} to={own() ?? "tree"} group={own() ? undefined : groupKey()} notes={notes} onEdited={() => {}} recover={() => showView("notes")} /></Loading>}
       </Show>
     </div>
   </section>;

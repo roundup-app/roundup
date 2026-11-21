@@ -5,6 +5,7 @@ import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
+import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
 import { useConnectedProject } from "../state/connectedProject";
 import { StatusNote } from "../ink/MountedLine";
 import { createMessageToast } from "../ink/messageToast";
@@ -24,7 +25,8 @@ import { NoteBatch } from "./NoteBatch";
 import { ImagePane } from "./ImagePane";
 import { drawsLines, imageHidden, imageSides } from "./images";
 
-const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
+/** U7853a: a Changes read names the open group; Tree and Branch name the Worktree's `to`. */
+const compareParams = (id: string, path: string, to: CompareTarget, group: OwnedGroupKey | undefined): CompareFileParams => group ? { id, path, group } : { id, path, to };
 
 /** U7675e: what the pane lets the view do from a key. */
 export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean };
@@ -37,7 +39,7 @@ const DiffIdentity = (props: { read: FileComparison | undefined; path: string })
   <Show when={props.read}>{value => <Show when={value().status === "added" || value().status === "deleted"}><p class="diff-status">{value().status === "added" ? copy.statusAdded : copy.statusDeleted}</p></Show>}</Show>
 </div>;
 
-type ReadProps = { id: string; path: string; blob?: string | null | undefined; to?: CompareTarget | undefined };
+type ReadProps = { id: string; path: string; blob?: string | null | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined };
 
 /** U7675b: one file's comparison read: its value, failure and wait, and the read again that Reload asks for. */
 const createComparisonRead = (props: ReadProps) => {
@@ -85,7 +87,7 @@ const createComparisonRead = (props: ReadProps) => {
     stopLoading = () => { current = false; };
   };
 
-  const params = () => compareParams(props.id, props.path, props.to ?? "tree");
+  const params = () => compareParams(props.id, props.path, props.to ?? "tree", props.group);
 
   const worktree = createMemo(() => worktrees.read(props.id));
 
@@ -104,7 +106,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
   const [focused, setFocused] = createSignal(false);
