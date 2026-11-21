@@ -104,6 +104,21 @@ impl Publications {
             Err(e) => Err(e.into()),
         }
     }
+    /// LH19: every live publication an Agent made that is a file or a Pad revision (a link is not),
+    /// as `(maker, id, title)` in publication order.
+    pub(crate) fn made_files(
+        &self,
+    ) -> std::result::Result<Vec<(String, String, String)>, RpcError> {
+        let db = self.db.lock();
+        Ok(store::list_in(&db, None)
+            .map_err(RpcError::internal)?
+            .into_iter()
+            .filter(|record| record.maker.kind == ActorKind::Agent)
+            .filter(|record| !matches!(record.target, PublishedTarget::External { .. }))
+            .map(|record| (record.maker.id, record.id, record.title))
+            .collect())
+    }
+
     pub(crate) fn invalidate_revoked(&self) -> std::result::Result<(), RpcError> {
         let db = self.db.lock();
         for record in store::live_in(&db)? {

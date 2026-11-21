@@ -166,7 +166,7 @@ pub fn restore(
     )
     .map_err(Error::internal)?;
     db.execute(
-        "INSERT INTO pads(key,name,text,updated_at,home,revision,visibility) VALUES(?1,?2,?3,?4,?5,?6,?7)",
+        "INSERT INTO pads(key,name,text,updated_at,home,revision,visibility,creator) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
         rusqlite::params![
             original_key,
             pad.name,
@@ -174,7 +174,8 @@ pub fn restore(
             pad.updated_at,
             pad.home,
             i64::try_from(pad.revision).map_err(Error::internal)?,
-            crate::store::visibility_text(pad.visibility)
+            crate::store::visibility_text(pad.visibility),
+            serde_json::to_string(&pad.creator).map_err(Error::internal)?
         ],
     )
     .map_err(Error::internal)?;

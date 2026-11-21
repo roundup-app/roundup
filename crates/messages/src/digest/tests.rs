@@ -38,6 +38,7 @@ fn pad(name: &str, home: &str, at: i64) -> Pad {
         revision: 1,
         home: Some(home.into()),
         visibility: contracts::agent::RailVisibility::Shown,
+        creator: contracts::Actor::user(),
     }
 }
 

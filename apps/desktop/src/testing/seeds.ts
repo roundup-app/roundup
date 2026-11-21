@@ -158,6 +158,7 @@ const padsAt = (now: number): Pad[] =>
     text: "# hello\nsome text\n".repeat(30),
     updated_at: now,
     revision: 1,
+    creator: { kind: "user" as const, id: "you", parent: null },
     home: index % 2 === 1 ? "payments" : null,
     visibility: "shown" as const,
   }));

@@ -45,7 +45,7 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
   /** U347: a selected Workstream shows only its own, so the fixture's items sit in the first one. */
   const home = tree.find((node) => node.kind === "workstream")?.id ?? null;
   app.handlers["todo.list"] = () => [{ id: 1, title: "todo 1", body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner: null, refs: [], priority: null, pr: null }];
-  app.handlers["pad.list"] = () => [{ incarnation: "fixture-1", name: "notes",  text: "", updated_at: 0, revision: 1, home, visibility: "shown" as const }];
+  app.handlers["pad.list"] = () => [{ incarnation: "fixture-1", name: "notes",  text: "", updated_at: 0, revision: 1, home, creator: { kind: "user" as const, id: "you", parent: null }, visibility: "shown" as const }];
 
   options.prepare?.(app);
 

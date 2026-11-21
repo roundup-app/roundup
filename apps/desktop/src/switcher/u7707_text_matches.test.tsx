@@ -12,7 +12,7 @@ afterEach(() => { vi.useRealTimers(); cleanup(); localStorage.clear(); sessionSt
 
 const todo = (id: number, title: string): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home: null, owner: null, refs: [], priority: null, pr: null });
 
-const pad = (name: string): Pad => ({ incarnation: `i-${name}`, name, text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const });
+const pad = (name: string): Pad => ({ incarnation: `i-${name}`, name, text: "", updated_at: 0, revision: 1, home: null, creator: { kind: "user" as const, id: "you", parent: null }, visibility: "shown" as const });
 
 const hit = (kind: SearchHit["kind"], id: string, snippet = "a snippet", ranges: SearchHit["ranges"] = [], opens?: string): SearchHit => {
   const made: SearchHit = { kind, id, title: `${kind} ${id}`, snippet, ranges };

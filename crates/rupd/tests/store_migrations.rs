@@ -169,6 +169,7 @@ async fn n20_current_store_opens() {
         revision: 1,
         home: Some("door".into()),
         visibility: contracts::agent::RailVisibility::Shown,
+        creator: contracts::Actor::user(),
     }];
     let sources = messages::digest::Sources {
         completed: std::collections::HashMap::new(),

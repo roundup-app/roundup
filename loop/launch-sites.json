@@ -989,6 +989,7 @@
     "data": "rupd::test_support::daemon_with_links receives an explicit temporary data path; no fallback data resolver.",
     "kind": "in-process"
   },
+  "crates/rupd/tests/lh19_made.rs": {"cleanup": "Tempdir owns the socket and data; the in-process Daemon serves within the test runtime and ends with it.", "data": "rupd::Daemon::open receives an explicit temporary data path; no fallback data resolver.", "kind": "in-process"},
   "apps/desktop/src/testing/u7499b_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",

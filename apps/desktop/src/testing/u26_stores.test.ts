@@ -25,7 +25,7 @@ const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   ...over,
 });
 
-const pad = (name: string, text = ""): Pad => ({ incarnation: `fixture-${name}`, name, text, updated_at: 0, revision: 1, home: null, visibility: "shown" as const });
+const pad = (name: string, text = ""): Pad => ({ incarnation: `fixture-${name}`, name, text, updated_at: 0, revision: 1, home: null, creator: { kind: "user" as const, id: "you", parent: null }, visibility: "shown" as const });
 
 const todos = (initial: Todo[]) => {
   const announced: EventData[] = [];

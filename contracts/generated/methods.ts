@@ -89,6 +89,7 @@ import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { ShortcutFileExport as link_ShortcutFileExport } from "./link/ShortcutFileExport";
 import type { LinkSet as links_LinkSet } from "./links/LinkSet";
+import type { MadeItem as links_MadeItem } from "./links/MadeItem";
 import type { AddParams as machine_AddParams } from "./machine/AddParams";
 import type { Machine as machine_Machine } from "./machine/Machine";
 import type { MachineList as machine_MachineList } from "./machine/MachineList";
@@ -366,6 +367,7 @@ export type RpcMethods = {
   "daemon.methods": { params: null; result: string[] };
   "api.list": { params: null; result: describe_MethodList };
   "api.describe": { params: describe_DescribeParams; result: describe_MethodDescription };
+  "agent.made": { params: agent_NodeId; result: links_MadeItem[] };
   "link.read": { params: link_LinkUrl; result: link_LinkContent };
   "shortcuts.export": { params: link_ShortcutFileExport; result: null };
   "daemon.identify": { params: common_IdentifyParams; result: null };

@@ -21,7 +21,7 @@ const focusAt = async (place: "terminal" | "rail row" | "Shelf row" | "Pad edito
     await showEverythingInApp();
     document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!.focus();
   } else if (place === "Pad editor") {
-    const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const }];
+    const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "", updated_at: 0, revision: 1, home: null, creator: { kind: "user" as const, id: "you", parent: null }, visibility: "shown" as const }];
     Object.assign(mounted.daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
     mounted.daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
     await showEverythingInApp(undefined, "Pads");

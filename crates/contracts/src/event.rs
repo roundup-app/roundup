@@ -81,6 +81,9 @@ pub enum EventData {
     /// LH4: the Agent's link set changed; read `agent.links`.
     #[serde(rename = "agent.links")]
     AgentLinks(Box<crate::links::LinksEvent>),
+    /// LH20: what the Agent made for the user changed; read `agent.made`.
+    #[serde(rename = "agent.made")]
+    AgentMade(agent::NodeId),
     /// U504: a matched completed turn, independent of Kind or final text contents.
     #[serde(rename = "agent.completed")]
     AgentCompleted(Completion),

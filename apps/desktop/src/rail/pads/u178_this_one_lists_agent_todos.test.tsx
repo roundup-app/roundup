@@ -26,7 +26,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
-const padOf = (name: string): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null, visibility: "shown" as const });
+const padOf = (name: string): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null, creator: { kind: "user" as const, id: "you", parent: null }, visibility: "shown" as const });
 
 const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = [], railOnly = false) => {
   const padState: PadStore = { pads, history: [] };

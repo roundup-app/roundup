@@ -1,5 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 #![allow(clippy::panic, clippy::indexing_slicing)]
+#[path = "pads/creator.rs"]
+mod creator;
 #[path = "pads/deletion_keys.rs"]
 mod deletion_keys;
 #[path = "pads/export_images.rs"]
