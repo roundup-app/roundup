@@ -7,7 +7,7 @@ use contracts::links::{LinkSet, LinksEvent};
 use contracts::{Actor, EventData};
 use std::{
     collections::HashMap,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -74,6 +74,18 @@ impl Links {
     }
 }
 
+/// LH17: the most lines `links.log` keeps.
+const LOG_LINES: usize = 200;
+
+/// LH17: append `line` to the file at `path`, keeping its last `LOG_LINES` lines.
+pub(crate) fn append_log(path: &Path, line: &str) -> std::io::Result<()> {
+    let old = std::fs::read_to_string(path).unwrap_or_default();
+    let mut lines: Vec<&str> = old.lines().collect();
+    lines.push(line);
+    let kept = lines.split_at(lines.len().saturating_sub(LOG_LINES)).1;
+    std::fs::write(path, format!("{}\n", kept.join("\n")))
+}
+
 impl Shared {
     /// LH1: at an Agent's Stop, read the turn text and, for link-like text, run the call off every
     /// lock. A turn that runs no call, a failed call or an unparsable answer keeps the set and
@@ -112,8 +124,25 @@ impl Shared {
                         EventData::AgentLinks(Box::new(LinksEvent { id, set })),
                     );
                 }
-                Err(err) => eprintln!("agents: {id}: its links stay as they were: {err}"),
+                Err(err) => shared.log_links_failure(&id, &err),
             }
         });
+    }
+}
+
+impl Shared {
+    /// LH17: the failed call's time, the Agent's id and name and the cause, on stderr and as a
+    /// line of `links.log` in the state directory. None of the turn text is in it.
+    fn log_links_failure(&self, id: &str, cause: &str) {
+        let name = self.rail().name_or_gone(id).unwrap_or_default();
+        let cause = cause.replace('\n', " ");
+        let line = format!(
+            "{} agent {id} ({name}): its links stay as they were: {cause}",
+            time::OffsetDateTime::now_utc()
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_default()
+        );
+        eprintln!("agents: {line}");
+        let _ = append_log(&self.rail_view.data_dir.join("links.log"), &line);
     }
 }
