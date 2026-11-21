@@ -257,7 +257,7 @@ export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number;
       <CommandList class="app-combobox-list" aria-label={copy.notes}>
         <For each={shown()}>{row => <CommandItem class="app-combobox-item" value={key(row)} label={`${row.note.comparison.newPath} ${range(row.note)}`}>
           <span class="note-jump-path">{row.note.comparison.newPath}</span>
-          <span>{range(row.note)}{row.note.label === undefined ? "" : copy.dottedAfter(copy.labels[row.note.label])}{copy.dottedAfter(words(row.status, row.note))}{row.listed ? "" : copy.dottedAfter(copy.noLongerChanged)}</span>
+          <span class="note-jump-meta">{range(row.note)}{row.note.label === undefined ? "" : copy.dottedAfter(copy.labels[row.note.label])}{copy.dottedAfter(words(row.status, row.note))}{row.listed ? "" : copy.dottedAfter(copy.noLongerChanged)}</span>
           <span class="note-jump-text">{row.note.text.split("\n")[0]}</span>
         </CommandItem>}</For>
       </CommandList>

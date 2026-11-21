@@ -207,5 +207,6 @@
 .note-replacement { margin: 0; font: var(--text-small) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .note-jump .app-combobox-input { border-bottom: 0; }
 .note-jump-path { font-family: var(--font-mono); }
-.note-jump-path, .note-jump-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-jump-path, .note-jump-meta { flex-shrink: 0; white-space: nowrap; }
+.note-jump-text { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-field .note-input { font-family: var(--font-mono); }

@@ -28,6 +28,12 @@ const noteIn = (state: string) =>
 const FOCUS_DIFF =
   "(() => { document.querySelector('.diff-content').focus(); return true; })()";
 
+const SEND =
+  "(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.textContent.startsWith('Send notes')).click(); return true; })()";
+
+const REWRITE =
+  "(() => { const app = window.__fake.app; const read = app.handlers['agent.compareFile']; app.handlers['agent.compareFile'] = () => ({ ...read(), new: { kind: 'text', revision: 'rewritten', text: 'const first = 99;\\nconst second = 4;\\n' } }); return window.__worktrees.refresh('agent-1').then(() => true); })()";
+
 const BODY = "Rename this once the callers agree";
 
 const REPLACEMENT = "const first = renamedOnceTheCallersAgree(withAVeryLongArgumentList, andAnotherLongArgument, andYetAnotherArgument);";
@@ -110,6 +116,20 @@ it("u7690d_the_notes_are_captured_for_the_critic", async () => {
   const write = (text: string) =>
     browser("find", "label", "Note", "fill", text);
 
+  /** Sends the batch, rewrites the opened file so its notes read Outdated, adds an unsent note, and opens the list. */
+  const sentAndOutdated = async () => {
+    await read(SEND);
+    await until(noteIn("sent"));
+    await startNote();
+    await write(BODY);
+    await click("Save");
+    await until("!document.querySelector('.note-form')");
+    await read(REWRITE);
+    await until(noteIn("outdated"));
+    await read(FOCUS_DIFF);
+    await browser("press", "g");
+  };
+
   /** U7690d: each label, a replacement in the composer and saved, and the jump list, App dark. */
   const states = async () => {
     await browser("set", "media", "dark");
@@ -136,14 +156,14 @@ it("u7690d_the_notes_are_captured_for_the_critic", async () => {
     await until("!!document.querySelector('.note-replacement')");
     await shot("note-replacement-saved", "!!document.querySelector('.note-replacement')");
 
-    await read(FOCUS_DIFF);
-    await browser("press", "g");
+    await opened("?spread");
+    await until(said(copy.noteCount(3)));
+    await sentAndOutdated();
     await shot("note-list", "!!document.querySelector('.note-jump [role=option]')");
 
-    await opened("?worst");
-    await until(said(copy.noteCount(50)));
-    await read(FOCUS_DIFF);
-    await browser("press", "g");
+    await opened("?worst=100");
+    await until(said(copy.noteCount(100)));
+    await sentAndOutdated();
     await shot("note-list-worst", "!!document.querySelector('.note-jump [role=option]')");
   };
 
