@@ -61,12 +61,19 @@ const open = async (answers: Record<string, Partial<FileComparison>>) => {
   return mounted;
 };
 
-const pane = () => screen.getByLabelText(copy.diff);
+/** The diff region of a file's section in the module's scroll; without a path, the scroll's first. */
+const pane = (path?: string): HTMLElement => {
+  const regions = screen.getAllByLabelText(copy.diff).filter(each => path === undefined || each.closest<HTMLElement>(".module-file")?.dataset.path === path);
 
-const says = (words: string) => waitFor(() => expect(pane().textContent).toContain(words));
+  if (!regions[0]) throw new Error(`No diff for ${path}`);
+
+  return regions[0];
+};
+
+const says = (words: string, path?: string) => waitFor(() => expect(pane(path).textContent).toContain(words));
 
 
-const picked = (path: string) => within(pane()).findByText(path, { selector: ".diff-path" });
+const picked = (path: string) => waitFor(() => within(pane(path)).getByText(path, { selector: ".diff-path" }));
 
 /** The picture `<img>` for a side word, and its decoding at `width` by `height`. */
 const decode = (label: string, width: number, height: number) => {
@@ -94,10 +101,10 @@ it("u7694b_an_added_or_deleted_image_shows_one_picture", async () => {
   await open({ "a.png": { status: "added", old: absent, new: picture("n", 88_000) }, "b.png": { status: "deleted", old: picture("o", 42_000), new: absent } });
   expect((await screen.findAllByRole("img")).map(image => image.getAttribute("alt"))).toEqual([copy.newSide]);
   await says("88.0 KB");
-  fireEvent.focus(await treeRow("b.png"));
+  (await treeRow("b.png")).focus();
   await picked("b.png");
-  await waitFor(() => expect(within(pane()).getAllByRole("img").map(image => image.getAttribute("alt"))).toEqual([copy.oldSide]));
-  await says("42.0 KB");
+  await waitFor(() => expect(within(pane("b.png")).getAllByRole("img").map(image => image.getAttribute("alt"))).toEqual([copy.oldSide]));
+  await says("42.0 KB", "b.png");
 });
 
 it("u7694b_a_renamed_or_mode_only_image_shows_what_7675_shows", async () => {
@@ -107,9 +114,9 @@ it("u7694b_a_renamed_or_mode_only_image_shows_what_7675_shows", async () => {
   });
   await picked("a.png");
   await says(copy.modeOnly);
-  expect(within(pane()).queryAllByRole("img")).toEqual([]);
-  fireEvent.focus(await treeRow("b.png"));
-  await waitFor(() => expect(within(pane()).getAllByRole("img")).toHaveLength(2));
+  expect(within(pane("a.png")).queryAllByRole("img")).toEqual([]);
+  (await treeRow("b.png")).focus();
+  await waitFor(() => expect(within(pane("b.png")).getAllByRole("img")).toHaveLength(2));
 });
 
 it("u7694b_over_the_limit_says_too_large_and_gives_both_sizes", async () => {
@@ -133,17 +140,15 @@ it("u7694b_an_image_offers_no_line_note", async () => {
   expect(screen.queryByRole("form", { name: copy.lineNote })).toBeNull();
 });
 
-it("u7694b_leaving_the_image_revokes_its_urls_and_a_text_file_creates_none", async () => {
+it("u7694b_closing_the_module_revokes_its_urls_and_a_text_file_creates_none", async () => {
   await open({ "a.txt": {}, "b.png": { old: picture("o", 42_000), new: picture("n", 88_000) } });
   await picked("a.txt");
   expect(made).toEqual([]);
-  fireEvent.focus(await treeRow("b.png"));
+  (await treeRow("b.png")).focus();
   await waitFor(() => expect(made).toHaveLength(2));
-  fireEvent.focus(await treeRow("a.txt"));
-  await waitFor(() => expect(revoked.toSorted()).toEqual(made.toSorted()));
-  expect(made).toHaveLength(2);
-  fireEvent.focus(await treeRow("b.png"));
-  await waitFor(() => expect(made).toHaveLength(4));
+  // The module stays open when focus returns to another of its files: its pictures stay.
+  (await treeRow("a.txt")).focus();
+  expect(revoked).toEqual([]);
   cleanup();
-  expect(revoked).toHaveLength(4);
+  await waitFor(() => expect(revoked.toSorted()).toEqual(made.toSorted()));
 });
