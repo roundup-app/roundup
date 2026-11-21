@@ -3,6 +3,7 @@ import type { ConnectedProject } from "../state/connectedProject";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { captureActions } from "../keys/registry";
 import { copy } from "./copy";
+import { refuseUngroupedRead } from "../testing/fakeApp";
 import { mountControl } from "./harness";
 
 export const COMPARISON: FileComparison = { base: "base-commit", oldPath: "src/a.ts", newPath: "src/a.ts", status: "modified", old: { kind: "text", revision: "old-revision", text: "before\nsecond old\n" }, new: { kind: "text", revision: "new-revision", text: "after\nsecond new\n" } };
@@ -69,7 +70,12 @@ export const openFile = async (path = "src/a.ts") => {
 
 export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"], changed?: Parameters<typeof mountControl>[0]) => {
   const mounted = await mountControl(changed, project, drafts);
-  mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
+  mounted.app.handlers["agent.compareFile"] = params => {
+    refuseUngroupedRead(mounted.app, params);
+
+    return { ...COMPARISON, oldPath: params.path, newPath: params.path };
+  };
+
   await openChanges();
   await openFile();
 

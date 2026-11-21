@@ -124,6 +124,7 @@ export const copy = {
   notesRegion: sharedCopy.draftSurface("changes"),
   notes: sharedCopy.draftSurface("notes"),
   originalContext: " · Original context",
+  cannotCompare: " · Can't compare",
   originalContextStatus: "Original context",
   editNoteAction: sharedCopy.editAction,
   checkMessageHistory: "Check Message history",
