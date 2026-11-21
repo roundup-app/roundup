@@ -1,12 +1,17 @@
 import "./styles.css";
 import ChevronDown from "@lucide/solid/icons/chevron-down";
 import ChevronUp from "@lucide/solid/icons/chevron-up";
-import { createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, lazy, onCleanup, Show } from "solid-js";
 import { isDoor } from "../state/doorNode";
+import { openDeliverable } from "../ask/openDeliverable";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";
 import { inlineFor, LinksView, specOf } from "./catalogue";
 import { copy } from "./copy";
+
+const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
+
+const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
 /**
  * LH6 to LH10: the links header, laid over the top edge of the shown Agent's Terminal (Pane's `header`), out of the layout flow, so it
@@ -14,7 +19,7 @@ import { copy } from "./copy";
  * the user's toggle holds until the Status revision changes. It opens nothing but on a click.
  */
 export const LinksHeader = (props: { active: () => boolean }) => {
-  const { app, rail, project, links, createIn } = useConnectedProject();
+  const { app, rail, project, links, made, drawer, createIn } = useConnectedProject();
   const [toggled, setToggled] = createSignal<{ revision: string; open: boolean } | null>(null);
 
   const door = createMemo(() => {
@@ -49,9 +54,9 @@ export const LinksHeader = (props: { active: () => boolean }) => {
     onCleanup(() => observer.disconnect());
   };
 
-  const spec = (id: string) => specOf(links.read(id));
+  const spec = (id: string) => specOf(links.read(id), made.read(id));
 
-  const total = (id: string) => (links.read(id)?.entries.length ?? 0) + 2;
+  const total = (id: string) => (links.read(id)?.entries.length ?? 0) + made.read(id).length + 2;
 
   const folder = () => door()?.worktree?.path ?? project.path;
 
@@ -61,6 +66,14 @@ export const LinksHeader = (props: { active: () => boolean }) => {
       const id = door()?.id;
 
       if (id) createIn("terminal", id);
+    },
+    made: (item: { kind: "pad" | "todo" | "file"; id: string }) => {
+      const agent = door()?.id;
+
+      if (item.kind === "pad") drawer.open(() => <PadHost name={item.id} />, "pointer", { kind: "pad", project: project.path });
+      else if (item.kind === "todo") drawer.open(() => <TodoHost id={Number(item.id)} />, "pointer", { kind: "todo", project: project.path });
+      // LH22: a file opens as Made opens a Deliverable (DV5); a gone one shows no error and the list is read again.
+      else void openDeliverable(app, project.path, item.id).then(cause => { if (cause && agent) made.refresh(agent); }, error => console.error(error));
     },
     open: (url: string) => void app.openTarget({ kind: "url", url }).catch(error => console.error(error)),
   };

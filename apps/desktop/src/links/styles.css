@@ -47,3 +47,6 @@
   min-inline-size: 3ch;
   text-align: center;
 }
+
+/* LH21: the first made icon sits a space step clear of the links, so the Agent's links and its made items read apart with no label. */
+.links-header .links-made[data-first] { margin-inline-start: var(--space-1); }

@@ -6,6 +6,7 @@ import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { LinkEntry } from "@contracts/links/LinkEntry";
 import type { LinkSet } from "@contracts/links/LinkSet";
+import type { MadeItem } from "@contracts/links/MadeItem";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { mountNavigation } from "../testing/navigationFixture";
@@ -22,13 +23,14 @@ const entry = (kind: LinkEntry["kind"], n: number): LinkEntry => ({ kind, url: `
 
 const setOf = (count: number): LinkSet => ({ entries: Array.from({ length: count }, (_, n) => entry(n === 0 ? "pr" : "asked", n)) });
 
-type Setup = { nodes?: RailNode[]; set?: LinkSet };
+type Setup = { nodes?: RailNode[]; set?: LinkSet; made?: MadeItem[] };
 
 const mount = async (setup: Setup = {}) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => setup.nodes ?? [agent("a", "idle", "waiting")];
   app.handlers["agent.links"] = () => setup.set ?? { entries: [] };
+  app.handlers["agent.made"] = () => setup.made ?? [];
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
@@ -117,7 +119,7 @@ it("lh8_an_unknown_component_renders_nothing", () => {
 
   spec.elements.header?.children?.push("chat");
   spec.elements.chat = { type: "Chat", props: { tooltip: "talk" }, children: [] };
-  render(() => <LinksView spec={spec} env={{ editor: () => {}, terminal: () => {}, open: () => {} }} />);
+  render(() => <LinksView spec={spec} env={{ editor: () => {}, terminal: () => {}, open: () => {}, made: () => {} }} />);
   expect(screen.getAllByRole("button").map(each => each.getAttribute("aria-label"))).toEqual([copy.editor, copy.terminal, "pr 0"]);
 });
 
@@ -223,4 +225,63 @@ it("lh15_the_terminal_icon_on_a_mode_agent_opens_its_terminal", async () => {
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => z.object({ workstream: z.string() }).parse(call.params).workstream)).toEqual(["a1"]);
   expect(screen.queryByText(/is not/)).toBeNull();
+});
+
+const madeSet: MadeItem[] = [
+  { kind: "pad", id: "plan", title: "Plan" },
+  { kind: "todo", id: "7", title: "Check the release notes before shipping today" },
+  { kind: "file", id: "d1", title: "Report" },
+];
+
+it("lh21_made_items_follow_the_links_with_their_kind_icon", async () => {
+  await mount({ set: setOf(1), made: madeSet });
+  await waitFor(() => expect(names()).toContain("Pad: Plan"));
+  expect(names()).toEqual([copy.editor, copy.terminal, "pr 0", "Pad: Plan", expect.stringMatching(/^Todo: /), "File: Report", copy.collapse]);
+  expect(document.querySelectorAll(".links-made svg").length).toBe(3);
+  cleanup();
+  await mount({});
+  expect(names()).toEqual([copy.editor, copy.terminal, copy.collapse]);
+});
+
+it("lh21_a_tooltip_stays_within_five_words", () => {
+  const tip = copy.madeTooltip({ kind: "todo", title: "Check the release notes before shipping today" });
+
+  expect(tip.split(" ").length).toBeLessThanOrEqual(5);
+  expect(tip).toBe("Todo: Check the release notes");
+});
+
+it("lh22_a_click_opens_the_pad_todo_or_file_once", async () => {
+  const { app, connected } = await mount({ made: madeSet });
+  const open = vi.spyOn(connected.drawer, "open").mockImplementation(() => undefined);
+
+  app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/p/report.md", sha256: "x" });
+  await waitFor(() => expect(names()).toContain("Pad: Plan"));
+  fireEvent.click(screen.getByRole("button", { name: "Pad: Plan" }));
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(open.mock.calls[0]?.[2]).toEqual({ kind: "pad", project: "/p" });
+  fireEvent.click(screen.getByRole("button", { name: /^Todo: / }));
+  expect(open).toHaveBeenCalledTimes(2);
+  expect(open.mock.calls[1]?.[2]).toEqual({ kind: "todo", project: "/p" });
+  fireEvent.click(screen.getByRole("button", { name: "File: Report" }));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "deliverable.resolve").length).toBe(1));
+  expect(open).toHaveBeenCalledTimes(2);
+});
+
+it("lh22_nothing_opens_without_a_click", async () => {
+  const { app, connected } = await mount({ made: madeSet });
+  const open = vi.spyOn(connected.drawer, "open").mockImplementation(() => undefined);
+
+  await waitFor(() => expect(names()).toContain("Pad: Plan"));
+  app.emit(event({ name: "agent.made", data: { id: "a" } }));
+  flush();
+  expect(open).not.toHaveBeenCalled();
+  expect(app.calls.some(call => call.method === "deliverable.resolve")).toBe(false);
+});
+
+it("lh23_made_icons_share_the_six_icon_limit_and_the_count", async () => {
+  await mount({ set: setOf(3), made: madeSet });
+  await waitFor(() => expect(names()).toContain(copy.moreName(2)));
+  expect(names().slice(0, 7)).toEqual([copy.editor, copy.terminal, "pr 0", "asked 1", "asked 2", "Pad: Plan", copy.moreName(2)]);
+  fireEvent.click(screen.getByRole("button", { name: copy.moreName(2) }));
+  expect([...document.querySelectorAll(".links-popover button")].map(each => each.getAttribute("aria-label"))).toEqual([expect.stringMatching(/^Todo: /), "File: Report"]);
 });

@@ -1,6 +1,9 @@
 import Code from "@lucide/solid/icons/code";
 import GitPullRequest from "@lucide/solid/icons/git-pull-request";
 import Link from "@lucide/solid/icons/link";
+import ListTodo from "@lucide/solid/icons/list-todo";
+import NotebookText from "@lucide/solid/icons/notebook-text";
+import FileText from "@lucide/solid/icons/file-text";
 import Server from "@lucide/solid/icons/server";
 import SquareTerminal from "@lucide/solid/icons/square-terminal";
 import Ticket from "@lucide/solid/icons/ticket";
@@ -12,14 +15,17 @@ import { defineRegistry, JSONUIProvider, Renderer } from "@json-render/solid";
 import { schema } from "@json-render/solid/schema";
 import { z } from "zod";
 import type { LinkSet } from "@contracts/links/LinkSet";
+import type { MadeItem } from "@contracts/links/MadeItem";
 import type { ChordName } from "../keys/chords";
 import { IconButton } from "../ui/IconButton";
 import { Popover } from "../ui/Popover";
 import { copy } from "./copy";
 
-export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void };
+export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void; made: (item: Pick<MadeItem, "kind" | "id">) => void };
 
 const icon = { props: z.object({ tooltip: z.string(), url: z.string().optional() }) };
+
+const madeIcon = { props: z.object({ tooltip: z.string(), id: z.string(), first: z.boolean() }) };
 
 /** LH2, LH8: the fixed catalogue; a spec element of any other type renders nothing. No model reads it, so it carries no descriptions. */
 const catalog = defineCatalog(schema, {
@@ -31,6 +37,9 @@ const catalog = defineCatalog(schema, {
     tracker: icon,
     "dev-server": icon,
     asked: icon,
+    pad: madeIcon,
+    todo: madeIcon,
+    file: madeIcon,
     more: { props: z.object({ count: z.number() }) },
   },
   actions: {},
@@ -39,17 +48,19 @@ const catalog = defineCatalog(schema, {
 /** The most icons shown inline (LH9). */
 const SHOWN = 6;
 
-/** The header's spec: the App's own two icons, then one element per entry of the set. */
-export const specOf = (set: LinkSet | undefined): Spec => {
+/** The header's spec: the App's own two icons, then one element per entry of the set, then one per made item (LH21). */
+export const specOf = (set: LinkSet | undefined, made: readonly MadeItem[] = []): Spec => {
   const entries = set?.entries ?? [];
 
   const elements: Spec["elements"] = {
-    header: { type: "links", props: {}, children: ["editor", "terminal", ...entries.map((_, index) => `link${index}`)] },
+    header: { type: "links", props: {}, children: ["editor", "terminal", ...entries.map((_, index) => `link${index}`), ...made.map((_, index) => `made${index}`)] },
     editor: { type: "editor", props: { tooltip: copy.editor }, children: [] },
     terminal: { type: "terminal", props: { tooltip: copy.terminal }, children: [] },
   };
 
   entries.forEach((entry, index) => { elements[`link${index}`] = { type: entry.kind, props: { url: entry.url, tooltip: entry.tooltip }, children: [] }; });
+
+  made.forEach((item, index) => { elements[`made${index}`] = { type: item.kind, props: { id: item.id, tooltip: copy.madeTooltip(item), first: index === 0 }, children: [] }; });
 
   return { root: "header", elements };
 };
@@ -93,6 +104,12 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
 
   type Ctx = { props: { tooltip: string; url?: string | undefined } };
 
+  type MadeCtx = { props: { tooltip: string; id: string; first: boolean } };
+
+  // LH21: a made icon sits after the links, set off by a space step on the first, so the Agent's links and its work read apart.
+  const madeOf = (Icon: Icon, kind: MadeItem["kind"]) => (ctx: MadeCtx) =>
+    <IconButton class="links-made" data-first={ctx.props.first ? "" : undefined} aria-label={ctx.props.tooltip} onClick={() => props.env.made({ kind, id: ctx.props.id })}><Icon size={16} aria-hidden="true" /></IconButton>;
+
   const iconOf = (Icon: Icon, run: (env: Env, url: string) => void, action?: ChordName) => (ctx: Ctx) =>
     <IconButton aria-label={ctx.props.tooltip} action={action} onClick={() => run(props.env, ctx.props.url ?? "")}><Icon size={16} aria-hidden="true" /></IconButton>;
 
@@ -105,6 +122,9 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       tracker: iconOf(Ticket, (env, url) => env.open(url)),
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
+      pad: madeOf(NotebookText, "pad"),
+      todo: madeOf(ListTodo, "todo"),
+      file: madeOf(FileText, "file"),
       more: ctx => (
         <Popover.Root open={open()} onOpenChange={({ open: next }) => setOpen(next)} initialFocusEl={() => content()?.querySelector("button")} finalFocusEl={() => trigger()}>
           <Popover.Trigger render={trigger => (
