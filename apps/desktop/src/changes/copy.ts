@@ -50,6 +50,7 @@ export const copy = {
   folderMatches: (agent: string, from: string) => `Everything in ${agent}'s folder matches ${from}`,
   /** @prose */
   compareFailed: (from: string, to: string) => `Couldn't compare ${from} with ${to}`,
+  fileReadFailed: (path: string) => `Couldn't read ${path}`,
   /** @prose */
   folderGone: (agent: string) => `${agent}'s folder no longer exists`,
   /** @prose */
@@ -123,6 +124,7 @@ export const copy = {
   notesRegion: sharedCopy.draftSurface("changes"),
   notes: sharedCopy.draftSurface("notes"),
   originalContext: " · Original context",
+  cannotCompare: " · Can't compare",
   originalContextStatus: "Original context",
   editNoteAction: sharedCopy.editAction,
   checkMessageHistory: "Check Message history",
@@ -191,10 +193,9 @@ export const copy = {
   worktreeCiText: sharedCopy.worktreeCiText,
   worktreePrText: sharedCopy.worktreePrText,
   worktreeReadUnavailable: sharedCopy.worktreeReadUnavailable,
-  statusAdded: "Added",
+  statusNew: sharedCopy.newWord,
   statusModified: "Modified",
   statusRenamed: "Renamed",
   statusDeleted: "Deleted",
-  statusUntracked: "Untracked",
   copy: sharedCopy.copy,
 } as const;
