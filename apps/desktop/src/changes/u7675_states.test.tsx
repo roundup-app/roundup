@@ -341,7 +341,7 @@ it("u7675b_added_deleted_and_renamed_files_say_which", async () => {
   ]);
 
   await open(() => ({ files: MODS }), path => there(answers.get(path)));
-  await says(copy.statusAdded);
+  await says(copy.statusNew);
   await waitFor(() => expect(lineKinds()).toEqual(["change-addition"]));
   press("j");
   await says(copy.statusDeleted);
@@ -944,4 +944,37 @@ it("u7678c_a_file_row_opens_its_modules_scroll_at_that_files_first_hunk", async 
   await drawn("m/b.ts");
   expect(scrolledTo(scroller())).toBe(100);
   expect(slot()?.querySelectorAll(".module-scroll")).toHaveLength(1);
+});
+
+it("u7854d_a_new_file_is_labelled_new", async () => {
+  const created = (path: string, status: "added" | "untracked"): ChangedFile => ({ ...file(path), status });
+
+  await open(() => ({ files: [created("a/x.ts", "untracked"), created("b/x.ts", "added"), file("c/x.ts")] }), path => comparison(path, { status: "untracked", old: { kind: "absent", revision: "absent" }, new: text("n", "one\n") }));
+
+  // A created file's row says New, an untracked one as an added one, and a modified file's says nothing.
+  for (const path of ["a/x.ts", "b/x.ts"]) expect((await treeRow(path)).textContent).toContain(copy.statusNew);
+  expect((await treeRow("c/x.ts")).textContent).not.toContain(copy.statusNew);
+  await waitFor(() => expect(section("a/x.ts")?.querySelector(".diff-status")?.textContent).toBe(copy.statusNew));
+});
+
+it("u7854e_a_failed_file_read_shows_in_the_pane_with_retry", async () => {
+  await open(() => ({ files: [file("m/a.ts")] }), () => { throw new Error("no_worktree: 16"); });
+
+  const [failure] = await waitFor(() => {
+    const found = notices("alert");
+
+    expect(found).toHaveLength(1);
+
+    return found;
+  });
+
+  const pane = there(section("m/a.ts"));
+
+  // Inside that file's pane, under its header: plain words, no raw code and nothing to dismiss.
+  expect(pane.contains(failure ?? null)).toBe(true);
+  expect(pane.querySelector(".diff-header")?.contains(failure ?? null)).toBe(false);
+  expect(failure?.textContent).toBe(copy.fileReadFailed("m/a.ts"));
+  expect(screen.queryByRole("button", { name: copy.dismissFailure })).toBeNull();
+  // What Retry reads and clears is proven by u7678c_one_files_notice_leaves_the_other_sections_alone.
+  expect(within(pane).getAllByRole("button", { name: copy.retry })).toHaveLength(1);
 });

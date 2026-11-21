@@ -4,7 +4,7 @@ import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { AppTree } from "../ui/TreeView";
 import { copy } from "./copy";
 import type { Grouped, NoiseKind } from "./modules";
-import { statusText } from "./paths";
+import { isNew, statusText } from "./paths";
 
 /** U7678a: a row's key in the open view: a module by its name, a noise file by its path. */
 export const moduleKey = (name: string) => `m:${name}`;
@@ -59,6 +59,7 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
   const File = (each: { file: ChangedFile; value: string; key: string; owner: string; noise?: true }) => <TreeItem value={each.value} class={each.noise ? "changes-row changes-noise row-wash" : "changes-row row-wash"} data-row="file" data-key={each.key} data-owner={each.owner} data-path={each.file.path} aria-label={copy.rowLabel(each.file.path, statusText[each.file.status])}
     onDblClick={() => props.onEdit(each.file.path)} onKeyDown={event => { if (event.key === "Enter") props.onEdit(each.file.path); }}>
     <Name text={each.file.path} />
+    <Show when={isNew(each.file.status)}><span class="changes-row-status">{statusText[each.file.status]}</span></Show>
     <Show when={each.file.counts}>{counts => <Counts added={counts().added} removed={counts().removed} />}</Show>
   </TreeItem>;
 
