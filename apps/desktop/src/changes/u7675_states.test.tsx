@@ -599,9 +599,9 @@ it("u7675e_question_mark_lists_the_keys", async () => {
   const keys = await screen.findByRole("region", { name: copy.keys });
   const items = within(keys).getAllByRole("listitem").map(item => item.textContent ?? "");
 
-  // Up and Down, Left and Right, Tab, J and K, ] and [, Enter, Esc and ?; N, V and R wait for the Issues that build them.
-  expect(items).toHaveLength(8);
-  expect(items.some(item => /^[NVR]\b/.test(item))).toBe(false);
+  // Up and Down, Left and Right, Tab, J and K, ] and [, V, Enter, Esc and ?; N and R wait for the Issues that build them.
+  expect(items).toHaveLength(9);
+  expect(items.some(item => /^[NR]\b/.test(item))).toBe(false);
   press("?");
   await gone(() => screen.queryByRole("region", { name: copy.keys }));
 });
@@ -625,7 +625,7 @@ it("u7675e_keys_do_not_fire_while_typing_in_a_note_field", async () => {
   fireEvent.click(screen.getByRole("button", { name: copy.addNote }));
   const box = within(screen.getByRole("form", { name: copy.lineNote })).getByLabelText(copy.note);
 
-  for (const key of ["j", "k", "]", "[", "?"]) press(key, box);
+  for (const key of ["j", "k", "]", "[", "v", "?"]) press(key, box);
   await says(at("new", 1));
   absent(() => screen.queryByRole("region", { name: copy.keys }));
   isOpen("a.ts");

@@ -203,3 +203,42 @@ fn lh3_a_key_alone_builds_no_url() {
             .is_empty()
     );
 }
+
+/// A model that answers after `delay`.
+struct Slow(std::time::Duration);
+
+#[async_trait]
+impl LinksModel for Slow {
+    async fn links(&self, _text: &str, _last: &LinkSet) -> Result<LinkSet, String> {
+        tokio::time::sleep(self.0).await;
+        Ok(set([entry(LinkKind::Pr, PR)]))
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn lh16_a_slow_answer_within_the_limit_becomes_the_set() {
+    let model = Slow(std::time::Duration::from_secs(4));
+    let got = answer(&model, &format!("opened {PR}"), &LinkSet::default()).await;
+    assert_eq!(got, Ok(Some(set([entry(LinkKind::Pr, PR)]))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn lh16_a_call_past_the_limit_is_killed() {
+    let model = Slow(std::time::Duration::from_secs(16 + 60));
+    let got = answer(&model, &format!("opened {PR}"), &LinkSet::default()).await;
+    assert_eq!(got, Err("timed out after 15 s".to_owned()));
+}
+
+#[test]
+fn lh17_the_log_keeps_its_last_200_lines() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("links.log");
+    for n in 0..250 {
+        crate::links::append_log(&path, &format!("line {n}")).unwrap();
+    }
+    let text = std::fs::read_to_string(&path).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 200);
+    assert_eq!(lines.first(), Some(&"line 50"));
+    assert_eq!(lines.last(), Some(&"line 249"));
+}

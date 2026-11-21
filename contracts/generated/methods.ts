@@ -17,6 +17,7 @@ import type { DeletionParams as agent_DeletionParams } from "./agent/DeletionPar
 import type { Digest as agent_Digest } from "./agent/Digest";
 import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
+import type { FetchedMain as agent_FetchedMain } from "./agent/FetchedMain";
 import type { FileComparison as agent_FileComparison } from "./agent/FileComparison";
 import type { GroupParams as agent_GroupParams } from "./agent/GroupParams";
 import type { HandoffParams as agent_HandoffParams } from "./agent/HandoffParams";
@@ -31,6 +32,7 @@ import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
 import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { Readback as agent_Readback } from "./agent/Readback";
 import type { RedoParams as agent_RedoParams } from "./agent/RedoParams";
+import type { RemoteMain as agent_RemoteMain } from "./agent/RemoteMain";
 import type { Removal as agent_Removal } from "./agent/Removal";
 import type { RemoveParams as agent_RemoveParams } from "./agent/RemoveParams";
 import type { RemoveSelectionParams as agent_RemoveSelectionParams } from "./agent/RemoveSelectionParams";
@@ -220,6 +222,8 @@ export type RpcMethods = {
   "agent.readback": { params: agent_ChangedFilesParams; result: agent_Readback };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
+  "agent.remoteMain": { params: agent_NodeId; result: agent_RemoteMain };
+  "agent.fetchRemoteMain": { params: agent_NodeId; result: agent_FetchedMain };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.adoptable": { params: null; result: agent_Adoptable[] };
   "agent.adopt": { params: agent_AdoptParams; result: agent_RailNode };
