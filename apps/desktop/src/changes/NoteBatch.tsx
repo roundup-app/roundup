@@ -86,7 +86,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
     get action() { return <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show>; },
   });
 
-  return <Show when={list().length > 0 || status() || props.notes.removed(props.id)}><section class="note-batch" aria-label={copy.notesRegion} onKeyDown={event => { if (event.key === "Escape" && open()) { event.stopPropagation(); setOpen(false); } }}>
+  return <Show when={list().length > 0 || status() || props.notes.removed(props.id)}><section class="note-batch note-bar" aria-label={copy.notesRegion} onKeyDown={event => { if (event.key === "Escape" && open()) { event.stopPropagation(); setOpen(false); } }}>
       <StatusNote text={noteLine.message() && !props.notes.failure(props.id) ? null : status()} />
       <Show when={sentLine() || (keptLine() && props.notes.failure(props.id) === null)}><button type="button" data-button="quiet" onClick={() => { if (sentLine()) props.notes.dismissSent(props.id); else props.notes.dismissKept(props.id); props.fallback?.(); }}>{copy.dismissLine}</button></Show>
       <Show when={props.notes.removed(props.id)}><p role="status"><span>{copy.noteRemoved}</span>{copy.dottedAfter("")}<BusyButton kind="quiet" busyLabel={copy.restoring} onClick={() => props.notes.undo(props.id)}>{copy.undo}</BusyButton></p></Show>

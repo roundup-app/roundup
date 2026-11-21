@@ -143,6 +143,20 @@ it("u7676c_unfinished_work_survives_a_file_switch_and_marks_its_row", async () =
   expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.flatMap(([input]) => input?.lineAnnotations ?? []).some(entry => "unfinished" in entry.metadata)).toBe(true);
 });
 
+it("u7676c_a_stored_note_leaves_no_unfinished_work_behind", async () => {
+  const { app } = await openDiff();
+  startNote();
+  fireEvent.input(field(), { target: { value: "half" } });
+  const typing = field();
+  fireEvent.click(form().getByRole("button", { name: "Save" }));
+  // A native select event can land between the Save click and the close; it must not write the draft back.
+  fireEvent.select(typing);
+  await waitFor(() => expect(screen.queryByRole("form", { name: copy.lineNote })).toBeNull());
+  await storageIdle();
+  expect(notesFor(app, "/p").list("a").map(note => note.text)).toEqual(["half"]);
+  expect(notesFor(app, "/p").unfinished("a")).toEqual([]);
+});
+
 it("u7676c_a_saved_note_says_not_sent_and_editing_keeps_it_until_save", async () => {
   const { app } = await openDiff();
   await saveNote("saved");
