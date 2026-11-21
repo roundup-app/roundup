@@ -215,7 +215,7 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
-it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s", async action => {
+it.each(["retry", "signal"])("u5558e_failed_reload_retains_data: %s", async action => {
   const { app, connected } = await openDiff();
   const retainedNote = "  unrelated note e\u0301\n🐝  ";
 
@@ -229,16 +229,11 @@ it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s",
   await connected.worktrees.refresh("a");
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
 
-  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  else {
-    app.handlers["agent.compareFile"] = () => COMPARISON;
+  app.handlers["agent.compareFile"] = () => COMPARISON;
 
-    if (action === "signal") await connected.worktrees.refresh("a");
-    else fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(notices("alert")).toHaveLength(0));
-  }
-
-  expect(notices("alert")).toHaveLength(0);
+  if (action === "signal") await connected.worktrees.refresh("a");
+  else fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
   expect(await screen.findByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);

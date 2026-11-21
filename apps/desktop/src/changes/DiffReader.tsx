@@ -6,11 +6,12 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
+import type { ChangedStatus } from "@contracts/agent/ChangedStatus";
 import { useConnectedProject } from "../state/connectedProject";
-import { StatusNote } from "../ink/MountedLine";
-import { createMessageToast } from "../ink/messageToast";
+import { BlockedFailure, StatusNote } from "../ink/MountedLine";
 import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
+import { isNew, statusText } from "./paths";
 import { changeAt, changeStarts, placeOf, revealerOf, sideName } from "./lines";
 import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
@@ -116,9 +117,12 @@ const createNoteField = (props: { editing?: Note | undefined; onEdited: () => vo
 /** U7690c: a line the jump list chose, for the file that draws it. */
 export type DiffTarget = { path: string; side: "old" | "new"; line: number };
 
+/** U7854d: the word a diff header carries: New for a created file, Deleted for a removed one, none for the rest. */
+const statusWord = (status: ChangedStatus | null) => status !== null && (isNew(status) || status === "deleted") ? statusText[status] : null;
+
 const DiffIdentity = (props: { read: FileComparison | undefined; path: string }) => <div class="diff-identity">
   <p class="diff-path"><Show when={props.read} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
-  <Show when={props.read}>{value => <Show when={value().status === "added" || value().status === "deleted"}><p class="diff-status">{value().status === "added" ? copy.statusAdded : copy.statusDeleted}</p></Show>}</Show>
+  <Show when={props.read && statusWord(props.read.status)}>{word => <p class="diff-status">{word()}</p>}</Show>
 </div>;
 
 type ReadProps = { id: string; path: string; blob?: string | null | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined };
@@ -182,9 +186,7 @@ const createComparisonRead = (props: ReadProps) => {
   });
   onCleanup(() => stopLoading());
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null), get recover() { return loading() ? undefined : { run: () => load(params()) }; } });
-
-  return { read, failure, setFailure, loading, slow, updated, reread: () => { redraw = true; load(params()); } };
+  return { read, failure, setFailure, loading, slow, updated, retry: () => load(params()), reread: () => { redraw = true; load(params()); } };
 };
 
 /** One read-only comparison, fetched only after View diff. */
@@ -193,7 +195,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
 
-  const { read, failure, setFailure, loading, slow, updated, reread } = createComparisonRead(props);
+  const { read, failure, setFailure, loading, slow, updated, retry, reread } = createComparisonRead(props);
   const { form, edit, open: openNote, composer, close: closeForm } = createNoteField(props, read, () => focusHost());
   const [renderer, setRenderer] = createSignal<VirtualizedFileDiff<Annotated>>();
   const [coarse, setCoarse] = createSignal(false);
@@ -387,6 +389,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       <DiffIdentity read={read()} path={props.path} />
       <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show>
     </header>
+    <BlockedFailure message={failure() && `${copy.fileReadFailed(props.path)}: ${failure()}`} content={copy.fileReadFailed(props.path)} recover={loading() ? undefined : { run: retry }} />
     <StatusNote text={failure() ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>

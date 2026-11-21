@@ -22,6 +22,9 @@ const count = Number(new URLSearchParams(location.search).get("worst")) || 50;
 
 const spread = new URLSearchParams(location.search).has("spread");
 
+// U7854: ?shared is an Agent in the Project's own checkout, with no Worktree: Changes lists the groups the Daemon names.
+const shared = new URLSearchParams(location.search).has("shared");
+
 const size = dense ? 10000 : worst ? 60 : 0;
 
 
@@ -44,7 +47,7 @@ const original = app.handlers["rail.tree"];
 
 const worktree = { branch: "roundup/agent-1", base: "main", path: "/p/.roundup/agent-1" };
 
-app.handlers["rail.tree"] = async () => (await original(null) ?? []).map(node => node.id === "agent-1" ? { ...node, worktree } : node);
+app.handlers["rail.tree"] = async () => (await original(null) ?? []).map(node => node.id === "agent-1" && !shared ? { ...node, worktree } : node);
 
 const path = dense ? `${"directory/".repeat(10)}very-long-file-name.ts` : "src/example.ts";
 
