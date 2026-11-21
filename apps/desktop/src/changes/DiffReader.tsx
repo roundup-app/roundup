@@ -312,9 +312,16 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       view.render({ fileContainer: container, fileDiff });
 
       // U7610c: the annotation pass that setRenderer starts is a task of its own, after the first render.
-      await new Promise(resolve => setTimeout(resolve));
+      if (!current) {
+        view.cleanUp();
 
-      if (!current) { view.cleanUp(); if (!shared) virtualizer.cleanUp(); container.remove(); return; }
+        if (!shared) virtualizer.cleanUp();
+
+        container.remove();
+
+        return;
+      }
+
       setRenderer(view);
 
       view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
