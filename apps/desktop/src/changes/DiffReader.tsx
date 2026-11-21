@@ -26,39 +26,6 @@ import { NoteBatch } from "./NoteBatch";
 import { ImagePane } from "./ImagePane";
 import { drawsLines, imageHidden, imageSides } from "./images";
 
-/** U7610c: the notes one Pierre render draws at once; the rest wait for later tasks. */
-const IMMEDIATE_NOTES = 6;
-
-/** U7610c: an annotation beyond the first few of a render draws in later tasks, so a file with a hundred notes opens in short ones. */
-const deferredDraws = () => {
-  const queue: (() => void)[] = [];
-  let draining = false;
-  let stopped = false;
-  let drawnNow = 0;
-
-  const drain = () => {
-    draining = false;
-    const start = performance.now();
-
-    while (queue.length > 0 && !stopped && performance.now() - start < 20) queue.shift()?.();
-
-    if (queue.length > 0 && !stopped) { draining = true; setTimeout(drain); }
-  };
-
-  return {
-    schedule: (draw: () => void, urgent: boolean) => {
-      if (!drawnNow++) queueMicrotask(() => { drawnNow = 0; });
-
-      if (urgent || drawnNow <= IMMEDIATE_NOTES) return draw();
-
-      queue.push(draw);
-
-      if (!draining) { draining = true; setTimeout(drain); }
-    },
-    stop: () => { stopped = true; },
-  };
-};
-
 /** U7678c: a line's top inside the shared scroll, which holds many files: the file's own offset plus the line's place in it. */
 const scrollTo = (mount: HTMLElement, top: number) => {
   const scroller = mount.closest<HTMLElement>(".module-scroll");
@@ -251,9 +218,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const { slots, sweep } = createSlots();
 
-  const { schedule, stop } = deferredDraws();
-
-  onCleanup(() => { stop(); sweep(undefined); });
+  onCleanup(() => sweep(undefined));
 
   const annotation = (metadata: Annotated) => {
     const element = document.createElement("div");
@@ -267,9 +232,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       return <NoteView note={metadata} status={metadata.sent !== undefined ? "sent" : props.notes.noteState(props.id, metadata)} edit={() => edit(metadata)} remove={() => void props.notes.remove(props.id, metadata.id)} />;
     };
 
-    const draw = () => { if (element.isConnected) slots.add({ element, metadata, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner })) ?? (() => {}) }); };
-
-    schedule(draw, "composing" in metadata);
+    slots.add({ element, metadata, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner })) ?? (() => {}) });
 
     return element;
   };
@@ -322,7 +285,6 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
       if (!shared) virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
-
       setRenderer(view);
 
       view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
