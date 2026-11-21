@@ -89,13 +89,13 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   return <Show when={list().length > 0 || status() || props.notes.removed(props.id)}><section class="note-batch" aria-label={copy.notesRegion} onKeyDown={event => { if (event.key === "Escape" && open()) { event.stopPropagation(); setOpen(false); } }}>
       <StatusNote text={noteLine.message() && !props.notes.failure(props.id) ? null : status()} />
       <Show when={sentLine() || (keptLine() && props.notes.failure(props.id) === null)}><button type="button" data-button="quiet" onClick={() => { if (sentLine()) props.notes.dismissSent(props.id); else props.notes.dismissKept(props.id); props.fallback?.(); }}>{copy.dismissLine}</button></Show>
-      <Show when={props.notes.removed(props.id)}><p role="status"><span>{copy.noteRemoved}</span> · <button type="button" data-button="quiet" onClick={() => { void props.notes.undo(props.id); }}>{copy.undo}</button></p></Show>
+      <Show when={props.notes.removed(props.id)}><p role="status"><span>{copy.noteRemoved}</span>{copy.dottedAfter("")}<BusyButton kind="quiet" busyLabel={copy.restoring} onClick={() => props.notes.undo(props.id)}>{copy.undo}</BusyButton></p></Show>
       <Show when={list().length}><button type="button" data-button="quiet" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen(value => !value)}>{copy.noteCount(list().length)}</button></Show>
       <Show when={uncertain()}><BusyButton kind="quiet" busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</BusyButton></Show>
       <Show when={list().length && open()}>
         <ul aria-label={copy.notes}><For each={list().slice(0, mounted())}>{(note, index) => <li>
           <NotePath path={note.comparison.newPath} />
-          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<InlineStatus text={older(note) ? copy.originalContext : null} /> · {noteWords[props.notes.noteState(props.id, note)]}</p>
+          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<InlineStatus text={older(note) ? copy.originalContext : null} />{copy.dottedAfter(noteWords[props.notes.noteState(props.id, note)])}</p>
           <p class="note-text">{note.text}</p>
           <Show when={props.notes.noteState(props.id, note) === "unsent" || props.notes.noteState(props.id, note) === "failed"}><div class="diff-actions">
             <button type="button" data-button="quiet" aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}>{copy.editNoteAction}</button>

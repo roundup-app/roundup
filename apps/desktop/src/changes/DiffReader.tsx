@@ -251,7 +251,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <Show when={gathered().length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
-      <For each={gathered()}>{note => <li><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)} · {copy.originalContext}</p><p class="note-text">{note.text}</p></li>}</For>
+      <For each={gathered()}>{note => <li><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></li>}</For>
     </ul></Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} />

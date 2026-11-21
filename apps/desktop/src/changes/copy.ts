@@ -133,6 +133,8 @@ export const copy = {
   notesKept: (count: number) => `${count} ${noun(count)} kept from before the restart`,
   noteCount: (count: number) => `${count} ${noun(count)}`,
   noteRemoved: "Note removed",
+  restoring: "Restoring…",
+  dottedAfter: sharedCopy.dottedAfter,
   undo: sharedCopy.todoUndo,
   dismissLine: sharedCopy.dismissFailure,
   notSent: "Not sent",

@@ -31,13 +31,13 @@ export const createNoteMemory = <Note extends object>(restored: ReadonlyMap<stri
   };
 };
 
+const LOCKED = { pending: "sending", unknown: "unknown" } as const;
+
 /** What a note says of itself: Sending and Send unknown lock it; Couldn't send keeps it editable. */
 export const noteStateOf = (submissions: readonly { status: string; notes: readonly { id: number }[] }[], send: { kind: string; notes?: readonly number[] | null } | undefined, note: { id: number }): "sending" | "unknown" | "failed" | "unsent" => {
-  const submission = submissions.find(value => value.notes.some(each => each.id === note.id));
+  const status = submissions.find(value => value.notes.some(each => each.id === note.id))?.status;
 
-  if (submission?.status === "pending") return "sending";
-
-  if (submission?.status === "unknown") return "unknown";
+  if (status === "pending" || status === "unknown") return LOCKED[status];
 
   return send?.kind === "failed" && (send.notes === null || send.notes?.includes(note.id)) ? "failed" : "unsent";
 };
