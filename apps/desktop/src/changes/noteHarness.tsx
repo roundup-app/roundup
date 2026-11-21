@@ -59,8 +59,8 @@ export const openFile = async (path = "src/a.ts") => {
   await new Promise(resolve => setTimeout(resolve, 50));
 };
 
-export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
-  const mounted = await mountControl(undefined, project, drafts);
+export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"], changed?: Parameters<typeof mountControl>[0]) => {
+  const mounted = await mountControl(changed, project, drafts);
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   await openChanges();
   await openFile();

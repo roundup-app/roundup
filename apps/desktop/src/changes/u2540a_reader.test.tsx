@@ -23,10 +23,13 @@ vi.mock("diff", { spy: true });
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); localStorage.clear(); });
 
+/** One file in the list: its module opens on it alone, so the reader's counters below count that file. */
+const openOne = () => openDiff("/p", undefined, () => ({ files: [{ path: "src/a.ts", status: "modified", line: 12, counts: null, blob: null }] }));
+
 const rendered = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff);
 
 it("u5646a_equal_replies_keep_render_and_selection", async () => {
-  const { app, connected } = await openDiff();
+  const { app, connected } = await openOne();
   await waitFor(() => expect(rendered()).toHaveLength(1));
   const drawn = { patches: vi.mocked(createTwoFilesPatch).mock.calls.length, views: vi.mocked(VirtualizedFileDiff).mock.calls.length, files: vi.mocked(processFile).mock.calls.length };
   const click = vi.mocked(VirtualizedFileDiff).mock.calls.at(-1)![0]!.onLineNumberClick!;
@@ -61,7 +64,7 @@ it.each([
   { new: { kind: "absent" as const, revision: COMPARISON.new.revision } },
   { old: { kind: "binary" as const, revision: COMPARISON.old.revision } }, { status: null },
 ])("u5646a_changed_identity_updates_content: %j", async change => {
-  const { app, connected } = await openDiff();
+  const { app, connected } = await openOne();
   await waitFor(() => expect(rendered()).toHaveLength(1));
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, ...change });
   await connected.worktrees.refresh("a");
@@ -113,7 +116,7 @@ it("u5646c_equal_refresh_keeps_fallback_notice", async () => {
   const boundedPatch: (...args: Parameters<typeof createTwoFilesPatch>) => string | undefined = createTwoFilesPatch;
 
   vi.mocked(boundedPatch).mockReturnValueOnce(undefined);
-  const { app, connected } = await openDiff();
+  const { app, connected } = await openOne();
   await screen.findByText(readerCopy.replacementDiff);
 
   for (let i = 0; i < 2; i++) {
@@ -137,7 +140,7 @@ it("u5646c_equal_refresh_keeps_fallback_notice", async () => {
 });
 
 it("u5646d_refresh_recovery_and_disposal", async () => {
-  const { app, connected, view } = await openDiff();
+  const { app, connected, view } = await openOne();
   await waitFor(() => expect(rendered()).toHaveLength(1));
   const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
 

@@ -84,7 +84,7 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
   const Files = (each: { owner: string; files: readonly ChangedFile[] }) => <Show when={unfolded().has(each.owner)}>
     <ul class="changes-files">
       <For each={each.files}>{file => <li>
-        <button type="button" class="changes-row" data-row="file" data-key={each.owner} data-owner={each.owner} data-path={file.path} tabindex="-1" aria-label={label(`${file.path}, ${statusText[file.status]}`, [file])}>
+        <button type="button" class="changes-row" data-row="file" data-key={each.owner} data-owner={each.owner} data-path={file.path} tabindex="-1" aria-label={`${file.path}, ${statusText[file.status]}`}>
           <span class="changes-row-name">{file.path}</span>
           <Show when={file.counts}>{counts => <Counts added={counts().added} removed={counts().removed} />}</Show>
         </button>
@@ -108,7 +108,7 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
       <Show when={unfolded().has(`k:${noise.kind}`)}>
         <ul class="changes-files">
           <For each={noise.files}>{file => <li>
-            <button type="button" class="changes-row" data-row="file" data-key={noiseKey(file.path)} data-owner={`k:${noise.kind}`} data-path={file.path} data-noise="true" tabindex="-1" aria-label={label(`${file.path}, ${statusText[file.status]}`, [file])}>
+            <button type="button" class="changes-row" data-row="file" data-key={noiseKey(file.path)} data-owner={`k:${noise.kind}`} data-path={file.path} data-noise="true" tabindex="-1" aria-label={`${file.path}, ${statusText[file.status]}`}>
               <span class="changes-row-name">{file.path}</span>
             </button>
           </li>}</For>

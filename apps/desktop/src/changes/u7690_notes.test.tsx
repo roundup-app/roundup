@@ -221,7 +221,8 @@ const jumpList = () => screen.queryByRole("region", { name: copy.jumpToNote });
 
 const rows = () => within(present(jumpList())).queryAllByRole("option").map(row => [...row.querySelectorAll("span")].map(part => part.textContent).join(" | "));
 
-const openPath = () => document.querySelector(".diff-path")?.textContent;
+/** The file the module's scroll is at: the section holding focus, else the first. */
+const openPath = () => (document.activeElement?.closest<HTMLElement>(".module-file") ?? document.querySelector<HTMLElement>(".module-file"))?.dataset.path;
 
 const isOpen = (path: string) => waitFor(() => { if (openPath() !== path) throw new Error(`Not on ${path}`); });
 

@@ -60,6 +60,57 @@ const GatheredNotes = (props: { id: string; notes: Notes; gathered: readonly Not
 /** U7678d: whether a read has lines to draw: not an image, unfinished, or hidden file. */
 const drawableOf = (value: FileComparison | undefined, hidden: ReturnType<typeof hiddenKind>) => value !== undefined && drawsLines(value) && value.status !== null && hidden === null;
 
+/** U7675e, U7678d: the change starts of the drawn file and the one the focused line sits on. */
+const createChangeCursor = () => {
+  let starts: ChangeStart[] = [];
+  let at = -1;
+
+  return {
+    set: (next: ChangeStart[], selection: LineSelection) => { starts = next; at = changeAt(starts, selection); },
+    place: (selection: LineSelection) => { at = changeAt(starts, selection); },
+    step: (direction: 1 | -1) => {
+      const next = starts[at + direction];
+
+      if (next) at += direction;
+
+      return next;
+    },
+    enter: (direction: 1 | -1) => {
+      at = direction === 1 ? 0 : starts.length - 1;
+
+      return starts[at];
+    },
+  };
+};
+
+type Draft = { comparison: FileComparison; selection: LineSelection; editing?: Note };
+
+/** U7676a, U7677e: the field a note is written in: opened from a line, a range or an edit, and closed back to the reader. */
+const createNoteField = (props: { editing?: Note | undefined; onEdited: () => void }, read: () => FileComparison | undefined, refocus: () => void) => {
+  const [form, setForm] = createSignal<Draft>();
+
+  // U7677e: a Sent note is read only; Remove is all it offers.
+  const edit = (note: Note | undefined) => { if (note && note.sent === undefined) setForm({ comparison: note.comparison, selection: note, editing: note }); };
+
+  createEffect(() => props.editing, edit);
+
+  // U7676a: a note starts from a line, a range or the focused line; the form open until then stays as unfinished work.
+  const open = (range: LineSelection) => {
+    const value = read();
+
+    if (value && value.status !== null && value.old.kind !== "binary" && value.new.kind !== "binary") setForm({ comparison: value, selection: range });
+  };
+
+  // U7677d: the composer is an annotation under the last line of its range; one object per open field keeps Pierre from drawing it again.
+  const composer = createMemo((): Composer | undefined => {
+    const draft = form();
+
+    return draft && { composing: true, side: draft.selection.side, start: draft.selection.start, end: draft.selection.end, replacing: draft.editing?.id };
+  });
+
+  return { form, edit, open, composer, close: () => { setForm(undefined); props.onEdited(); refocus(); } };
+};
+
 /** U7690c: a line the jump list chose, for the file that draws it. */
 export type DiffTarget = { path: string; side: "old" | "new"; line: number };
 
@@ -137,24 +188,16 @@ const createComparisonRead = (props: ReadProps) => {
 /** One read-only comparison, fetched only after View diff. */
 export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
-  const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
 
-  // U7677e: a Sent note is read only; Remove is all it offers.
-  const edit = (note: Note | undefined) => { if (note && note.sent === undefined) setForm({ comparison: note.comparison, selection: note, editing: note }); };
-
-  createEffect(() => props.editing, edit);
-
-  const closeForm = () => { setForm(undefined); props.onEdited(); focusHost(); };
-
   const { read, failure, setFailure, loading, slow, updated, reread } = createComparisonRead(props);
+  const { form, edit, open: openNote, composer, close: closeForm } = createNoteField(props, read, () => focusHost());
   const [renderer, setRenderer] = createSignal<VirtualizedFileDiff<Annotated>>();
   const [coarse, setCoarse] = createSignal(false);
   const [host, setHost] = createSignal<HTMLDivElement>();
   const [shown, setShown] = createSignal<{ path: string; kind: "whitespace" | "large" }>();
-  let starts: ChangeStart[] = [];
-  let cursor = -1;
+  const changes = createChangeCursor();
   let rendered: { path: string; revision: string } | undefined;
   let focusHost = () => {};
 
@@ -168,13 +211,6 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
   const notes = createMemo(() => props.notes.all(props.id));
-
-  // U7677d: the composer is an annotation under the last line of its range; one object per open field keeps Pierre from drawing it again.
-  const composer = createMemo((): Composer | undefined => {
-    const draft = form();
-
-    return draft && { composing: true, side: draft.selection.side, start: draft.selection.start, end: draft.selection.end, replacing: draft.editing?.id };
-  });
 
   const { slots, sweep } = createSlots();
 
@@ -223,7 +259,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const drawn = await drawDiff(value, mount, { current: () => current, shared, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); onFocus?.(); remember(); }, note: range => openNote(range), annotation });
+      const drawn = await drawDiff(value, mount, { current: () => current, shared, selection, pick: range => { setSelection(range); changes.place(range); onFocus?.(); remember(); }, note: range => openNote(range), annotation });
 
       if (!drawn) return;
       const { view, virtualizer, container, fileDiff, coarse } = drawn;
@@ -239,8 +275,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       const kept = props.places?.get(value.newPath);
       const restarted = shared !== undefined && kept !== undefined && kept.revision !== revision;
 
-      starts = changeStarts(fileDiff);
-      cursor = changeAt(starts, place.selection);
+      changes.set(changeStarts(fileDiff), place.selection);
       rendered = { path: value.newPath, revision };
       setSelection(place.selection);
 
@@ -318,31 +353,22 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       if (note) void props.notes.remove(props.id, note.id);
     },
     step: direction => {
-      const next = starts[cursor + direction];
+      const next = changes.step(direction);
 
       if (!next) return false;
-      cursor = cursor + direction;
       moveTo(next.side, next.at[next.side]);
 
       return true;
     },
     enter: direction => {
-      const next = direction === 1 ? starts[0] : starts.at(-1);
+      const next = changes.enter(direction);
 
       if (!next) return loading() || (drawableOf(read(), hidden()) && rendered === undefined) ? "wait" : "none";
-      cursor = direction === 1 ? 0 : starts.length - 1;
       moveTo(next.side, next.at[next.side]);
 
       return "moved";
     },
   }));
-
-  // U7676a: a note starts from a line, a range or the focused line; the form open until then stays as unfinished work.
-  const openNote = (range: LineSelection) => {
-    const value = read();
-
-    if (value && value.status !== null && value.old.kind !== "binary" && value.new.kind !== "binary") setForm({ comparison: value, selection: range });
-  };
 
   // U7676c: a note whose comparison is not the open one stays in the batch and gathers after the file's last line.
   const gathered = createMemo(() => gatheredNotes(read(), notes()));

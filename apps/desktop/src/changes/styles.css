@@ -109,8 +109,6 @@
   background: var(--sunken);
 }
 
-.changes-tree { flex: 1; min-height: 0; }
-
 .changes-head {
   display: flex;
   flex-wrap: wrap;

@@ -120,13 +120,6 @@ it("u7674c_file_rows_show_counts", async () => {
   expect(b.textContent).not.toMatch(/\d/);
 });
 
-it("u7674e_opening_requests_only_the_first_files_comparison", async () => {
-  const { app } = await open();
-
-  await showing("src/a.ts");
-  expect(compared(app)).toEqual(["src/a.ts"]);
-});
-
 it("u7674e_up_and_down_never_blank_the_pane", async () => {
   const { app } = await open(() => ({ files: [...FILES.files, { path: "zeta/m.rs", status: "modified" as const, line: 1, counts: null, blob: null }] }));
 

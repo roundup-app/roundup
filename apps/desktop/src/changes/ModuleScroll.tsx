@@ -8,8 +8,17 @@ import type { Places } from "./lines";
 import { NoteBatch } from "./NoteBatch";
 import type { Note, Notes } from "./notes";
 
+type Line = { side: "old" | "new"; line: number };
+
+/** U7678c: the line a click landed on: Pierre draws each line in its own shadow DOM, so the event's path names it. */
+const lineOf = (event: MouseEvent): Line | undefined => {
+  const line = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.line !== undefined);
+
+  return line && { side: line.dataset.lineType === "change-deletion" ? "old" : "new", line: Number(line.dataset.line) };
+};
+
 /** U7678c: one module's hunks as one scroll: each file under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
-export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; notes: Notes; recover: () => void }) => {
+export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void }) => {
   let scroller: HTMLDivElement | undefined;
   const sections = new Map<string, HTMLElement>();
   const readers = new Map<string, DiffKeys>();
@@ -115,6 +124,13 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
   const here = () => readers.get(current);
 
+  // U7678c: a double click on a hunk opens its file in the editor at the line it landed on.
+  const doubleClicked = (event: MouseEvent) => {
+    const path = event.target instanceof Element ? event.target.closest<HTMLElement>(".module-file")?.dataset.path : undefined;
+
+    if (path !== undefined) props.open(path, lineOf(event));
+  };
+
   createEffect(() => props.keys, keys => keys({
     focus: () => here()?.focus(),
     step: direction => {
@@ -136,7 +152,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
   }));
 
   return <div class="module-pane">
-    <div class="module-scroll" tabindex="-1" aria-label={props.name} ref={element => { scroller = element; shared.scroller = element; }}>
+    <div class="module-scroll" tabindex="-1" aria-label={props.name} onDblClick={doubleClicked} ref={element => { scroller = element; shared.scroller = element; }}>
     <For each={paths()}>{path => <section class="module-file" data-path={path} style={{ "min-block-size": `calc(var(--space-5) * ${lines(path)})` }} ref={element => { sections.set(path, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(path); readers.delete(path); }); }}>
       <Show when={wanted().has(path)} fallback={<header class="diff-header"><p class="diff-path">{path}</p></header>}>
         <DiffReader shared={shared} batch={false} counts={fileOf(path)?.counts} id={props.id} name={props.name} path={path} blob={fileOf(path)?.blob} places={props.places} to={props.to} notes={props.notes} editing={editing()?.comparison.newPath === path ? editing() : undefined} onEdited={() => setEditing(undefined)} onFocus={() => { current = path; }} target={props.target?.path === path ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(path, api); resume(); }} recover={props.recover} />

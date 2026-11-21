@@ -6,8 +6,10 @@ import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { agent, event } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { message } from "../testing/centreFixture";
+import { notices } from "../testing/notices";
 import { copy } from "./copy";
-import { mountControl } from "./harness";
+import { mountControl, WORKTREE } from "./harness";
 import { COMPARISON, openChanges, saveNote, treeRow, startNote } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
@@ -744,4 +746,200 @@ it("u7675f_reopening_restores_the_open_file_its_scroll_and_line", async () => {
   edited(app, "a");
   fireEvent.click(await icon());
   await showing("a/x.ts");
+});
+
+/** The file rows the list shows, in order. */
+const fileRows = () => [...region().querySelectorAll<HTMLElement>('[data-row="file"]')].map(row => row.dataset.path);
+
+const noiseRows = () => [...region().querySelectorAll<HTMLElement>('[data-row="noise"]')];
+
+/** The paths `agent.compareFile` was asked for, in order. */
+// SAFETY: the fake App logs the params it was given, and agent.compareFile's are { path: string }.
+const readPaths = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter(call => call.method === "agent.compareFile").map(call => (call.params as { path: string }).path);
+
+it("u7678a_files_show_only_inside_their_module_folded_at_first", async () => {
+  await open(() => ({ files: [file("a/x.ts"), file("a/y.ts"), file("b/z.ts")] }));
+  await showing("a/x.ts");
+  const row = moduleRow("a");
+
+  expect(fileRows()).toEqual([]);
+  expect(row.getAttribute("aria-expanded")).toBe("false");
+  press("ArrowRight", row);
+  await waitFor(() => expect(fileRows()).toEqual(["a/x.ts", "a/y.ts"]));
+
+  // Both stand inside their module's item, each with its own counts; the other module has none.
+  expect(there(row.closest("li")).querySelectorAll('[data-row="file"]')).toHaveLength(2);
+  expect(there(region().querySelector('[data-row="file"]')).textContent).toContain(copy.addedLines(1) + " " + copy.removedLines(1));
+  press("ArrowLeft", row);
+  await waitFor(() => expect(fileRows()).toEqual([]));
+});
+
+it("u7678a_up_and_down_open_the_module_that_takes_focus", async () => {
+  const { app } = await open(() => ({ files: [file("a/x.ts"), file("b/x.ts"), file("yarn.lock")] }));
+
+  await showing("a/x.ts");
+  press("ArrowDown", moduleRow("a"));
+  await showing("b/x.ts");
+  expect(treeFocus()).toBe("m:b");
+  press("ArrowUp", moduleRow("b"));
+  await showing("a/x.ts");
+  expect(treeFocus()).toBe("m:a");
+
+  // A noise row takes focus and opens nothing: the open scroll stays, and no read names its file.
+  press("ArrowDown", moduleRow("a"));
+  await showing("b/x.ts");
+  press("ArrowDown", moduleRow("b"));
+  await waitFor(() => expect(treeFocus()).toBe("k:lockfile"));
+  expect(openPaths()).toEqual(["b/x.ts"]);
+  expect(readPaths(app)).not.toContain("yarn.lock");
+});
+
+it("u7678b_noise_folds_to_quiet_rows_whose_files_open_alone", async () => {
+  let list = [file("m/x.ts"), file("yarn.lock"), file("go.sum")];
+  const { app, connected } = await open(() => ({ files: list }));
+
+  await showing("m/x.ts");
+
+  // A row stands only for a kind the change holds; it names its files and shows no counts.
+  expect(noiseRows().map(row => row.textContent)).toEqual([copy.noiseRow(copy.lockfiles, 2)]);
+  list = [...list, file("api/generated/x.ts")];
+  await connected.owned.refresh("a");
+  await waitFor(() => expect(noiseRows().map(row => row.textContent)).toEqual([copy.noiseRow(copy.generated, 1), copy.noiseRow(copy.lockfiles, 2)]));
+
+  // Folded at first; a file under it opens alone, and the module's scroll never holds it.
+  expect(fileRows()).toEqual([]);
+  press("ArrowRight", there(noiseRows()[1]));
+  fireEvent.focusIn(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="yarn.lock"]'))));
+  await showing("yarn.lock");
+  expect(openPaths()).toEqual(["yarn.lock"]);
+  fireEvent.focusIn(moduleRow("m"));
+  await showing("m/x.ts");
+  expect(openPaths()).toEqual(["m/x.ts"]);
+  expect(new Set(readPaths(app))).toEqual(new Set(["m/x.ts", "yarn.lock"]));
+});
+
+it("u7678c_a_module_opens_as_one_scroll_with_logic_before_tests", async () => {
+  await open(() => ({ files: ["m/b.test.ts", "m/b.ts", "m/a.ts", "m/a.test.ts", "n/c.ts"].map(file) }));
+  await showing("m/a.ts");
+
+  expect(slot()?.querySelectorAll(".module-scroll")).toHaveLength(1);
+  expect(openPaths()).toEqual(["m/a.ts", "m/b.ts", "m/a.test.ts", "m/b.test.ts"]);
+
+  for (const path of openPaths()) expect(section(there(path ?? null))?.textContent).toContain(path);
+});
+
+it("u7678c_one_files_notice_leaves_the_other_sections_alone", async () => {
+  let failing = true;
+
+  const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => {
+    if (path === "m/b.ts" && failing) throw new Error("read refused");
+
+    return multi(path);
+  });
+
+  await drawn("m/a.ts");
+
+  // After a's last change, `]` leaves for b, which reads and fails.
+  for (const change of CHANGES) {
+    press("]");
+    await marks(at(change.side, change.line), "m/a.ts");
+  }
+
+  press("]");
+  await waitFor(() => expect(notices("alert")).toHaveLength(1));
+  const before = readPaths(app).length;
+
+  // a keeps its drawn lines, and Retry reads b alone.
+  await drawn("m/a.ts");
+  failing = false;
+  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
+  await drawn("m/b.ts");
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
+  expect(readPaths(app).slice(before)).toEqual(["m/b.ts"]);
+});
+
+it("u7678c_a_note_made_in_a_scroll_keeps_its_file_side_and_line", async () => {
+  const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));
+
+  const write = async (path: string, words: string) => {
+    fireEvent.keyDown(there(content(path)), { key: "n" });
+    const form = within(await screen.findByRole("form", { name: copy.lineNote }));
+
+    fireEvent.input(form.getByLabelText(copy.note), { target: { value: words } });
+    fireEvent.click(form.getByRole("button", { name: "Save" }));
+    await gone(() => screen.queryByRole("form", { name: copy.lineNote }));
+  };
+
+  await drawn("m/a.ts");
+  await write("m/a.ts", "first");
+
+  for (const change of CHANGES) {
+    press("]");
+    await marks(at(change.side, change.line), "m/a.ts");
+  }
+
+  press("]");
+  await marks(at("old", 3), "m/b.ts");
+  await write("m/b.ts", "second");
+  let sent: unknown;
+
+  app.handlers["message.send"] = params => {
+    sent = JSON.parse(params.body);
+
+    return message(1, { to: params.to, body: params.body });
+  };
+
+  fireEvent.click(within(screen.getByLabelText(copy.notesRegion, { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }));
+  await waitFor(() => expect(sent).toBeDefined());
+  expect(sent).toMatchObject({ notes: [
+    { "File:": { new: "m/a.ts" }, "Lines:": "new 1-1", "User comment:": "first" },
+    { "File:": { new: "m/b.ts" }, "Lines:": "old 3-3", "User comment:": "second" },
+  ] });
+});
+
+it("u7678c_enter_or_a_double_click_on_a_hunk_opens_its_file_in_the_editor", async () => {
+  const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));
+  const lineOf = (type: string, line: number) => there(drawnIn("m/a.ts").flatMap(each => [...each.shadowRoot?.querySelectorAll("[data-line]") ?? []]).find(each => each.getAttribute("data-line-type") === type && each.getAttribute("data-line") === String(line)));
+
+  await drawn("m/a.ts");
+  press("]");
+  press("]");
+  await marks(at("new", 21), "m/a.ts");
+
+  // Enter opens the focused line; a double click, the line it lands on; a removed line has no place in the file, so the file opens at its own line.
+  press("Enter", there(content("m/a.ts")));
+  fireEvent.dblClick(lineOf("change-addition", 21));
+  fireEvent.dblClick(lineOf("change-deletion", 3));
+  await waitFor(() => expect(app.editorCalls).toEqual([
+    { path: `${WORKTREE.path}/m/a.ts`, line: 21 },
+    { path: `${WORKTREE.path}/m/a.ts`, line: 21 },
+    { path: `${WORKTREE.path}/m/a.ts`, line: 1 },
+  ]));
+});
+
+it("u7678c_a_file_row_opens_its_modules_scroll_at_that_files_first_hunk", async () => {
+  const { app } = await open(() => ({ files: ["m/a.ts", "m/b.ts", "m/c.ts"].map(file) }), path => multi(path));
+  const tops = new Map([["m/b.ts", 100], ["m/c.ts", 300]]);
+
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    // A section sits where the scroll has not moved past it, as layout puts it.
+    const path = this instanceof HTMLElement ? this.dataset.path : undefined;
+    const top = path === undefined ? 0 : (tops.get(path) ?? 0) - (offsets.get(there(scroller())) ?? 0);
+
+    return { top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top, toJSON: () => ({}) };
+  });
+  await drawn("m/a.ts");
+  const row = (path: string) => there(region().querySelector<HTMLElement>(`[data-row="file"][data-path="${path}"]`));
+
+  press("ArrowRight", moduleRow("m"));
+
+  // The scroll moves to c's section and reads c; b, above it, stays unread.
+  fireEvent.focusIn(row("m/c.ts"));
+  await drawn("m/c.ts");
+  expect(scrolledTo(scroller())).toBe(300);
+  expect(readPaths(app)).toEqual(["m/a.ts", "m/c.ts"]);
+  fireEvent.focusIn(row("m/b.ts"));
+  await drawn("m/b.ts");
+  expect(scrolledTo(scroller())).toBe(100);
+  expect(slot()?.querySelectorAll(".module-scroll")).toHaveLength(1);
 });

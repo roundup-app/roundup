@@ -56,7 +56,7 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void };
+type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
@@ -67,6 +67,13 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["n"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.note(); } },
   { chords: ["e"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.edit(); } },
   { chords: ["Delete", "Backspace"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.remove(); } },
+  { chords: ["Enter"], when: event => onContent(event), run: event => {
+    event.preventDefault();
+
+    const at = actions.diff()?.at();
+
+    if (at) actions.open(at.path, at);
+  } },
   { chords: ["g"], when: event => !typing(event), run: event => { event.preventDefault(); actions.jump(); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.diff()?.focus(); } },
@@ -83,6 +90,9 @@ const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? rep
 
 /** U7676b: N, E and Delete act on the focused diff, never while a field or the editor holds the key. */
 const inDiff = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".diff-reader") !== null;
+
+/** U7678c: Enter acts on the diff's own text, never on a field, button or link inside the reader. */
+const onContent = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".diff-content") !== null && event.target.closest("button, a") === null;
 
 const typing = (event: KeyboardEvent) => event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])") !== null;
 
@@ -124,30 +134,20 @@ const escapeKey = (event: KeyboardEvent, help: boolean, setHelp: (on: boolean) =
   if (help) setHelp(false); else close();
 };
 
-/** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
-const Surface = (props: { id: string; name: string }) => {
-  const { app, rail, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
-  const notes = notesFor(app, project.path, drafts);
+/** U7672d: the Agent's Worktree and the compare target its remembered pick names. */
+const createTarget = (id: () => string) => {
+  const { rail, changeTargets } = useConnectedProject();
 
   // Read live, not through the keyed Agent: losing or regaining the Worktree must not remount the view and its open note form.
   const worktree = () => {
-    const node = rail.nodes.find(candidate => candidate.id === props.id);
+    const node = rail.nodes.find(candidate => candidate.id === id());
 
     return node && isDoor(node) ? node.worktree?.path ?? null : null;
   };
 
-  const groups = () => {
-    const read = owned.read(props.id);
-
-    return read?.failure === null ? read.groups : [];
-  };
-
-  const [active, setActive] = createSignal(0);
-  const group = () => groups()[active()] ?? groups()[0];
-
   // U7672d: a remembered Tree or Branch for an Agent without a Worktree of its own falls back to Changes.
   const target = (): ChangeTarget => {
-    const chosen = changeTargets.read(props.id);
+    const chosen = changeTargets.read(id());
 
     return chosen !== "changes" && worktree() === null ? "changes" : chosen;
   };
@@ -157,6 +157,24 @@ const Surface = (props: { id: string; name: string }) => {
 
     return chosen === "changes" ? null : chosen;
   };
+
+  return { worktree, target, own };
+};
+
+/** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
+const Surface = (props: { id: string; name: string }) => {
+  const { app, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
+  const notes = notesFor(app, project.path, drafts);
+  const { worktree, target, own } = createTarget(() => props.id);
+
+  const groups = () => {
+    const read = owned.read(props.id);
+
+    return read?.failure === null ? read.groups : [];
+  };
+
+  const [active, setActive] = createSignal(0);
+  const group = () => groups()[active()] ?? groups()[0];
 
   // U7675d, U7675f: the open file and each file's place outlive the view for the connection's session.
   const memory = changePlaces.of(untrack(() => props.id));
@@ -253,6 +271,13 @@ const Surface = (props: { id: string; name: string }) => {
 
   const { editable, edit } = createEditor(app, root);
 
+  // U2539d, U7678c: Enter or a double click on a file or a hunk opens the file in the editor, at the hunk's line when it is a new one, else at the file's first change.
+  const openAt = (path: string, at?: { side: "old" | "new"; line: number }) => {
+    const file = files().find(each => each.path === path);
+
+    if (file && editable(file)) edit(file, at?.side === "new" ? at.line : file.line);
+  };
+
   // U7675e: J and K step files from anywhere, ] and [ step changes, Tab crosses from the list to the diff, ? lists them.
   const [help, setHelp] = createSignal(false);
 
@@ -276,7 +301,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, section: () => section, open: openPath });
 
-  registerChangesKeys(() => section, { jump: jump.open, step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on) });
+  registerChangesKeys(() => section, { jump: jump.open, step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
@@ -289,12 +314,6 @@ const Surface = (props: { id: string; name: string }) => {
   const choose = (value: ChangeTarget) => {
     changeTargets.choose(props.id, value);
     setPicked(undefined);
-  };
-
-  const editChosen = (chosen: string) => {
-    const file = files().find(each => each.path === chosen);
-
-    if (file && editable(file)) edit(file);
   };
 
   const onKeyDown = (event: KeyboardEvent) => escapeKey(event, help(), setHelp, close);
@@ -338,11 +357,11 @@ const Surface = (props: { id: string; name: string }) => {
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <ChangedTree grouped={grouped()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={editChosen} />
+          <ChangedTree grouped={grouped()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={openAt} />
         </Show>
       </div>
       <For each={panes()}>{pane => <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} notes={notes} recover={() => showView("notes")} /></Loading>
+        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>
       </div>}</For>
     </div>
   </section>;
