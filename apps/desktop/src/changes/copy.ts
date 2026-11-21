@@ -3,6 +3,11 @@ import { clockTime, copy as sharedCopy } from "../sharedCopy";
 /** The count noun of a note line (U7676d). */
 const noun = (count: number) => count === 1 ? sharedCopy.note.toLowerCase() : `${sharedCopy.note.toLowerCase()}s`;
 
+/** The count noun of a file count, said once for every line that counts files. */
+const fileNoun = (count: number) => count === 1 ? "file" : "files";
+
+const filesOf = (count: number) => `${count} ${fileNoun(count)}`;
+
 export const copy = {
   checking: sharedCopy.checking,
   sending: sharedCopy.sending,
@@ -12,15 +17,15 @@ export const copy = {
   modules: "Modules",
   generated: "Generated",
   lockfiles: "Lockfiles",
-  filesCount: (count: number) => `${count} ${count === 1 ? "file" : "files"}`,
-  noiseRow: (kind: string, count: number) => sharedCopy.dotted(kind, `${count} ${count === 1 ? "file" : "files"}`),
+  filesCount: filesOf,
+  noiseRow: (kind: string, count: number) => sharedCopy.dotted(kind, filesOf(count)),
   remoteMain: "remote main",
   changeGroups: "Repositories and branches",
   compareFrom: "From",
   compareTo: "To",
   targetTree: "Tree",
   targetBranch: "Branch",
-  changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
+  changedFiles: (count: number) => `${count} changed ${fileNoun(count)}`,
   reviewChanges: sharedCopy.reviewChanges,
   dismissFailure: sharedCopy.dismissFailure,
   comparisonRenderFailed: "Comparison failed · reopen the file to retry.",
@@ -76,7 +81,7 @@ export const copy = {
     /** @prose */
     "Tab goes from the list to the diff.",
     /** @prose */
-    "J and K open the next or previous module.",
+    "J and K go to the next or previous module.",
     /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
