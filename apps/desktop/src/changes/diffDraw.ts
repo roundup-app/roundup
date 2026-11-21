@@ -1,7 +1,7 @@
 import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
-import { sameRevisions, selectedNotice } from "./fileState";
+import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
 import type { LineSelection } from "./lines";
 import type { Note, NoteFormDraft } from "./notes";
@@ -10,14 +10,39 @@ import diffStyles from "./diff.styles.css?inline";
 /** U7676c: the mark a line draws for a field kept as unfinished work. */
 export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: number; text: string };
 
-export type Annotated = Note | Mark;
+/** U7677d: the composer drawn under the last line of the range being noted. */
+export type Composer = { composing: true; side: "old" | "new"; start: number; end: number };
+
+export type Annotated = Note | Mark | Composer;
+
+/** U7677a: the lines a note covers on one side, and whether its field holds focus. */
+export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
+
+/** U7677e: the source a comparison holds at a note's lines, as the note retained it. */
+const sourceAt = (value: FileComparison, note: Pick<Note, "side" | "start" | "end">) => {
+  const content = value[note.side];
+
+  if (content.kind !== "text") return undefined;
+  const lines = content.text.split("\n");
+
+  if (lines.at(-1) === "") lines.pop();
+
+  return lines.slice(note.start - 1, note.end).join("\n");
+};
+
+/** U7677e: a Sent note whose retained source no longer matches the lines now shown (U2540b's older-context rule). */
+export const outdated = (note: Note, value: FileComparison | undefined) => note.sent !== undefined && value !== undefined && !sameRevisions(note.comparison, value) && sourceAt(value, note) !== note.source;
+
+/** U7677a: a note draws under its lines while its comparison is the open one, and a Sent note while its lines still read the same. */
+const shown = (note: Note, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
 /** U7676c: what the diff draws under its lines: each note of the open comparison under its last line, each unfinished field as a mark. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[]): DiffLineAnnotation<Annotated>[] => [
-  ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && sameRevisions(note.comparison, value) ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[], composer?: Composer): DiffLineAnnotation<Annotated>[] => [
+  ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && shown(note, value) ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
     ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
     : []),
+  ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
 ];
 
 /** U7676c: draws the annotations under their lines, opens the folds that hide them (U7692b: an unchanged line is a new-side line) and keeps the focused line selected (U7676a). */
@@ -30,7 +55,7 @@ export const annotate = (view: VirtualizedFileDiff<Annotated>, lines: readonly D
 };
 
 /** U7676c: the notes whose comparison is not the open one; they stay in the batch and gather after the file's last line. */
-export const gatheredNotes = (value: FileComparison | undefined, notes: readonly Note[]) => value ? notes.filter(note => note.comparison.newPath === value.newPath && !sameRevisions(note.comparison, value)) : [];
+export const gatheredNotes = (value: FileComparison | undefined, notes: readonly Note[]) => value ? notes.filter(note => note.comparison.newPath === value.newPath && !shown(note, value)) : [];
 
 /** U7674d: the diff is light in both App modes. */
 const DIFF_THEME = "github-light";
@@ -91,13 +116,15 @@ type Hooks = {
   pick: (range: LineSelection) => void;
   /** U7676a: the gutter + or a drag over line numbers asks for a note on this range. */
   note: (range: LineSelection) => void;
+  /** U7677: the element an annotation draws as; the reader owns what it holds. */
+  annotation: (metadata: Annotated) => HTMLElement;
 };
 
 /** Pierre's range as the App's selection: its side named for the App, its ends in line order whichever way it ran. */
 const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; end: number }): LineSelection => ({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
-export type Drawn = { view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
+export type Drawn = { mark: (ranges: readonly Noted[]) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
@@ -120,6 +147,19 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   const container = document.createElement("diffs-container");
   mount.append(container);
   const virtualizer = new Virtualizer();
+
+  let noted: readonly Noted[] = [];
+
+  const stamp = (node: HTMLElement) => {
+    for (const line of node.shadowRoot?.querySelectorAll<HTMLElement>("[data-line]") ?? []) {
+      const side = line.getAttribute("data-line-type") === "change-deletion" ? "old" : "new";
+      const number = Number(line.getAttribute("data-line"));
+      const hit = noted.filter(range => range.side === side && range.start <= number && number <= range.end);
+
+      line.toggleAttribute("data-noted", hit.length > 0);
+      line.toggleAttribute("data-focused", hit.some(range => range.focused));
+    }
+  };
 
   const view = new VirtualizedFileDiff<Annotated>({
     onLineNumberClick: ({ lineNumber, annotationSide, event }) => {
@@ -149,26 +189,9 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
       hooks.pick(picked);
       hooks.note(picked);
     },
-    renderAnnotation: ({ metadata }) => {
-      if ("unfinished" in metadata) {
-        const mark = document.createElement("button");
-
-        mark.type = "button";
-        mark.className = "diff-note";
-        mark.textContent = copy.unfinishedWork;
-        // listener-owner: Pierre builds the mark for its annotation and drops it with the line.
-        mark.addEventListener("click", () => hooks.note({ side: metadata.side, start: metadata.start, end: metadata.end }));
-
-        return mark;
-      }
-
-      const element = document.createElement("p");
-
-      element.className = "diff-note";
-      element.textContent = `${selectedNotice(metadata)}: ${metadata.text}`;
-
-      return element;
-    },
+    renderAnnotation: ({ metadata }) => hooks.annotation(metadata),
+    // U7677a: Pierre has no line decoration API, so each noted line carries the attribute the stylesheet keys on, again after each render.
+    onPostRender: node => stamp(node),
     theme: DIFF_THEME, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true, unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
   // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
@@ -187,5 +210,5 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   // Pierre anchors a visible file of no height to its bottom, so a first render left waiting on the highlighter opened the diff at its last line.
   await preloadHighlighter({ themes: [DIFF_THEME], langs: [...new Set([oldFile.name, newFile.name].map(getFiletypeFromFileName))], preferredHighlighter: "highlights" });
 
-  return hooks.current() ? { view, virtualizer, container, fileDiff, coarse } : undefined;
+  return hooks.current() ? { mark: ranges => { noted = ranges; stamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
 };

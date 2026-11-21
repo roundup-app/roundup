@@ -1,5 +1,6 @@
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, runWithOwner, Show, untrack } from "solid-js";
+import { render } from "@solidjs/web";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
@@ -14,9 +15,11 @@ import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
 import { annotate, drawDiff, gatheredNotes, lineAnnotations } from "./diffDraw";
-import type { Annotated } from "./diffDraw";
+import { outdated } from "./diffDraw";
+import type { Annotated, Composer, Noted } from "./diffDraw";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
+import { NoteView } from "./NoteView";
 import { NoteBatch } from "./NoteBatch";
 import { ImagePane } from "./ImagePane";
 import { drawsLines, imageHidden, imageSides } from "./images";
@@ -101,8 +104,11 @@ const createComparisonRead = (props: ReadProps) => {
 export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
+  const [focused, setFocused] = createSignal(false);
+  const owner = getOwner();
 
-  const edit = (note: Note | undefined) => { if (note) setForm({ comparison: note.comparison, selection: note, editing: note }); };
+  // U7677e: a Sent note is read only; Remove is all it offers.
+  const edit = (note: Note | undefined) => { if (note && note.sent === undefined) setForm({ comparison: note.comparison, selection: note, editing: note }); };
 
   createEffect(() => props.editing, edit);
 
@@ -127,10 +133,48 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const notice = createMemo(() => noticeFor({ value: read(), hidden: hidden(), loading: loading(), slow: slow(), failed: failure() !== null, coarse: coarse(), path: props.path }));
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
-  const notes = createMemo(() => props.notes.list(props.id));
+  const notes = createMemo(() => props.notes.all(props.id));
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), form() ? [] : props.notes.unfinished(props.id)) }), ({ view, lines }) => {
-    if (view) annotate(view, lines, untrack(selection));
+  // U7677d: the composer is an annotation under the last line of its range; one object per open field keeps Pierre from drawing it again.
+  const composer = createMemo((): Composer | undefined => {
+    const draft = form();
+
+    return draft && { composing: true, side: draft.selection.side, start: draft.selection.start, end: draft.selection.end };
+  });
+
+  // U7677: Pierre keeps what an annotation draws; the reader owns the Solid roots under it and ends those whose element Pierre dropped.
+  const slots = new Set<{ element: HTMLElement; dispose: () => void }>();
+
+  const sweep = (everything: boolean) => {
+    for (const slot of slots) if (everything || !slot.element.isConnected) { slot.dispose(); slots.delete(slot); }
+  };
+
+  onCleanup(() => sweep(true));
+
+  const annotation = (metadata: Annotated) => {
+    const element = document.createElement("div");
+    const draft = untrack(form);
+
+    const content = () => {
+      if ("unfinished" in metadata) return <button type="button" class="diff-note" onClick={() => openNote({ side: metadata.side, start: metadata.start, end: metadata.end })}>{copy.unfinishedWork}</button>;
+
+      if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
+
+      return <NoteView note={metadata} status={metadata.sent !== undefined ? "sent" : props.notes.noteState(props.id, metadata)} edit={() => edit(metadata)} remove={() => void props.notes.remove(props.id, metadata.id)} />;
+    };
+
+    slots.add({ element, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner }))! });
+
+    return element;
+  };
+
+  let mark = (_ranges: readonly Noted[]) => {};
+
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer()), held: focused() }), ({ view, lines, held }) => {
+    if (!view) return;
+    annotate(view, lines, untrack(selection));
+    sweep(false);
+    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && held }]));
   });
 
   createEffect(() => {
@@ -146,10 +190,12 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const drawn = await drawDiff(value, mount, { current: () => current, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); remember(); }, note: range => openNote(range) });
+      const drawn = await drawDiff(value, mount, { current: () => current, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); remember(); }, note: range => openNote(range), annotation });
 
       if (!drawn) return;
       const { view, virtualizer, container, fileDiff, coarse } = drawn;
+
+      mark = drawn.mark;
 
       setCoarse(coarse);
 
@@ -195,6 +241,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
         revealNearest = () => {};
 
+        mark = () => {};
         setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove();
       };
     }).then(error => { if (current && error) setFailure(error); });
@@ -251,9 +298,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <Show when={gathered().length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
-      <For each={gathered()}>{note => <li><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></li>}</For>
+      <For each={gathered()}>{note => <li><Show when={outdated(note, read())} fallback={<><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
     </ul></Show>
-    <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} />
   </section>;
 };
