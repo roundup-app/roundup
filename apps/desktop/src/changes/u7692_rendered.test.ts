@@ -75,8 +75,8 @@ afterAll(async () => {
  if (profile) await rm(profile, { recursive: true, force: true }); }
 });
 
-/** The library's "N unmodified lines" of each fold of the module's first file, by the fold's index, read down the module's scroll (U7678c): Pierre draws only the window around the scroll. */
-const counts = async () => browser("eval", `(async () => {
+/** What each fold of the module's first file draws at `selector`, by the fold's index, read down the module's scroll (U7678c): Pierre draws only the window around the scroll. */
+const foldsRead = async (selector: string) => browser("eval", `(async () => {
   const mount = document.querySelector('.module-scroll');
   const found = {};
 
@@ -85,7 +85,7 @@ const counts = async () => browser("eval", `(async () => {
     await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 50)));
 
     for (const fold of document.querySelector('diffs-container').shadowRoot.querySelectorAll('[data-separator]')) {
-      const text = fold.querySelector('[data-unmodified-lines]')?.textContent;
+      const text = fold.querySelector('${selector}')?.textContent;
 
       if (text) found[fold.dataset.expandIndex] = text;
     }
@@ -95,6 +95,9 @@ const counts = async () => browser("eval", `(async () => {
 
   return found;
 })()`);
+
+/** The library's "N unmodified lines" of each fold. */
+const counts = () => foldsRead("[data-unmodified-lines]");
 
 /** Clicks the count of the fold at `index`, scrolled into the window first. */
 const clickCount = (index: number) => browser("eval", `(async () => {
@@ -127,6 +130,12 @@ const EXAMPLE = "src/example.ts";
 const drawn = (path: string) => `!!document.querySelector('.module-file[data-path="${path}"] diffs-container')?.shadowRoot?.querySelector('[data-line]')`;
 
 const smallBeside = (path: string) => browser("eval", `(() => { const { handlers } = window.__fake.app; const read = handlers['agent.compareFile']; handlers['agent.compareFile'] = params => params.path === '${path}' ? read(params) : { base: 'b', oldPath: params.path, newPath: params.path, status: 'modified', old: { kind: 'text', revision: 'o', text: 'one\\n' }, new: { kind: 'text', revision: 'n', text: 'two\\n' } }; })()`);
+
+it("u7678c_a_fold_names_the_function_of_the_hunk_below_it", async () => {
+  await open(FOLDS);
+  await showDiff();
+  await expect.poll(() => foldsRead("[data-hunk-function]"), { timeout: 15_000 }).toEqual({ "1": "const line455 = 455;", "2": "const line614 = 614;", "3": "const line626 = 626;" });
+}, 60_000);
 
 it("u7692a_a_click_on_the_count_reveals_100_lines_at_each_end_and_a_short_fold_opens_whole", async () => {
   await browser("set", "media", "dark");

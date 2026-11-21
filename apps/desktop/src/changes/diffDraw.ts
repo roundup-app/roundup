@@ -124,6 +124,20 @@ const withFunctions = (patch: string, old: string) => {
   });
 };
 
+/** U7678c: the fold above a hunk names the hunk's function beside its count: Pierre draws a hunk's context only in a separator that cannot reveal lines. */
+const nameHunks = (node: HTMLElement, functions: readonly (string | undefined)[]) => {
+  for (const content of node.shadowRoot?.querySelectorAll<HTMLElement>("[data-gutter] [data-separator=line-info][data-expand-index] [data-separator-content]") ?? []) {
+    const name = functions[Number(content.closest<HTMLElement>("[data-separator]")?.dataset.expandIndex)];
+
+    if (!name || content.querySelector("[data-hunk-function]")) continue;
+    const span = document.createElement("span");
+
+    span.dataset.hunkFunction = "";
+    span.textContent = name;
+    content.append(span);
+  }
+};
+
 type Hooks = {
   shared?: Shared | undefined;
   current: () => boolean;
@@ -180,7 +194,11 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
   let noted: readonly Noted[] = [];
 
+  let functions: readonly (string | undefined)[] = [];
+
   const stamp = (node: HTMLElement) => {
+    nameHunks(node, functions);
+
     for (const line of node.shadowRoot?.querySelectorAll<HTMLElement>("[data-line]") ?? []) {
       const side = line.getAttribute("data-line-type") === "change-deletion" ? "old" : "new";
       const number = Number(line.getAttribute("data-line"));
@@ -232,6 +250,8 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   const fileDiff = processFile(patch, { oldFile, newFile, throwOnError: true });
 
   if (!fileDiff) throw new Error(copy.comparisonRenderFailed);
+
+  functions = fileDiff.hunks.map(hunk => hunk.hunkContext);
 
   await new Promise(resolve => setTimeout(resolve));
 
