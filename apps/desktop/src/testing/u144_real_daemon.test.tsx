@@ -21,7 +21,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { ChangesView } from "../changes/ChangesView";
 import { copy } from "../changes/copy";
 import { WorktreeControl } from "../changes/WorktreeControl";
-import { openFile, openChanges } from "../changes/noteHarness";
+import { openFile, openChanges, startNote } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { notice, notices } from "./notices";
 import { ToastHost } from "./toastHost";
@@ -129,7 +129,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
           await openFile("same.ts");
 
           if (phase === "with notes") {
-            fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+            startNote();
             fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: unsent } });
             fireEvent.click(screen.getByRole("button", { name: "Save" }));
           }

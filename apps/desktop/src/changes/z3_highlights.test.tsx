@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { VirtualizedFileDiff, getHighlighterType, getSharedHighlighter, renderFileWithHighlighter } from "@pierre/diffs";
-import { openDiff } from "./noteHarness";
+import { openDiff, waitDiff } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -12,7 +12,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); document.documentElement.styl
 
 it("z3_diff_reader_prefers_highlights", async () => {
   await openDiff();
-  await screen.findByRole("button", { name: "Add note" });
+  await waitDiff();
   await waitFor(() => expect(getHighlighterType()).toBe("highlights"));
 });
 
@@ -30,7 +30,7 @@ for (const mode of ["dark", "light"]) {
     document.documentElement.style.colorScheme = mode;
     const render = vi.spyOn(VirtualizedFileDiff.prototype, "render");
     await openDiff();
-    await screen.findByRole("button", { name: "Add note" });
+    await waitDiff();
     expect(readerOptions(render)).toMatchObject({ theme: "github-light" });
     const highlighter = await getSharedHighlighter({ themes: ["github-light"], langs: ["typescript"], preferredHighlighter: "highlights" });
     expect(JSON.stringify(renderFileWithHighlighter({ name: "a.ts", contents: "const a = 1;\n" }, highlighter, { theme: "github-light", useTokenTransformer: false, tokenizeMaxLineLength: 1000 }))).toMatch(/#[0-9a-fA-F]{6}/);
@@ -40,6 +40,6 @@ for (const mode of ["dark", "light"]) {
 it("u7674c_the_reader_wraps_long_lines", async () => {
   const render = vi.spyOn(VirtualizedFileDiff.prototype, "render");
   await openDiff();
-  await screen.findByRole("button", { name: "Add note" });
+  await waitDiff();
   expect(readerOptions(render)).toMatchObject({ overflow: "wrap" });
 });

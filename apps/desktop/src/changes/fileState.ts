@@ -37,7 +37,6 @@ type NoticeInput = {
   slow: boolean;
   failed: boolean;
   coarse: boolean;
-  selection: LineSelection;
   path: string;
 };
 
@@ -63,7 +62,7 @@ export const noticeFor = (input: NoticeInput): string | null => {
 
   if (!drawsLines(value)) return copy.binaryDiff;
 
-  return input.coarse ? copy.replacementDiff : selectedNotice(input.selection);
+  return input.coarse ? copy.replacementDiff : null;
 };
 
 /** Two reads of one comparison that differ in no revision, path, status or kind: the pane keeps the earlier one. */

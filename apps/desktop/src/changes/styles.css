@@ -29,7 +29,6 @@
 
 .diff-header { display: flex; align-items: flex-start; gap: var(--space-5); position: sticky; top: 0; z-index: 1; background: var(--sunken); }
 .diff-identity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
-.diff-header .diff-actions { flex: none; }
 
 .note-form .app-tabs-trigger[data-selected] { --button-surface: var(--transparent); color: var(--text); }
 .note-form .app-tabs-trigger { color: var(--grey); }
@@ -42,6 +41,9 @@
 .note-form .diff-actions { margin-inline-start: auto; }
 
 .note-batch button { margin-block-start: var(--space-2); }
+/* U7676d: the bar's controls sit in one wrapped row with a gap between them; its lines and list take a row each. */
+.note-bar { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-3); }
+.note-bar p, .note-bar ul { flex: 1 0 100%; }
 .note-recovery { width: min(var(--measure), calc(100vw - var(--space-6) * 2)); overflow-wrap: anywhere; }
 .note-recovery .diff-header { align-items: baseline; background: var(--surface); }
 .note-recovery .note-batch { display: flex; flex-direction: column; gap: var(--space-3); }

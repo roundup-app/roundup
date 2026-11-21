@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import type { SendParams } from "@contracts/message/SendParams";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, openDiff, openFile, saveNote, openChanges } from "./noteHarness";
+import { COMPARISON, openDiff, openFile, saveNote, openChanges, startNote, openBatch } from "./noteHarness";
 import { mountControl } from "./harness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
@@ -11,7 +11,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
   for (const project of ["/one", "/two"]) {
     const { view } = await openDiff(project);
     await saveNote(`  ${project} e\u0301\n🐝  `);
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    startNote();
     fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: `unfinished ${project}\n  🐝` } });
     fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
     await waitFor(() => expect(localStorage.getItem(`roundup:drafts:${project}`)).toContain("unfinished"));
@@ -25,10 +25,11 @@ it("u2773c_changes_external_change_keeps_original", async () => {
     app.handlers["message.send"] = send;
     await openChanges();
     await openFile();
+    await openBatch();
     const notes = screen.getByRole("list", { name: "Notes" });
     expect(notes.textContent).toContain(`  ${project} e\u0301\n🐝  `);
     await within(notes).findByRole("status");
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    startNote();
     expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", `unfinished ${project}\n  🐝`);
     expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

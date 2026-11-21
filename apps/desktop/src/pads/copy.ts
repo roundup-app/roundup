@@ -29,7 +29,7 @@ export const copy = {
   padChanged: "Pad changed",
   changesSince: "Changes since you read",
   noEarlierVersion: "No earlier version kept",
-  addNote: sharedCopy.addNote,
+  addNote: "Add note",
   padNote: "Note on selection",
   padNoteText: sharedCopy.note,
   padNoteQuote: "Selected text",

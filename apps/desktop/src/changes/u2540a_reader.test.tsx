@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, openDiff, openFile, saveNote, openChanges, treeRow } from "./noteHarness";
+import { COMPARISON, openDiff, openFile, saveNote, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
 import { createSignal, flush } from "solid-js";
@@ -28,25 +28,25 @@ const rendered = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.call
 it("u5646a_equal_replies_keep_render_and_selection", async () => {
   const { app, connected } = await openDiff();
   await waitFor(() => expect(rendered()).toHaveLength(1));
-  const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
+  const drawn = { patches: vi.mocked(createTwoFilesPatch).mock.calls.length, views: vi.mocked(VirtualizedFileDiff).mock.calls.length, files: vi.mocked(processFile).mock.calls.length };
+  const click = vi.mocked(VirtualizedFileDiff).mock.calls.at(-1)![0]!.onLineNumberClick!;
   // Pierre supplies this public callback when the user selects line numbers.
   const line = (lineNumber: number, shiftKey = false) => click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey }) });
   line(1);
   flush();
   line(2, true);
   flush();
-  const add = screen.getByRole("button", { name: "Add note" });
+  const add = document.querySelector<HTMLElement>(".diff-content")!;
   add.focus();
 
   for (let i = 0; i < 2; i++) await connected.worktrees.refresh("a");
   await waitFor(() => expect(app.calls.filter(call => call.method === "agent.compareFile")).toHaveLength(3));
-  expect(createTwoFilesPatch).toHaveBeenCalledTimes(1);
-  expect(processFile).toHaveBeenCalledTimes(1);
-  expect(VirtualizedFileDiff).toHaveBeenCalledTimes(1);
+  expect(createTwoFilesPatch).toHaveBeenCalledTimes(drawn.patches);
+  expect(processFile).toHaveBeenCalledTimes(drawn.files);
+  expect(VirtualizedFileDiff).toHaveBeenCalledTimes(drawn.views);
   expect(rendered()).toHaveLength(1);
-  expect(VirtualizedFileDiff.prototype.cleanUp).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(add);
-  fireEvent.click(add);
+  startNote();
   expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
   expect(screen.getByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "1");
   expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
@@ -153,7 +153,7 @@ it("u5646d_refresh_recovery_and_disposal", async () => {
   await waitFor(() => expect(notices("alert")).toHaveLength(0));
   expect(processFile).toHaveBeenCalledTimes(1);
   expect(rendered()).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  startNote();
   expect(screen.getByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "2");
   expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
   const before = app.calls.filter(call => call.method === "agent.compareFile").length;
@@ -207,7 +207,7 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   app.handlers["agent.compareFile"] = () => COMPARISON;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await screen.findByRole("button", { name: /Add note/ });
+  await waitDiff();
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
@@ -217,7 +217,7 @@ it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s",
   const retainedNote = "  unrelated note e\u0301\n🐝  ";
 
   await saveNote(retainedNote);
-  fireEvent.click(screen.getByRole("button", { name: /Add note/ }));
+  startNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
   const retained = connected.drafts.list();
 

@@ -35,12 +35,19 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   let field: HTMLTextAreaElement | undefined;
   let disposed = false;
 
+  // U7676c: a stored note ends its field's draft; from the Save click to the close no late select event writes the draft back.
+  let closing = false;
+
   onCleanup(() => { disposed = true; });
 
-  const persist = () => props.notes.editForm(props.id, {
-    revision, comparison, replacing: replacing ?? null, ...written,
-    selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : restored?.selection ?? props.editing?.selection ?? null,
-  });
+  const persist = () => {
+    if (closing) return;
+
+    props.notes.editForm(props.id, {
+      revision, comparison, replacing: replacing ?? null, ...written,
+      selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : restored?.selection ?? props.editing?.selection ?? null,
+    });
+  };
 
   const edit = (change: Partial<Fields>) => {
     written = { ...written, ...change };
@@ -64,11 +71,28 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   const save = async () => {
     const submitted = text();
 
-    if (valid() && await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision) && !disposed && text() === submitted) props.close();
+    if (!valid()) return;
+    closing = true;
+    const stored = await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision);
+
+    closing = stored && !disposed && text() === submitted;
+
+    if (closing) props.close();
   };
 
   // U170: the Save click holds the save, so the button is busy while it runs; Enter clicks it too.
-  return <form class="note-form" aria-label={copy.lineNote} onSubmit={event => { event.preventDefault(); void save(); }}>
+  // U7676b: Esc keeps typed text as unfinished work; an empty or unchanged field leaves nothing behind.
+  const leave = () => {
+    const untouched = text().trim() === "" || (editing !== undefined && text() === editing.text && side() === editing.side && start() === String(editing.start) && end() === String(editing.end));
+
+    if (untouched) void props.notes.discardForm(props.id, revision);
+    props.close();
+  };
+
+  return <form class="note-form" aria-label={copy.lineNote} onKeyDown={event => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save(); }
+    else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); leave(); }
+  }} onSubmit={event => { event.preventDefault(); void save(); }}>
     <Tabs.Root value={side()} onValueChange={({ value }) => edit({ side: value === "old" ? "old" : "new" })}>
       <Tabs.List aria-label={copy.noteSide}><Tabs.Trigger value="old">{copy.oldSide}</Tabs.Trigger><Tabs.Trigger value="new">{copy.newSide}</Tabs.Trigger></Tabs.List>
       <Tabs.Content value="old">{copy.selectOldLines}</Tabs.Content><Tabs.Content value="new">{copy.selectNewLines}</Tabs.Content>

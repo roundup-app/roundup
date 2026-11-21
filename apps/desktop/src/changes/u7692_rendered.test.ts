@@ -180,10 +180,11 @@ it("u7692a_reveals_stay_across_a_note_and_a_refresh_and_fold_again_on_a_file_swi
   await showDiff();
   await clickCount(1);
   await folded({ ...ALL, "1": "250 unmodified lines" });
-  await click("Add note");
+  await focusDiff();
+  await browser("press", "n");
   await browser("find", "label", "Note", "fill", "a note on the first change");
   await click("Save");
-  await wait("!!document.querySelector('[aria-label=\"Notes\"]')");
+  await wait("[...document.querySelectorAll('.note-batch button')].some(button => /^\\d+ notes?$/.test(button.textContent ?? ''))");
   await browser("eval", "(async () => { await window.__worktrees.refresh('agent-1'); await window.__worktrees.refresh('agent-1'); })()");
   await folded({ ...ALL, "1": "250 unmodified lines" });
 

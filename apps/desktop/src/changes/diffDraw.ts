@@ -1,10 +1,36 @@
-import type { VirtualizedFileDiff } from "@pierre/diffs";
+import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
-import { selectedNotice } from "./fileState";
+import { sameRevisions, selectedNotice } from "./fileState";
+import { sideName } from "./lines";
 import type { LineSelection } from "./lines";
-import type { Note } from "./notes";
+import type { Note, NoteFormDraft } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
+
+/** U7676c: the mark a line draws for a field kept as unfinished work. */
+export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: number; text: string };
+
+export type Annotated = Note | Mark;
+
+/** U7676c: what the diff draws under its lines: each note of the open comparison under its last line, each unfinished field as a mark. */
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[]): DiffLineAnnotation<Annotated>[] => [
+  ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && sameRevisions(note.comparison, value) ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
+  ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
+    ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
+    : []),
+];
+
+/** U7676c: draws the annotations under their lines, opens the folds that hide them (U7692b: an unchanged line is a new-side line) and keeps the focused line selected (U7676a). */
+export const annotate = (view: VirtualizedFileDiff<Annotated>, lines: readonly DiffLineAnnotation<Annotated>[], at: LineSelection) => {
+  view.render({ lineAnnotations: [...lines] });
+
+  for (const { side, lineNumber, metadata } of lines) if (side === "additions") { view.revealLine(metadata.start); view.revealLine(lineNumber); }
+
+  view.setSelectedLines({ side: sideName(at.side), start: at.start, end: at.end });
+};
+
+/** U7676c: the notes whose comparison is not the open one; they stay in the batch and gather after the file's last line. */
+export const gatheredNotes = (value: FileComparison | undefined, notes: readonly Note[]) => value ? notes.filter(note => note.comparison.newPath === value.newPath && !sameRevisions(note.comparison, value)) : [];
 
 /** U7674d: the diff is light in both App modes. */
 const DIFF_THEME = "github-light";
@@ -63,10 +89,15 @@ type Hooks = {
   selection: () => LineSelection;
   /** A line number was clicked: the range now selected. */
   pick: (range: LineSelection) => void;
+  /** U7676a: the gutter + or a drag over line numbers asks for a note on this range. */
+  note: (range: LineSelection) => void;
 };
 
+/** Pierre's range as the App's selection: its side named for the App, its ends in line order whichever way it ran. */
+const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; end: number }): LineSelection => ({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
+
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
-export type Drawn = { view: VirtualizedFileDiff<Note>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
+export type Drawn = { view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
@@ -90,7 +121,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   mount.append(container);
   const virtualizer = new Virtualizer();
 
-  const view = new VirtualizedFileDiff<Note>({
+  const view = new VirtualizedFileDiff<Annotated>({
     onLineNumberClick: ({ lineNumber, annotationSide, event }) => {
       const side = annotationSide === "deletions" ? "old" : "new";
       const old = hooks.selection();
@@ -100,7 +131,37 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
       view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
       hooks.pick(range);
     },
+    // Reuse: Pierre's own gutter utility and line selection; its + sits on the line number and takes its look only through unsafeCSS on [data-utility-button].
+    enableGutterUtility: true,
+    enableLineSelection: true,
+    onGutterUtilityClick: range => {
+      const picked = inLineOrder(range);
+
+      view.setSelectedLines({ side: range.side ?? "additions", start: picked.start, end: picked.end });
+      hooks.pick(picked);
+      hooks.note(picked);
+    },
+    // A drag leaves its range selected: the App's selection follows it before the field opens.
+    onLineSelectionEnd: range => {
+      if (!range || range.start === range.end) return;
+      const picked = inLineOrder(range);
+
+      hooks.pick(picked);
+      hooks.note(picked);
+    },
     renderAnnotation: ({ metadata }) => {
+      if ("unfinished" in metadata) {
+        const mark = document.createElement("button");
+
+        mark.type = "button";
+        mark.className = "diff-note";
+        mark.textContent = copy.unfinishedWork;
+        // listener-owner: Pierre builds the mark for its annotation and drops it with the line.
+        mark.addEventListener("click", () => hooks.note({ side: metadata.side, start: metadata.start, end: metadata.end }));
+
+        return mark;
+      }
+
       const element = document.createElement("p");
 
       element.className = "diff-note";

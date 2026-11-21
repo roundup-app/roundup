@@ -35,11 +35,32 @@ const NotePath = (props: { path: string }) => {
 export const NoteBatch = (props: { id: string; name: string; fallback?: () => void; notes: Notes; comparison?: FileComparison | undefined; edit: (note: Note) => void; recover: () => void }) => {
   const state = () => props.notes.state(props.id);
 
+  const [open, setOpen] = createSignal(false);
+
   const status = () => {
     const value = state();
 
-    return value.kind === "pending" ? copy.submittingNotes : value.text;
+    if (value.kind === "pending") return copy.submittingNotes;
+
+    if (value.kind === "idle" && value.sent) return copy.notesSent(value.sent, props.name);
+
+    if (props.notes.failure(props.id) !== null) return copy.notesCouldntSend(list().length, props.name);
+
+    if (keptLine()) return copy.notesKept(props.notes.kept(props.id));
+
+    return value.text;
   };
+
+  // U7676c, U7676d: the Sent and kept-from-restart lines stay until the user starts another note or dismisses them.
+  const sentLine = () => {
+    const value = state();
+
+    return value.kind === "idle" && value.sent !== undefined;
+  };
+
+  const keptLine = () => state().kind === "idle" && props.notes.kept(props.id) > 0;
+
+  const noteWords = { sending: copy.sending, unknown: copy.sendUnknown, failed: copy.couldntSend, unsent: copy.notSent };
 
   const uncertain = () => state().kind === "unknown";
   const busy = () => state().kind === "pending" || uncertain();
@@ -65,15 +86,18 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
     get action() { return <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show>; },
   });
 
-  return <Show when={props.notes.list(props.id).length > 0 || status()}><section class="note-batch" aria-label={copy.notesRegion}>
-      <StatusNote text={noteLine.message() ? null : status()} />
+  return <Show when={list().length > 0 || status() || props.notes.removed(props.id)}><section class="note-batch note-bar" aria-label={copy.notesRegion} onKeyDown={event => { if (event.key === "Escape" && open()) { event.stopPropagation(); setOpen(false); } }}>
+      <StatusNote text={noteLine.message() && !props.notes.failure(props.id) ? null : status()} />
+      <Show when={sentLine() || (keptLine() && props.notes.failure(props.id) === null)}><button type="button" data-button="quiet" onClick={() => { if (sentLine()) props.notes.dismissSent(props.id); else props.notes.dismissKept(props.id); props.fallback?.(); }}>{copy.dismissLine}</button></Show>
+      <Show when={props.notes.removed(props.id)}><p role="status"><span>{copy.noteRemoved}</span>{copy.dottedAfter("")}<BusyButton kind="quiet" busyLabel={copy.restoring} onClick={() => props.notes.undo(props.id)}>{copy.undo}</BusyButton></p></Show>
+      <Show when={list().length}><button type="button" data-button="quiet" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen(value => !value)}>{copy.noteCount(list().length)}</button></Show>
       <Show when={uncertain()}><BusyButton kind="quiet" busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</BusyButton></Show>
-      <Show when={list().length}>
+      <Show when={list().length && open()}>
         <ul aria-label={copy.notes}><For each={list().slice(0, mounted())}>{(note, index) => <li>
           <NotePath path={note.comparison.newPath} />
-          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<InlineStatus text={older(note) ? copy.originalContext : null} /></p>
+          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<InlineStatus text={older(note) ? copy.originalContext : null} />{copy.dottedAfter(noteWords[props.notes.noteState(props.id, note)])}</p>
           <p class="note-text">{note.text}</p>
-          <div class="diff-actions">
+          <Show when={props.notes.noteState(props.id, note) === "unsent" || props.notes.noteState(props.id, note) === "failed"}><div class="diff-actions">
             <button type="button" data-button="quiet" aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}>{copy.editNoteAction}</button>
             <button type="button" data-button="quiet" aria-label={copy.removeNote(index() + 1)} onClick={event => {
               const focused = event.currentTarget === document.activeElement;
@@ -88,10 +112,10 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
                 else props.fallback?.();
               }
             }}>{copy.remove}</button>
-          </div>
+          </div></Show>
         </li>}</For></ul>
       </Show>
-      <Show when={props.notes.list(props.id).length > 0}><BusyButton kind="quiet" busy={busy()} busyLabel={copy.sending} onClick={event => {
+      <Show when={list().length > 0 && !uncertain()}><BusyButton kind="quiet" busy={busy()} busyLabel={copy.sending} onClick={event => {
         const focus = captureFocus();
         const button = event.currentTarget;
         const focused = document.activeElement === button;
@@ -99,7 +123,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
         return props.notes.send(props.id).then(() => {
           if (focused && (document.activeElement === button || document.activeElement === document.body) && props.notes.list(props.id).length === 0) focus(() => props.fallback?.());
         });
-      }}>{copy.sendNotesTo(props.name)}</BusyButton></Show>
+      }}>{props.notes.failure(props.id) !== null ? copy.retry : copy.sendNotesTo(props.name)}</BusyButton></Show>
     </section></Show>;
 };
 

@@ -1,5 +1,7 @@
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
+import { createNoteMemory, noteStateOf } from "./noteMemory";
+import { createReadYourWrites } from "./readYourWrites";
 import { createSignal, untrack } from "solid-js";
 import * as v from "valibot";
 import { parse, stringify } from "flatted";
@@ -64,26 +66,7 @@ const parseRecipient = (data: string): Recipient => {
   return value;
 };
 
-type Send = { kind: "idle"; text: string } | { kind: "failed"; text: string; submission: string; notes: readonly number[] | null } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
-
-/** A signal whose reads return what was last written. rc.21 reads lag writes until flush, so a call that follows its own write would otherwise see the old value; a read still tracks the signal, which shows the value once the write settles. */
-const createReadYourWrites = <K, V>(initial: ReadonlyMap<K, V>) => {
-  let kept = initial;
-  const [signal, setSignal] = createSignal(initial);
-
-  const read = () => {
-    signal();
-
-    return kept;
-  };
-
-  const write = (next: ReadonlyMap<K, V>) => {
-    kept = next;
-    setSignal(next);
-  };
-
-  return [read, write] as const;
-};
+type Send = { kind: "idle"; text: string; sent?: number } | { kind: "failed"; text: string; submission: string; notes: readonly number[] | null } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
 
 const stores = new WeakMap<AppSeam["rpc"], Map<string, ReturnType<typeof createNotes>>>();
 
@@ -135,6 +118,34 @@ const bodyOf = (notes: readonly Note[]) => JSON.stringify({
   notes: notes.map(note => ({ "File:": { old: note.comparison.oldPath, new: note.comparison.newPath }, "Base:": note.comparison.base, "Content revisions:": { old: note.comparison.old.revision, new: note.comparison.new.revision }, "Lines:": `${note.side} ${note.start}-${note.end}`, "Selected source:": note.source, "User comment:": note.text })),
 }, null, 2);
 
+/** A form that repeats another: native selection events can repeat after restoring the same caret, and a no-op must not rebuild the editor. */
+const sameForm = (left: NoteFormDraft, right: NoteFormDraft) => left.comparison === right.comparison && left.replacing === right.replacing && left.side === right.side && left.start === right.start && left.end === right.end && left.text === right.text
+  && left.selection?.start === right.selection?.start && left.selection?.end === right.selection?.end && left.selection?.direction === right.selection?.direction;
+
+/** The rows a record that would not load still holds: copy preserves even records without readable note fields. */
+const previewOf = (data: string): (Note | NoteFormDraft)[] => {
+  try {
+    const row = v.nullable(v.union([noteSchema, formSchema]));
+    const rows = v.fallback(v.array(v.fallback(row, null)), []);
+    const result = v.parse(v.looseObject({ notes: rows, forms: rows }), parse(data));
+
+    return [...result.notes, ...result.forms].filter(value => value !== null);
+  } catch { return []; }
+};
+
+/** The highest note number a record holds, in its notes, its sent batches, its forms and its recovered work. */
+const highestId = (value: Recipient) => {
+  let highest = 0;
+
+  for (const batch of [value, ...value.recovered.map(entry => entry.data)]) {
+    for (const note of [...batch.notes, ...batch.submissions.flatMap(submission => submission.notes)]) highest = Math.max(highest, note.id);
+
+    for (const form of batch.forms) highest = Math.max(highest, form.replacing ?? 0);
+  }
+
+  return highest;
+};
+
 const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typeof draftStorage>) => {
   let app = firstApp;
   const records = () => storage.list().filter(draft => draft.destination.surface === "changes" && draft.policy === "ordinary");
@@ -142,14 +153,6 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const invalid = new Set<string>();
   const restoredRevisions = new Map<string, string>();
   let next = 0;
-
-  const remember = (value: Recipient) => {
-    for (const batch of [value, ...value.recovered.map(entry => entry.data)]) {
-      for (const note of [...batch.notes, ...batch.submissions.flatMap(submission => submission.notes)]) next = Math.max(next, note.id);
-
-      for (const form of batch.forms) next = Math.max(next, form.replacing ?? 0);
-    }
-  };
 
   const load = () => {
     for (const draft of records()) {
@@ -165,7 +168,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
         restored.set(id, { ...value, recovered: [...value.recovered, ...older], submissions: value.submissions.map(submission => submission.status === "pending" ? { ...submission, status: "unknown", text: copy.notesNoReply } : submission) });
         restoredRevisions.set(id, draft.revision);
-        remember(value);
+        next = Math.max(next, highestId(value));
       } catch { invalid.add(draft.revision); }
     }
   };
@@ -186,7 +189,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
+  const { kept, unkeep, gone, undo, removedNote } = createNoteMemory<Note>(restored, (id, note) => retain(id, { ...recipient(id), notes: [...recipient(id).notes, note].sort((left, right) => left.id - right.id) }));
+
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
+
 
   const clearItem = (id: string, note: number) => {
     const failed = sent().get(id);
@@ -218,7 +224,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     const current = recipient(id);
 
     await retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
-    putState(id, { kind: "idle", text: message.status === "pending" ? copy.notesQueued : copy.notesAccepted(message.status) });
+    putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 
   const settle = async (id: string, submission: Submission, status: "failed" | "unknown", text: string, item = true) => {
@@ -239,6 +245,12 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       return value?.kind === "failed" ? value.text : null;
     },
     dismiss: (id: string) => { if (sent().get(id)?.kind === "failed") putState(id, { kind: "idle", text: "" }); },
+    kept,
+    dismissKept: unkeep,
+    dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
+    removed: (id: string) => gone(id).length > 0,
+    undo,
+    noteState: (id: string, note: Note) => noteStateOf(recipient(id).submissions, sent().get(id), note),
     project,
     entries: () => [...recipients().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,
@@ -257,7 +269,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
         try {
           const value = parseRecipient(String(draft.value.data));
 
-          remember(value);
+          next = Math.max(next, highestId(value));
           const current = recipients().get(id);
 
           if (!current) {
@@ -274,19 +286,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     },
     invalid: () => { invalidCount();
 
-      return records().filter(draft => invalid.has(draft.revision)).map(draft => {
-        let preview: (Note | NoteFormDraft)[] = [];
-
-        try {
-          const row = v.nullable(v.union([noteSchema, formSchema]));
-          const rows = v.fallback(v.array(v.fallback(row, null)), []);
-          const result = v.parse(v.looseObject({ notes: rows, forms: rows }), parse(String(draft.value.data)));
-
-          preview = [...result.notes, ...result.forms].filter(value => value !== null);
-        } catch { /* Copy preserves even records without readable note fields. */ }
-
-        return { ...draft, preview };
-      }); },
+      return records().filter(draft => invalid.has(draft.revision)).map(draft => ({ ...draft, preview: previewOf(String(draft.value.data)) })); },
     discardInvalid: async (revision: string) => {
       invalid.delete(revision);
       setInvalidCount(invalid.size);
@@ -294,15 +294,15 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       if (!invalid.size) for (const [id, value] of recipients()) await retain(id, value);
     },
+    /** U7676c: the forms holding typed text, each Esc or file switch having kept it as unfinished work. */
+    unfinished: (id: string): readonly NoteFormDraft[] => recipient(id).forms.filter(form => form.text.trim() !== ""),
     form: (id: string, comparison: FileComparison, replacing?: number) => recipient(id).forms.find(form => form.replacing === (replacing ?? null) && form.comparison.newPath === comparison.newPath),
     editForm: (id: string, form: NoteFormDraft) => {
       const current = recipient(id);
       const previous = current.forms.find(value => value.revision === form.revision);
 
       // Native selection events can repeat after restoring the same caret; a no-op must not rebuild the editor.
-      if (previous && previous.comparison === form.comparison && previous.replacing === form.replacing
-        && previous.side === form.side && previous.start === form.start && previous.end === form.end && previous.text === form.text
-        && previous.selection?.start === form.selection?.start && previous.selection?.end === form.selection?.end && previous.selection?.direction === form.selection?.direction) return;
+      if (previous && sameForm(previous, form)) return;
 
       retain(id, { ...current, forms: [...current.forms.filter(value => value.revision !== form.revision), form] });
     },
@@ -336,6 +336,9 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const values = current.notes;
 
       if (replacing === undefined && values.length >= 200) return false;
+      unkeep(id);
+
+      if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" });
       const value = { ...note, id: replacing ?? ++next, revision: crypto.randomUUID() };
       const updated = values.some(old => old.id === replacing) ? values.map(old => old.id === replacing ? value : old) : [...values, value];
       await retain(id, { ...current, notes: updated, forms: current.forms.filter(value => value.revision !== form) });
@@ -345,12 +348,18 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       return true;
     },
     remove: async (id: string, note: number) => {
+      const removed = list(id).find(value => value.id === note);
+
+      unkeep(id);
       await retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
+
+      if (removed && !notes.problem()) removedNote(id, removed);
 
       if (!notes.problem()) clearItem(id, note);
     },
     send: async (id: string) => {
       if (list(id).length === 0 || (state(id).kind === "pending" || state(id).kind === "unknown")) return;
+      unkeep(id);
       const connection = app;
       const notes = [...list(id)];
       const submission: Submission = { revision: crypto.randomUUID(), notes, body: bodyOf(notes), previous: null, status: "pending", text: "" };
