@@ -178,7 +178,7 @@ it("u7677f_the_notes_are_captured_for_the_critic", async () => {
     // The worst case: 50 notes on one file, one of 2,000 characters.
     await opened("?worst");
     await until(said(copy.noteCount(50)));
-    await shot(name("worst"), diffSaid("Note 1:"));
+    await shot(name("worst"), diffSaid("Note 2:"));
   };
 
   try {

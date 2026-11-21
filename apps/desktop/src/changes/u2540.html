@@ -90,7 +90,7 @@ if (size) {
     });
     observer.observe(document.getElementById("root"), { childList: true, subtree: true });
   });
-  for (let i = 0; i < (dense ? 100 : 50); i++) notesFor(app, app.opened.project.path).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: worst && i === 24 ? "Rename this once the callers agree. ".repeat(56).slice(0, 2000) : `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
+  for (let i = 0; i < (dense ? 100 : 50); i++) notesFor(app, app.opened.project.path).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: worst && i === 0 ? "Rename this once the callers agree. ".repeat(56).slice(0, 2000) : `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
 }
 
 </script></body></html>

@@ -59,7 +59,10 @@
   --diff-grey: #59636e;
   --diff-ground: #f6f8fa;
   --diff-accent: #b23300;
-  --note-paint: linear-gradient(color-mix(in srgb, var(--diff-accent) 55%, transparent) 0 0) left / 2px 100% no-repeat, color-mix(in srgb, var(--diff-accent) 6%, transparent);
+  --note-bar: color-mix(in srgb, var(--diff-accent) 55%, transparent);
+  --note-paint: linear-gradient(var(--note-bar) 0 0) left / 2px 100% no-repeat, color-mix(in srgb, var(--diff-accent) 6%, transparent);
+  --note-surface: linear-gradient(var(--note-bar) 0 0) left / 2px 100% no-repeat, var(--diff-ground);
+  --note-surface-focused: linear-gradient(var(--diff-accent) 0 0) left / 2px 100% no-repeat, var(--diff-ground);
   --note-paint-focused: linear-gradient(var(--diff-accent) 0 0) left / 2px 100% no-repeat, color-mix(in srgb, var(--diff-accent) 6%, transparent);
   --ground: var(--gray-1);
   --sunken: var(--gray-2);

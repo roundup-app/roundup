@@ -159,7 +159,10 @@ it("u2540b_refresh_keeps_original_context", async () => {
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "later-revision", text: "different\n" } });
   await connected.worktrees.refresh("a");
   await waitFor(() => expect(annotations()).toMatchObject([{ metadata: { composing: true } }]));
-  expect(await screen.findByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished 🐝\nexact  ");
+  const field = await screen.findByRole("textbox", { name: "Note" });
+
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  expect(field).toHaveProperty("value", "  unfinished 🐝\nexact  ");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   cancelNote();
   await openBatch();
