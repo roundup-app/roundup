@@ -26,7 +26,7 @@ const load = async (seed: string) => {
   await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row .row-age').length > 3`);
 };
 
-const slots = `() => [...document.querySelectorAll('.rail-tree .rail-row .action-slot[data-slot="todos"] > *')].map(s => s.getBoundingClientRect().left)`;
+const slots = `() => [...document.querySelectorAll('.rail-tree .rail-row .action-slot[data-slot="todos"] .todo-ring')].map(s => s.getBoundingClientRect().left)`;
 
 const marks = (index: number) => `() => {
   const box = e => { if (!e) return null; const b = e.getBoundingClientRect(); return { left: b.left, width: b.width }; };
@@ -34,7 +34,7 @@ const marks = (index: number) => `() => {
   const name = box(row.querySelector('.name'));
   const chevron = box(row.querySelector('.rail-chevron'));
   return {
-    slot: box(row.querySelector('.action-slot[data-slot="todos"]')), ring: box(row.querySelector('.action-slot[data-slot="todos"] > *')),
+    slot: box(row.querySelector('.action-slot[data-slot="todos"]')), ring: box(row.querySelector('.action-slot[data-slot="todos"] .todo-ring')),
     glyph: box(row.querySelector('.row-state')), name, chevron, gap: chevron ? name.left - (chevron.left + chevron.width) : Number.NaN,
     icons: box(row.querySelector('.row-icons')),
   };
@@ -53,7 +53,7 @@ run("u7590a_the_ring_x_is_equal_across_counts", async () => {
     window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
     return true;
   }`);
-  await page.until(`() => document.querySelectorAll('.rail-tree .rail-row .action-slot[data-slot="todos"] > *').length > 1`);
+  await page.until(`() => document.querySelectorAll('.rail-tree .rail-row .action-slot[data-slot="todos"] .todo-ring').length > 1`);
 
   const lefts = await page.call<number[]>(slots);
 

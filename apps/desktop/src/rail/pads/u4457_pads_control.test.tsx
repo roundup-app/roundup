@@ -41,7 +41,7 @@ describe("u4457 the Pads control opens the Shelf", () => {
       todo(2, { title: "delegated work", creator: by("a1"), owner: by("a2") }),
       todo(3, { title: "finished work", creator: by("a1"), done: true }),
     ]);
-    await waitFor(() => expect(control("a1")?.getAttribute("aria-label")).toBe("3 todos"));
+    await waitFor(() => expect(control("a1")?.getAttribute("aria-label")).toBe("1/3 Todos"));
     fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="a2"] .name')!);
     await waitFor(() => expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true"));
     fireEvent.click(control("a1")!);
@@ -73,7 +73,7 @@ describe("u4457 the Pads control opens the Shelf", () => {
 
   it("u4457_pads_open_from_shelf_without_agent_control", async () => {
     await mount([padOf("notes"), padOf("plan")], [todo(1, { creator: by("a1") }), todo(2, { creator: by("a1") })]);
-    await waitFor(() => expect(control("a1")?.getAttribute("aria-label")).toBe("2 todos"));
+    await waitFor(() => expect(control("a1")?.getAttribute("aria-label")).toBe("0/2 Todos"));
 
     expect(control("a2")).toBeNull();
     showShelfTab("Pads");
