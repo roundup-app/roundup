@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { COMPARISON, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
+import { COMPARISON, openChanges, take, treeRow, startNote, waitDiff } from "./noteHarness";
 import { mountControl, WORKTREE } from "./harness";
 import { diffsLoaded } from "./diffDraw";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
@@ -50,7 +50,7 @@ it("u7678d_the_view_opens_on_the_first_module_at_its_top", async () => {
   const row = document.querySelector<HTMLElement>('[data-row="module"]');
 
   await waitFor(() => expect(document.activeElement).toBe(row));
-  expect(row?.dataset.selected).toBe("true");
+  expect(row?.getAttribute("aria-selected")).toBe("true");
 });
 
 it("u7674a_the_tree_stays_while_a_file_is_open", async () => {
@@ -130,7 +130,10 @@ it("u7674e_up_and_down_never_blank_the_pane", async () => {
 
     return { ...COMPARISON, oldPath: path, newPath: path }; };
 
-  document.querySelector<HTMLElement>('[data-key="m:zeta"]')?.focus();
+  const zeta = document.querySelector<HTMLElement>('[data-key="m:zeta"]');
+
+  if (!zeta) throw new Error("No zeta row");
+  take(zeta);
   await waitFor(() => expect(compared(app)).toContain("zeta/m.rs"));
   await showing(FIRST);
   release();

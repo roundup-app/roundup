@@ -10,7 +10,7 @@ import { message } from "../testing/centreFixture";
 import { notices } from "../testing/notices";
 import { copy } from "./copy";
 import { mountControl, WORKTREE } from "./harness";
-import { COMPARISON, openChanges, saveNote, treeRow, startNote } from "./noteHarness";
+import { COMPARISON, openChanges, saveNote, take, treeRow, startNote } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -426,7 +426,7 @@ it("u7675c_a_changing_list_leaves_the_trees_focus_and_scroll_alone", async () =>
   const { connected } = await open(() => ({ files: list }));
   const row = moduleRow("f3");
 
-  row.focus();
+  take(row);
   await showing("f3/x.ts");
 
   const counted = (count: number) => waitFor(() => expect(totals()).toContain(copy.changedFiles(count)));
@@ -544,7 +544,7 @@ it("u7675e_left_and_right_fold_a_folder", async () => {
   press("ArrowRight", folder);
   await waitFor(() => expect(folder.getAttribute("aria-expanded")).toBe("true"));
   expect(files()).toBe(2);
-  expect(folder.dataset.selected).toBe("false");
+  expect(folder.getAttribute("aria-selected")).toBe("false");
   press("ArrowLeft", folder);
   await waitFor(() => expect(folder.getAttribute("aria-expanded")).toBe("false"));
   expect(files()).toBe(0);
@@ -557,7 +557,7 @@ it("u7675e_tab_moves_from_the_list_to_the_diff", async () => {
   await marks(at("old", 3));
   const row = moduleRow("a");
 
-  row.focus();
+  take(row);
   expect(fireEvent.keyDown(row, { key: "Tab" })).toBe(false);
   expect(document.activeElement).toBe(content("a/x.ts"));
   await marks(at("old", 3));
@@ -568,7 +568,7 @@ it("u7675e_tab_moves_from_the_list_to_the_diff", async () => {
   // A module with no focused line lands on its first.
   const next = moduleRow("b");
 
-  next.focus();
+  take(next);
   await showing("b/x.ts");
   await drawn("b/x.ts");
   await marks(at("new", 1));
@@ -583,7 +583,7 @@ it("u7678d_j_and_k_step_modules_and_skip_noise_rows", async () => {
   await showing("a/x.ts");
   const row = moduleRow("a");
 
-  row.focus();
+  take(row);
   press("j", row);
   await showing("b/x.ts");
   await waitFor(() => expect(treeFocus()).toBe("m:b"));
@@ -605,7 +605,7 @@ it("u7678d_j_and_k_step_modules_and_skip_noise_rows", async () => {
   const noise = region().querySelector<HTMLElement>('[data-row="noise"]');
 
   press("ArrowRight", there(noise));
-  fireEvent.focusIn(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="yarn.lock"]'))));
+  take(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="yarn.lock"]'))));
   await showing("yarn.lock");
   press("j");
   expect(region().querySelectorAll(".module-slot")).toHaveLength(1);
@@ -763,12 +763,14 @@ it("u7678a_files_show_only_inside_their_module_folded_at_first", async () => {
   const row = moduleRow("a");
 
   expect(fileRows()).toEqual([]);
+  // The row names its module, its file count and the sums of its files' counts.
+  expect([copy.filesCount(2), copy.addedLines(2), copy.removedLines(2)].every(part => row.textContent?.includes(part))).toBe(true);
   expect(row.getAttribute("aria-expanded")).toBe("false");
   press("ArrowRight", row);
   await waitFor(() => expect(fileRows()).toEqual(["a/x.ts", "a/y.ts"]));
 
-  // Both stand inside their module's item, each with its own counts; the other module has none.
-  expect(there(row.closest("li")).querySelectorAll('[data-row="file"]')).toHaveLength(2);
+  // Both belong to their module, each with its own counts; the other module has none.
+  expect([...region().querySelectorAll<HTMLElement>('[data-row="file"]')].map(each => each.dataset.owner)).toEqual(["m:a", "m:a"]);
   expect(there(region().querySelector('[data-row="file"]')).textContent).toContain(copy.addedLines(1) + " " + copy.removedLines(1));
   press("ArrowLeft", row);
   await waitFor(() => expect(fileRows()).toEqual([]));
@@ -809,10 +811,10 @@ it("u7678b_noise_folds_to_quiet_rows_whose_files_open_alone", async () => {
   // Folded at first; a file under it opens alone, and the module's scroll never holds it.
   expect(fileRows()).toEqual([]);
   press("ArrowRight", there(noiseRows()[1]));
-  fireEvent.focusIn(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="yarn.lock"]'))));
+  take(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="yarn.lock"]'))));
   await showing("yarn.lock");
   expect(openPaths()).toEqual(["yarn.lock"]);
-  fireEvent.focusIn(moduleRow("m"));
+  take(moduleRow("m"));
   await showing("m/x.ts");
   expect(openPaths()).toEqual(["m/x.ts"]);
   expect(new Set(readPaths(app))).toEqual(new Set(["m/x.ts", "yarn.lock"]));
@@ -934,11 +936,11 @@ it("u7678c_a_file_row_opens_its_modules_scroll_at_that_files_first_hunk", async 
   press("ArrowRight", moduleRow("m"));
 
   // The scroll moves to c's section and reads c; b, above it, stays unread.
-  fireEvent.focusIn(row("m/c.ts"));
+  take(row("m/c.ts"));
   await drawn("m/c.ts");
   expect(scrolledTo(scroller())).toBe(300);
   expect(readPaths(app)).toEqual(["m/a.ts", "m/c.ts"]);
-  fireEvent.focusIn(row("m/b.ts"));
+  take(row("m/b.ts"));
   await drawn("m/b.ts");
   expect(scrolledTo(scroller())).toBe(100);
   expect(slot()?.querySelectorAll(".module-scroll")).toHaveLength(1);

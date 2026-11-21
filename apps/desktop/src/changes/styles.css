@@ -205,14 +205,12 @@
 .module-file { display: flex; flex-direction: column; border-block-end: var(--hairline-width) solid var(--hairline); }
 .module-file .diff-reader { flex: none; }
 .module-file .diff-content { flex: none; overflow: visible; }
-.changes-tree { flex: 1; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; overscroll-behavior: contain; }
-.changes-files { margin: 0; padding: 0; list-style: none; }
-.changes-row { display: flex; align-items: baseline; gap: var(--space-2); inline-size: 100%; padding: var(--space-1) var(--space-3); border: 0; background: var(--transparent); color: var(--text); font: var(--text-small) var(--font-ui); text-align: start; cursor: pointer; }
-.changes-row[data-selected="true"] { background: var(--selected); }
+.changes-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.changes-tree .changes-row { align-items: baseline; min-height: 0; padding: var(--space-1) var(--space-3); font: var(--text-small) var(--font-ui); text-align: start; }
+.changes-tree .changes-row[data-level="2"] { padding-inline-start: var(--space-5); }
+.changes-tree .changes-noise { color: var(--grey); }
 .changes-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .changes-row-files, .changes-row-counts { flex: none; color: var(--grey); }
-.changes-files .changes-row { padding-inline-start: var(--space-5); }
-.changes-noise .changes-row { color: var(--grey); }
 .module-slot { flex: 1; display: flex; min-width: 0; min-height: 0; }
 /* The next module paints over the one that stays until its first screen is drawn. */
 .changes-body { position: relative; }

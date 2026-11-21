@@ -5,7 +5,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { FileContent } from "@contracts/agent/FileContent";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { COMPARISON, openChanges, treeRow } from "./noteHarness";
+import { COMPARISON, openChanges, take, treeRow } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -101,7 +101,7 @@ it("u7694b_an_added_or_deleted_image_shows_one_picture", async () => {
   await open({ "a.png": { status: "added", old: absent, new: picture("n", 88_000) }, "b.png": { status: "deleted", old: picture("o", 42_000), new: absent } });
   expect((await screen.findAllByRole("img")).map(image => image.getAttribute("alt"))).toEqual([copy.newSide]);
   await says("88.0 KB");
-  (await treeRow("b.png")).focus();
+  take(await treeRow("b.png"));
   await picked("b.png");
   await waitFor(() => expect(within(pane("b.png")).getAllByRole("img").map(image => image.getAttribute("alt"))).toEqual([copy.oldSide]));
   await says("42.0 KB", "b.png");
@@ -115,7 +115,7 @@ it("u7694b_a_renamed_or_mode_only_image_shows_what_7675_shows", async () => {
   await picked("a.png");
   await says(copy.modeOnly);
   expect(within(pane("a.png")).queryAllByRole("img")).toEqual([]);
-  (await treeRow("b.png")).focus();
+  take(await treeRow("b.png"));
   await waitFor(() => expect(within(pane("b.png")).getAllByRole("img")).toHaveLength(2));
 });
 
@@ -144,10 +144,10 @@ it("u7694b_closing_the_module_revokes_its_urls_and_a_text_file_creates_none", as
   await open({ "a.txt": {}, "b.png": { old: picture("o", 42_000), new: picture("n", 88_000) } });
   await picked("a.txt");
   expect(made).toEqual([]);
-  (await treeRow("b.png")).focus();
+  take(await treeRow("b.png"));
   await waitFor(() => expect(made).toHaveLength(2));
   // The module stays open when focus returns to another of its files: its pictures stay.
-  (await treeRow("a.txt")).focus();
+  take(await treeRow("a.txt"));
   expect(revoked).toEqual([]);
   cleanup();
   await waitFor(() => expect(revoked.toSorted()).toEqual(made.toSorted()));

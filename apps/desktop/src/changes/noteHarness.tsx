@@ -23,6 +23,12 @@ export const openChanges = async () => {
   action.run();
 };
 
+/** U7678a: the list chooses a row the way Space does on the focused one: a module or file row opens its scroll, a noise row opens nothing, and no module folds. */
+export const take = (row: HTMLElement) => {
+  row.focus();
+  fireEvent.keyDown(row, { key: " " });
+};
+
 /** The list's file row for `path` in the newest Changes view: its module unfolds first, by Right, which chooses nothing. */
 export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
   const list = [...document.querySelectorAll<HTMLElement>(".changes-tree")].at(-1);
@@ -53,7 +59,7 @@ export const openFile = async (path = "src/a.ts") => {
   const row = await treeRow(path);
 
   shown = path;
-  row.focus();
+  take(row);
   await waitFor(() => { if (!screen.getAllByText(path, { selector: ".diff-path" }).some(each => each.closest(".diff-reader")?.querySelector(".diff-content"))) throw new Error(`${path} is not drawn`); });
   // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
   await new Promise(resolve => setTimeout(resolve, 50));
