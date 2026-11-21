@@ -28,6 +28,36 @@ import { drawsLines, imageHidden, imageSides } from "./images";
 /** U7610c: the notes one Pierre render draws at once; the rest wait for later tasks. */
 const IMMEDIATE_NOTES = 6;
 
+/** U7610c: an annotation beyond the first few of a render draws in later tasks, so a file with a hundred notes opens in short ones. */
+const deferredDraws = () => {
+  const queue: (() => void)[] = [];
+  let draining = false;
+  let stopped = false;
+  let drawnNow = 0;
+
+  const drain = () => {
+    draining = false;
+    const start = performance.now();
+
+    while (queue.length > 0 && !stopped && performance.now() - start < 20) queue.shift()?.();
+
+    if (queue.length > 0 && !stopped) { draining = true; setTimeout(drain); }
+  };
+
+  return {
+    schedule: (draw: () => void, urgent: boolean) => {
+      if (!drawnNow++) queueMicrotask(() => { drawnNow = 0; });
+
+      if (urgent || drawnNow <= IMMEDIATE_NOTES) return draw();
+
+      queue.push(draw);
+
+      if (!draining) { draining = true; setTimeout(drain); }
+    },
+    stop: () => { stopped = true; },
+  };
+};
+
 /** U7678c: a line's top inside the shared scroll, which holds many files: the file's own offset plus the line's place in it. */
 const scrollTo = (mount: HTMLElement, top: number) => {
   const scroller = mount.closest<HTMLElement>(".module-scroll");
@@ -219,22 +249,9 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const { slots, sweep } = createSlots();
 
-  // U7610c: an annotation beyond the first few of a render draws in later tasks, so a file with a hundred notes opens in short ones.
-  const later: (() => void)[] = [];
-  let drawnNow = 0;
-  let draining = false;
-  let stopped = false;
+  const { schedule, stop } = deferredDraws();
 
-  const drain = () => {
-    draining = false;
-    const start = performance.now();
-
-    while (later.length > 0 && !stopped && performance.now() - start < 20) later.shift()?.();
-
-    if (later.length > 0 && !stopped) { draining = true; setTimeout(drain); }
-  };
-
-  onCleanup(() => { stopped = true; sweep(undefined); });
+  onCleanup(() => { stop(); sweep(undefined); });
 
   const annotation = (metadata: Annotated) => {
     const element = document.createElement("div");
@@ -250,14 +267,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
     const draw = () => { if (element.isConnected) slots.add({ element, metadata, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner })) ?? (() => {}) }); };
 
-    if (!drawnNow++) queueMicrotask(() => { drawnNow = 0; });
-
-    if ("composing" in metadata || drawnNow <= IMMEDIATE_NOTES) draw();
-    else {
-      later.push(draw);
-
-      if (!draining) { draining = true; setTimeout(drain); }
-    }
+    schedule(draw, "composing" in metadata);
 
     return element;
   };
@@ -310,17 +320,6 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
       if (!shared) virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
-
-      // U7610c: the annotation pass that setRenderer starts is a task of its own, after the first render.
-      if (!current) {
-        view.cleanUp();
-
-        if (!shared) virtualizer.cleanUp();
-
-        container.remove();
-
-        return;
-      }
 
       setRenderer(view);
 
