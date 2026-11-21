@@ -1,4 +1,4 @@
-import { copy as sharedCopy } from "../sharedCopy";
+import { clockTime, copy as sharedCopy } from "../sharedCopy";
 
 /** The count noun of a note line (U7676d). */
 const noun = (count: number) => count === 1 ? sharedCopy.note.toLowerCase() : `${sharedCopy.note.toLowerCase()}s`;
@@ -143,7 +143,9 @@ export const copy = {
   newLines: (start: number, end: number) => `Lines ${start}-${end}`,
   oldLine: (line: number) => `Old line ${line}`,
   oldLines: (start: number, end: number) => `Old lines ${start}-${end}`,
-  sentAt: (time: string) => `Sent ${time}`,
+  sentAt: (at: number | undefined) => `Sent ${clockTime.format(at)}`,
+  /** A line range under a path: "51" or "51–53". */
+  lineSpan: (start: number, end: number) => start === end ? `${start}` : `${start}–${end}`,
   outdated: "Outdated",
   showAll: "Show all",
   editTip: "Edit (E)",

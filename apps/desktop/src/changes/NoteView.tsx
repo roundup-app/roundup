@@ -1,5 +1,4 @@
 import { createSignal, Show } from "solid-js";
-import { clockTime } from "../drawer/copy";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
@@ -11,7 +10,7 @@ const FOLD = 6;
 /** What a saved note says of itself beside its range. */
 export type NoteStatus = "unsent" | "sending" | "unknown" | "failed" | "sent" | "outdated";
 
-const words = (status: NoteStatus, note: Note) => status === "sent" ? copy.sentAt(clockTime.format(note.sent)) : status === "outdated" ? copy.outdated : status === "sending" ? copy.sending : status === "unknown" ? copy.sendUnknown : status === "failed" ? copy.couldntSend : copy.notSent;
+const words = (status: NoteStatus, note: Note) => status === "sent" ? copy.sentAt(note.sent) : status === "outdated" ? copy.outdated : status === "sending" ? copy.sending : status === "unknown" ? copy.sendUnknown : status === "failed" ? copy.couldntSend : copy.notSent;
 
 const range = (note: Note) => note.start === note.end ? (note.side === "old" ? copy.oldLine(note.start) : copy.newLine(note.start)) : note.side === "old" ? copy.oldLines(note.start, note.end) : copy.newLines(note.start, note.end);
 

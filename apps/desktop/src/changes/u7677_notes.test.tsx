@@ -172,8 +172,10 @@ it("u7677e_acceptance_marks_the_submitted_notes_sent_and_keeps_them", async () =
   await waitFor(() => expect(view().getAttribute("data-state")).toBe("sent"));
   const at = new Date(kept?.sent ?? 0);
   const time = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+  const meta = present(view().querySelector(".note-meta")).textContent;
 
-  expect(present(view().querySelector(".note-meta")).textContent).toBe(`${copy.newLine(1)} · ${copy.sentAt(time)}`);
+  expect(meta).toBe(`${copy.newLine(1)} · ${copy.sentAt(kept?.sent)}`);
+  expect(meta).toContain(time);
   await screen.findByText("Sent 1 note to a");
   await saveNote("added meanwhile");
   expect(notesFor(app, "/p").list("a").map(note => note.text)).toEqual(["added meanwhile"]);

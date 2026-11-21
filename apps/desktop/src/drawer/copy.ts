@@ -1,8 +1,6 @@
-import { copy as sharedCopy, draftSurfaceLabels, draftProblem } from "../sharedCopy";
+import { copy as sharedCopy, clockTime, draftSurfaceLabels, draftProblem } from "../sharedCopy";
 
-export const clockTime = new Intl.DateTimeFormat("en-GB", {
-  hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
-});
+export { clockTime };
 
 const touch = (name: string, verb: string, time: string) => `${name} ${verb} · ${time}`;
 

@@ -300,7 +300,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <Show when={gathered().length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
-      <For each={gathered()}>{note => <li><Show when={outdated(note, read())} fallback={<><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
+      <For each={gathered()}>{note => <li><Show when={outdated(note, read())} fallback={<><p>{copy.selectedLines(note.side, copy.lineSpan(note.start, note.end), note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
     </ul></Show>
     <NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} />
   </section>;
