@@ -24,7 +24,7 @@ export const lineAnnotations = (value: FileComparison | undefined, notes: readon
 export const annotate = (view: VirtualizedFileDiff<Annotated>, lines: readonly DiffLineAnnotation<Annotated>[], at: LineSelection) => {
   view.render({ lineAnnotations: [...lines] });
 
-  for (const { side, lineNumber, metadata } of lines) if (side === "additions") { view.revealLine("unfinished" in metadata ? lineNumber : metadata.start); view.revealLine(lineNumber); }
+  for (const { side, lineNumber, metadata } of lines) if (side === "additions") { view.revealLine(metadata.start); view.revealLine(lineNumber); }
 
   view.setSelectedLines({ side: sideName(at.side), start: at.start, end: at.end });
 };

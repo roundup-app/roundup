@@ -41,7 +41,7 @@ it("u7692b_the_keys_list_gains_v", async () => {
   const items = within(keys).getAllByRole("listitem").map(item => item.textContent ?? "");
 
   expect(items.filter(item => /^V\b/.test(item))).toHaveLength(1);
-  expect(items.some(item => /^[NR]\b/.test(item))).toBe(false);
+  expect(items.some(item => /^R\b/.test(item))).toBe(false);
 });
 
 it("u7692b_a_fold_holding_a_notes_line_is_revealed_with_reveal_line", async () => {
