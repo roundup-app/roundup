@@ -210,8 +210,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   };
 
   createEffect(() => props.keys, keys => keys?.({
-    focus: () => focusHost(), reload: () => reload(),
-    reveal: () => revealNearest(),
+    focus: () => focusHost(), reload: () => reload(), reveal: () => revealNearest(),
     step: direction => {
       const next = starts[Math.min(Math.max(cursor + direction, 0), starts.length - 1)];
 
