@@ -59,8 +59,10 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
     fireEvent.click(row);
     fireEvent.click(await within(row).findByRole("button", { name: "1 changed file" }));
-    await (await import("../changes/noteHarness")).openFile();
-    fireEvent.click(await screen.findByRole("button", { name: "Add note" }));
+    const harness = await import("../changes/noteHarness");
+
+    await harness.openFile();
+    harness.startNote();
     field = await screen.findByRole("textbox", { name: "Note" });
   } else if (opening === "Project query") {
     leaderKey("KeyP");

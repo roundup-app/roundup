@@ -16,7 +16,7 @@ Module: `apps/desktop/src/changes/`. Ids: U7674a, U7674b, U7674c, U7674d, U7674e
 - **From.** From is a quiet fixed label, not a control (kept from U7672c). Asserted in `u7672c_from_is_a_label_not_a_control`.
 - **Totals.** Choosing another group or switch value changes the count and totals to that listing's; an entry whose `counts` is `null` adds nothing to the totals. Asserted in `u7674b_totals_follow_the_shown_group`.
 - **Escape.** Escape closes the view, unless a note field (#7676) holds it, which keeps the view open. Asserted in `u7674b_escape_closes_the_view_unless_a_note_field_holds_it`.
-- **Notes bar.** Add note and "New line N" stay until #7676 replaces them; the notes bar shows only while the batch holds a note. Asserted in `u7674b_the_notes_bar_shows_only_while_the_batch_holds_a_note`.
+- **Notes bar.** Replaced by U7676a and U7676d (`scenarios/ui-changes-notes.md`): a note starts from the line, and the bar shows only for unsent notes or a send. Asserted in `u7676d_the_bar_shows_only_for_unsent_notes_or_a_send`.
 
 **U7674c every file row shows its counts.** Given the tree, then each file row shows its `+added -removed` through `renderRowDecoration`, a `null` `counts` shows none, and a folder row shows none. Long lines wrap: the reader passes `overflow: 'wrap'` and the view never scrolls sideways. Asserted in `u7674c_file_rows_show_counts` and `u7674c_the_reader_wraps_long_lines`; the sideways scroll itself is U7674f's capture.
 

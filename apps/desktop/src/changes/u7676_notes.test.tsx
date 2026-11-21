@@ -26,6 +26,9 @@ const diffContent = () => present(document.querySelector(".diff-content"));
 
 const batch = () => present(noteList());
 
+/** The lines Pierre marks as selected, as "<type>:<number>". */
+const selectedLines = () => [...diffContent().querySelector("diffs-container")?.shadowRoot?.querySelectorAll("[data-line][data-selected-line]") ?? []].map(line => `${line.getAttribute("data-line-type")}:${line.getAttribute("data-line")}`);
+
 const firstNote = (app: Parameters<typeof notesFor>[0]) => present(notesFor(app, "/p").list("a")[0]);
 
 const form = () => within(screen.getByRole("form", { name: copy.lineNote }));
@@ -57,6 +60,7 @@ it("u7676a_a_drag_over_line_numbers_opens_the_field_for_the_range", async () => 
   await screen.findByRole("form", { name: copy.lineNote });
   expect(range()).toEqual(["1", "2"]);
   expect(form().getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
+  await waitFor(() => expect(selectedLines()).toEqual(["change-deletion:1", "change-deletion:2"]));
 });
 
 it("u7676a_add_note_and_new_line_are_gone_and_the_notices_stay", async () => {
@@ -72,6 +76,11 @@ it("u7676b_n_opens_the_labelled_field_preset_from_the_line_or_range", async () =
   await screen.findByRole("form", { name: copy.lineNote });
   expect(range()).toEqual(["2", "2"]);
   expect(form().getAllByRole("tab").length).toBe(2);
+  fireEvent.keyDown(field(), { key: "Escape" });
+  present(options().onLineNumberClick)({ type: "diff-line", lineType: "change-addition", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber: 1, annotationSide: "additions", event: new PointerEvent("click", { shiftKey: true }) });
+  press("n");
+  await screen.findByRole("form", { name: copy.lineNote });
+  expect(range()).toEqual(["1", "2"]);
 });
 
 it("u7676b_cmd_enter_saves_and_escape_keeps_text_as_unfinished_work", async () => {
@@ -105,6 +114,10 @@ it("u7676b_e_edits_and_delete_removes_the_notes_line", async () => {
   press("Delete");
   await waitFor(() => expect(notesFor(app, "/p").list("a")).toEqual([]));
   await screen.findByText(copy.noteRemoved);
+  fireEvent.click(screen.getByRole("button", { name: copy.undo }));
+  await waitFor(() => expect(notesFor(app, "/p").list("a")).toHaveLength(1));
+  press("Backspace");
+  await waitFor(() => expect(notesFor(app, "/p").list("a")).toEqual([]));
 });
 
 it("u7676b_the_keys_list_gains_n_e_and_delete", async () => {
@@ -190,6 +203,11 @@ it("u7676c_restored_notes_are_counted_on_the_bar", async () => {
   await screen.findByText(copy.notesKept(2));
   await saveNote("three");
   expect(screen.queryByText(copy.notesKept(2))).toBeNull();
+  cleanup();
+  await openDiff();
+  await screen.findByText(copy.notesKept(3));
+  fireEvent.click(within(bar()).getByRole("button", { name: copy.dismissLine }));
+  await waitFor(() => expect(screen.queryByText(copy.notesKept(3))).toBeNull());
 });
 
 it("u7676c_notes_for_lines_no_longer_shown_gather_after_the_last_line", async () => {
@@ -233,6 +251,8 @@ it("u7676d_the_sent_line_names_the_count_and_the_agent", async () => {
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
   fireEvent.click(sendButton());
   await screen.findByText(copy.notesSent(1, "a"));
+  fireEvent.click(within(bar()).getByRole("button", { name: copy.dismissLine }));
+  await waitFor(() => expect(screen.queryByText(copy.notesSent(1, "a"))).toBeNull());
 });
 
 it("u7676d_retry_is_for_a_definite_rejection_only", async () => {

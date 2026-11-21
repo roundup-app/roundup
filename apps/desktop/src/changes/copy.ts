@@ -123,6 +123,7 @@ export const copy = {
   noteCount: (count: number) => `${count} ${noun(count)}`,
   noteRemoved: "Note removed",
   undo: sharedCopy.todoUndo,
+  dismissLine: sharedCopy.dismissFailure,
   notSent: "Not sent",
   unfinishedWork: sharedCopy.unfinishedWork,
   notesNoLongerShown: "Notes for lines no longer shown",

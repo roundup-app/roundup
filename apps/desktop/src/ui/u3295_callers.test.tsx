@@ -3,7 +3,7 @@ import { createSignal, flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { Dialog } from "./Dialog";
 import { mountSwitcher, openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
-import { openDiff, COMPARISON } from "../changes/noteHarness";
+import { openDiff, startNote, COMPARISON } from "../changes/noteHarness";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { NoteRecovery } from "../changes/NoteBatch";
 import { notesFor } from "../changes/notes";
@@ -75,7 +75,7 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   const notes = notesFor(app, "/p", connected.drafts);
 
   if (kind === "worktree") {
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    startNote();
   } else {
     notes.editForm("a", { revision: "retained", comparison: COMPARISON, replacing: null, side: "new", start: "1", end: "1", text, selection: null });
     render(() => {

@@ -745,7 +745,8 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
-    await click("Add note");
+    await evaluate("document.querySelector('.diff-content').focus()");
+    await browser("press", "n");
     await browser("fill", ".note-field textarea", "  keep this exact unfinished note 🐝  ");
     await evaluate("window.__fake.app.handlers['agent.compareFile'] = () => ({base:'base',oldPath:'src/example.ts',newPath:'src/example.ts',status:'modified',old:{kind:'text',revision:'old',text:'before\\n'},new:{kind:'text',revision:'automatic',text:'automatic comparison update\\n'}})");
     await evaluate("window.__worktrees.refresh('agent-1')");

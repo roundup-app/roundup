@@ -119,13 +119,6 @@ it("u7674b_escape_closes_the_view_unless_a_note_field_holds_it", async () => {
   await waitFor(() => absent(() => screen.queryByRole("region", { name: "Changes" })));
 });
 
-it("u7674b_the_notes_bar_shows_only_while_the_batch_holds_a_note", async () => {
-  await open();
-  await waitDiff();
-
-  absent(() => screen.queryByRole("list", { name: "Notes" }));
-});
-
 it("u7674c_file_rows_show_counts", async () => {
   await open();
 

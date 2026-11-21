@@ -32,11 +32,14 @@ export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() 
   return row;
 });
 
-export const waitDiff = () => waitFor(() => { if (!document.querySelector(".diff-content")) throw new Error("No diff yet"); });
+/** The diff the user sees: another Project's view stays mounted, out of the accessibility tree. */
+const shownDiff = () => screen.getByRole("region", { name: copy.diff }).querySelector<HTMLElement>(".diff-content");
+
+export const waitDiff = () => waitFor(() => { if (!shownDiff()) throw new Error("No diff yet"); });
 
 /** Reads one file's diff in the open Changes view: the first file opens by itself (U7674a), another is chosen in the tree. */
 export const openFile = async (path = "src/a.ts") => {
-  await waitFor(() => { if (!document.querySelector(".diff-content")) throw new Error("No diff yet"); });
+  await waitDiff();
   const row = await treeRow(path);
 
   row.focus();
@@ -54,8 +57,13 @@ export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts
   return mounted;
 };
 
-/** U7676b: N on the focused diff starts a note. */
-export const startNote = () => { fireEvent.keyDown(document.querySelector(".diff-content")!, { key: "n" }); };
+/** U7676b: N on the focused diff starts a note; keys follow focus, and a hidden Project's view can still hold it. */
+export const startNote = () => {
+  const diff = shownDiff()!;
+
+  diff.focus();
+  fireEvent.keyDown(diff, { key: "n" });
+};
 
 /** U7676d: the bar's count opens the batch list. */
 export const openBatch = async () => {
@@ -69,7 +77,7 @@ export const openBatch = async () => {
 
 export const saveNote = async (text: string) => {
   // The pane's read lands after its element: N waits for it, as a user's key does.
-  await waitFor(() => { startNote(); screen.getByRole("form", { name: "Line note" }); });
+  await waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
   const form = within(screen.getByRole("form", { name: "Line note" }));
   fireEvent.input(form.getByLabelText("Note"), { target: { value: text } });
   fireEvent.click(form.getByRole("button", { name: "Save" }));

@@ -39,6 +39,15 @@ const open = async (path: string) => { await browser("open", new URL(path, serve
 
 const click = (name: string) => browser("find", "role", "button", "click", "--name", name, "--exact");
 
+// U7676d: the notes bar's count opens the batch list.
+const openBatch = async () => {
+  await browser("eval", "(() => { if (!document.querySelector('[aria-label=Notes]')) [...document.querySelectorAll('.note-batch button')].find(button => /^\\d+ notes?$/.test(button.textContent ?? '')).click(); })()");
+  await wait("!!document.querySelector('[aria-label=Notes]')");
+};
+
+// U7676b: N on the focused diff starts a note at the selection.
+const startNote = async () => { await browser("eval", "document.querySelector('.diff-content').focus()"); await browser("press", "n"); };
+
 const showDiff = async () => {
   await browser("click", ".changes-icon");
   await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')");
@@ -84,15 +93,12 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
     numbers[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
     numbers[1].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, shiftKey: true }));
   })()`);
-  await click("Add note");
+  await startNote();
   await browser("find", "label", "Note", "fill", "pointer note");
   await click("Save");
-  await wait("!!document.querySelector('[aria-label=\"Notes\"]')");
+  await openBatch();
   expect(await browser("eval", "(async () => { const { notesFor } = await import('/src/changes/notes.ts'); return notesFor(window.__fake.app, window.__fake.app.opened.project.path).list('agent-1').map(({ side, start, end, text }) => ({ side, start, end, text })); })()")).toEqual([{ side: "new", start: 1, end: 2, text: "pointer note" }]);
-  await browser("eval", `(() => {
-    [...document.querySelectorAll('button')].find(button => button.textContent === 'Add note').focus();
-  })()`);
-  await browser("press", "Enter");
+  await startNote();
   await wait("!!document.querySelector('[aria-label=\"Line note\"]')");
   await browser("find", "role", "tab", "click", "--name", "Old", "--exact");
   await wait("document.querySelector('.note-form [role=tab][aria-selected=true]')?.textContent === 'Old'");
@@ -118,6 +124,7 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
     for (const state of ["dense", "dense&retention"]) {
       await open(`/src/changes/u2540.html?${state}`);
       await showDiff();
+      await openBatch();
       await wait("document.querySelectorAll('[aria-label=Notes] > li').length === 100");
 
       if (state.includes("retention")) await wait("!!document.querySelector('.app-toasts [role=alert]')");
@@ -145,6 +152,7 @@ it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
   await browser("set", "media", "dark");
   await open("/src/changes/u2540.html?dense");
   await showDiff();
+  await openBatch();
   await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]') && document.querySelectorAll('[aria-label=Notes] > li').length === 100");
   await browser("eval", `(() => {
     window.__retainedDiff = document.querySelector('diffs-container');
@@ -156,14 +164,14 @@ it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
   await browser("eval", `(() => {
     const lines = [...window.__retainedDiff.shadowRoot.querySelectorAll('[data-line-type="change-deletion"][data-column-number]')];
     lines[1].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, shiftKey: true }));
-    [...document.querySelectorAll('button')].find(button => button.textContent === 'Add note').focus();
+    document.querySelector('.diff-content').focus();
   })()`);
   await browser("eval", "(async () => { await window.__worktrees.refresh('agent-1'); await window.__worktrees.refresh('agent-1'); })()");
-  await wait("document.activeElement?.textContent === 'Add note'");
+  await wait("document.activeElement?.classList.contains('diff-content')");
   expect(await browser("eval", "document.querySelector('diffs-container') === window.__retainedDiff")).toBe(true);
   await capture("dense-equal-refresh", "U5646a");
   await capture("dense-fallback-retained", "U5646c");
-  await click("Add note");
+  await browser("press", "n");
   expect(await browser("eval", "[...document.querySelectorAll('.note-form input[type=number]')].map(input => input.value)")).toEqual(["1", "2"]);
   await browser("find", "label", "Note", "fill", "Updated annotation after unchanged refresh");
   await click("Save");

@@ -125,7 +125,7 @@ const says = (words: string) => waitFor(() => expect(pane().textContent).toConta
 const marks = (want: { side: "old" | "new"; line: number }) => waitFor(() => {
   const marked = [...scroller()?.querySelector("diffs-container")?.shadowRoot?.querySelectorAll("[data-selected-line]") ?? []].map(element => ({ line: Number(element.getAttribute("data-line")), deleted: element.getAttribute("data-line-type") === "change-deletion" }));
 
-  expect(marked.some(each => each.line === want.line && each.deleted === (want.side === "old"))).toBe(true);
+  expect(marked).toContainEqual({ line: want.line, deleted: want.side === "old" });
 });
 
 const treeShadow = () => [...document.querySelectorAll("file-tree-container")].at(-1)?.shadowRoot ?? null;

@@ -1,6 +1,6 @@
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
-import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
+import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
@@ -12,9 +12,9 @@ import { reply } from "./notes";
 import { changeAt, changeStarts, placeOf, sideName } from "./lines";
 import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Note, Notes } from "./notes";
-import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead, sameRevisions } from "./fileState";
-import { drawDiff } from "./diffDraw";
-import type { Annotated, Mark } from "./diffDraw";
+import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
+import { drawDiff, gatheredNotes, lineAnnotations } from "./diffDraw";
+import type { Annotated } from "./diffDraw";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteBatch } from "./NoteBatch";
@@ -37,9 +37,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
 
-  createEffect(() => props.editing, note => {
-    if (note) setForm({ comparison: note.comparison, selection: note, editing: note });
-  });
+  const edit = (note: Note | undefined) => { if (note) setForm({ comparison: note.comparison, selection: note, editing: note }); };
+
+  createEffect(() => props.editing, edit);
 
   const closeForm = () => { setForm(undefined); props.onEdited(); focusHost(); };
 
@@ -113,18 +113,11 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
   const notes = createMemo(() => props.notes.list(props.id));
 
-  createEffect(() => {
-    const value = read();
-    const view = renderer();
-    const annotations = notes().filter(note => value && sameRevisions(note.comparison, value));
-    const marks = form() ? [] : props.notes.unfinished(props.id).filter(draft => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1);
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), form() ? [] : props.notes.unfinished(props.id)) }), ({ view, lines }) => {
+    view?.render({ lineAnnotations: lines });
 
-    return { view, annotations, marks };
-  }, ({ view, annotations, marks }) => {
-    view?.render({ lineAnnotations: [
-      ...annotations.map((note): DiffLineAnnotation<Note> => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })),
-      ...marks.map((draft): DiffLineAnnotation<Mark> => ({ side: draft.side === "old" ? "deletions" : "additions", lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } })),
-    ] });
+    // U7676a: no status line names the focused line now, so a render that follows a draw keeps Pierre's own mark on it.
+    if (view) { const at = untrack(selection); view.setSelectedLines({ side: sideName(at.side), start: at.start, end: at.end }); }
   });
 
   createEffect(() => {
@@ -200,9 +193,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   createEffect(() => props.keys, keys => keys?.({
     focus: () => focusHost(),
     note: () => openNote(selection()),
-    edit: () => { const note = noteOnLine();
-
- if (note) setForm({ comparison: note.comparison, selection: note, editing: note }); },
+    edit: () => edit(noteOnLine()),
     remove: () => { const note = noteOnLine();
 
  if (note) void props.notes.remove(props.id, note.id); },
@@ -223,9 +214,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   };
 
   // U7676c: a note whose comparison is not the open one stays in the batch and gathers after the file's last line.
-  const gathered = createMemo(() => { const value = read();
-
- return value ? notes().filter(note => note.comparison.newPath === value.newPath && !sameRevisions(note.comparison, value)) : []; });
+  const gathered = createMemo(() => gatheredNotes(read(), notes()));
 
   const noteOnLine = () => {
     const at = selection();
@@ -238,7 +227,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <DiffIdentity read={read()} path={props.path} />
-      <div class="diff-actions" />
     </header>
     <StatusNote text={failure() ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
@@ -249,6 +237,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       <For each={gathered()}>{note => <li><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)} · {copy.originalContext}</p><p class="note-text">{note.text}</p></li>}</For>
     </ul></Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
-    <NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
+    <NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} />
   </section>;
 };
