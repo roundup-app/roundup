@@ -10,7 +10,7 @@ import type { Note, Notes, NoteFormDraft } from "./notes";
 type Fields = Pick<NoteFormDraft, "side" | "start" | "end" | "text">;
 
 /** Keyboard selection uses the same source and inclusive range as Pierre's gutter selection. */
-export const NoteForm = (props: { id: string; comparison: FileComparison; notes: Notes; selection: { side: "old" | "new"; start: number; end: number }; editing?: Note | undefined; recovered?: NoteFormDraft | undefined; close: () => void; /** U7677d: the field holds or loses focus, for the gutter bar. */ focus?: ((held: boolean) => void) | undefined }) => {
+export const NoteForm = (props: { id: string; comparison: FileComparison; notes: Notes; selection: { side: "old" | "new"; start: number; end: number }; editing?: Note | undefined; recovered?: NoteFormDraft | undefined; close: () => void; /** U7677d: the field holds or loses focus, for the gutter bar. */ focus?: ((active: boolean) => void) | undefined }) => {
   const restored = untrack(() => props.recovered ?? props.notes.form(props.id, props.comparison, props.editing?.id));
   const comparison = restored?.comparison ?? props.editing?.comparison ?? props.comparison;
   const revision = restored?.revision ?? crypto.randomUUID();
@@ -34,7 +34,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   const text = () => fields().text;
   let field: HTMLTextAreaElement | undefined;
   let disposed = false;
-  const [held, setHeld] = createSignal(false);
+  const [active, setActive] = createSignal(false);
 
   // U7677d: the field grows with its text to 12 lines, then scrolls.
   const rows = () => Math.min(12, Math.max(2, text().split("\n").length));
@@ -93,7 +93,8 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
     props.close();
   };
 
-  return <form class="note-form" data-surface="diff" data-focused={held() ? "" : undefined} aria-label={copy.lineNote} onFocusIn={() => { setHeld(true); props.focus?.(true); }} onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setHeld(false); props.focus?.(false); } }} onKeyDown={event => {
+  // SAFETY: relatedTarget is null or the Node focus moved to.
+  return <form class="note-form" data-surface="diff" data-focused={active() ? "" : undefined} aria-label={copy.lineNote} onFocusIn={() => { setActive(true); props.focus?.(true); }} onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setActive(false); props.focus?.(false); } }} onKeyDown={event => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save(); }
     else if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); leave(); }
   }} onSubmit={event => { event.preventDefault(); void save(); }}>
@@ -103,7 +104,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
     </Tabs.Root>
     <label>{copy.startLine}<input type="number" min="1" value={start()} onInput={event => edit({ start: event.currentTarget.value })} /></label>
     <label>{copy.endLine}<input type="number" min="1" value={end()} onInput={event => edit({ end: event.currentTarget.value })} /></label>
-    <label class="note-field">{copy.note}<textarea class="note-input" rows={rows()} spellcheck="false" autocorrect="off" autocapitalize="off" value={text()} maxlength={20000} onInput={event => edit({ text: event.currentTarget.value })} onSelect={() => { if (written.text !== "" || restored || replacing !== undefined) persist(); }} ref={element => {
+    <label class="note-field">{copy.note}<textarea class="note-input field-inline" rows={rows()} spellcheck="false" autocorrect="off" autocapitalize="off" value={text()} maxlength={20000} onInput={event => edit({ text: event.currentTarget.value })} onSelect={() => { if (written.text !== "" || restored || replacing !== undefined) persist(); }} ref={element => {
       field = element;
       queueFocus(() => {
         if (!element.isConnected) return;

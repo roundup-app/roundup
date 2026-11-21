@@ -139,7 +139,10 @@ export const copy = {
   dismissLine: sharedCopy.dismissFailure,
   notSent: "Not sent",
   /** U7677b: the meta line's range: "Line 51", "Lines 51-53", "Old lines 4-6". */
-  noteRange: (side: "old" | "new", start: number, end: number) => `${side === "old" ? "Old l" : "L"}${start === end ? `ine ${start}` : `ines ${start}-${end}`}`,
+  newLine: (line: number) => `Line ${line}`,
+  newLines: (start: number, end: number) => `Lines ${start}-${end}`,
+  oldLine: (line: number) => `Old line ${line}`,
+  oldLines: (start: number, end: number) => `Old lines ${start}-${end}`,
   sentAt: (time: string) => `Sent ${time}`,
   outdated: "Outdated",
   showAll: "Show all",

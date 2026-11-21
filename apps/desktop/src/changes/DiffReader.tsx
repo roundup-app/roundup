@@ -163,18 +163,18 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       return <NoteView note={metadata} status={metadata.sent !== undefined ? "sent" : props.notes.noteState(props.id, metadata)} edit={() => edit(metadata)} remove={() => void props.notes.remove(props.id, metadata.id)} />;
     };
 
-    slots.add({ element, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner }))! });
+    slots.add({ element, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner })) ?? (() => {}) });
 
     return element;
   };
 
   let mark = (_ranges: readonly Noted[]) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer()), held: focused() }), ({ view, lines, held }) => {
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer()), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(false);
-    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && held }]));
+    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
   });
 
   createEffect(() => {
@@ -242,6 +242,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
         revealNearest = () => {};
 
         mark = () => {};
+
         setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove();
       };
     }).then(error => { if (current && error) setFailure(error); });
