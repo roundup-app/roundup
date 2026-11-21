@@ -176,6 +176,11 @@ const Surface = (props: { id: string; name: string }) => {
   const [active, setActive] = createSignal(0);
   const group = () => groups()[active()] ?? groups()[0];
 
+  // U7853a: the open group as the Daemon reads it, stable while a refresh brings the same repository and branch.
+  const groupKey = createMemo(() => { const open = group();
+
+    return open && { repo: open.repo, branch: open.branch }; }, { equals: (a, b) => a?.repo === b?.repo && a?.branch === b?.branch });
+
   // U7675d, U7675f: the open file and each file's place outlive the view for the connection's session.
   const memory = changePlaces.of(untrack(() => props.id));
   const [picked, setPicked] = createSignal<string | undefined>(memory.open);
@@ -361,7 +366,7 @@ const Surface = (props: { id: string; name: string }) => {
         </Show>
       </div>
       <For each={panes()}>{pane => <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>
+        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>
       </div>}</For>
     </div>
   </section>;
