@@ -139,7 +139,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const composer = createMemo((): Composer | undefined => {
     const draft = form();
 
-    return draft && { composing: true, side: draft.selection.side, start: draft.selection.start, end: draft.selection.end };
+    return draft && { composing: true, side: draft.selection.side, start: draft.selection.start, end: draft.selection.end, replacing: draft.editing?.id };
   });
 
   // U7677: Pierre keeps what an annotation draws; the reader owns the Solid roots under it and ends those whose element Pierre dropped.

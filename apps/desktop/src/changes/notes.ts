@@ -181,9 +181,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const [problem, setProblem] = createSignal(untrack(storage.problem));
   const [invalidCount, setInvalidCount] = createSignal(invalid.size);
   const recipient = (id: string): Recipient => recipients().get(id) ?? { version: 1, notes: [], forms: [], submissions: [], recovered: [] };
-  /** U7677e: `all` is every note the diff draws, sent ones included; the batch `list` is the unsent. */
-  const all = (id: string): readonly Note[] => recipient(id).notes;
-  const list = (id: string): readonly Note[] => all(id).filter(note => note.sent === undefined);
+  /** U7677e: the batch is the unsent notes; the diff draws every note (`all`), the Sent ones too. */
+  const list = (id: string): readonly Note[] => recipient(id).notes.filter(note => note.sent === undefined);
 
   const state = (id: string): Send => {
     const submission = recipient(id).submissions.find(value => value.status !== "failed");
@@ -242,7 +241,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const history = (connection: AppSeam, id: string) => reply(() => connection.rpc("message.list", { to: id, status: null }));
 
   const notes = {
-    list, all, state,
+    list, state, all: (id: string): readonly Note[] => recipient(id).notes,
     failure: (id: string) => {
       const value = sent().get(id);
 
@@ -352,10 +351,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       return true;
     },
     remove: async (id: string, note: number) => {
-      const removed = list(id).find(value => value.id === note);
+      const removed = recipient(id).notes.find(value => value.id === note);
 
       unkeep(id);
-      await retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
+      await retain(id, { ...recipient(id), notes: recipient(id).notes.filter(value => value.id !== note) });
 
       if (removed && !notes.problem()) removedNote(id, removed);
 

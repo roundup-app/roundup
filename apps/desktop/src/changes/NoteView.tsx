@@ -1,4 +1,5 @@
 import { createSignal, Show } from "solid-js";
+import { clockTime } from "../drawer/copy";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
@@ -10,15 +11,9 @@ const FOLD = 6;
 /** What a saved note says of itself beside its range. */
 export type NoteStatus = "unsent" | "sending" | "unknown" | "failed" | "sent" | "outdated";
 
-const words = (status: NoteStatus, note: Note) => status === "sent" ? copy.sentAt(clock(note.sent)) : status === "outdated" ? copy.outdated : status === "sending" ? copy.sending : status === "unknown" ? copy.sendUnknown : status === "failed" ? copy.couldntSend : copy.notSent;
+const words = (status: NoteStatus, note: Note) => status === "sent" ? copy.sentAt(clockTime.format(note.sent)) : status === "outdated" ? copy.outdated : status === "sending" ? copy.sending : status === "unknown" ? copy.sendUnknown : status === "failed" ? copy.couldntSend : copy.notSent;
 
 const range = (note: Note) => note.start === note.end ? (note.side === "old" ? copy.oldLine(note.start) : copy.newLine(note.start)) : note.side === "old" ? copy.oldLines(note.start, note.end) : copy.newLines(note.start, note.end);
-
-const clock = (at: number | undefined) => {
-  const date = new Date(at ?? 0);
-
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-};
 
 /** U7677b, U7677c: a saved note: its body, one meta line, and Edit and Remove only on hover or focus. */
 export const NoteView = (props: { note: Note; status: NoteStatus; edit: () => void; remove: () => void }) => {

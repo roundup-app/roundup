@@ -75,6 +75,9 @@ export const openBatch = async () => {
   }
 };
 
+/** U7677d: Esc leaves the open note: its footer says "Esc Cancel" and it has no Close button. */
+export const cancelNote = () => fireEvent.keyDown(within(screen.getByRole("form", { name: copy.lineNote })).getByLabelText(copy.note), { key: "Escape" });
+
 export const saveNote = async (text: string) => {
   // The pane's read lands after its element: N waits for it, as a user's key does.
   await waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });

@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch, cancelNote } from "./noteHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -189,7 +189,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   await openBatch();
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect((await screen.findByLabelText<HTMLTextAreaElement>("Note", { selector: "textarea" })).value).toBe(newer);
-  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
+  cancelNote();
   fireEvent.click(tab("web"));
 
   await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
@@ -285,11 +285,11 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action.endsWith("remove")) fireEvent.click(screen.getByRole("button", { name: action === "remove" ? "Remove note 1" : "Remove note 2" }));
   else {
-    fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
+    cancelNote();
     await openBatch();
     fireEvent.click(screen.getByRole("button", { name: action === "other save" ? "Edit note 2" : "Edit note 1" }));
 
-    if (action === "cancel edit") fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
+    if (action === "cancel edit") cancelNote();
     else {
       fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: "  acknowledged replacement 🐝  " } });
       fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
@@ -343,7 +343,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action === "remove") fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
   else {
-    fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
+    cancelNote();
     await openBatch();
     fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
     fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: "  cannot retain save 🐝  " } });

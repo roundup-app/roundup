@@ -11,7 +11,7 @@ import diffStyles from "./diff.styles.css?inline";
 export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: number; text: string };
 
 /** U7677d: the composer drawn under the last line of the range being noted. */
-export type Composer = { composing: true; side: "old" | "new"; start: number; end: number };
+export type Composer = { composing: true; side: "old" | "new"; start: number; end: number; /** The note whose text this field edits; it is not drawn meanwhile. */ replacing?: number | undefined };
 
 export type Annotated = Note | Mark | Composer;
 
@@ -36,13 +36,13 @@ export const outdated = (note: Note, value: FileComparison | undefined) => note.
 /** U7677a: a note draws under its lines while its comparison is the open one, and a Sent note while its lines still read the same. */
 const shown = (note: Note, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
-/** U7676c: what the diff draws under its lines: each note of the open comparison under its last line, each unfinished field as a mark. */
+/** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line; each unfinished field as a mark. */
 export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[], composer?: Composer): DiffLineAnnotation<Annotated>[] => [
-  ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && shown(note, value) ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
+  ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
+  ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
     ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
     : []),
-  ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
 ];
 
 /** U7676c: draws the annotations under their lines, opens the folds that hide them (U7692b: an unchanged line is a new-side line) and keeps the focused line selected (U7676a). */
