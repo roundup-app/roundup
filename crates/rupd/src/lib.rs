@@ -39,13 +39,13 @@ mod handoff;
 mod link;
 mod machine_install;
 mod machines;
+mod made;
 mod memory_guard;
 #[cfg(test)]
 mod naming_tests;
 mod observers;
 mod open;
 mod output;
-mod made;
 mod owner_told;
 mod pr_checks;
 mod program_status;

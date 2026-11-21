@@ -256,6 +256,8 @@ type AutomaticChanges = { name: "deliverable.changed" }
   // MC40, MC41 add the Config's two Events.
   // LH4 adds the links event.
   | { name: "agent.links"; data: { id: string; set: { entries: { kind: "pr" | "tracker" | "dev-server" | "asked"; url: string; tooltip: string }[] } } }
+  // LH20 adds the made-items event.
+  | { name: "agent.made"; data: import("./generated/agent/NodeId").NodeId }
   // T7708b adds the pull request read.
   | { name: "todo.prChecked"; data: import("./generated/todo/PrCheck").PrCheck }
   | { name: "config.changed" }

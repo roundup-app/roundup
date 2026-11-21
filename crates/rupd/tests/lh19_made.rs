@@ -231,7 +231,10 @@ async fn lh20_a_change_to_the_list_emits_one_event() {
         .unwrap();
     assert_eq!(told(&mut events).await.as_deref(), Some(a.as_str()));
     w.user
-        .request("pad.setVisibility", json!({"name":"report","visibility":"internal"}))
+        .request(
+            "pad.setVisibility",
+            json!({"name":"report","visibility":"internal"}),
+        )
         .await
         .unwrap();
     assert_eq!(told(&mut events).await.as_deref(), Some(a.as_str()));

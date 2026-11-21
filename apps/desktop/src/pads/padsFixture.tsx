@@ -44,6 +44,7 @@ export const padOf = (name: string, _actor: Actor, text = ""): Pad => ({
   text,
   updated_at: 0,
   revision: 1,
+  creator: { kind: "user" as const, id: "you", parent: null },
   home: null,
   visibility: "shown" as const,
 });

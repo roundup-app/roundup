@@ -150,7 +150,7 @@ const mountOwners = async () => {
   padReadStorage("/p").write({});
   app.handlers["rail.tree"] = () => [door("w", "idle", "idle", { name: "lead" }), agent("a", "idle", "x", { parent: "w" })];
   app.handlers["agent.spawn"] = () => agent("b", "idle", "x", { parent: "w" });
-  Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "w", visibility: "shown" as const }], history: [] }, () => {}));
+  Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "w", creator: { kind: "user" as const, id: "you", parent: null }, visibility: "shown" as const }], history: [] }, () => {}));
   render(() => <App prepareIdle={open => { open.showView("workstreams"); }} app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await waitFor(() => rowOf("a"));
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);

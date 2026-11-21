@@ -106,7 +106,9 @@ impl Publications {
     }
     /// LH19: every live publication an Agent made that is a file or a Pad revision (a link is not),
     /// as `(maker, id, title)` in publication order.
-    pub(crate) fn made_files(&self) -> std::result::Result<Vec<(String, String, String)>, RpcError> {
+    pub(crate) fn made_files(
+        &self,
+    ) -> std::result::Result<Vec<(String, String, String)>, RpcError> {
         let db = self.db.lock();
         Ok(store::list_in(&db, None)
             .map_err(RpcError::internal)?
