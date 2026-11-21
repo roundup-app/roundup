@@ -173,7 +173,10 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
   const clear = failures.clear;
   const close = () => { props.onOpenChange(false); setEditing(undefined); };
 
-  const entries = () => props.notes.entries().filter(([, value]) => value.forms.length || value.notes.length || value.submissions.length || value.recovered.length);
+  // U7677e: a Sent note is kept on the diff, never recovered work.
+  const unsent = (notes: readonly Note[]) => notes.filter(note => note.sent === undefined);
+
+  const entries = () => props.notes.entries().filter(([, value]) => value.forms.length || unsent(value.notes).length || value.submissions.length || value.recovered.length);
   const retained = () => entries().length > 0 || props.notes.invalid().length > 0 || !!props.notes.problem();
 
   const problemLine = dismissable(() => props.notes.problem());
@@ -196,7 +199,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
           <p class="note-path">{form.comparison.newPath}<Show when={older(id, form.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(form.side, Number(form.start) === Number(form.end) ? `${Number(form.start)}` : `${Number(form.start)}–${Number(form.end)}`, Number(form.start) === Number(form.end))}</p><p class="note-text">{form.text}</p>
           <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, form }, null, 2)} identity={form.revision} onSuccess={() => clear(form.revision)} onFailure={error => failures.fail(form.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><Show when={props.available(id)}><button type="button" data-note-action="resume" onClick={() => setEditing({ id, form })}>{copy.resumeNote}</button></Show><button type="button" onClick={() => { props.notes.discardForm(id, form.revision); setEditing(undefined); }}>{copy.discardDraft}</button></div>
         </div>}</For>
-        <For each={value.notes}>{note => <div class="note-recovered-batch">
+        <For each={unsent(value.notes)}>{note => <div class="note-recovered-batch">
           <p class="note-path">{note.comparison.newPath}<Show when={older(id, note.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}</p><p class="note-text">{note.text}</p>
           <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, note }, null, 2)} identity={note.revision} onSuccess={() => clear(note.revision)} onFailure={error => failures.fail(note.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.remove(id, note.id)}>{copy.discardDraft}</button></div>
         </div>}</For>

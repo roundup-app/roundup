@@ -10,6 +10,11 @@ const failed = "Failed";
 
 const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
 
+/** The time of day a line names, as 24-hour hours and minutes whatever the locale. */
+export const clockTime = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
+});
+
 export const staleSuffix = ", stale";
 
 const noCi = "No CI";

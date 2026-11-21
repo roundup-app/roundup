@@ -54,6 +54,19 @@
   --form-on-ink: var(--ground);
   --form-thumb: #ffffff;
   --transparent: transparent;
+  /* U7677a: the diff is a light surface in both App modes (U7674d); a note drawn under its lines reads these, the notes bar reads the App's. The bar and tint are the accent at 55% and 6%, written as rgba because D5 reads a computed wash only in that form. */
+  --diff-text: #1f2328;
+  --diff-grey: #59636e;
+  --diff-ground: #f6f8fa;
+  --diff-accent: #b23300;
+  /* The accent at 55% for the bar and 6% for the tint, written as rgba because D5 reads a computed wash only in that form. */
+  --note-bar-width: 2px;
+  --note-bar-layer: linear-gradient(rgba(178, 51, 0, 0.55), rgba(178, 51, 0, 0.55));
+  --note-bar-focused-layer: linear-gradient(var(--diff-accent), var(--diff-accent));
+  --note-tint-layer: linear-gradient(rgba(178, 51, 0, 0.06), rgba(178, 51, 0, 0.06));
+  /* D5 measures a leading mark over one full wash (U137): the bar, then the diff's ground. */
+  --note-surface: var(--note-bar-layer) left top / var(--note-bar-width) 100% no-repeat, linear-gradient(var(--diff-ground), var(--diff-ground)) left top / auto no-repeat;
+  --note-surface-focused: var(--note-bar-focused-layer) left top / var(--note-bar-width) 100% no-repeat, linear-gradient(var(--diff-ground), var(--diff-ground)) left top / auto no-repeat;
   --ground: var(--gray-1);
   --sunken: var(--gray-2);
   --rail-ground: var(--sunken);

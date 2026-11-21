@@ -32,6 +32,8 @@ const caret = v.nullable(v.strictObject({ start: offset, end: offset, direction:
 const noteSchema = v.strictObject({
   id: line, revision: v.string(), comparison, side: v.picklist(["old", "new"]),
   start: line, end: line, source: v.string(), text: v.string(), selection: v.optional(caret),
+  // U7677e: when the Agent accepted the note (ms); a note without it is unsent.
+  sent: v.optional(offset),
 });
 
 const formSchema = v.strictObject({
@@ -179,7 +181,8 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const [problem, setProblem] = createSignal(untrack(storage.problem));
   const [invalidCount, setInvalidCount] = createSignal(invalid.size);
   const recipient = (id: string): Recipient => recipients().get(id) ?? { version: 1, notes: [], forms: [], submissions: [], recovered: [] };
-  const list = (id: string): readonly Note[] => recipient(id).notes;
+  /** U7677e: the batch is the unsent notes; the diff draws every note (`all`), the Sent ones too. */
+  const list = (id: string): readonly Note[] => recipient(id).notes.filter(note => note.sent === undefined);
 
   const state = (id: string): Send => {
     const submission = recipient(id).submissions.find(value => value.status !== "failed");
@@ -189,7 +192,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
-  const { kept, unkeep, gone, undo, removedNote } = createNoteMemory<Note>(restored, (id, note) => retain(id, { ...recipient(id), notes: [...recipient(id).notes, note].sort((left, right) => left.id - right.id) }));
+  const { kept, unkeep, gone, undo, removedNote } = createNoteMemory<Note>(new Map([...restored].map(([id, value]) => [id, { notes: value.notes.filter(note => note.sent === undefined) }])), (id, note) => retain(id, { ...recipient(id), notes: [...recipient(id).notes, note].sort((left, right) => left.id - right.id) }));
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 
@@ -223,7 +226,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     const revisions = new Set(submission.notes.map(note => note.revision));
     const current = recipient(id);
 
-    await retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
+    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? { ...note, sent: Date.now() } : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
     putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 
@@ -238,7 +241,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const history = (connection: AppSeam, id: string) => reply(() => connection.rpc("message.list", { to: id, status: null }));
 
   const notes = {
-    list, state,
+    list, state, all: (id: string): readonly Note[] => recipient(id).notes,
     failure: (id: string) => {
       const value = sent().get(id);
 
@@ -335,7 +338,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const current = recipient(id);
       const values = current.notes;
 
-      if (replacing === undefined && values.length >= 200) return false;
+      if (replacing === undefined && list(id).length >= 200) return false;
       unkeep(id);
 
       if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" });
@@ -348,10 +351,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       return true;
     },
     remove: async (id: string, note: number) => {
-      const removed = list(id).find(value => value.id === note);
+      const removed = recipient(id).notes.find(value => value.id === note);
 
       unkeep(id);
-      await retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
+      await retain(id, { ...recipient(id), notes: recipient(id).notes.filter(value => value.id !== note) });
 
       if (removed && !notes.problem()) removedNote(id, removed);
 

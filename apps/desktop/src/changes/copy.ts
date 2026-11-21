@@ -1,4 +1,4 @@
-import { copy as sharedCopy } from "../sharedCopy";
+import { clockTime, copy as sharedCopy } from "../sharedCopy";
 
 /** The count noun of a note line (U7676d). */
 const noun = (count: number) => count === 1 ? sharedCopy.note.toLowerCase() : `${sharedCopy.note.toLowerCase()}s`;
@@ -138,6 +138,19 @@ export const copy = {
   undo: sharedCopy.todoUndo,
   dismissLine: sharedCopy.dismissFailure,
   notSent: "Not sent",
+  /** U7677b: the meta line's range: "Line 51", "Lines 51-53", "Old lines 4-6". */
+  newLine: (line: number) => `Line ${line}`,
+  newLines: (start: number, end: number) => `Lines ${copy.lineSpan(start, end)}`,
+  oldLine: (line: number) => `Old line ${line}`,
+  oldLines: (start: number, end: number) => `Old lines ${copy.lineSpan(start, end)}`,
+  sentAt: (at: number | undefined) => `Sent ${clockTime.format(at)}`,
+  /** A line range under a path: "51" or "51–53". */
+  lineSpan: (start: number, end: number) => start === end ? `${start}` : `${start}-${end}`,
+  outdated: "Outdated",
+  showAll: "Show all",
+  editTip: "Edit (E)",
+  removeTip: "Remove (Delete)",
+  saveHint: "⌘↵ Save · Esc Cancel",
   unfinishedWork: sharedCopy.unfinishedWork,
   notesNoLongerShown: "Notes for lines no longer shown",
   couldntSend: "Couldn't send",
