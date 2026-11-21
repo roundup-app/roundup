@@ -161,7 +161,7 @@ it("u7677e_a_sent_note_is_never_sent_twice", async () => {
   await saveNote("second");
   send(app);
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(2));
-  const body = String(app.calls.filter(call => call.method === "message.send").at(-1)?.params.body);
+  const body = String((app.calls.filter(call => call.method === "message.send").at(-1)?.params as { body: unknown }).body);
 
   expect(body).toContain("second");
   expect(body).not.toContain("submitted");

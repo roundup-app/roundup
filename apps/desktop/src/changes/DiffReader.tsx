@@ -143,13 +143,14 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   });
 
   // U7677: Pierre keeps what an annotation draws; the reader owns the Solid roots under it and ends those whose element Pierre dropped.
-  const slots = new Set<{ element: HTMLElement; dispose: () => void }>();
+  const slots = new Set<{ element: HTMLElement; metadata: Annotated; dispose: () => void }>();
 
-  const sweep = (everything: boolean) => {
-    for (const slot of slots) if (everything || !slot.element.isConnected) { slot.dispose(); slots.delete(slot); }
+  // Pierre leaves the element of an annotation it no longer draws in its container, so the reader removes it with its root.
+  const sweep = (drawn: ReadonlySet<Annotated> | undefined) => {
+    for (const slot of slots) if (!drawn || !slot.element.isConnected || !drawn.has(slot.metadata)) { slot.dispose(); slot.element.parentElement?.remove(); slots.delete(slot); }
   };
 
-  onCleanup(() => sweep(true));
+  onCleanup(() => sweep(undefined));
 
   const annotation = (metadata: Annotated) => {
     const element = document.createElement("div");
@@ -163,7 +164,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       return <NoteView note={metadata} status={metadata.sent !== undefined ? "sent" : props.notes.noteState(props.id, metadata)} edit={() => edit(metadata)} remove={() => void props.notes.remove(props.id, metadata.id)} />;
     };
 
-    slots.add({ element, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner })) ?? (() => {}) });
+    slots.add({ element, metadata, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner })) ?? (() => {}) });
 
     return element;
   };
@@ -173,7 +174,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer()), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
-    sweep(false);
+    sweep(new Set(lines.map(line => line.metadata)));
     mark(lines.flatMap(({ metadata }) => "unfinished" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
   });
 
