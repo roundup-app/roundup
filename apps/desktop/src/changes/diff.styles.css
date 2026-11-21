@@ -10,8 +10,8 @@
 .diff-note { margin: 0; padding: var(--space-2); color: var(--text); background: var(--sunken); font: var(--text-small) var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* U7677a: a noted line keeps a 2 px accent bar and a faint tint, drawn from the marker the reader stamps; the focused note's bar turns full accent. No border. */
-[data-line][data-noted] { background: var(--note-paint); }
-[data-line][data-noted][data-focused] { background: var(--note-paint-focused); }
+[data-line][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer); background-size: var(--note-bar-width) 100%, auto; background-position: left top; background-repeat: no-repeat; }
+[data-line][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer); }
 :focus { outline: none; }
 
 /* The App's chrome is non-selectable; diff text must opt into native selection. */
