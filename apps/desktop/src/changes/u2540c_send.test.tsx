@@ -5,10 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch, leaveNote } from "./noteHarness";
-
-// The pane's read lands after its element (U7678d reads a module's first file at mount): N waits for it, as a user's key does.
-const beginNote = () => waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
+import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, beginNote, nextNote, openBatch, leaveNote } from "./noteHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -298,7 +295,7 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
       fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
     }
 
-    await beginNote();
+    await nextNote();
   }
 
   await waitFor(() => expect(Boolean(notesFor(app, "/p").failure("a"))).toBe(action.startsWith("other") || action === "cancel edit"));
@@ -351,7 +348,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
     fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
     fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: "  cannot retain save 🐝  " } });
     fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
-    await beginNote();
+    await nextNote();
   }
 
   await waitFor(() => expect(notesFor(app, "/p").problem()).not.toBeNull());

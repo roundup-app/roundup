@@ -42,7 +42,6 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   createEffect(watch, ({ list, key }) => {
     const chosen = untrack(open);
     const was = chosen !== undefined && before.includes(chosen) ? chosen : before[0];
-    console.log('LEAVE', JSON.stringify({chosen, was, list, before, key, source}));
     const gone = key === source && was !== undefined && !list.includes(was) ? was : undefined;
 
     if (gone !== undefined) {
@@ -232,7 +231,7 @@ const Surface = (props: { id: string; name: string }) => {
   let section: HTMLElement | undefined;
   let focusTree = (_path: string) => {};
 
-  const [left, setLeft] = createLeaving(() => ({ list: rows(), key: `${target()}|${active()}` }), opened, neighbour => {
+  const [left, setLeft] = createLeaving(() => ({ list: rows(), key: `${target()}|${active()}` }), picked, neighbour => {
     setPicked(neighbour);
     setStart(undefined);
     // The tree's focus choice below reads the open module: settle the write first.

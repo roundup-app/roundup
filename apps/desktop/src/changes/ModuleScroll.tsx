@@ -131,6 +131,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
     edit: () => here()?.edit(),
     remove: () => here()?.remove(),
     at: () => here()?.at() ?? { path: current, side: "new", line: 1 },
+    read: () => here()?.read(),
     outdated: note => readers.get(note.comparison.newPath)?.outdated(note) ?? false,
   }));
 
@@ -142,6 +143,6 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
       </Show>
     </section>}</For>
     </div>
-    <NoteBatch fallback={() => here()?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={undefined} edit={setEditing} />
+    <NoteBatch fallback={() => here()?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={undefined} readOf={path => readers.get(path)?.read()} edit={setEditing} />
   </div>;
 };

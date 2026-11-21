@@ -37,7 +37,7 @@ const compareParams = (id: string, path: string, to: CompareTarget): CompareFile
 /** U7678d: what `enter` did: moved to a change, found none in the file, or the file is not drawn yet. */
 export type Entered = "moved" | "none" | "wait";
 
-export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean };
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean; /** U7678d: the file's current read, for a batch shared by a module's files. */ read: () => FileComparison | undefined };
 
 type Slot = { element: HTMLElement; metadata: Annotated; dispose: () => void };
 
@@ -236,6 +236,9 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       const revision = revisionOf(value);
       const place = placeOf(props.places, value.newPath, revision, firstLine(value));
 
+      const kept = props.places?.get(value.newPath);
+      const restarted = shared !== undefined && kept !== undefined && kept.revision !== revision;
+
       starts = changeStarts(fileDiff);
       cursor = changeAt(starts, place.selection);
       rendered = { path: value.newPath, revision };
@@ -249,6 +252,9 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       queueMicrotask(() => props.onDrawn?.());
 
       if (!shared) mount.scrollTop = place.scroll;
+
+      // A comparison that changed starts at its file's top in the shared scroll too.
+      if (restarted && shared?.scroller) shared.scroller.scrollTop = mount.closest<HTMLElement>(".module-file")?.offsetTop ?? 0;
 
       // U7675e: Pierre has no focus row; the focused line is its selection, and its line position scrolls it into view.
       moveTo = (side, line) => {
@@ -305,7 +311,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   });
 
   createEffect(() => props.keys, keys => keys?.({
-    at: () => ({ path: props.path, side: selection().side, line: selection().start }), outdated: note => outdated(note, read()),
+    at: () => ({ path: props.path, side: selection().side, line: selection().start }), outdated: note => outdated(note, read()), read: () => read(),
     focus: () => focusHost(), reload: () => reload(), reveal: () => revealNearest(), note: () => openNote(selection()), edit: () => edit(noteOnLine()),
     remove: () => { const note = noteOnLine();
 

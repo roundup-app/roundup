@@ -37,7 +37,7 @@ const NotePath = (props: { path: string }) => {
 };
 
 /** The keyboard-reachable batch remains available from the tree as well as the reader. */
-export const NoteBatch = (props: { id: string; name: string; fallback?: () => void; notes: Notes; comparison?: FileComparison | undefined; edit: (note: Note) => void; recover: () => void }) => {
+export const NoteBatch = (props: { id: string; name: string; fallback?: () => void; notes: Notes; comparison?: FileComparison | undefined; readOf?: ((path: string) => FileComparison | undefined) | undefined; edit: (note: Note) => void; recover: () => void }) => {
   const state = () => props.notes.state(props.id);
 
   const [open, setOpen] = createSignal(false);
@@ -70,7 +70,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   const uncertain = () => state().kind === "unknown";
   const busy = () => state().kind === "pending" || uncertain();
 
-  const older = (note: Note) => olderComparison(props.comparison, note.comparison);
+  const older = (note: Note) => olderComparison(props.readOf ? props.readOf(note.comparison.newPath) : props.comparison, note.comparison);
 
   // U7610b: a batch already long when the view opens mounts a slice of notes per task, so the view never waits on every note; a batch that starts short shows each note at once.
   const list = () => props.notes.list(props.id);

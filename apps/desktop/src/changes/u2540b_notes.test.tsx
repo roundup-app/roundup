@@ -8,7 +8,7 @@ import { agent, event } from "../testing/nodes";
 import { WORKTREE } from "./harness";
 import { message } from "../testing/centreFixture";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch, leaveNote } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, beginNote, nextNote, startNote, openBatch, leaveNote } from "./noteHarness";
 
 import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
@@ -22,9 +22,6 @@ vi.mock("@pierre/diffs", { spy: true });
 
 // eslint-disable-next-line anti-slop/no-module-mocking
 vi.mock("diff", { spy: true });
-
-// The pane's read lands after its element (U7678d reads a module's first file at mount): N waits for it, as a user's key does.
-const beginNote = () => waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
 
 afterEach(async () => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); await storageIdle(); localStorage.clear(); });
 
@@ -114,7 +111,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: firstText } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  await beginNote();
+  await nextNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished a 🐝\n  " } });
   leaveNote();
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("b", "working", "building", { worktree: { ...WORKTREE, branch: "roundup/b", path: "/p/b" } })];
@@ -130,7 +127,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: secondText } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  await beginNote();
+  await nextNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished b e\u0301\n  " } });
   connected.rail.select("a");
   flush();

@@ -93,13 +93,13 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
   </Show>;
 
   return <ul class="changes-tree" aria-label={copy.modules} ref={element => { host = element; }} onFocusIn={choose} onClick={choose} onKeyDown={onKeyDown} onDblClick={onDoubleClick}>
-    <For each={props.grouped.modules}>{module => <li>
-      <button type="button" class="changes-row" data-row="module" data-key={moduleKey(module.name)} data-selected={props.selected === moduleKey(module.name) ? "true" : "false"} tabindex={props.selected === moduleKey(module.name) ? 0 : -1} aria-expanded={unfolded().has(moduleKey(module.name)) ? "true" : "false"} aria-label={label(`${module.name}, ${copy.filesCount(module.files.length)}`, module.files)} onClick={() => fold(moduleKey(module.name), !unfolded().has(moduleKey(module.name)))}>
-        <span class="changes-row-name">{module.name}</span>
-        <span class="changes-row-files">{copy.filesCount(module.files.length)}</span>
-        <Show when={module.counted}><Counts added={module.added} removed={module.removed} /></Show>
+    <For each={props.grouped.modules} keyed={each => each.name}>{module => <li>
+      <button type="button" class="changes-row" data-row="module" data-key={moduleKey(module().name)} data-selected={props.selected === moduleKey(module().name) ? "true" : "false"} tabindex={props.selected === moduleKey(module().name) ? 0 : -1} aria-expanded={unfolded().has(moduleKey(module().name)) ? "true" : "false"} aria-label={label(`${module().name}, ${copy.filesCount(module().files.length)}`, module().files)} onClick={() => fold(moduleKey(module().name), !unfolded().has(moduleKey(module().name)))}>
+        <span class="changes-row-name">{module().name}</span>
+        <span class="changes-row-files">{copy.filesCount(module().files.length)}</span>
+        <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
       </button>
-      <Files owner={moduleKey(module.name)} files={module.files} />
+      <Files owner={moduleKey(module().name)} files={module().files} />
     </li>}</For>
     <For each={props.grouped.noise}>{noise => <li class="changes-noise">
       <button type="button" class="changes-row" data-row="noise" data-key={`k:${noise.kind}`} tabindex="-1" aria-expanded={unfolded().has(`k:${noise.kind}`) ? "true" : "false"} aria-label={label(copy.noiseRow(noiseName[noise.kind], noise.files.length), noise.files)} onClick={() => fold(`k:${noise.kind}`, !unfolded().has(`k:${noise.kind}`))}>

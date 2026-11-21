@@ -76,6 +76,15 @@ export const startNote = () => {
   fireEvent.keyDown(diff, { key: "n" });
 };
 
+/** The pane's read lands after its element (U7678d reads a module's first file at mount): N waits for it, as a user's key does. */
+export const beginNote = () => waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
+
+/** A saved note's form closes after its write: the next N waits for that, as a user's next key does. */
+export const nextNote = async () => {
+  await waitFor(() => { if (screen.queryByRole("form", { name: "Line note" })) throw new Error("The saved note's form is still open"); });
+  await beginNote();
+};
+
 /** U7676d: the bar's count opens the batch list. */
 export const openBatch = async () => {
   const count = await screen.findByRole("button", { name: /^\d+ notes?$/ });
