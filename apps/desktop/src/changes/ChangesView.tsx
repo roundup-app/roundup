@@ -212,7 +212,7 @@ const Surface = (props: { id: string; name: string }) => {
     focusTree(next);
   };
 
-  const jump = createJump({ id: props.id, notes, files, opened, keys: () => diffKeys, section: () => section, open: choosePath });
+  const jump = createJump({ id: untrack(() => props.id), notes, files, opened, keys: () => diffKeys, section: () => section, open: choosePath });
 
   registerChangesKeys(() => section, { jump: jump.open, step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on) });
 

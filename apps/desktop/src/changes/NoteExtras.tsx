@@ -23,13 +23,13 @@ export const sourceOf = (comparison: FileComparison, range: Range) => {
 
 /** What a draft or a saved note holds of them, only when set. */
 export const optionalOf = (extras: Extras) => {
-  const held: Pick<Note, "label" | "replacement"> = {};
+  const picked: Pick<Note, "label" | "replacement"> = {};
 
-  if (extras.label !== null) held.label = extras.label;
+  if (extras.label !== null) picked.label = extras.label;
 
-  if (extras.replacement !== null) held.replacement = extras.replacement;
+  if (extras.replacement !== null) picked.replacement = extras.replacement;
 
-  return held;
+  return picked;
 };
 
 export const extrasOf = (...from: (Pick<Note, "label" | "replacement"> | undefined)[]): Extras => ({ label: from.find(each => each?.label !== undefined)?.label ?? null, replacement: from.find(each => each?.replacement !== undefined)?.replacement ?? null });
