@@ -76,9 +76,23 @@ it("u7693c_opening_reads_once_waits_for_no_key_and_a_late_answer_never_crosses_a
 it("u7693c_the_chip_draws_each_state_in_plain_words", async () => {
   const read = deferred<RemoteMain>();
   const fetch = deferred<FetchedMain>();
+  // The chip's 150 ms wait is queued and fired by hand, so a slow open cannot cross the bound.
+  const realSetTimeout = globalThis.setTimeout;
+  const waits: Array<() => void> = [];
+
+  // SAFETY: the stub takes the (callback, delay) call the code under test makes; Node's `promisify` overload is never used.
+  vi.stubGlobal("setTimeout", ((run: () => void, ms?: number, ...rest: unknown[]) => {
+    if (ms !== 150) return realSetTimeout(run, ms, ...rest);
+
+    waits.push(run);
+
+    return 0;
+  }) as typeof setTimeout);
   const mounted = await open(() => read.promise, () => fetch.promise);
 
+  expect(waits.length).toBeGreaterThan(0);
   expect(screen.queryByText(copy.checkingRemote)).toBeNull();
+  waits.forEach(run => run());
   await screen.findByText(copy.checkingRemote);
   read.resolve({ kind: "moved" });
   await screen.findByText(copy.remoteMoved);
