@@ -37,7 +37,7 @@ const NotePath = (props: { path: string }) => {
 };
 
 /** The keyboard-reachable batch remains available from the tree as well as the reader. */
-export const NoteBatch = (props: { id: string; name: string; fallback?: () => void; notes: Notes; comparison?: FileComparison | undefined; edit: (note: Note) => void; recover: () => void }) => {
+export const NoteBatch = (props: { id: string; name: string; fallback?: () => void; notes: Notes; comparison?: FileComparison | undefined; readOf?: ((path: string) => FileComparison | undefined) | undefined; edit: (note: Note) => void; recover: () => void }) => {
   const state = () => props.notes.state(props.id);
 
   const [open, setOpen] = createSignal(false);
@@ -70,7 +70,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   const uncertain = () => state().kind === "unknown";
   const busy = () => state().kind === "pending" || uncertain();
 
-  const older = (note: Note) => olderComparison(props.comparison, note.comparison);
+  const older = (note: Note) => olderComparison(props.readOf ? props.readOf(note.comparison.newPath) : props.comparison, note.comparison);
 
   // U7610b: a batch already long when the view opens mounts a slice of notes per task, so the view never waits on every note; a batch that starts short shows each note at once.
   const list = () => props.notes.list(props.id);
@@ -266,12 +266,12 @@ export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number;
 };
 
 /** U7690c: G opens the list; a choice opens its file (`open`) and aims the reader at its line until `arrived`. */
-export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; opened: () => string | undefined; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean } | undefined; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
+export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean } | undefined; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
   const [jumping, setJumping] = createSignal(false);
   const [aim, setAim] = createSignal<{ path: string; side: "old" | "new"; line: number }>();
   let origin: Element | null = null;
 
-  const status = (note: Note): NoteStatus => note.sent === undefined ? deps.notes.noteState(deps.id, note) : note.comparison.newPath === deps.opened() && deps.keys()?.outdated(note) ? "outdated" : "sent";
+  const status = (note: Note): NoteStatus => note.sent === undefined ? deps.notes.noteState(deps.id, note) : deps.keys()?.outdated(note) ? "outdated" : "sent";
 
   const rows = () => jumpOrder(deps.notes.all(deps.id)).map(note => ({ note, status: status(note), listed: deps.files().some(file => file.path === note.comparison.newPath) }));
 

@@ -48,7 +48,7 @@ app.handlers["rail.tree"] = async () => (await original(null) ?? []).map(node =>
 
 const path = dense ? `${"directory/".repeat(10)}very-long-file-name.ts` : "src/example.ts";
 
-// U7692: 635 lines edited at 1, 460, 619 and 631, so the text diff folds 450, 150 and 3 unmodified lines.
+// U7692: 635 lines edited at 1, 460, 619 and 631, so the text diff folds 450, 150 and 3 unmodified lines; a second module (util) is there to switch to.
 const folds = new URLSearchParams(location.search).has("folds");
 
 const lines = edits => Array.from({ length: 635 }, (_, i) => `const line${i + 1} = ${i + 1};${edits.includes(i + 1) ? " // edited" : ""}`).join("\n");
@@ -57,7 +57,7 @@ const comparison = { base: "original-base-commit", oldPath: path, newPath: path,
 
 app.handlers["agent.worktreeState"] = () => ({ ahead: 1, behind: 0, dirty: true });
 
-const files = [{ path, line: 1, status: "modified", counts: size ? { added: size, removed: size } : folds ? { added: 4, removed: 4 } : { added: 2, removed: 2 } }, ...Array.from({ length: dense ? 499 : 1 }, (_, i) => ({ path: `src/file-${i}.ts`, status: "modified", line: 1, counts: { added: 1, removed: 1 }, blob: null }))];
+const files = [{ path, line: 1, status: "modified", counts: size ? { added: size, removed: size } : folds ? { added: 4, removed: 4 } : { added: 2, removed: 2 } }, ...Array.from({ length: dense ? 499 : 1 }, (_, i) => ({ path: `src/file-${i}.ts`, status: "modified", line: 1, counts: { added: 1, removed: 1 }, blob: null })), ...(folds ? [{ path: "util/index.ts", status: "modified", line: 1, counts: { added: 1, removed: 1 }, blob: null }] : [])];
 
 app.handlers["agent.changedFiles"] = () => ({ files });
 

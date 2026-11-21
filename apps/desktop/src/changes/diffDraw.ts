@@ -3,6 +3,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
 import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
+import { hunkFunction } from "./modules";
 import type { LineSelection } from "./lines";
 import type { Note, NoteFormDraft } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
@@ -109,7 +110,36 @@ const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, 
 };
 
 
+/** U7678c: one scroll that a module's files share, and the one Virtualizer its views hang from. */
+export type Shared = { scroller: HTMLElement | undefined; virtualizer?: InstanceType<typeof import("@pierre/diffs").Virtualizer> | undefined };
+
+/** U7678c: each hunk header gains the function line git's default would name, read from the old text above the hunk. */
+const withFunctions = (patch: string, old: string) => {
+  const lines = old.split("\n");
+
+  return patch.replace(/^@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@$/gm, (header, start: string) => {
+    const name = hunkFunction(lines, Number(start));
+
+    return name === undefined ? header : `${header} ${name}`;
+  });
+};
+
+/** U7678c: the fold above a hunk names the hunk's function beside its count: Pierre draws a hunk's context only in a separator that cannot reveal lines. */
+const nameHunks = (node: HTMLElement, functions: readonly (string | undefined)[]) => {
+  for (const content of node.shadowRoot?.querySelectorAll<HTMLElement>("[data-gutter] [data-separator=line-info][data-expand-index] [data-separator-content]") ?? []) {
+    const name = functions[Number(content.closest<HTMLElement>("[data-separator]")?.dataset.expandIndex)];
+
+    if (!name || content.querySelector("[data-hunk-function]")) continue;
+    const span = document.createElement("span");
+
+    span.dataset.hunkFunction = "";
+    span.textContent = name;
+    content.append(span);
+  }
+};
+
 type Hooks = {
+  shared?: Shared | undefined;
   current: () => boolean;
   selection: () => LineSelection;
   /** A line number was clicked: the range now selected. */
@@ -126,6 +156,18 @@ const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; e
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
 export type Drawn = { mark: (ranges: readonly Noted[]) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
+/** U7678c: the module scroll's one Virtualizer, made on the first file drawn; undefined outside a shared scroll. */
+const sharedVirtualizer = (shared: Shared | undefined, Virtualizer: typeof import("@pierre/diffs").Virtualizer) => {
+  if (!shared?.scroller) return undefined;
+
+  if (!shared.virtualizer) {
+    shared.virtualizer = new Virtualizer();
+    shared.virtualizer.setup(shared.scroller);
+  }
+
+  return shared.virtualizer;
+};
+
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
   const { VirtualizedFileDiff, Virtualizer, processFile, preloadHighlighter, getFiletypeFromFileName } = await (library ??= import("@pierre/diffs").then(module => {
@@ -141,16 +183,22 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
   const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
   const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
-  const { patch, coarse } = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
+  const made = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
+  const { coarse } = made;
+  const patch = withFunctions(made.patch, oldFile.contents);
 
   // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
   const container = document.createElement("diffs-container");
   mount.append(container);
-  const virtualizer = new Virtualizer();
+  const virtualizer = sharedVirtualizer(hooks.shared, Virtualizer) ?? new Virtualizer();
 
   let noted: readonly Noted[] = [];
 
+  let functions: readonly (string | undefined)[] = [];
+
   const stamp = (node: HTMLElement) => {
+    nameHunks(node, functions);
+
     for (const line of node.shadowRoot?.querySelectorAll<HTMLElement>("[data-line]") ?? []) {
       const side = line.getAttribute("data-line-type") === "change-deletion" ? "old" : "new";
       const number = Number(line.getAttribute("data-line"));
@@ -202,6 +250,8 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   const fileDiff = processFile(patch, { oldFile, newFile, throwOnError: true });
 
   if (!fileDiff) throw new Error(copy.comparisonRenderFailed);
+
+  functions = fileDiff.hunks.map(hunk => hunk.hunkContext);
 
   await new Promise(resolve => setTimeout(resolve));
 
