@@ -1,6 +1,6 @@
 //! U7186a: what an Agent's recorded file writes leave changed, per repository and branch.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use contracts::agent::{CompareTarget, FileComparison, OwnedGroup, OwnedGroupKey};
@@ -63,25 +63,39 @@ impl Git {
     }
 
     /// Where the absolute `edits` sit: per (main checkout, git worktree) the files written there.
+    /// Git runs once per folder and per repository, not once per edit.
     fn sites(&self, edits: &[String]) -> Sites {
+        let (mut tops, mut commons) = (HashMap::new(), HashMap::<PathBuf, PathBuf>::new());
         let mut sites = Sites::new();
         for edit in edits {
-            if let Some((top, rel)) = self.locate(Path::new(edit)) {
-                let common = self.common_root(&top).unwrap_or_else(|| top.clone());
+            if let Some((top, rel)) = self.locate(Path::new(edit), &mut tops) {
+                let common = commons
+                    .entry(top.clone())
+                    .or_insert_with(|| self.common_root(&top).unwrap_or_else(|| top.clone()))
+                    .clone();
                 sites.entry((common, top)).or_default().insert(rel);
             }
         }
         sites
     }
 
-    /// The repository root holding `path` (canonical) and `path` relative to it.
-    fn locate(&self, path: &Path) -> Option<(PathBuf, PathBuf)> {
+    /// The repository root holding `path` (canonical) and `path` relative to it; `tops` holds the
+    /// root already found for each folder.
+    fn locate(
+        &self,
+        path: &Path,
+        tops: &mut HashMap<PathBuf, Option<PathBuf>>,
+    ) -> Option<(PathBuf, PathBuf)> {
         let name = path.file_name()?;
         let parent = path.ancestors().skip(1).find(|dir| dir.is_dir())?;
-        let top = self
-            .run(parent, &["rev-parse", "--show-toplevel"])
-            .ok()
-            .and_then(|top| std::fs::canonicalize(top).ok())?;
+        let top = tops
+            .entry(parent.to_path_buf())
+            .or_insert_with(|| {
+                self.run(parent, &["rev-parse", "--show-toplevel"])
+                    .ok()
+                    .and_then(|top| std::fs::canonicalize(top).ok())
+            })
+            .clone()?;
         let dir = std::fs::canonicalize(parent).ok()?;
         let rel = if parent == path.parent()? {
             dir.strip_prefix(&top).ok()?.join(name)
