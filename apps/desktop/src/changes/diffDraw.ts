@@ -66,6 +66,9 @@ let library: Promise<typeof import("@pierre/diffs")> | undefined;
 /** U2540d: startup and Agent selection never fetch the renderer. */
 export const diffsLoaded = () => library !== undefined;
 
+/** U7610c: ends the task the caller runs in, so a large rewrite's steps each leave the page a turn between them. */
+const yielded = () => new Promise(resolve => setTimeout(resolve));
+
 type PatchFile = { name: string; contents: string };
 
 const MAX_EDITS = 2000;
@@ -92,13 +95,18 @@ const lineEditFloor = (old: string, next: string) => {
 /** U2540’s 10,000-line complete rewrite froze the rendered observer beyond 30 seconds.
  * jsdiff bounds that search; its empty-side patches supply a lossless coarse fallback.
  * U7610b: a rewrite that needs more edits than the bound skips the search, which cannot succeed, and its 100 ms timeout. */
-const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, structuredPatch, formatPatch }: Pick<typeof import("diff"), "createTwoFilesPatch" | "structuredPatch" | "formatPatch">) => {
+const patchOf = async (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, structuredPatch, formatPatch }: Pick<typeof import("diff"), "createTwoFilesPatch" | "structuredPatch" | "formatPatch">) => {
   const patch = lineEditFloor(oldFile.contents, newFile.contents) > MAX_EDITS ? undefined : createTwoFilesPatch(oldFile.name, newFile.name, oldFile.contents, newFile.contents, undefined, undefined, { timeout: 100, maxEditLength: MAX_EDITS });
 
   if (patch !== undefined) return { patch, coarse: false };
 
+  await yielded();
   const removed = structuredPatch(oldFile.name, newFile.name, oldFile.contents, "");
+
+  await yielded();
   const added = structuredPatch(oldFile.name, newFile.name, "", newFile.contents);
+
+  await yielded();
   const before = removed.hunks[0];
   const after = added.hunks[0];
 
@@ -183,8 +191,14 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
   const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
   const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
-  const made = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
+  await yielded();
+
+  if (!hooks.current()) return undefined;
+
+  const made = await patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
   const { coarse } = made;
+
+  await yielded();
   const patch = withFunctions(made.patch, oldFile.contents);
 
   // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
@@ -243,7 +257,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
     theme: DIFF_THEME, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true, unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
   // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
-  await new Promise(resolve => setTimeout(resolve));
+  await yielded();
 
   if (!hooks.current()) return undefined;
 
@@ -253,12 +267,15 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
   functions = fileDiff.hunks.map(hunk => hunk.hunkContext);
 
-  await new Promise(resolve => setTimeout(resolve));
+  await yielded();
 
   if (!hooks.current()) return undefined;
 
   // Pierre anchors a visible file of no height to its bottom, so a first render left waiting on the highlighter opened the diff at its last line.
   await preloadHighlighter({ themes: [DIFF_THEME], langs: [...new Set([oldFile.name, newFile.name].map(getFiletypeFromFileName))], preferredHighlighter: "highlights" });
+
+  // U7610c: the reader's first render of the view is a task of its own.
+  await yielded();
 
   return hooks.current() ? { mark: ranges => { noted = ranges; stamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
 };
