@@ -3,6 +3,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
 import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
+import { hunkFunction } from "./modules";
 import type { LineSelection } from "./lines";
 import type { Note, NoteFormDraft } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
@@ -109,7 +110,22 @@ const patchOf = (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesPatch, 
 };
 
 
+/** U7678c: one scroll that a module's files share, and the one Virtualizer its views hang from. */
+export type Shared = { scroller: HTMLElement | undefined; virtualizer?: InstanceType<typeof import("@pierre/diffs").Virtualizer> | undefined };
+
+/** U7678c: each hunk header gains the function line git's default would name, read from the old text above the hunk. */
+const withFunctions = (patch: string, old: string) => {
+  const lines = old.split("\n");
+
+  return patch.replace(/^@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@$/gm, (header, start: string) => {
+    const name = hunkFunction(lines, Number(start));
+
+    return name === undefined ? header : `${header} ${name}`;
+  });
+};
+
 type Hooks = {
+  shared?: Shared | undefined;
   current: () => boolean;
   selection: () => LineSelection;
   /** A line number was clicked: the range now selected. */
@@ -141,12 +157,19 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
   const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
   const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
-  const { patch, coarse } = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
+  const made = patchOf(oldFile, newFile, { createTwoFilesPatch, structuredPatch, formatPatch });
+  const { coarse } = made;
+  const patch = withFunctions(made.patch, oldFile.contents);
 
   // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
   const container = document.createElement("diffs-container");
   mount.append(container);
-  const virtualizer = new Virtualizer();
+  const virtualizer = hooks.shared?.virtualizer ?? new Virtualizer();
+
+  if (hooks.shared?.scroller && !hooks.shared.virtualizer) {
+    hooks.shared.virtualizer = virtualizer;
+    virtualizer.setup(hooks.shared.scroller);
+  }
 
   let noted: readonly Noted[] = [];
 

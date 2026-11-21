@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { COMPARISON, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
 import { mountControl, WORKTREE } from "./harness";
 import { diffsLoaded } from "./diffDraw";
+import type { ChangedFile } from "@contracts/agent/ChangedFile";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -18,7 +19,7 @@ const FILES = { files: [
   { path: "src/b.ts", status: "added" as const, line: 1, counts: null, blob: null },
 ] };
 
-const open = async (changed = () => FILES) => {
+const open = async (changed: () => { files: ChangedFile[] } = () => FILES) => {
   const mounted = await mountControl(changed);
 
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
@@ -28,7 +29,7 @@ const open = async (changed = () => FILES) => {
   return mounted;
 };
 
-const shown = () => screen.getByLabelText("Diff").textContent ?? "";
+const shown = () => screen.getAllByLabelText("Diff").map(each => each.textContent).join(" ");
 
 /** Waits for the diff pane to name `path`. */
 const showing = (path: string) => waitFor(() => expect(shown()).toContain(path));
@@ -42,24 +43,14 @@ const absent = (query: () => HTMLElement | null) => expect(query()).toBeNull();
 // SAFETY: every agent.compareFile call carries a `path`.
 const compared = (app: Awaited<ReturnType<typeof open>>["app"]) => app.calls.filter(call => call.method === "agent.compareFile").map(call => (call.params as { path: string }).path);
 
-it("u7674a_the_first_file_opens_and_focus_lands_in_the_tree", async () => {
+it("u7678d_the_view_opens_on_the_first_module_at_its_top", async () => {
   await open();
 
   await showing("src/a.ts");
-  const row = await treeRow("src/a.ts");
+  const row = document.querySelector<HTMLElement>('[data-row="module"]');
 
-  // SAFETY: a tree row lives in the tree's open shadow root, so its root node is a ShadowRoot.
-  await waitFor(() => expect((row.getRootNode() as ShadowRoot).querySelector(":focus, [data-item-focused=true]")).toBeTruthy());
-});
-
-it("u7674a_up_and_down_open_the_next_and_previous_file", async () => {
-  await open();
-  await showing("src/a.ts");
-
-  (await treeRow("src/b.ts")).focus();
-  await showing("src/b.ts");
-  (await treeRow("src/a.ts")).focus();
-  await showing("src/a.ts");
+  await waitFor(() => expect(document.activeElement).toBe(row));
+  expect(row?.dataset.selected).toBe("true");
 });
 
 it("u7674a_the_tree_stays_while_a_file_is_open", async () => {
@@ -67,7 +58,7 @@ it("u7674a_the_tree_stays_while_a_file_is_open", async () => {
   await showing("src/a.ts");
 
   absent(() => screen.queryByRole("button", { name: /^Back/ }));
-  expect(await treeRow("z.ts")).toBeTruthy();
+  expect(document.querySelector(".changes-tree")).toBeTruthy();
 });
 
 it("u7674a_a_group_switcher_shows_only_with_several_groups", async () => {
@@ -137,20 +128,20 @@ it("u7674e_opening_requests_only_the_first_files_comparison", async () => {
 });
 
 it("u7674e_up_and_down_never_blank_the_pane", async () => {
-  const { app } = await open();
+  const { app } = await open(() => ({ files: [...FILES.files, { path: "zeta/m.rs", status: "modified" as const, line: 1, counts: null, blob: null }] }));
 
   await showing("src/a.ts");
   let release: () => void = () => {};
 
   app.handlers["agent.compareFile"] = async ({ path }) => { await new Promise<void>(resolve => { release = resolve; });
 
- return { ...COMPARISON, oldPath: path, newPath: path }; };
+    return { ...COMPARISON, oldPath: path, newPath: path }; };
 
-  (await treeRow("src/b.ts")).focus();
-  await waitFor(() => expect(compared(app)).toContain("src/b.ts"));
+  document.querySelector<HTMLElement>('[data-key="m:zeta"]')?.focus();
+  await waitFor(() => expect(compared(app)).toContain("zeta/m.rs"));
   await showing(FIRST);
   release();
-  await showing("src/b.ts");
+  await showing("zeta/m.rs");
 });
 
 it("u7674e_choosing_a_value_opens_its_first_file", async () => {

@@ -16,7 +16,7 @@ import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
 import { annotate, drawDiff, gatheredNotes, lineAnnotations } from "./diffDraw";
 import { outdated } from "./diffDraw";
-import type { Annotated, Composer, Noted } from "./diffDraw";
+import type { Annotated, Composer, Noted, Shared } from "./diffDraw";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteView } from "./NoteView";
@@ -24,10 +24,20 @@ import { NoteBatch } from "./NoteBatch";
 import { ImagePane } from "./ImagePane";
 import { drawsLines, imageHidden, imageSides } from "./images";
 
+/** U7678c: a line's top inside the shared scroll, which holds many files: the file's own offset plus the line's place in it. */
+const scrollTo = (mount: HTMLElement, top: number) => {
+  const scroller = mount.closest<HTMLElement>(".module-scroll");
+
+  if (scroller) scroller.scrollTop = mount.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop + top; else mount.scrollTop = top;
+};
+
 const compareParams = (id: string, path: string, to: CompareTarget): CompareFileParams => ({ id, path, to });
 
 /** U7675e: what the pane lets the view do from a key. */
-export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => void; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void };
+/** U7678d: what `enter` did: moved to a change, found none in the file, or the file is not drawn yet. */
+export type Entered = "moved" | "none" | "wait";
+
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void };
 
 const DiffIdentity = (props: { read: FileComparison | undefined; path: string }) => <div class="diff-identity">
   <p class="diff-path"><Show when={props.read} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
@@ -101,7 +111,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; to?: CompareTarget | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: LineSelection; editing?: Note }>();
   const [focused, setFocused] = createSignal(false);
@@ -178,11 +188,20 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     mark(lines.flatMap(({ metadata }) => "unfinished" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
   });
 
+  const drawable = () => {
+    const value = read();
+
+    return value !== undefined && drawsLines(value) && value.status !== null && hidden() === null;
+  };
+
+  // U7678d: a file with nothing to draw is settled once its read is.
+  createEffect(() => !loading() && !drawable(), settled => { if (settled) props.onDrawn?.(); });
+
   createEffect(() => {
     const value = read();
     const mount = host();
 
-    if (!value || !mount || !drawsLines(value) || value.status === null || hidden() !== null) return undefined;
+    if (!value || !mount || !drawable()) return undefined;
 
     return { value, mount };
   }, target => {
@@ -191,7 +210,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const drawn = await drawDiff(value, mount, { current: () => current, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); remember(); }, note: range => openNote(range), annotation });
+      const drawn = await drawDiff(value, mount, { current: () => current, shared: props.shared, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); props.onFocus?.(); remember(); }, note: range => openNote(range), annotation });
 
       if (!drawn) return;
       const { view, virtualizer, container, fileDiff, coarse } = drawn;
@@ -208,12 +227,15 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       cursor = changeAt(starts, place.selection);
       rendered = { path: value.newPath, revision };
       setSelection(place.selection);
-      virtualizer.setup(mount);
+
+      if (!props.shared) virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
       setRenderer(view);
 
       view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
-      mount.scrollTop = place.scroll;
+      queueMicrotask(() => props.onDrawn?.());
+
+      if (!props.shared) mount.scrollTop = place.scroll;
 
       // U7675e: Pierre has no focus row; the focused line is its selection, and its line position scrolls it into view.
       moveTo = (side, line) => {
@@ -221,7 +243,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
         view.setSelectedLines({ side: sideName(side), start: line, end: line });
         const position = view.getLinePosition(line, sideName(side));
 
-        if (position) mount.scrollTop = position.top;
+        if (position) scrollTo(mount, position.top);
+        props.onFocus?.();
         remember();
       };
 
@@ -231,7 +254,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       revealNearest = revealerOf(view, fileDiff, selection);
 
       // listener-owner: removed with the rendered diff in the dispose below.
-      mount.addEventListener("scroll", remember);
+      if (!props.shared) mount.addEventListener("scroll", remember);
       dispose = () => {
         remember();
         mount.removeEventListener("scroll", remember);
@@ -244,7 +267,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
 
         mark = () => {};
 
-        setRenderer(undefined); view.cleanUp(); virtualizer.cleanUp(); container.remove();
+        setRenderer(undefined); view.cleanUp();
+
+ if (!props.shared) virtualizer.cleanUp(); container.remove();
       };
     }).then(error => { if (current && error) setFailure(error); });
 
@@ -254,7 +279,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   const remember = () => {
     const mount = host();
 
-    if (rendered !== undefined && mount) props.places?.set(rendered.path, { revision: rendered.revision, scroll: mount.scrollTop, selection: selection() });
+    if (rendered !== undefined && mount) props.places?.set(rendered.path, { revision: rendered.revision, scroll: props.shared ? 0 : mount.scrollTop, selection: selection() });
   };
 
   createEffect(() => props.keys, keys => keys?.({
@@ -264,11 +289,22 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
       if (note) void props.notes.remove(props.id, note.id);
     },
     step: direction => {
-      const next = starts[Math.min(Math.max(cursor + direction, 0), starts.length - 1)];
+      const next = starts[cursor + direction];
 
-      if (!next) return;
-      cursor = starts.indexOf(next);
+      if (!next) return false;
+      cursor = cursor + direction;
       moveTo(next.side, next.at[next.side]);
+
+      return true;
+    },
+    enter: direction => {
+      const next = direction === 1 ? starts[0] : starts.at(-1);
+
+      if (!next) return loading() || (drawable() && rendered === undefined) ? "wait" : "none";
+      cursor = direction === 1 ? 0 : starts.length - 1;
+      moveTo(next.side, next.at[next.side]);
+
+      return "moved";
     },
   }));
 
@@ -293,6 +329,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <DiffIdentity read={read()} path={props.path} />
+      <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show>
     </header>
     <StatusNote text={failure() ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
@@ -302,6 +339,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; blob
     <Show when={gathered().length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
       <For each={gathered()}>{note => <li><Show when={outdated(note, read())} fallback={<><p>{copy.selectedLines(note.side, copy.lineSpan(note.start, note.end), note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
     </ul></Show>
-    <NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} />
+    <Show when={props.batch !== false}><NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} /></Show>
   </section>;
 };

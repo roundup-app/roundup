@@ -15,11 +15,12 @@ import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
 import { createEditor } from "./editor";
 import { createLate } from "./late";
-import { ChangedTree, firstInTree, treeOrder } from "./ChangedTree";
+import { ChangedTree, moduleKey, noiseKey } from "./ChangedTree";
+import { groupModules } from "./modules";
 import type { DiffKeys } from "./DiffReader";
 import "./styles.css";
 
-const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
+const ModuleScroll = lazy(() => loadReader().then(module => ({ default: module.ModuleScroll })));
 
 /** U7674b: the shown listing's totals; a `null` count adds nothing. */
 const totalsOf = (files: readonly ChangedFile[]) => files.reduce((sum, file) => ({ added: sum.added + (file.counts?.added ?? 0), removed: sum.removed + (file.counts?.removed ?? 0) }), { added: 0, removed: 0 });
@@ -113,7 +114,8 @@ const Surface = (props: { id: string; name: string }) => {
 
   // U7675d, U7675f: the open file and each file's place outlive the view for the connection's session.
   const memory = changePlaces.of(untrack(() => props.id));
-  const [path, setPath] = createSignal<string | undefined>(memory.open);
+  const [picked, setPicked] = createSignal<string | undefined>(memory.open);
+  const [start, setStart] = createSignal<string>();
 
   const places = {
     get: (file: string) => memory.places.get(file),
@@ -132,8 +134,38 @@ const Surface = (props: { id: string; name: string }) => {
 
   const files = (): readonly ChangedFile[] => own() ? listed()?.files ?? [] : group()?.files ?? [];
 
-  // U7674a: the file shown is the chosen one still listed, else the first in tree order.
-  const opened = () => files().find(file => file.path === path())?.path ?? firstInTree(files());
+  const grouped = createMemo(() => groupModules(files()));
+
+  // U7678a: the rows that open something, in list order: each module, then each noise file.
+  const rows = () => [...grouped().modules.map(module => moduleKey(module.name)), ...grouped().noise.flatMap(noise => noise.files.map(file => noiseKey(file.path)))];
+
+  // U7674a, U7678d: what shows is the chosen module or noise file still listed, else the first module.
+  const opened = () => {
+    const chosen = picked();
+
+    return chosen !== undefined && rows().includes(chosen) ? chosen : rows()[0];
+  };
+
+  // A module of another comparison is another scroll, though it keeps its name.
+  const view = createMemo(() => {
+    const key = opened();
+
+    return key === undefined ? undefined : { key, source: `${target()}|${active()}` };
+  }, { equals: (a, b) => a?.key === b?.key && a?.source === b?.source });
+
+  // U7674e: the module that was open stays until the next one's first screen has painted.
+  const [panes, setPanes] = createSignal<NonNullable<ReturnType<typeof view>>[]>([]);
+
+  createEffect(view, next => { if (next) setPanes(list => list.includes(next) ? list : [...list, next]); });
+
+  const ready = (pane: NonNullable<ReturnType<typeof view>>) => setPanes(list => list.includes(pane) && list.at(-1) !== list[0] ? list.slice(list.indexOf(pane)) : list);
+
+  const openFiles = (key: string): readonly ChangedFile[] => key.startsWith("m:") ? grouped().modules.find(module => moduleKey(module.name) === key)?.files ?? [] : files().filter(file => noiseKey(file.path) === key);
+
+  const scroll = (key: string) => ({
+    get: () => memory.places.get(key)?.scroll,
+    set: (top: number) => { memory.places.set(key, { revision: "", scroll: top, selection: { side: "new", start: 1, end: 1 } }); },
+  });
 
   createEffect(opened, file => { memory.open = file; });
 
@@ -173,15 +205,17 @@ const Surface = (props: { id: string; name: string }) => {
   let section: HTMLElement | undefined;
   let focusTree = (_path: string) => {};
 
-  const [left, setLeft] = createLeaving(() => ({ list: treeOrder(files()), key: `${target()}|${active()}` }), path, neighbour => {
-    setPath(neighbour);
+  const [left, setLeft] = createLeaving(() => ({ list: rows(), key: `${target()}|${active()}` }), opened, neighbour => {
+    setPicked(neighbour);
+    setStart(undefined);
 
     if (neighbour) focusTree(neighbour); else section?.focus();
   });
 
-  const choosePath = (file: string) => {
-    if (file !== untrack(opened)) setLeft(undefined);
-    setPath(file);
+  const choosePath = (key: string, file?: string) => {
+    if (key !== untrack(opened)) setLeft(undefined);
+    setPicked(key);
+    setStart(file);
   };
 
   const totals = () => totalsOf(files());
@@ -195,9 +229,9 @@ const Surface = (props: { id: string; name: string }) => {
   const [help, setHelp] = createSignal(false);
 
   const step = (direction: 1 | -1) => {
-    const order = treeOrder(files());
+    const order = grouped().modules.map(module => moduleKey(module.name));
     const at = order.indexOf(opened() ?? "");
-    const next = order[at + direction];
+    const next = at === -1 ? direction === -1 ? order.at(-1) : undefined : order[at + direction];
 
     if (next === undefined) return;
     choosePath(next);
@@ -216,7 +250,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const choose = (value: ChangeTarget) => {
     changeTargets.choose(props.id, value);
-    setPath(undefined);
+    setPicked(undefined);
   };
 
   const segments = (): { value: ChangeTarget; label: string }[] => [
@@ -267,7 +301,7 @@ const Surface = (props: { id: string; name: string }) => {
       <StatusNote text={missing() && checked() ? copy.stillMissing : null} />
     </Show>
     <StatusNote text={pending() && late() ? copy.comparing : empty() ? own() === "tree" ? copy.folderMatches(props.name, copy.remoteMain) : copy.noChangesAgainst(copy.remoteMain) : null} />
-    <Show when={left()}>{file => <StatusNote text={copy.fileGone(file(), copy.remoteMain)} />}</Show>
+    <Show when={left()}>{gone => <StatusNote text={copy.fileGone(gone().slice(2), copy.remoteMain)} />}</Show>
     <Show when={help()}>
       <section class="changes-keys" aria-label={copy.keys}>
         <ul>
@@ -279,16 +313,16 @@ const Surface = (props: { id: string; name: string }) => {
       <div class="changes-side">
         <Show when={groups().length > 1 && !own()}>
           <ul class="changes-groups" aria-label={copy.changeGroups}>
-            <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
+            <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPicked(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <ChangedTree files={files()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={editChosen} />
+          <ChangedTree grouped={grouped()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={editChosen} />
         </Show>
       </div>
-      <Show when={opened()}>
-        {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} blob={files().find(file => file.path === chosen())?.blob} places={places} keys={api => { diffKeys = api; }} to={own() ?? "tree"} notes={notes} onEdited={() => {}} recover={() => showView("notes")} /></Loading>}
-      </Show>
+      <For each={panes()}>{pane => <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
+        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} notes={notes} recover={() => showView("notes")} /></Loading>
+      </div>}</For>
     </div>
   </section>;
 };

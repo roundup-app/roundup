@@ -9,6 +9,11 @@ export const copy = {
   saving: sharedCopy.saving,
   changes: "Changes",
   topLevel: "Top level",
+  modules: "Modules",
+  generated: "Generated",
+  lockfiles: "Lockfiles",
+  filesCount: (count: number) => `${count} ${count === 1 ? "file" : "files"}`,
+  noiseRow: (kind: string, count: number) => sharedCopy.dotted(kind, `${count} ${count === 1 ? "file" : "files"}`),
   remoteMain: "remote main",
   changeGroups: "Repositories and branches",
   compareFrom: "From",
@@ -65,13 +70,13 @@ export const copy = {
   keys: "Keys",
   keysList: [
     /** @prose */
-    "Up and Down move between files.",
+    "Up and Down move between modules.",
     /** @prose */
-    "Left and Right fold or unfold a directory.",
+    "Left and Right fold or unfold a module.",
     /** @prose */
     "Tab goes from the list to the diff.",
     /** @prose */
-    "J and K open the next or previous file.",
+    "J and K open the next or previous module.",
     /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */

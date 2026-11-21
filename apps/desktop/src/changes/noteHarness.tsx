@@ -23,27 +23,38 @@ export const openChanges = async () => {
   action.run();
 };
 
-/** The tree's row for `path` in the newest Changes view: Pierre draws it inside a shadow root. */
+/** The list's file row for `path` in the newest Changes view: its module unfolds first, by Right, which chooses nothing. */
 export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
-  const row = [...document.querySelectorAll("file-tree-container")].at(-1)?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${path}"]`);
+  const list = [...document.querySelectorAll<HTMLElement>(".changes-tree")].at(-1);
 
-  if (!row) throw new Error(`No tree row for ${path}`);
+  for (const folded of list?.querySelectorAll<HTMLElement>('[data-row="module"][aria-expanded="false"]') ?? []) fireEvent.keyDown(folded, { key: "ArrowRight" });
+  const row = [...list?.querySelectorAll<HTMLElement>('[data-row="file"]') ?? []].find(each => each.dataset.path === path);
+
+  if (!row) throw new Error(`No list row for ${path}`);
 
   return row;
 });
 
-/** The diff the user sees: another Project's view stays mounted, out of the accessibility tree. */
-const shownDiff = () => screen.getByRole("region", { name: copy.diff }).querySelector<HTMLElement>(".diff-content");
+let shown = "";
+
+/** The diff the user sees: another Project's view stays mounted, out of the accessibility tree; of a module's files, the one last opened. */
+const shownDiff = () => {
+  const regions = screen.getAllByRole("region", { name: copy.diff });
+  const region = regions.find(each => each.closest<HTMLElement>(".module-file")?.dataset.path === shown) ?? regions[0];
+
+  return region?.querySelector<HTMLElement>(".diff-content") ?? null;
+};
 
 export const waitDiff = () => waitFor(() => { if (!shownDiff()) throw new Error("No diff yet"); });
 
-/** Reads one file's diff in the open Changes view: the first file opens by itself (U7674a), another is chosen in the tree. */
+/** Reads one file's diff in the open Changes view: the first module opens by itself (U7678d), a file is chosen by its row in its module. */
 export const openFile = async (path = "src/a.ts") => {
   await waitDiff();
   const row = await treeRow(path);
 
+  shown = path;
   row.focus();
-  await within(screen.getAllByLabelText("Diff").at(-1)!).findByText(path, { selector: ".diff-path" });
+  await waitFor(() => { if (!screen.getAllByText(path, { selector: ".diff-path" }).some(each => each.closest(".diff-reader")?.querySelector(".diff-content"))) throw new Error(`${path} is not drawn`); });
   // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
   await new Promise(resolve => setTimeout(resolve, 50));
 };
