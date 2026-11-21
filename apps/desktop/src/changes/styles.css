@@ -201,3 +201,11 @@
 .image-note { margin: 0; color: var(--grey); font: var(--text-small) var(--font-ui); }
 .image-version img { max-width: 100%; height: auto; align-self: flex-start; background: var(--sunken); }
 .image-failed { margin: 0; color: var(--text); font: var(--text-small) var(--font-ui); }
+
+.note-label button[aria-pressed="true"], .note-form button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
+.note-label { display: flex; gap: var(--space-3); }
+.note-replacement { margin: 0; font: var(--text-small) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.note-jump .app-combobox-input { border-bottom: 0; }
+.note-jump-path { font-family: var(--font-mono); }
+.note-jump-path, .note-jump-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-field .note-input { font-family: var(--font-mono); }

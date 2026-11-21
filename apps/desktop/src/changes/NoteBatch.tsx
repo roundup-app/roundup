@@ -1,3 +1,4 @@
+import "../ui/Combobox.css";
 import { EmptyState } from "../ink/EmptyState";
 import { captureFocus } from "../keys/focus";
 import { createItemFailures } from "../ink/itemFailures";
@@ -246,15 +247,15 @@ export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number;
   });
 
   return <section class="note-jump" aria-label={copy.jumpToNote}>
-    <Command value={value()} loop={false} filter={false} query={query()} onValueChange={(next, details) => { if (details.reason === "item-hover") details.cancel(); else setValue(next); }} onQueryChange={(next, details) => { if (details.reason === "escape-key") details.cancel(); else setQuery(next); }} onAction={chosen => {
+    <Command class="app-combobox" value={value()} loop={false} filter={false} query={query()} onValueChange={(next, details) => { if (details.reason === "item-hover") details.cancel(); else setValue(next); }} onQueryChange={(next, details) => { if (details.reason === "escape-key") details.cancel(); else setQuery(next); }} onAction={chosen => {
       const row = props.rows.find(each => key(each) === chosen);
 
       if (row?.listed) props.choose(row.note);
     }}>
-      <CommandInput aria-label={copy.jumpToNote} placeholder={copy.jumpPlaceholder} spellcheck="false" autocorrect="off" autocapitalize="off" ref={element => { input = element; }} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.close(); } }} />
-      <CommandEmpty>{copy.noNotesFound}</CommandEmpty>
-      <CommandList aria-label={copy.notes}>
-        <For each={shown()}>{row => <CommandItem value={key(row)} label={`${row.note.comparison.newPath} ${range(row.note)}`}>
+      <CommandInput class="app-combobox-input" aria-label={copy.jumpToNote} placeholder={copy.jumpPlaceholder} spellcheck="false" autocorrect="off" autocapitalize="off" ref={element => { input = element; }} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.close(); } }} />
+      <CommandEmpty class="app-combobox-empty">{copy.noNotesFound}</CommandEmpty>
+      <CommandList class="app-combobox-list" aria-label={copy.notes}>
+        <For each={shown()}>{row => <CommandItem class="app-combobox-item" value={key(row)} label={`${row.note.comparison.newPath} ${range(row.note)}`}>
           <span class="note-jump-path">{row.note.comparison.newPath}</span>
           <span>{range(row.note)}{row.note.label === undefined ? "" : copy.dottedAfter(copy.labels[row.note.label])}{copy.dottedAfter(words(row.status, row.note))}{row.listed ? "" : copy.dottedAfter(copy.noLongerChanged)}</span>
           <span class="note-jump-text">{row.note.text.split("\n")[0]}</span>
