@@ -137,7 +137,8 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Notes; available: (id: string) => boolean; name: (id: string) => string; open: boolean; onOpenChange: (open: boolean) => void }) => {
   const { app } = useConnectedProject();
   const [element, setElement] = createSignal<HTMLElement>();
-  const [comparisons, setComparisons] = createSignal<ReadonlyMap<string, FileComparison>>(new Map());
+  const { rail } = useConnectedProject();
+  const [comparisons, setComparisons] = createSignal<ReadonlyMap<string, FileComparison | "unreadable">>(new Map());
 
   createEffect(createMemo(() => props.open), open => {
     if (!open) return;
@@ -145,19 +146,35 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 
     setComparisons(new Map());
 
-    // The files compared are those of the notes kept, and the Agents still available, when the panel opens.
-    for (const [id, value] of untrack(() => props.notes.entries().filter(([id]) => props.available(id)))) {
+    // The files compared are those of the notes kept, and the Agents still in the Rail, when the panel opens.
+    for (const [id, value] of untrack(() => props.notes.entries().filter(([id]) => props.available(id) || rail.nodes.some(node => node.id === id)))) {
       const paths = new Set([...value.forms, ...value.notes, ...value.submissions.flatMap(submission => submission.notes), ...value.recovered.flatMap(record => [...record.data.forms, ...record.data.notes])].map(note => note.comparison.newPath));
 
-      for (const path of paths) void reply(() => app.rpc("agent.compareFile", { id, path })).then(result => {
-        if (active && result.kind === "ok") setComparisons(previous => new Map(previous).set(`${id}:${path}`, result.value));
+      // U7873a: a file is read through the group that lists it, so an Agent with no Worktree reads as one with its own.
+      const groups = reply(() => app.rpc("agent.ownedChanges", { id }));
+
+      for (const path of paths) void groups.then(async owned => {
+        const found = owned.kind === "ok" ? owned.value.groups.find(group => group.files.some(file => file.path === path)) : undefined;
+        const result = found ? await reply(() => app.rpc("agent.compareFile", { id, path, group: { repo: found.repo, branch: found.branch } })) : undefined;
+
+        if (active) setComparisons(previous => new Map(previous).set(`${id}:${path}`, result?.kind === "ok" ? result.value : "unreadable"));
       });
     }
 
     return () => { active = false; };
   });
 
-  const older = (id: string, comparison: FileComparison) => olderComparison(comparisons().get(`${id}:${comparison.newPath}`), comparison);
+  const read = (id: string, path: string) => {
+    const found = comparisons().get(`${id}:${path}`);
+
+    return found === "unreadable" ? undefined : found;
+  };
+
+  const older = (id: string, comparison: FileComparison) => {
+    const found = comparisons().get(`${id}:${comparison.newPath}`);
+
+    return found === "unreadable" ? copy.cannotCompare : olderComparison(found, comparison) ? copy.originalContext : null;
+  };
 
   const [editing, setEditing] = createWritableMemo<{ id: string; form: NoteFormDraft } | undefined>(previous => props.open ? previous : undefined);
 
@@ -196,16 +213,16 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
       <DialogFailure message={problemLine.message()} dismiss={problemLine.dismiss} recover={{ run: props.notes.retry }} />
       <For each={failed()}>{([key, text]) => <DialogFailure message={text} dismiss={() => clear(key)} />}</For>
 
-      <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={comparisons().get(`${value.id}:${value.form.comparison.newPath}`) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>
+      <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={read(value.id, value.form.comparison.newPath) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>
       <For each={entries()}>{([id, value]) => <section class="note-batch">
         <h3>{copy.noteDraftStatus(props.name(id), value.submissions[0]?.status ?? copy.noteDraft)}</h3>
         <StatusNote text={!props.available(id) ? copy.originalRecipientUnavailable : null} />
         <For each={value.forms}>{form => <div class="note-recovered-batch">
-          <p class="note-path">{form.comparison.newPath}<Show when={older(id, form.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(form.side, Number(form.start) === Number(form.end) ? `${Number(form.start)}` : `${Number(form.start)}–${Number(form.end)}`, Number(form.start) === Number(form.end))}</p><p class="note-text">{form.text}</p>
+          <p class="note-path">{form.comparison.newPath}{older(id, form.comparison)}</p><p>{copy.selectedLines(form.side, Number(form.start) === Number(form.end) ? `${Number(form.start)}` : `${Number(form.start)}–${Number(form.end)}`, Number(form.start) === Number(form.end))}</p><p class="note-text">{form.text}</p>
           <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, form }, null, 2)} identity={form.revision} onSuccess={() => clear(form.revision)} onFailure={error => failures.fail(form.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><Show when={props.available(id)}><button type="button" data-note-action="resume" onClick={() => setEditing({ id, form })}>{copy.resumeNote}</button></Show><button type="button" onClick={() => { props.notes.discardForm(id, form.revision); setEditing(undefined); }}>{copy.discardDraft}</button></div>
         </div>}</For>
         <For each={unsent(value.notes)}>{note => <div class="note-recovered-batch">
-          <p class="note-path">{note.comparison.newPath}<Show when={older(id, note.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}</p><p class="note-text">{note.text}</p>
+          <p class="note-path">{note.comparison.newPath}{older(id, note.comparison)}</p><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}</p><p class="note-text">{note.text}</p>
           <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, note }, null, 2)} identity={note.revision} onSuccess={() => clear(note.revision)} onFailure={error => failures.fail(note.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.remove(id, note.id)}>{copy.discardDraft}</button></div>
         </div>}</For>
         <For each={value.recovered}>{recovered => <div class="note-recovered-batch"><RecordPreview older={comparison => older(id, comparison)} rows={[...recovered.data.forms, ...recovered.data.notes, ...recovered.data.submissions.flatMap(submission => submission.notes)]} /><div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, ...recovered }, null, 2)} identity={recovered.revision} onSuccess={() => clear(recovered.revision)} onFailure={error => failures.fail(recovered.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.discardRecovered(id, recovered.revision)}>{copy.discardDraft}</button></div></div>}</For>
@@ -220,7 +237,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 };
 
 /** Recovery uses the same path, range and text presentation as live notes. */
-const RecordPreview = (props: { rows: readonly (Note | NoteFormDraft)[]; older?: (comparison: FileComparison) => boolean | undefined }) => <For each={props.rows} fallback={<p>{copy.unreadableNoteDraft}</p>}>{note => <div class="note-recovered-batch"><p class="note-path">{note.comparison.newPath}<Show when={props.older?.(note.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(note.side, Number(note.start) === Number(note.end) ? `${Number(note.start)}` : `${Number(note.start)}–${Number(note.end)}`, Number(note.start) === Number(note.end))}</p><p class="note-text">{note.text}</p></div>}</For>;
+const RecordPreview = (props: { rows: readonly (Note | NoteFormDraft)[]; older?: (comparison: FileComparison) => string | null }) => <For each={props.rows} fallback={<p>{copy.unreadableNoteDraft}</p>}>{note => <div class="note-recovered-batch"><p class="note-path">{note.comparison.newPath}{props.older?.(note.comparison)}</p><p>{copy.selectedLines(note.side, Number(note.start) === Number(note.end) ? `${Number(note.start)}` : `${Number(note.start)}–${Number(note.end)}`, Number(note.start) === Number(note.end))}</p><p class="note-text">{note.text}</p></div>}</For>;
 
 
 /** U7690c: a note in the jump list: its state, and whether its file is still in the change. */
