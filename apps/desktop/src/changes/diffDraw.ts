@@ -142,6 +142,18 @@ const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; e
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
 export type Drawn = { mark: (ranges: readonly Noted[]) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
+/** U7678c: the module scroll's one Virtualizer, made on the first file drawn; undefined outside a shared scroll. */
+const sharedVirtualizer = (shared: Shared | undefined, Virtualizer: typeof import("@pierre/diffs").Virtualizer) => {
+  if (!shared?.scroller) return undefined;
+
+  if (!shared.virtualizer) {
+    shared.virtualizer = new Virtualizer();
+    shared.virtualizer.setup(shared.scroller);
+  }
+
+  return shared.virtualizer;
+};
+
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
   const { VirtualizedFileDiff, Virtualizer, processFile, preloadHighlighter, getFiletypeFromFileName } = await (library ??= import("@pierre/diffs").then(module => {
@@ -164,12 +176,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
   const container = document.createElement("diffs-container");
   mount.append(container);
-  const virtualizer = hooks.shared?.virtualizer ?? new Virtualizer();
-
-  if (hooks.shared?.scroller && !hooks.shared.virtualizer) {
-    hooks.shared.virtualizer = virtualizer;
-    virtualizer.setup(hooks.shared.scroller);
-  }
+  const virtualizer = sharedVirtualizer(hooks.shared, Virtualizer) ?? new Virtualizer();
 
   let noted: readonly Noted[] = [];
 

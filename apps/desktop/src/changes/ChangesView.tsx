@@ -78,6 +78,44 @@ const inDiff = (event: KeyboardEvent) => !typing(event) && event.target instance
 
 const typing = (event: KeyboardEvent) => event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])") !== null;
 
+type Memory = ReturnType<ReturnType<typeof useConnectedProject>["changePlaces"]["of"]>;
+
+/** U7675f, U7678c: each file's place, and each module's scroll, kept in the connection's memory. */
+const placesOf = (memory: Memory) => ({
+  places: {
+    get: (file: string) => memory.places.get(file),
+    set: (file: string, place: NonNullable<ReturnType<typeof memory.places.get>>) => { memory.places.set(file, place); },
+  },
+  scroll: (key: string) => ({
+    get: () => memory.places.get(key)?.scroll,
+    set: (top: number) => { memory.places.set(key, { revision: "", scroll: top, selection: { side: "new", start: 1, end: 1 } }); },
+  }),
+});
+
+type Pane = { key: string; source: string };
+
+/** U7674e: the module that was open stays until the next one's first screen has painted. A module of another comparison is another scroll, though it keeps its name. */
+const createPanes = (opened: () => string | undefined, source: () => string) => {
+  const view = createMemo(() => {
+    const key = opened();
+
+    return key === undefined ? undefined : { key, source: source() };
+  }, { equals: (a, b) => a?.key === b?.key && a?.source === b?.source });
+
+  const [panes, setPanes] = createSignal<Pane[]>([]);
+
+  createEffect(view, next => { if (next) setPanes(list => list.includes(next) ? list : [...list, next]); });
+
+  return { panes, ready: (pane: Pane) => setPanes(list => list.includes(pane) && list.at(-1) !== list[0] ? list.slice(list.indexOf(pane)) : list) };
+};
+
+/** Escape closes the keys list first, else the view unless a note field holds it. */
+const escapeKey = (event: KeyboardEvent, help: boolean, setHelp: (on: boolean) => void, close: () => void) => {
+  if (event.key !== "Escape" || event.defaultPrevented || typing(event)) return;
+
+  if (help) setHelp(false); else close();
+};
+
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
   const { app, rail, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
@@ -117,10 +155,7 @@ const Surface = (props: { id: string; name: string }) => {
   const [picked, setPicked] = createSignal<string | undefined>(memory.open);
   const [start, setStart] = createSignal<string>();
 
-  const places = {
-    get: (file: string) => memory.places.get(file),
-    set: (file: string, place: NonNullable<ReturnType<typeof memory.places.get>>) => { memory.places.set(file, place); },
-  };
+  const { places, scroll } = placesOf(memory);
 
   const [listed] = createSignal<{ failure: string | null; files: ChangedFile[] } | undefined>(async () => {
     const to = own();
@@ -146,26 +181,9 @@ const Surface = (props: { id: string; name: string }) => {
     return chosen !== undefined && rows().includes(chosen) ? chosen : rows()[0];
   };
 
-  // A module of another comparison is another scroll, though it keeps its name.
-  const view = createMemo(() => {
-    const key = opened();
-
-    return key === undefined ? undefined : { key, source: `${target()}|${active()}` };
-  }, { equals: (a, b) => a?.key === b?.key && a?.source === b?.source });
-
-  // U7674e: the module that was open stays until the next one's first screen has painted.
-  const [panes, setPanes] = createSignal<NonNullable<ReturnType<typeof view>>[]>([]);
-
-  createEffect(view, next => { if (next) setPanes(list => list.includes(next) ? list : [...list, next]); });
-
-  const ready = (pane: NonNullable<ReturnType<typeof view>>) => setPanes(list => list.includes(pane) && list.at(-1) !== list[0] ? list.slice(list.indexOf(pane)) : list);
+  const { panes, ready } = createPanes(opened, () => `${target()}|${active()}`);
 
   const openFiles = (key: string): readonly ChangedFile[] => key.startsWith("m:") ? grouped().modules.find(module => moduleKey(module.name) === key)?.files ?? [] : files().filter(file => noiseKey(file.path) === key);
-
-  const scroll = (key: string) => ({
-    get: () => memory.places.get(key)?.scroll,
-    set: (top: number) => { memory.places.set(key, { revision: "", scroll: top, selection: { side: "new", start: 1, end: 1 } }); },
-  });
 
   createEffect(opened, file => { memory.open = file; });
 
@@ -264,20 +282,7 @@ const Surface = (props: { id: string; name: string }) => {
     if (file && editable(file)) edit(file);
   };
 
-  // Escape closes the keys list first, else the view unless a note field holds it.
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
-
-    if (typing(event)) return;
-
-    if (help()) {
-      setHelp(false);
-
-      return;
-    }
-
-    close();
-  };
+  const onKeyDown = (event: KeyboardEvent) => escapeKey(event, help(), setHelp, close);
 
   // Opening moves focus into the view, so Escape reaches its handler before any file does; the tree takes it when it draws.
   const initialFocus = captureFocus();

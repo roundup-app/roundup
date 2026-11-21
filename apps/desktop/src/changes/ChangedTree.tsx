@@ -46,6 +46,13 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
     else if (row.dataset.row === "module") props.onChoose(key);
   };
 
+  const arrow = (name: string, row: HTMLElement, at: number, key: string, list: readonly HTMLElement[]) => {
+    if (name === "ArrowDown" || name === "ArrowUp") list[at + (name === "ArrowDown" ? 1 : -1)]?.focus();
+    else if (name === "ArrowRight") { if (row.dataset.row !== "file") fold(key, true); }
+    else if (row.dataset.row === "file") host?.querySelector<HTMLElement>(`[data-key="${CSS.escape(row.dataset.owner ?? "")}"]`)?.focus();
+    else fold(key, false);
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
     const row = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("[data-row]") : null;
 
@@ -54,17 +61,15 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
     const at = list.indexOf(row);
     const key = row.dataset.key ?? "";
 
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      list[at + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
-    } else if (event.key === "ArrowRight" && row.dataset.row !== "file") {
-      event.preventDefault();
-      fold(key, true);
-    } else if (event.key === "ArrowLeft") {
-      event.preventDefault();
+    if (event.key === "Enter") {
+      if (row.dataset.row === "file" && row.dataset.path) props.onEdit(row.dataset.path);
 
-      if (row.dataset.row === "file") host?.querySelector<HTMLElement>(`[data-key="${CSS.escape(row.dataset.owner ?? "")}"]`)?.focus(); else fold(key, false);
-    } else if (event.key === "Enter" && row.dataset.row === "file" && row.dataset.path) props.onEdit(row.dataset.path);
+      return;
+    }
+
+    if (!["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(event.key)) return;
+    event.preventDefault();
+    arrow(event.key, row, at, key, list);
   };
 
   const onDoubleClick = (event: MouseEvent) => {

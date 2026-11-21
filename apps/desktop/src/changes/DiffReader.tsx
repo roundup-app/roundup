@@ -39,6 +39,27 @@ export type Entered = "moved" | "none" | "wait";
 
 export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void };
 
+type Slot = { element: HTMLElement; metadata: Annotated; dispose: () => void };
+
+/** U7677: Pierre keeps what an annotation draws; the reader owns the Solid roots under it and ends those whose element Pierre dropped (it leaves the element of an annotation it no longer draws in its container, so the reader removes it with its root). */
+const createSlots = () => {
+  const slots = new Set<Slot>();
+
+  const sweep = (drawn: ReadonlySet<Annotated> | undefined) => {
+    for (const slot of slots) if (!drawn || !slot.element.isConnected || !drawn.has(slot.metadata)) { slot.dispose(); slot.element.parentElement?.remove(); slots.delete(slot); }
+  };
+
+  return { slots, sweep };
+};
+
+/** U7676c: the notes whose lines this file no longer shows, listed under it. */
+const GatheredNotes = (props: { id: string; notes: Notes; gathered: readonly Note[]; read: FileComparison | undefined }) => <Show when={props.gathered.length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
+  <For each={props.gathered}>{note => <li><Show when={outdated(note, props.read)} fallback={<><p>{copy.selectedLines(note.side, copy.lineSpan(note.start, note.end), note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
+</ul></Show>;
+
+/** U7678d: whether a read has lines to draw: not an image, unfinished, or hidden file. */
+const drawableOf = (value: FileComparison | undefined, hidden: ReturnType<typeof hiddenKind>) => value !== undefined && drawsLines(value) && value.status !== null && hidden === null;
+
 const DiffIdentity = (props: { read: FileComparison | undefined; path: string }) => <div class="diff-identity">
   <p class="diff-path"><Show when={props.read} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : copy.renamedPaths(value().oldPath, value().newPath)}</>}</Show></p>
   <Show when={props.read}>{value => <Show when={value().status === "added" || value().status === "deleted"}><p class="diff-status">{value().status === "added" ? copy.statusAdded : copy.statusDeleted}</p></Show>}</Show>
@@ -152,13 +173,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     return draft && { composing: true, side: draft.selection.side, start: draft.selection.start, end: draft.selection.end, replacing: draft.editing?.id };
   });
 
-  // U7677: Pierre keeps what an annotation draws; the reader owns the Solid roots under it and ends those whose element Pierre dropped.
-  const slots = new Set<{ element: HTMLElement; metadata: Annotated; dispose: () => void }>();
-
-  // Pierre leaves the element of an annotation it no longer draws in its container, so the reader removes it with its root.
-  const sweep = (drawn: ReadonlySet<Annotated> | undefined) => {
-    for (const slot of slots) if (!drawn || !slot.element.isConnected || !drawn.has(slot.metadata)) { slot.dispose(); slot.element.parentElement?.remove(); slots.delete(slot); }
-  };
+  const { slots, sweep } = createSlots();
 
   onCleanup(() => sweep(undefined));
 
@@ -188,29 +203,24 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     mark(lines.flatMap(({ metadata }) => "unfinished" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
   });
 
-  const drawable = () => {
-    const value = read();
-
-    return value !== undefined && drawsLines(value) && value.status !== null && hidden() === null;
-  };
-
   // U7678d: a file with nothing to draw is settled once its read is.
-  createEffect(() => !loading() && !drawable(), settled => { if (settled) props.onDrawn?.(); });
+  createEffect(() => !loading() && !drawableOf(read(), hidden()), settled => { if (settled) props.onDrawn?.(); });
 
   createEffect(() => {
     const value = read();
     const mount = host();
 
-    if (!value || !mount || !drawable()) return undefined;
+    if (!value || !mount || !drawableOf(value, hidden())) return undefined;
 
     return { value, mount };
   }, target => {
     if (!target) return;
     const { value, mount } = target;
+    const { shared, onFocus } = props;
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const drawn = await drawDiff(value, mount, { current: () => current, shared: props.shared, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); props.onFocus?.(); remember(); }, note: range => openNote(range), annotation });
+      const drawn = await drawDiff(value, mount, { current: () => current, shared, selection, pick: range => { setSelection(range); cursor = changeAt(starts, range); onFocus?.(); remember(); }, note: range => openNote(range), annotation });
 
       if (!drawn) return;
       const { view, virtualizer, container, fileDiff, coarse } = drawn;
@@ -228,14 +238,14 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       rendered = { path: value.newPath, revision };
       setSelection(place.selection);
 
-      if (!props.shared) virtualizer.setup(mount);
+      if (!shared) virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
       setRenderer(view);
 
       view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
       queueMicrotask(() => props.onDrawn?.());
 
-      if (!props.shared) mount.scrollTop = place.scroll;
+      if (!shared) mount.scrollTop = place.scroll;
 
       // U7675e: Pierre has no focus row; the focused line is its selection, and its line position scrolls it into view.
       moveTo = (side, line) => {
@@ -244,7 +254,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
         const position = view.getLinePosition(line, sideName(side));
 
         if (position) scrollTo(mount, position.top);
-        props.onFocus?.();
+        onFocus?.();
         remember();
       };
 
@@ -254,7 +264,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       revealNearest = revealerOf(view, fileDiff, selection);
 
       // listener-owner: removed with the rendered diff in the dispose below.
-      if (!props.shared) mount.addEventListener("scroll", remember);
+      if (!shared) mount.addEventListener("scroll", remember);
       dispose = () => {
         remember();
         mount.removeEventListener("scroll", remember);
@@ -269,7 +279,8 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
         setRenderer(undefined); view.cleanUp();
 
- if (!props.shared) virtualizer.cleanUp(); container.remove();
+        if (!shared) virtualizer.cleanUp();
+        container.remove();
       };
     }).then(error => { if (current && error) setFailure(error); });
 
@@ -300,7 +311,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     enter: direction => {
       const next = direction === 1 ? starts[0] : starts.at(-1);
 
-      if (!next) return loading() || (drawable() && rendered === undefined) ? "wait" : "none";
+      if (!next) return loading() || (drawableOf(read(), hidden()) && rendered === undefined) ? "wait" : "none";
       cursor = direction === 1 ? 0 : starts.length - 1;
       moveTo(next.side, next.at[next.side]);
 
@@ -336,9 +347,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
-    <Show when={gathered().length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
-      <For each={gathered()}>{note => <li><Show when={outdated(note, read())} fallback={<><p>{copy.selectedLines(note.side, copy.lineSpan(note.start, note.end), note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
-    </ul></Show>
+    <GatheredNotes id={props.id} notes={props.notes} gathered={gathered()} read={read()} />
     <Show when={props.batch !== false}><NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} /></Show>
   </section>;
 };
