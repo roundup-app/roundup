@@ -1,8 +1,11 @@
-import { createSignal, For, onCleanup, onMount, untrack } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { createMessageToast } from "../ink/messageToast";
 import { PlayMark } from "../ui/PlayMark";
 import type { ConnectedProject } from "../state/connectedProject";
+import type { RailNode } from "@contracts/agent/RailNode";
+import { doorTerminalId } from "../state/doorNode";
+import type { Screens } from "./screens";
 import type { Emulator } from "./emulator";
 import type { PlayLine } from "./playLines";
 import { copy } from "./copy";
@@ -47,13 +50,15 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
     refresh();
   };
 
-  onMount(() => {
-    void ask();
-    emulator.onFrame?.(() => {
-      refresh();
+  const framed = (): void => {
+    refresh();
 
-      if (Date.now() - lastAsk >= REFRESH_MS) void ask();
-    });
+    if (Date.now() - lastAsk >= REFRESH_MS) void ask();
+  };
+
+  onSettled(() => {
+    void ask();
+    emulator.onFrame?.(framed);
   });
 
   makeEventListener(host, "mousemove", (move) => {
@@ -93,3 +98,24 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
 };
 
 const covers = (at: number | null, row: number, span: number): boolean => at !== null && at >= row && at < row + span;
+
+/** U7889: shows the marks of the selected Agent's Terminal; they live and die with that selection, not with each refreshed row. */
+export const PlayMarksHost = (props: { connected: ConnectedProject; selected: () => RailNode | null; screens: Screens; screen: () => HTMLElement | undefined }) => {
+  const key = createMemo(() => {
+    const node = props.selected();
+    const terminal = doorTerminalId(node);
+
+    return node?.kind === "agent" && terminal !== null && props.screen() !== undefined ? `${node.id}\n${terminal}` : null;
+  });
+
+  return (
+    <Show when={key()} keyed>
+      {(pair) => {
+        const [agent = "", terminal = ""] = pair.split("\n");
+        const host = props.screen();
+
+        return host ? <PlayMarks connected={props.connected} agent={agent} emulator={props.screens.emulatorFor(terminal)} host={host} rowHeight={() => props.screens.rows(terminal)?.height ?? 0} /> : null;
+      }}
+    </Show>
+  );
+};
