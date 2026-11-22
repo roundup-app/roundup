@@ -46,7 +46,7 @@ export const markControls = <K extends string>(renders: Record<K, () => JSX.Elem
 };
 
 /** PL2: one control known by its entry id, for a field that sits inside a larger form. */
-export const markControl = (id: string, render: () => JSX.Element): JSX.Element => markControls({ [id]: render })[id]!();
+export const markControl = (id: string, render: () => JSX.Element): JSX.Element => markControls({ [id]: render })[id]?.() ?? null;
 
 /** Deferred controls mount after their page, so the focus waits for the control a short while. */
 const focusControl = (id: string) => {

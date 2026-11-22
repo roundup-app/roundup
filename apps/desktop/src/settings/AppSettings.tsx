@@ -49,7 +49,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; con
   // U7887c: a link can name a Project other than the selected one; choosing another Project takes the page back to it.
   const [named, setNamed] = createSignal<string | null>(null);
   const viewed = () => named() ?? props.project();
-  const viewedConnection = () => { const path = viewed(); return path === null ? undefined : props.connectionOf?.(path); };
+  const viewedConnection = () => {
+    const path = viewed();
+
+    return path === null ? undefined : props.connectionOf?.(path);
+  };
+
   createEffect(() => props.project(), () => { setNamed(null); }, { defer: true });
   createEffect(() => viewed(), path => { if (path === null && untrack(section) === copy.settingsProject) setSection(copy.settingsAgents); }, { defer: true });
   const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});

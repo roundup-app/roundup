@@ -121,7 +121,7 @@ it("u7887c_a_project_settings_link_focuses_the_program_command", async () => {
   m.receive({ kind: "link", url: `roundup://settings/project?project=${KEY}#program` });
   await screen.findByRole("tab", { name: "Project", selected: true });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Command")));
-  expect((screen.getByLabelText("Command") as HTMLTextAreaElement).value).toBe("pnpm");
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Command").value).toBe("pnpm");
   expect(m.app.calls.map(call => call.method).filter(method => /set|clear/i.test(method))).toEqual([]);
 
   // A link naming no Project names the selected one.
@@ -137,7 +137,7 @@ it("u7887c_a_link_names_a_project_that_is_open_but_not_selected", async () => {
 
   m.receive({ kind: "link", url: "roundup://settings/project?project=second-0000000000000000#program" });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Command")));
-  expect((screen.getByLabelText("Command") as HTMLTextAreaElement).value).toBe("second");
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Command").value).toBe("second");
   expect(screen.getAllByRole("tab", { selected: true }).map(tab => tab.getAttribute("data-value")).filter(value => value !== "Project")).toEqual(selected.filter(value => value !== "Project"));
 });
 
@@ -166,10 +166,10 @@ it("u7887a_settings_lists_a_project_page_for_the_selected_project", async () => 
 
   window.dispatchEvent(new Event("open-app-settings"));
   fireEvent.click(await screen.findByRole("tab", { name: "Project" }));
-  await waitFor(() => expect((screen.getByLabelText("Command") as HTMLTextAreaElement).value).toBe("second"));
+  await waitFor(() => expect(screen.getByLabelText<HTMLTextAreaElement>("Command").value).toBe("second"));
 
   fireEvent.click(projectTab("project"));
-  await waitFor(() => expect((screen.getByLabelText("Command") as HTMLTextAreaElement).value).toBe("first"));
+  await waitFor(() => expect(screen.getByLabelText<HTMLTextAreaElement>("Command").value).toBe("first"));
 });
 
 it("u7887a_with_no_project_settings_lists_no_project_page", async () => {
@@ -179,7 +179,7 @@ it("u7887a_with_no_project_settings_lists_no_project_page", async () => {
   await screen.findByRole("button", { name: /Choose/ });
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("tab", { name: "Terminal" });
-  expect(screen.queryByRole("tab", { name: "Project" })).toBeNull();
+  expect(screen.getAllByRole("tab").map(tab => tab.getAttribute("data-value"))).not.toContain("Project");
 });
 
 it("u7887a_the_project_page_holds_workstreams_then_program", async () => {
@@ -189,10 +189,11 @@ it("u7887a_the_project_page_holds_workstreams_then_program", async () => {
   m.receive({ kind: "link", url: `roundup://settings/project?project=${KEY}` });
   const cap = await screen.findByLabelText("Workstreams at once");
   const command = screen.getByLabelText("Command");
-  expect(cap.compareDocumentPosition(command) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getByLabelText("Folder")).toBeTruthy();
-  expect(screen.getByLabelText("Worktree path")).toBeTruthy();
-  expect(await screen.findByRole("button", { name: /^Clear/ })).toBeTruthy();
+  const fields = Array.from(document.querySelectorAll("input, textarea"));
+  expect(fields.indexOf(cap)).toBeLessThan(fields.indexOf(command));
+  screen.getByLabelText("Folder");
+  screen.getByLabelText("Worktree path");
+  await screen.findByRole("button", { name: /^Clear/ });
 });
 
 it("u7887b_a_commit_names_the_project_the_page_shows", async () => {

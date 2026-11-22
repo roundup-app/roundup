@@ -70,7 +70,11 @@ export const ProjectPage = () => {
     else setFailure(null);
   };
 
-  const draftLine = dismissable(() => drafts.problem() ? copy.draftRetention(copy.settingsProject, copy.workstreams, drafts.problem()!.cause) : null);
+  const draftLine = dismissable(() => {
+    const problem = drafts.problem();
+
+    return problem ? copy.draftRetention(copy.settingsProject, copy.workstreams, problem.cause) : null;
+  });
   createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
   createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
 

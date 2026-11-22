@@ -295,5 +295,5 @@ it("u7887d_no_project_settings_page_opens_in_the_centre", async () => {
   openProjectPage("project-settings");
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  expect(screen.queryByRole("region", { name: "Project settings" })).toBeNull();
+  expect(screen.queryAllByRole("region").map(region => region.getAttribute("aria-label"))).not.toContain("Project settings");
 });

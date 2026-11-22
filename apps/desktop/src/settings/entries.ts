@@ -149,17 +149,17 @@ export const settingsEntries = ({
       description: copy.focusMarkersHint,
       hiddenHint: true,
     },
-    ...[
+    ...([
       ["workstreams", copy.workstreams],
       ["program", copy.programCommand],
       ["program-folder", copy.programFolder],
       ["program-worktree", copy.programAdopt],
-    ].map(([id, label]) => ({
-      id: id!,
+    ] as const).map(([id, label]) => ({
+      id,
       page: copy.settingsProject,
       group: id === "workstreams" ? copy.workstreams : copy.program,
-      label: label!,
-      description: label!,
+      label,
+      description: label,
       linkOnly: true,
       when: () => !!viewed(),
     })),
