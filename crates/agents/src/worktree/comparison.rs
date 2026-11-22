@@ -20,7 +20,7 @@ impl Git {
         if !worktree.path.is_dir() {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
-        let base = self.comparison_base(worktree)?;
+        let base = self.comparison_base(&worktree.path)?;
         let end = (to == CompareTarget::Branch).then_some("HEAD");
         Ok(ChangedFiles {
             files: self.files_against(&worktree.path, &base, end)?,
@@ -201,11 +201,11 @@ impl Git {
     }
 
     /// U7672a: the merge base of the remote's main (else the local default branch) with HEAD.
-    pub(super) fn comparison_base(&self, worktree: &Worktree) -> Result<String, RpcError> {
+    pub(super) fn comparison_base(&self, dir: &Path) -> Result<String, RpcError> {
         let (_, reference) = self
-            .default_branch(&worktree.path)
+            .default_branch(dir)
             .ok_or_else(|| failed("no default branch"))?;
-        self.run(&worktree.path, &["merge-base", &reference, "HEAD"])
+        self.run(dir, &["merge-base", &reference, "HEAD"])
             .map_err(failed)
     }
 
@@ -213,25 +213,25 @@ impl Git {
     /// working tree (`Tree`) or of HEAD's commit (`Branch`).
     pub fn compare_file(
         &self,
-        worktree: &Worktree,
+        dir: &Path,
         path: &str,
         to: CompareTarget,
     ) -> Result<contracts::agent::FileComparison, RpcError> {
         use contracts::agent::FileComparison;
         // Validate and open before Git: no untracked-content sniffing may follow an escaping link.
         let current = match to {
-            CompareTarget::Tree => read_worktree_file(&worktree.path, path)?,
+            CompareTarget::Tree => read_worktree_file(dir, path)?,
             CompareTarget::Branch => {
                 validate_comparison_path(path)?;
-                self.read_head_file(&worktree.path, path)?
+                self.read_head_file(dir, path)?
             }
         };
-        let base = self.comparison_base(worktree)?;
+        let base = self.comparison_base(dir)?;
         let end = (to == CompareTarget::Branch).then_some("HEAD");
         let ends: Vec<&str> = std::iter::once(base.as_str()).chain(end).collect();
         let names = self
             .run(
-                &worktree.path,
+                dir,
                 &[
                     "--no-optional-locks",
                     "diff",
@@ -260,7 +260,7 @@ impl Git {
         validate_comparison_path(&old_path)?;
         let entry = self
             .run(
-                &worktree.path,
+                dir,
                 &[
                     "--literal-pathspecs",
                     "ls-tree",
@@ -288,7 +288,7 @@ impl Git {
                 return Err(invalid("unsafe_path", "not a regular Base file"));
             }
             let size: u64 = self
-                .run(&worktree.path, &["cat-file", "-s", oid])
+                .run(dir, &["cat-file", "-s", oid])
                 .map_err(failed)?
                 .parse()
                 .map_err(failed)?;
@@ -296,7 +296,7 @@ impl Git {
                 return Err(failed("comparison content exceeds the 16 MiB read budget"));
             }
             let output = self
-                .output(&worktree.path, &["cat-file", "blob", oid], None)
+                .output(dir, &["cat-file", "blob", oid], None)
                 .map_err(failed)?;
             if !output.status.success() {
                 return Err(failed("cannot read Base blob"));

@@ -48,9 +48,10 @@ export const noiseOf = (path: string): NoiseKind | undefined => {
   return undefined;
 };
 
-export type ModuleGroup = { name: string; files: ChangedFile[]; added: number; removed: number; counted: boolean };
+/** `total` is the files the row counts; a find (U7679d) narrows `files` and leaves it. */
+export type ModuleGroup = { name: string; files: ChangedFile[]; total: number; added: number; removed: number; counted: boolean };
 
-export type Grouped = { modules: ModuleGroup[]; noise: { kind: NoiseKind; files: ChangedFile[] }[] };
+export type Grouped = { modules: ModuleGroup[]; noise: { kind: NoiseKind; files: ChangedFile[]; total: number }[] };
 
 const byPath = (a: ChangedFile, b: ChangedFile) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: "base" });
 
@@ -74,11 +75,12 @@ export const groupModules = (files: readonly ChangedFile[]): Grouped => {
     modules: [...modules].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })).map(([name, list]) => ({
       name,
       files: scrollOrder(list),
+      total: list.length,
       added: list.reduce((sum, file) => sum + (file.counts?.added ?? 0), 0),
       removed: list.reduce((sum, file) => sum + (file.counts?.removed ?? 0), 0),
       counted: list.some(file => file.counts !== null),
     })),
-    noise: (["generated", "lockfile"] as const).flatMap(kind => noise.has(kind) ? [{ kind, files: [...noise.get(kind) ?? []].sort(byPath) }] : []),
+    noise: (["generated", "lockfile"] as const).flatMap(kind => noise.has(kind) ? [{ kind, files: [...noise.get(kind) ?? []].sort(byPath), total: noise.get(kind)?.length ?? 0 }] : []),
   };
 };
 

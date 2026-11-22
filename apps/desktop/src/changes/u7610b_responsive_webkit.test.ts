@@ -36,7 +36,7 @@ const longestBlock = async (type: BrowserType) => {
 
     // A first open pays the engine's one-time style, layout and JIT warm-up for the view; open and close it once so the beat measures an open.
     await page.click(".changes-icon");
-    await page.waitForSelector(".changes-side file-tree-container");
+    await page.waitForSelector(".changes-side .changes-tree [data-row]");
     await page.getByRole("button", { name: "Close changes" }).click();
     await page.waitForSelector(".changes-side", { state: "detached" });
     await page.waitForTimeout(1000);
@@ -56,7 +56,9 @@ const longestBlock = async (type: BrowserType) => {
     });
 
     await page.click(".changes-icon");
-    await page.waitForSelector(".changes-side file-tree-container");
+    await page.waitForSelector(".changes-side .changes-tree [data-row]");
+    // The view opens on the Overview and draws no diff (U7679c): the beat chooses the module that holds the big file.
+    await page.click('.changes-side .changes-tree [data-row="module"]');
     await page.waitForTimeout(500);
 
     return await beat.evaluate(gaps => gaps.longest);
