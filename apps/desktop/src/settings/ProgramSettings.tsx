@@ -1,4 +1,4 @@
-import { Show, createSignal, onSettled } from "solid-js";
+import { Show, createSignal, onSettled, untrack } from "solid-js";
 import { parseArgsStringToArgv } from "string-argv";
 import { copy } from "./copy";
 import { SettingsGroup } from "./SettingsShell";
@@ -70,7 +70,7 @@ const ProgramField = (props: { name: Field; label: string; refusal: Refusal; val
   const failed = () => props.refusal !== null && props.refusal.field === props.name;
   const errorId = () => `program-${props.name}-error`;
 
-  return markControl(CONTROL_IDS[props.name], () => <Field.Root invalid={failed()}>
+  return markControl(untrack(() => CONTROL_IDS[props.name]), () => <Field.Root invalid={failed()}>
     <label class="app-dialog-field">
       <span class="program-label">{props.label}</span>
       <textarea ref={props.ref} class="field-frame program-field" rows={1} spellcheck={false} autocorrect="off" autocapitalize="off" aria-invalid={failed() ? "true" : undefined} aria-describedby={failed() ? errorId() : undefined} aria-label={props.label} value={props.value}

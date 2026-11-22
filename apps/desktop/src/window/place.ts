@@ -40,32 +40,37 @@ export const createPlaceRoute = ({ app, projects, connectionOf, openShelf, fail 
   connectionOf: (path: string) => ConnectedProject | undefined;
   openShelf: (tab: ShelfTab) => void;
   fail: (message: string | null) => void;
-}) => async (surface: string | undefined, link: string) => {
-  const url = surface === undefined || !URL.canParse(link) ? link : await inProject(app.forProject(surface), link);
-  const parsed = URL.canParse(url) ? parsePlace(url) : { failure: linkCopy.notOpened(url, linkCopy.noOwner) };
+}) => {
+  const owner = async (key: string | null, selected: string | null) => {
+    let found: ConnectedProject | undefined;
 
-  if ("failure" in parsed) return fail(parsed.failure);
+    for (const project of key === null ? [] : await app.projects()) {
+      if (project.running && connectionOf(project.path) && await projectKeyOf(app.forProject(project.path)).catch(() => null) === key) found = connectionOf(project.path);
+    }
 
-  // U7887c: the Project page is about the named Project, or the selected one; reaching it selects nothing.
-  const aboutProject = parsed.place.kind === "settings" && parsed.place.page === "project";
-  let connection: ConnectedProject | undefined;
-  const selected = projects.active();
+    return key === null && selected !== null ? connectionOf(selected) : found;
+  };
 
-  for (const project of parsed.key === null ? [] : await app.projects()) {
-    if (project.running && connectionOf(project.path) && await projectKeyOf(app.forProject(project.path)).catch(() => null) === parsed.key) connection = connectionOf(project.path);
-  }
+  return async (surface: string | undefined, link: string) => {
+    const url = surface === undefined || !URL.canParse(link) ? link : await inProject(app.forProject(surface), link);
+    const parsed = URL.canParse(url) ? parsePlace(url) : { failure: linkCopy.notOpened(url, linkCopy.noOwner) };
 
-  if (aboutProject && parsed.key === null && selected !== null) connection = connectionOf(selected);
+    if ("failure" in parsed) return fail(parsed.failure);
 
-  if (!connection) return fail(parsed.key === null ? linkCopy.placeNoProject : linkCopy.placeProject(parsed.key));
+    // U7887c: the Project page is about the named Project, or the selected one; reaching it selects nothing.
+    const aboutProject = parsed.place.kind === "settings" && parsed.place.page === "project";
+    const connection = await owner(parsed.key, aboutProject ? projects.active() : null);
 
-  if (aboutProject) return fail(goToSetting("project", parsed.place.kind === "settings" ? parsed.place.control : null, connection.project.path));
+    if (!connection) return fail(parsed.key === null ? linkCopy.placeNoProject : linkCopy.placeProject(parsed.key));
 
-  projects.select(connection.project.path);
-  connection.settingsView.close(false);
+    if (aboutProject) return fail(goToSetting("project", parsed.place.kind === "settings" ? parsed.place.control : null, connection.project.path));
 
-  if (parsed.place.kind === "shelf") {
-    openShelf(parsed.place.tab);
-    fail(null);
-  } else fail(goToSetting(parsed.place.page, parsed.place.control));
+    projects.select(connection.project.path);
+    connection.settingsView.close(false);
+
+    if (parsed.place.kind === "shelf") {
+      openShelf(parsed.place.tab);
+      fail(null);
+    } else fail(goToSetting(parsed.place.page, parsed.place.control));
+  };
 };

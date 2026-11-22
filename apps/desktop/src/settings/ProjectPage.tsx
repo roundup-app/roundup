@@ -1,12 +1,13 @@
 import * as v from "valibot";
-import { createSignal, onSettled } from "solid-js";
+import { Show, createSignal, onSettled } from "solid-js";
 import { copy } from "./copy";
 import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
 import { SettingsGroup } from "./SettingsShell";
 import { markControl } from "./place";
-import { useConnectedProject } from "../state/connectedProject";
+import { ConnectedProjectContext, useConnectedProject, type ConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
+import { Tabs } from "../ui/Tabs";
 import { Checkbox } from "../ui/Checkbox";
 import { ProgramSettings } from "./ProgramSettings";
 
@@ -97,3 +98,16 @@ export const ProjectPage = () => {
     <ProgramSettings />
   </>;
 };
+
+/** U7887c: the Project page's content, for the Project the page is about. */
+export const ProjectContent = (props: { connection: ConnectedProject | undefined }) => (
+  <Show when={props.connection} keyed>{open => <ConnectedProjectContext value={open}><ProjectPage /></ConnectedProjectContext>}</Show>
+);
+
+/** U7887c: the Project page's tab and its content, offered while a Project is viewed. */
+export const ProjectTab = (props: { viewed: string | null }) => (
+  <Show when={props.viewed}>
+    <div class="settings-category" aria-hidden="true">{copy.settingsProject}</div>
+    <Tabs.Trigger value={copy.settingsProject}>{copy.settingsProject}</Tabs.Trigger>
+  </Show>
+);
