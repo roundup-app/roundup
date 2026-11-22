@@ -1,4 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import Check from "@lucide/solid/icons/check";
+import RotateCcw from "@lucide/solid/icons/rotate-ccw";
 import { createTreeController, TreeItem, type TreeItemData } from "@ui-sdk/solid/tree";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { AppTree } from "../ui/TreeView";
@@ -87,7 +89,8 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
         <Name text={module().name} />
         <span class="changes-row-files">{copy.filesCount(module().total)}</span>
         <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
-        <Show when={props.viewed.has(moduleKey(module().name))}><span class="changes-row-status">{copy.viewed}</span></Show>
+        <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
+        <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>
       </TreeItem>
       <Show when={open(moduleKey(module().name))}>
         <For each={module().files}>{file => <File file={file} value={fileValue(file.path)} key={moduleKey(module().name)} owner={moduleKey(module().name)} />}</For>

@@ -180,7 +180,7 @@
 }
 
 .changes-groups button { max-inline-size: 100%; text-align: start; white-space: normal; overflow-wrap: anywhere; }
-.changes-groups button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
+.changes-groups button[aria-pressed="true"], .module-head button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
 
 
 /* The count is part of the button, so the button is as wide as its mark and count and the revealed icon beside it never covers a digit. */
@@ -204,7 +204,7 @@
 
 /* U7680a: the open module's header holds the Viewed button and, after a change, its words. */
 .module-head { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); padding-inline: var(--space-3); }
-.module-changed { flex: 1; color: var(--grey); font: var(--text-small) var(--font-ui); }
+.module-changed { flex: 1; color: var(--text); font: var(--text-small) var(--font-ui); }
 .changes-progress { flex: none; color: var(--grey); white-space: nowrap; }
 .module-pane { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; min-width: 0; }
 /* U7543c: no `position` here; the scroll bars' sheet makes this host the offset parent of its files, which DiffReader reads as `offsetTop`. */
@@ -221,6 +221,9 @@
 .changes-tree .changes-noise { color: var(--grey); }
 .changes-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .changes-row-files, .changes-row-counts, .changes-row-status { flex: none; color: var(--grey); }
+/* U7680a, U7680d: a module row's state is a glyph beside its counts; the row's accessible name says it in words. */
+.changes-row-state { flex: none; align-self: center; width: var(--space-3); height: var(--space-3); color: var(--grey); }
+.changes-row-state[data-state="changed"] { color: var(--text); }
 .module-slot { flex: 1; display: flex; min-width: 0; min-height: 0; }
 /* U7679a, U7679d: the lens switch and the find sit above the list; the no-match line takes the list's place. */
 .changes-side .app-segments, .changes-find { flex: none; margin-inline: var(--space-3); }
