@@ -744,6 +744,9 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await browser("open", `${server.resolvedUrls.local[0]}src/changes/u2540.html`);
     await wait("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
+    // The view opens on the Overview and reads no file (U7679c): choose the first module for its diff.
+    await wait("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+    await browser("click", '.changes-side [data-row="module"]');
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await evaluate("document.querySelector('.diff-content').focus()");
     await browser("press", "n");

@@ -86,6 +86,7 @@
   box-sizing: border-box;
   padding: var(--space-3);
   overflow: clip;
+  container: changes / inline-size;
   background: var(--surface);
   font-family: var(--font-ui);
   font-size: var(--text-small);
@@ -108,8 +109,6 @@
   min-height: 0;
   background: var(--sunken);
 }
-
-.changes-tree { flex: 1; min-height: 0; }
 
 .changes-head {
   display: flex;
@@ -176,10 +175,11 @@
   flex-direction: column;
   gap: var(--space-1);
   margin: 0;
-  padding: 0;
+  padding: var(--space-2) var(--space-4) 0;
   list-style: none;
 }
 
+.changes-groups button { max-inline-size: 100%; text-align: start; white-space: normal; overflow-wrap: anywhere; }
 .changes-groups button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
 
 
@@ -202,6 +202,39 @@
 .image-version img { max-width: 100%; height: auto; align-self: flex-start; background: var(--sunken); }
 .image-failed { margin: 0; color: var(--text); font: var(--text-small) var(--font-ui); }
 
+.module-pane { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; min-width: 0; }
+/* U7543c: no `position` here; the scroll bars' sheet makes this host the offset parent of its files, which DiffReader reads as `offsetTop`. */
+.module-scroll { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overflow-anchor: none; overscroll-behavior: contain; }
+.module-file { display: flex; flex-direction: column; border-block-end: var(--hairline-width) solid var(--hairline); }
+.module-file .diff-reader { flex: none; }
+/* U7854c: a file's header and the lines under it sit inside the diff's edges. */
+.module-file .diff-header { padding: var(--space-1) var(--space-3); }
+.module-file .mounted-line { padding-inline: var(--space-3); }
+.module-file .diff-content { flex: none; overflow: visible; }
+.changes-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.changes-tree .changes-row { align-items: baseline; min-height: var(--space-5); padding: var(--space-1) var(--space-3); font: var(--text-small) var(--font-ui); text-align: start; }
+.changes-tree .changes-row[data-level="2"] { padding-inline-start: var(--space-5); }
+.changes-tree .changes-noise { color: var(--grey); }
+.changes-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.changes-row-files, .changes-row-counts, .changes-row-status { flex: none; color: var(--grey); }
+.module-slot { flex: 1; display: flex; min-width: 0; min-height: 0; }
+/* U7679a, U7679d: the lens switch and the find sit above the list; the no-match line takes the list's place. */
+.changes-side .app-segments, .changes-find { flex: none; margin-inline: var(--space-3); }
+.changes-nomatch { margin: 0; padding-inline: var(--space-3); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
+/* U7679c: the Overview pane lists the lens's modules, one entry for each, with the numbers of its row. */
+.changes-overview { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.changes-overview ul { margin: 0; padding: 0; list-style: none; }
+.changes-overview p { margin: 0; padding: var(--space-3); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
+.changes-overview .changes-row { display: flex; gap: var(--space-2); align-items: baseline; inline-size: 100%; min-height: var(--space-5); padding: var(--space-1) var(--space-3); font: var(--text-small) var(--font-ui); text-align: start; }
+/* The next module paints over the one that stays until its first screen is drawn. */
+.changes-body { position: relative; }
+.module-slot[data-pending="true"] { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: calc(100% - min(40%, calc(var(--space-6) * 10)) - var(--space-3)); opacity: 0; pointer-events: none; }
+/* U7854a: under 560 px the tree stacks above the diff, so a row has the view's width (the prototype's narrow centre). */
+@container changes (width < env(--query-changes-stack)) {
+  .changes-body { flex-direction: column; }
+  .changes-side { flex: 0 1 36%; inline-size: auto; min-block-size: calc(var(--space-6) * 3); }
+  .module-slot[data-pending="true"] { inset: 0; inline-size: auto; }
+}
 .note-label button[aria-pressed="true"], .note-form button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
 .note-label { display: flex; gap: var(--space-3); }
 .note-replacement { margin: 0; font: var(--text-small) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
