@@ -80,19 +80,21 @@ export const ProjectPage = () => {
   createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
   createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
 
+  const capField = () => markControl("workstreams", () => <label class="app-dialog-field">
+      <span>{copy.runAtMost}</span>
+      <textarea class="field-frame" rows={1} inputmode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
+        onInput={event => {
+          const field = event.currentTarget;
+          setText(field.value);
+          drafts.edit(destination, { text: field.value }, { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }, "ordinary");
+        }} onBlur={commit}
+        onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } }} />
+      <span>{copy.workstreamsAtOnce}</span>
+    </label>);
+
   return <>
     <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
-      {markControl("workstreams", () => <label class="app-dialog-field">
-        <span>{copy.runAtMost}</span>
-        <textarea class="field-frame" rows={1} inputmode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
-          onInput={event => {
-            const field = event.currentTarget;
-            setText(field.value);
-            drafts.edit(destination, { text: field.value }, { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }, "ordinary");
-          }} onBlur={commit}
-          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } }} />
-        <span>{copy.workstreamsAtOnce}</span>
-      </label>)}
+      {capField()}
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
     </div></SettingsGroup>
     <ProgramSettings />
