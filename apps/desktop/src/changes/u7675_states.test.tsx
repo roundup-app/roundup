@@ -449,8 +449,9 @@ it("u7675e_question_mark_lists_the_keys", async () => {
   const keys = await screen.findByRole("region", { name: copy.keys });
   const items = within(keys).getAllByRole("listitem").map(item => item.textContent ?? "");
 
-  // Up and Down, Left and Right, Tab, J and K, L, /, ] and [, V, N, E and Delete, G, Enter, Esc and ? are listed; R waits for the Issue that builds it.
-  expect(items).toHaveLength(14);
+  // Up and Down, Left and Right, Tab, J and K, L, /, ] and [, V (Viewed), X, N, E and Delete, G, Enter, Esc and ? are listed; R waits for the Issue that builds it.
+  expect(items).toHaveLength(15);
+  expect(items.filter(item => /^V\b/.test(item))).toHaveLength(1);
   expect(items.some(item => /^R\b/.test(item))).toBe(false);
   press("?");
   await gone(() => screen.queryByRole("region", { name: copy.keys }));
@@ -463,7 +464,7 @@ it("u7675e_keys_do_not_fire_while_typing_in_a_note_field", async () => {
   startNote();
   const box = within(screen.getByRole("form", { name: copy.lineNote })).getByLabelText(copy.note);
 
-  for (const key of ["j", "k", "l", "/", "]", "[", "v", "?", "n", "e", "g", "Delete", "Backspace"]) press(key, box);
+  for (const key of ["j", "k", "l", "/", "]", "[", "v", "x", "?", "n", "e", "g", "Delete", "Backspace"]) press(key, box);
   await marks(at("new", 1));
   absent(() => screen.queryByRole("region", { name: copy.keys }));
   isOpen("a.ts");

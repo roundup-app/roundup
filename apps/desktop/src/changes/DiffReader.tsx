@@ -308,7 +308,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
       focusHost = () => { mount.tabIndex = -1; mount.focus(); };
 
-      // U7692b: V opens the fold nearest the focused line by the click's step.
+      // U7692b: X opens the fold nearest the focused line by the click's step.
       revealNearest = revealerOf(view, fileDiff, selection);
 
       // listener-owner: removed with the rendered diff in the dispose below.
