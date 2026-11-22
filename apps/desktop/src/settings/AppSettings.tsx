@@ -365,8 +365,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; con
         <Tabs.List aria-label={copy.settings}>
           <div class="settings-category" aria-hidden="true">{copy.settingsAgents}</div>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
-          <div class="settings-category" aria-hidden="true">{copy.settingsTerminal}</div>
           <ProjectTab viewed={viewed()} />
+          <div class="settings-category" aria-hidden="true">{copy.settingsTerminal}</div>
           <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsEditor}</div>
           <Tabs.Trigger value="Editor">{copy.settingsEditor}</Tabs.Trigger>

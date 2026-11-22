@@ -429,3 +429,11 @@
 .add-machine-host { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; }
 .add-machine-entry { display: flex; gap: var(--space-2); align-items: center; }
 .add-machine-entry input { flex: 1; min-width: 0; }
+/* U7887: the Project page's form rows sit inset in their group's box, and its groups are spaced like the other pages'. */
+.settings-rows > .app-dialog-form {
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+.settings-content .app-tabs-content > .settings-group + .settings-group {
+  margin-top: var(--space-5);
+}
