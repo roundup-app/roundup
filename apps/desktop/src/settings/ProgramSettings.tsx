@@ -154,7 +154,7 @@ export const ProgramSettings = () => {
 
   const keys = (event: KeyboardEvent) => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } };
 
-  return <SettingsGroup name={copy.program}><div class="app-dialog-form">
+  return <SettingsGroup name={copy.program}><div class="app-dialog-form settings-project-form">
     <ProgramField name="command" label={copy.programCommand} refusal={refusal()} value={command()} setValue={setCommand} ref={element => { commandField = element; }} commit={commit} keys={keys} />
     <ProgramField name="folder" label={copy.programFolder} refusal={refusal()} value={folder()} setValue={setFolder} ref={element => { folderField = element; }} commit={commit} keys={keys} />
     <ProgramField name="adopt" label={copy.programAdopt} refusal={refusal()} value={adopt()} setValue={setAdopt} ref={element => { adoptField = element; }} commit={commit} keys={keys} />
