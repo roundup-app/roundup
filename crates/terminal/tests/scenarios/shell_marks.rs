@@ -190,3 +190,48 @@ async fn x15_other_shells_and_spawned_programs_get_no_injection() {
         "{printed:?}"
     );
 }
+
+#[tokio::test]
+async fn u7889c_a_shell_is_claimed_once_while_its_prompt_is_free_and_again_after_the_command() {
+    let Some(shell) = shell_path("bash") else {
+        println!("skipped: bash not installed");
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let mut spawned = terminals
+        .spawn_shell_owned(
+            &dir.path().to_string_lossy(),
+            &shell,
+            "agent",
+            home(dir.path()),
+            (80, 24),
+        )
+        .await
+        .unwrap();
+    let mut out = Output {
+        stream: &mut spawned.output,
+        printed: String::new(),
+        seen: 0,
+    };
+
+    assert_eq!(terminals.claim_free_shell("agent"), None, "no prompt yet");
+    out.until("\x1b]133;B\x07").await;
+    assert_eq!(terminals.claim_free_shell("other"), None, "another owner's");
+    assert_eq!(
+        terminals.claim_free_shell("agent"),
+        Some(spawned.id.clone())
+    );
+    assert_eq!(
+        terminals.claim_free_shell("agent"),
+        None,
+        "claimed shell is busy"
+    );
+    terminals.write(&spawned.id, b"true\r").await.unwrap();
+    out.until("\x1b]133;D;0\x07").await;
+    out.until("\x1b]133;B\x07").await;
+    assert_eq!(
+        terminals.claim_free_shell("agent"),
+        Some(spawned.id.clone())
+    );
+}
