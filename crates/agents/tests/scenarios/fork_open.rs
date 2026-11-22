@@ -371,20 +371,27 @@ mod update_keeps_runs {
         ack(&f, &ws, "startup").await;
         let agent = f.spawn(None, None).await.unwrap().base.id;
         ack(&f, &agent, "startup").await;
+        launched(&f, 1).await;
         resumed(&f, "rail.startDoor", &ws).await;
         resumed(&f, "agent.resume", &agent).await;
-        // The fake `claude` logs its launch once its shell runs, after the Terminal is reported
-        // started: count the four launches only when all four have logged, or a late line reads
-        // as a launch the reopen made.
+        launched(&f, 2).await;
+        (f, ws, agent)
+    }
+
+    /// Waits until `n` launch lines are logged. The fake `claude` logs its line once its shell
+    /// runs, after the Terminal is reported started, so a start or resume returns before its line
+    /// lands; a line landing after UKR2 samples `launches` would read as a reopen launch. Waiting
+    /// after each launching step, not once at the end, since a resume may stop the old program before
+    /// its `echo` runs. A Door's program logs no line.
+    async fn launched(f: &Fixture, n: usize) {
         let mut tick = tokio::time::interval(std::time::Duration::from_millis(10));
         tokio::time::timeout(std::time::Duration::from_secs(10), async {
-            while launches(&f) < 4 {
+            while launches(f) < n {
                 tick.tick().await;
             }
         })
         .await
-        .expect("the four launches log in time");
-        (f, ws, agent)
+        .unwrap_or_else(|_| panic!("launch line {n} logs in time"));
     }
 
     fn record(f: &Fixture, id: &str) -> serde_json::Value {
