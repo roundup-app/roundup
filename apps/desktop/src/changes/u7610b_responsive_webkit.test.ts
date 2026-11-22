@@ -57,6 +57,8 @@ const longestBlock = async (type: BrowserType) => {
 
     await page.click(".changes-icon");
     await page.waitForSelector(".changes-side .changes-tree [data-row]");
+    // The view opens on the Overview and draws no diff (U7679c): the beat chooses the module that holds the big file.
+    await page.click('.changes-side .changes-tree [data-row="module"]');
     await page.waitForTimeout(500);
 
     return await beat.evaluate(gaps => gaps.longest);

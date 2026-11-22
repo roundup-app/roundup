@@ -169,7 +169,9 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void>; areas: stri
         window.__fake.setStatus("agent-1", "idle", "idle");
       });
       await page.click(".changes-icon");
-      await page.waitForSelector(".changes-side .changes-tree [data-row]");
+      // The view opens on the Overview and draws no module (U7679c): choose the first module for its scroll.
+      await page.click('.changes-side .changes-tree [data-row="module"]');
+      await page.waitForSelector(".module-scroll");
       // This page mounts the App without main.tsx, so load the sheets and start the scrollbars it would have.
       await page.evaluate('Promise.all([import("/src/sheets.ts"), import("/src/scrollHover.ts")]).then(([, scrollHover]) => scrollHover.trackScrollbars(document))');
     },

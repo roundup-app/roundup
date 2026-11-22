@@ -24,15 +24,30 @@ export const openChanges = async () => {
   action.run();
 };
 
+/** The Changes lists a user sees: another Project's view stays mounted, out of the accessibility tree. */
+const visibleTrees = () => [...document.querySelectorAll<HTMLElement>(".changes-tree")].filter(tree => tree.closest('[aria-hidden="true"], [inert]') === null);
+
 /** U7678a: the list chooses a row the way Space does on the focused one: a module or file row opens its scroll, a noise row opens nothing, and no module folds. */
 export const take = (row: HTMLElement) => {
   row.focus();
   fireEvent.keyDown(row, { key: " " });
 };
 
+/** U7679c: the view opens on the Overview and reads no file, so a test that reads the first module chooses its row, as a user does. */
+export const openFirstModule = async () => take(await waitFor(() => {
+  const row = visibleTrees().at(-1)?.querySelector<HTMLElement>('[data-row="module"]');
+
+  if (!row) throw new Error("No module row");
+
+  return row;
+}));
+
+/** The rows of the newest list whose label says Unfinished work, as "<kind>:<key>". */
+export const marked = () => [...visibleTrees().at(-1)?.querySelectorAll<HTMLElement>("[data-row]") ?? []].flatMap(row => row.getAttribute("aria-label")?.includes(copy.unfinishedWork) ? [`${row.dataset.row}:${row.dataset.key}`] : []);
+
 /** The list's file row for `path` in the newest Changes view: its module unfolds first, by Right, which chooses nothing. */
 export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
-  const list = [...document.querySelectorAll<HTMLElement>(".changes-tree")].at(-1);
+  const list = visibleTrees().at(-1);
 
   for (const folded of list?.querySelectorAll<HTMLElement>('[data-row="module"][aria-expanded="false"]') ?? []) fireEvent.keyDown(folded, { key: "ArrowRight" });
   const row = [...list?.querySelectorAll<HTMLElement>('[data-row="file"]') ?? []].find(each => each.dataset.path === path);
@@ -54,9 +69,8 @@ const shownDiff = () => {
 
 export const waitDiff = () => waitFor(() => { if (!shownDiff()) throw new Error("No diff yet"); });
 
-/** Reads one file's diff in the open Changes view: the first module opens by itself (U7678d), a file is chosen by its row in its module. */
+/** Reads one file's diff in the open Changes view: the view opens on the Overview (U7679c), so a file is chosen by its row in its module. */
 export const openFile = async (path = "src/a.ts") => {
-  await waitDiff();
   const row = await treeRow(path);
 
   shown = path;
@@ -64,6 +78,8 @@ export const openFile = async (path = "src/a.ts") => {
   await waitFor(() => { if (!screen.getAllByText(path, { selector: ".diff-path" }).some(each => each.closest(".diff-reader")?.querySelector(".diff-content"))) throw new Error(`${path} is not drawn`); });
   // The module that was open stays until this one's first screen has painted (U7674e): the view is one scroll only after it leaves.
   await waitFor(() => { if (document.querySelector('.module-slot[data-pending="true"]')) throw new Error(`${path}'s module is still painting`); });
+  // Another Project's view stays mounted until its tab settles: the diff is the one the user sees once this one is reachable.
+  await waitDiff();
   // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
   await new Promise(resolve => setTimeout(resolve, 50));
 };

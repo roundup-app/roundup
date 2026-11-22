@@ -5,7 +5,7 @@ import { message } from "../testing/centreFixture";
 import { storageIdle } from "../state/storage";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { COMPARISON, openBatch, openChanges, openDiff, startNote } from "./noteHarness";
+import { COMPARISON, openBatch, openChanges, openDiff, openFirstModule, startNote } from "./noteHarness";
 import { NoteView } from "./NoteView";
 import { notesFor } from "./notes";
 import type { Label, Note } from "./notes";
@@ -193,6 +193,7 @@ const jumpable = async () => {
 
   mounted.app.handlers["agent.compareFile"] = ({ path }) => gone(path);
   await openChanges();
+  await openFirstModule();
   await screen.findByRole("region", { name: copy.changes });
   await waitFor(() => { if (!document.querySelector(".diff-content")) throw new Error("No diff yet"); });
   await new Promise(resolve => setTimeout(resolve, 50));

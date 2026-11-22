@@ -273,6 +273,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
 | Module (`changes/modules.ts`: a changed file's directory without trailing source and test segments, read from its path) | Modules | — |
+| Lens (`changes/lens.ts`, `Lens`: what the Changes list shows: every module, the modules' logic only or their tests only) | Modules, Logic, Tests | — |
+| Changes overview (`changes/Overview.tsx`, `OVERVIEW`: the first row and pane of every lens, the lens's modules with their counts; not the Rail's `ConversationOverview`) | Overview | — |
 | Reason (`InboxRepeat`: equal to the last entry in the receiving inbox session) | same | — |
 | Card | same | popup |
 | Markdown | same | — |

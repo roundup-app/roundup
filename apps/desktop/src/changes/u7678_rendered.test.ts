@@ -119,6 +119,9 @@ it("u7678e_the_modules_are_captured_for_the_critic", async () => {
     await until(`document.querySelector('.rail-row[data-id="agent-1"] .changes-icon .changes-count')?.textContent === '${served.files.length}'`);
     await browser("click", ".changes-icon");
     await until("!!document.querySelector('.changes-view .changes-side')");
+    // U7679c: the view opens on the Overview and reads no file; this step chooses the first module, as a user does.
+    await until("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+    await browser("click", '.changes-side [data-row="module"]');
   };
 
   const states: { name: string; run: () => Promise<void> }[] = [

@@ -50,6 +50,9 @@ const startNote = async () => { await browser("eval", "document.querySelector('.
 
 const showDiff = async () => {
   await browser("click", ".changes-icon");
+  // U7679c: the view opens on the Overview and reads no file; this step chooses the first module, as a user does.
+  await wait("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+  await browser("click", '.changes-side [data-row="module"]');
   await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')");
 };
 

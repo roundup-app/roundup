@@ -1,8 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { COMPARISON, openChanges, take, treeRow, startNote, waitDiff } from "./noteHarness";
+import { COMPARISON, openChanges, openFirstModule, take, treeRow, startNote, waitDiff } from "./noteHarness";
 import { mountControl, WORKTREE } from "./harness";
-import { diffsLoaded } from "./diffDraw";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
@@ -24,6 +23,7 @@ const open = async (changed: () => { files: ChangedFile[] } = () => FILES) => {
 
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   await openChanges();
+  await openFirstModule();
   await screen.findByRole("region", { name: "Changes" });
 
   return mounted;
@@ -42,16 +42,6 @@ const absent = (query: () => HTMLElement | null) => expect(query()).toBeNull();
 
 // SAFETY: every agent.compareFile call carries a `path`.
 const compared = (app: Awaited<ReturnType<typeof open>>["app"]) => app.calls.filter(call => call.method === "agent.compareFile").map(call => (call.params as { path: string }).path);
-
-it("u7678d_the_view_opens_on_the_first_module_at_its_top", async () => {
-  await open();
-
-  await showing("src/a.ts");
-  const row = document.querySelector<HTMLElement>('[data-row="module"]');
-
-  await waitFor(() => expect(document.activeElement).toBe(row));
-  expect(row?.getAttribute("aria-selected")).toBe("true");
-});
 
 it("u7674a_the_tree_stays_while_a_file_is_open", async () => {
   await open();
@@ -145,10 +135,8 @@ it("u7674e_choosing_a_value_opens_its_first_file", async () => {
 
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "t.ts", status: "modified", line: 1, counts: null, blob: null }] });
   fireEvent.click(await screen.findByRole("radio", { name: "Tree" }));
-  await showing("t.ts");
+  // U7679c: the new value opens the Overview, and no file is read until a module is chosen.
+  await screen.findByRole("region", { name: "Overview" });
+  expect(compared(app)).not.toContain("t.ts");
 });
 
-it("u7674e_the_reader_loads_when_the_view_opens", async () => {
-  await open();
-  await waitFor(() => expect(diffsLoaded()).toBe(true));
-});

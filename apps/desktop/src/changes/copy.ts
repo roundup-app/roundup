@@ -14,7 +14,15 @@ export const copy = {
   saving: sharedCopy.saving,
   changes: "Changes",
   topLevel: "Top level",
-  modules: "Modules",
+  /** U7679a: the switch at the top of the list, its segments and the first row of every lens (U7679c). */
+  lens: "Lens",
+  lenses: { modules: "Modules", logic: "Logic", tests: "Tests" },
+  overview: sharedCopy.overview,
+  findFile: "Find a file",
+  /** @prose */
+  noChangesIn: (lens: string) => `No changes in ${lens}`,
+  /** @prose */
+  noFileMatches: (letters: string, lens: string) => `No file matches ${letters} in ${lens}`,
   generated: "Generated",
   lockfiles: "Lockfiles",
   filesCount: filesOf,
@@ -77,13 +85,17 @@ export const copy = {
   keys: "Keys",
   keysList: [
     /** @prose */
-    "Up and Down move between modules.",
+    "Up and Down move between the Overview and the modules.",
     /** @prose */
     "Left and Right fold or unfold a module.",
     /** @prose */
     "Tab goes from the list to the diff.",
     /** @prose */
-    "J and K go to the next or previous module.",
+    "J and K go to the Overview, then each module.",
+    /** @prose */
+    "L opens the next lens, Shift-L the previous.",
+    /** @prose */
+    "/ finds a file by name.",
     /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
@@ -91,7 +103,7 @@ export const copy = {
     /** @prose */
     "Enter opens the file in the editor.",
     /** @prose */
-    "Esc closes this list, then the view.",
+    "Esc closes this list, then the find, then the view.",
     /** @prose */
     "N adds a note at the focused line or selected range.",
     /** @prose */

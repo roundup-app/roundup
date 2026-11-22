@@ -5,7 +5,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { FileContent } from "@contracts/agent/FileContent";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { COMPARISON, openChanges, take, treeRow } from "./noteHarness";
+import { COMPARISON, openChanges, openFirstModule, take, treeRow } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -49,13 +49,14 @@ const absent: FileContent = { kind: "absent", revision: "absent" };
 
 let project = 0;
 
-/** Opens the Changes view over `answers`, one comparison per path; the first file opens by itself. */
+/** Opens the Changes view over `answers`, one comparison per path, and chooses the first module (U7679c). */
 const open = async (answers: Record<string, Partial<FileComparison>>) => {
   project += 1;
   const mounted = await mountControl(() => ({ files: Object.keys(answers).map(entry) }), `/p-img${project}`);
 
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path, ...answers[path] });
   await openChanges();
+  await openFirstModule();
   await screen.findByRole("region", { name: copy.changes });
 
   return mounted;

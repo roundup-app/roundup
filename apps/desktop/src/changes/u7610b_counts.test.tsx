@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
-import { COMPARISON, treeRow } from "./noteHarness";
+import { COMPARISON, openFirstModule, treeRow } from "./noteHarness";
 
 let reported: (targets: Element[]) => void = () => {};
 
@@ -57,6 +57,7 @@ it("u7678c_opening_a_module_reads_only_the_files_its_first_screen_shows", async 
   // SAFETY: `agent.compareFile` calls carry `{ path }` params.
   const compared = () => app.calls.filter(call => call.method === "agent.compareFile").map(call => (call.params as { path: string }).path);
 
+  await openFirstModule();
   await waitFor(() => expect(compared()).toEqual([names[0]]));
   const sections = [...document.querySelectorAll<HTMLElement>(".module-scroll [data-path]")];
 

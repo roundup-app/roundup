@@ -64,6 +64,7 @@ const observerTable = {
   "src/changes/u7677_rendered.test.ts": ["U7677f"],
   "src/changes/u7678_rendered.test.ts": ["U7678e"],
   "src/changes/u7854_rendered.test.ts": ["U7854f"],
+  "src/changes/u7679_rendered.test.ts": ["U7679f"],
   "src/changes/u7690_rendered.test.ts": ["U7690d"],
   "src/changes/u7693_rendered.test.ts": ["U7693d"],
   "src/drawer/u3010b_rendered.test.ts": ["U3010b"],

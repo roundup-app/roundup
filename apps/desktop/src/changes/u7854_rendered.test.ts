@@ -91,6 +91,12 @@ it("u7854f_the_changes_layout_is_captured_for_the_critic", async () => {
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
     await until("!!document.querySelector('.changes-view .changes-side')");
+
+    // U7679c: the view opens on the Overview and reads no file; a listing that read fails has no module to choose.
+    if (!failing) {
+      await until("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+      await browser("click", '.changes-side [data-row="module"]');
+    }
   };
 
   const unfold = async () => {

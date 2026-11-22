@@ -3,7 +3,7 @@ import { copy } from "./copy";
 import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, noteList, openBatch, openDiff, openFile, saveNote, startNote, treeRow } from "./noteHarness";
+import { COMPARISON, marked, noteList, openBatch, openDiff, openFile, saveNote, startNote, treeRow } from "./noteHarness";
 import { afterEach, expect, it, vi } from "vitest";
 import { VirtualizedFileDiff } from "@pierre/diffs";
 import { storageIdle } from "../state/storage";
@@ -144,9 +144,6 @@ it("u7676c_unfinished_work_survives_a_file_switch", async () => {
   await waitFor(() => expect(document.querySelector("diffs-container")).not.toBeNull());
   expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.flatMap(([input]) => input?.lineAnnotations ?? []).some(entry => "unfinished" in entry.metadata)).toBe(true);
 });
-
-/** The rows of the newest list whose label says Unfinished work, as "<kind>:<key>". */
-const marked = () => [...[...document.querySelectorAll(".changes-tree")].at(-1)?.querySelectorAll<HTMLElement>("[data-row]") ?? []].flatMap(row => row.getAttribute("aria-label")?.includes(copy.unfinishedWork) ? [`${row.dataset.row}:${row.dataset.key}`] : []);
 
 it("u7678a_unfinished_work_marks_its_module_row_or_its_noise_row", async () => {
   const files = ["src/a.ts", "src/deep/b.ts", "yarn.lock"].map(path => ({ path, status: "modified" as const, line: 1, counts: null, blob: null }));
