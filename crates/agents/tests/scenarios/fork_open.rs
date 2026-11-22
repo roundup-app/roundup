@@ -369,12 +369,14 @@ mod update_keeps_runs {
         let ws = f.workstream("ws", None).await;
         f.call("rail.startDoor", json!({"id": ws})).await.unwrap();
         ack(&f, &ws, "startup").await;
+        launched(&f, 1).await;
         let agent = f.spawn(None, None).await.unwrap().base.id;
         ack(&f, &agent, "startup").await;
-        launched(&f, 1).await;
-        resumed(&f, "rail.startDoor", &ws).await;
-        resumed(&f, "agent.resume", &agent).await;
         launched(&f, 2).await;
+        resumed(&f, "rail.startDoor", &ws).await;
+        launched(&f, 3).await;
+        resumed(&f, "agent.resume", &agent).await;
+        launched(&f, 4).await;
         (f, ws, agent)
     }
 
@@ -382,7 +384,7 @@ mod update_keeps_runs {
     /// runs, after the Terminal is reported started, so a start or resume returns before its line
     /// lands; a line landing after UKR2 samples `launches` would read as a reopen launch. Waiting
     /// after each launching step, not once at the end, since a resume may stop the old program before
-    /// its `echo` runs. A Door's program logs no line.
+    /// its `echo` runs. A Door starts the same fake `claude`, so each of the four steps adds one line.
     async fn launched(f: &Fixture, n: usize) {
         let mut tick = tokio::time::interval(std::time::Duration::from_millis(10));
         tokio::time::timeout(std::time::Duration::from_secs(10), async {
