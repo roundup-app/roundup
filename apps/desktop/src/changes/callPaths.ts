@@ -1,6 +1,5 @@
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import type { CallPaths } from "@contracts/agent/CallPaths";
-import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { LanguageRow } from "@contracts/agent/LanguageRow";
 import type { Events } from "../app/events";
 import { failureOf } from "../app/failureOf";
@@ -14,8 +13,8 @@ const MANUAL = "rust";
 
 const TURN_ENDS = ["done", "idle", "error"];
 
-/** U7683f: what a language's trace ended as; a finished one keeps the blob each file it names had when it was asked. */
-type Result = { kind: "done"; answer: Done; blobs: ReadonlyMap<string, string | null> } | { kind: "noServer" } | { kind: "failed"; cause: string };
+/** U7683f: what a language's trace ended as. */
+type Result = { kind: "done"; answer: Done } | { kind: "noServer" } | { kind: "failed"; cause: string };
 
 /** U7683f: the line a language shows, with the button it offers, if any. */
 export type Line = { language: string; files: number; state: "tracing" | "untraced" | "noServer" | "failed" | "dim"; cause: string | undefined; action: "trace" | "retry" | undefined };
@@ -26,55 +25,54 @@ type Held = { answer: CallPaths | undefined };
 
 const lineOf = (row: LanguageRow, state: Line["state"], action: Line["action"] = undefined, cause: string | undefined = undefined): Line => ({ language: row.language, files: row.files, state, action, cause });
 
-const resultOf = (answer: CallPaths, seen: ReadonlyMap<string, string | null>): Result => {
+const resultOf = (answer: CallPaths): Result => {
   if ("languages" in answer) return { kind: "failed", cause: "unexpected_answer" };
 
-  if (answer.state === "done") return { kind: "done", answer, blobs: new Map(answer.symbols.map(symbol => [symbol.path, seen.get(symbol.path) ?? null])) };
+  if (answer.state === "done") return { kind: "done", answer };
 
-  return answer.state === "noServer" ? { kind: "noServer" } : { kind: "failed", cause: answer.cause.detail };
+  return answer.state === "noServer" ? NO_SERVER : { kind: "failed", cause: answer.cause.detail };
 };
 
 /**
  * U7683b: the call paths of the open comparison. The lookup and each language's trace are `agent.callPaths`: once the listing is ready the lookup asks, every language but Rust traces, and Rust traces on `trace`.
- * A new `to` or `reset` (the merge base moved) ends what ran: its answers are dropped, since the Daemon cannot be stopped, and the lookup asks again. A written file dims the language that names it, and a turn's end traces a dimmed language again once, never Rust.
+ * A new `to` or `reset` (the merge base moved) ends what ran: its answers are dropped, since the Daemon cannot be stopped, and the lookup asks again.
+ * A write of the Agent dims every finished language until it is traced again, and a turn's end traces a dimmed language once, never Rust.
  */
-export const createCallPaths = (input: { app: AppSeam; events: Events; id: string; to: () => "tree" | "branch" | null; files: () => readonly ChangedFile[]; ready: () => boolean }) => {
+export const createCallPaths = (input: { app: AppSeam; events: Events; id: string; to: () => "tree" | "branch" | null; ready: () => boolean }) => {
   const [rows, setRows] = createSignal<readonly LanguageRow[]>([]);
   const [results, setResults] = createSignal<ReadonlyMap<string, Result>>(new Map());
   const [pending, setPending] = createSignal<ReadonlySet<string>>(new Set());
+  const [stale, setStale] = createSignal<ReadonlySet<string>>(new Set());
   const [lookup, setLookup] = createSignal<{ failed: string } | undefined>();
-  const blobs = createMemo(() => new Map(input.files().map(file => [file.path, file.blob])));
   const late = createLate(() => pending().size > 0 && [...pending()].sort().join());
   let generation = 0;
-  let written = false;
 
-  const settle = (language: string, result: Result | undefined) => {
+  const settle = (language: string, result: Result) => {
     setPending(before => new Set([...before].filter(each => each !== language)));
-
-    if (result) setResults(before => new Map(before).set(language, result));
+    setResults(before => new Map(before).set(language, result));
   };
 
   /** One `agent.callPaths` request; its answer counts only while the comparison is the one it was asked for. */
   const ask = async (language: string | undefined) => {
     const to = input.to();
     const mine = generation;
-    const seen = blobs();
     const held: Held = { answer: undefined };
 
     if (!to) return undefined;
 
     const failure = await failureOf(async () => { held.answer = await input.app.rpc("agent.callPaths", language === undefined ? { id: input.id, to } : { id: input.id, to, language }); });
 
-    return mine === generation ? { failure, answer: held.answer, seen } : undefined;
+    return mine === generation ? { failure, answer: held.answer } : undefined;
   };
 
   const trace = async (language: string) => {
     if (pending().has(language)) return;
     setPending(before => new Set(before).add(language));
+    setStale(before => new Set([...before].filter(each => each !== language)));
 
     const got = await ask(language);
 
-    if (got) settle(language, got.failure !== null || !got.answer ? { kind: "failed", cause: got.failure ?? "no_answer" } : resultOf(got.answer, got.seen));
+    if (got) settle(language, got.failure !== null || !got.answer ? { kind: "failed", cause: got.failure ?? "no_answer" } : resultOf(got.answer));
   };
 
   const start = async () => {
@@ -94,10 +92,10 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
 
   const clear = () => {
     generation += 1;
-    written = false;
     setRows([]);
     setResults(new Map());
     setPending(new Set<string>());
+    setStale(new Set<string>());
     setLookup(undefined);
   };
 
@@ -125,20 +123,11 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
     if (ready && to && !begun) begin();
   });
 
-  const dimmed = (language: string) => {
-    const result = results().get(language);
-
-    return result?.kind === "done" && [...result.blobs].some(([path, blob]) => blobs().get(path) !== blob);
-  };
-
   const stop = input.events.subscribe(event => {
-    if (event.name === "agent.toolCall" && event.data.id === input.id && WRITING.has(event.data.call.tool) && event.data.call.state !== "running") written = true;
-    else if (event.name === "agent.status" && event.data.id === input.id && TURN_ENDS.includes(event.data.status.kind)) {
-      const wrote = written;
-
-      written = false;
-
-      untrack(() => { for (const [language, result] of results()) if (language !== MANUAL && result.kind === "done" && (wrote || dimmed(language))) void trace(language); });
+    if (event.name === "agent.toolCall" && event.data.id === input.id && WRITING.has(event.data.call.tool) && event.data.call.state !== "running") {
+      untrack(() => setStale(new Set([...results()].flatMap(([language, result]) => result.kind === "done" ? [language] : []))));
+    } else if (event.name === "agent.status" && event.data.id === input.id && TURN_ENDS.includes(event.data.status.kind)) {
+      untrack(() => { for (const language of stale()) if (language !== MANUAL) void trace(language); });
     }
   });
 
@@ -155,14 +144,14 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
 
     if (result === undefined && row.language === MANUAL) return [lineOf(row, "untraced", "trace")];
 
-    return dimmed(row.language) ? [lineOf(row, "dim", row.language === MANUAL ? "trace" : undefined)] : [];
+    return stale().has(row.language) ? [lineOf(row, "dim", row.language === MANUAL ? "trace" : undefined)] : [];
   }));
 
   /** The finished traces, whose flows the list draws. */
   const done = createMemo(() => [...results().values()].flatMap(result => result.kind === "done" ? [result.answer] : []));
 
-  /** The languages whose finished trace names a file that changed since. */
-  const dim = createMemo(() => [...results().entries()].flatMap(([language, result]) => result.kind === "done" && dimmed(language) ? [{ language, answer: result.answer }] : []));
+  /** The finished traces a write has dimmed. */
+  const dim = createMemo(() => [...results()].flatMap(([language, result]) => result.kind === "done" && stale().has(language) ? [result.answer] : []));
 
   return {
     lines,

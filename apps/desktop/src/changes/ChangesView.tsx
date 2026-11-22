@@ -274,11 +274,11 @@ const Surface = (props: { id: string; name: string }) => {
   const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
   // U7683b: the call paths wait for the listing to be ready, and a new `to` asks again.
-  const calls = createCallPaths({ app, events, id: untrack(() => props.id), to: own, files, ready: () => !pending() && failure() === null && files().length > 0 });
+  const calls = createCallPaths({ app, events, id: untrack(() => props.id), to: own, ready: () => !pending() && failure() === null && files().length > 0 });
 
   const lensed = createLensed(files, calls.done);
 
-  const dimmed = createMemo(() => new Set(calls.dim().flatMap(({ answer }) => answer.flows.map(flow => moduleKey(flowName(flow.entry))))));
+  const dimmed = createMemo(() => new Set(calls.dim().flatMap(answer => answer.flows.map(flow => moduleKey(flowName(flow.entry))))));
 
   const listing = () => lensed()(lens());
 
