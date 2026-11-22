@@ -3,6 +3,7 @@ import { createTreeController, TreeItem, type TreeItemData } from "@ui-sdk/solid
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { AppTree } from "../ui/TreeView";
 import { copy } from "./copy";
+import { OVERVIEW, type Lens } from "./lens";
 import type { Grouped, NoiseKind } from "./modules";
 import { isNew, statusText } from "./paths";
 
@@ -13,25 +14,34 @@ export const noiseKey = (path: string) => `n:${path}`;
 
 const noiseName: Record<NoiseKind, string> = { generated: copy.generated, lockfile: copy.lockfiles };
 
-const Counts = (props: { added: number; removed: number }) => <span class="changes-row-counts">{copy.addedLines(props.added)} {copy.removedLines(props.removed)}</span>;
+export const Counts = (props: { added: number; removed: number }) => <span class="changes-row-counts">{copy.addedLines(props.added)} {copy.removedLines(props.removed)}</span>;
 
-const Name = (props: { text: string }) => <span class="changes-row-name">{props.text}</span>;
+export const Name = (props: { text: string }) => <span class="changes-row-name">{props.text}</span>;
 
 /** A file row's tree value: its path under the module that holds it. */
-const fileValue = (path: string) => `f:${path}`;
+export const fileValue = (path: string) => `f:${path}`;
 
-const kindValue = (kind: NoiseKind) => `k:${kind}`;
+export const kindValue = (kind: NoiseKind) => `k:${kind}`;
 
-const treeItems = (grouped: Grouped): TreeItemData[] => [
+const treeItems = (grouped: Grouped, overview: boolean): TreeItemData[] => [
+  ...overview ? [{ value: OVERVIEW, label: copy.overview }] : [],
   ...grouped.modules.map(module => ({ value: moduleKey(module.name), label: module.name, children: module.files.map(file => ({ value: fileValue(file.path), label: file.path })) })),
   ...grouped.noise.map(noise => ({ value: kindValue(noise.kind), label: noiseName[noise.kind], children: noise.files.map(file => ({ value: noiseKey(file.path), label: file.path })) })),
 ];
 
-/** U7678a, U7678b: the change as modules in path order, each folded to its files, and a quiet row for each noise kind; a module row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). */
-export const ChangedTree = (props: { grouped: Grouped; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; controls?: (controls: { focus: (key: string) => void }) => void }) => {
+/** The tree value of the row that holds focus, if one does. */
+const focusedValue = (): string | undefined => {
+  const row = document.activeElement instanceof Element ? document.activeElement.closest<HTMLElement>(".changes-tree [data-row]") : null;
+  const { row: kind, key, path } = row?.dataset ?? {};
+
+  return kind === "file" && path !== undefined && !key?.startsWith("n:") ? fileValue(path) : key;
+};
+
+/** U7678a, U7678b, U7679c: the Overview row, then the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, the Overview row gone. */
+export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
-  const open = (value: string) => expanded().includes(value);
+  const open = (value: string) => props.finding || expanded().includes(value);
 
   const marked = (files: readonly ChangedFile[]) => files.some(file => props.unfinished.has(file.path));
 
@@ -44,6 +54,8 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
   const choose = (value: string | null) => {
     if (value === null) return;
 
+    if (value === OVERVIEW) return props.onChoose(OVERVIEW);
+
     const owner = owners().get(value);
 
     if (owner !== undefined) props.onChoose(owner, value.slice(2));
@@ -51,7 +63,7 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
     else if (value.startsWith("n:")) props.onChoose(value, value.slice(2));
   };
 
-  createEffect(() => props.controls, controls => controls?.({ focus: key => controller.focus(key) }));
+  createEffect(() => props.controls, controls => controls?.({ focus: key => controller.focus(key), focused: focusedValue }));
 
   // Opening lands focus on the open row, so Escape and the keys act from the list.
   onSettled(() => { if (props.selected) controller.focus(props.selected); });
@@ -63,11 +75,16 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
     <Show when={each.file.counts}>{counts => <Counts added={counts().added} removed={counts().removed} />}</Show>
   </TreeItem>;
 
-  return <AppTree class="changes-tree" aria-label={copy.modules} items={treeItems(props.grouped)} controller={controller} activation="automatic" expanded={expanded()} onExpandedChange={setExpanded} value={props.selected ?? null} onValueChange={choose}>
+  return <AppTree class="changes-tree" aria-label={copy.lenses[props.lens]} items={treeItems(props.grouped, !props.finding)} controller={controller} activation="automatic" expanded={props.finding ? treeItems(props.grouped, false).map(item => item.value) : expanded()} onExpandedChange={next => { if (!props.finding) setExpanded(next); }} value={props.selected ?? null} onValueChange={choose}>
+    <Show when={!props.finding}>
+      <TreeItem value={OVERVIEW} class="changes-row row-wash" data-row="overview" data-key={OVERVIEW} aria-label={copy.overview}>
+        <Name text={copy.overview} />
+      </TreeItem>
+    </Show>
     <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
-      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} aria-label={label(copy.rowLabel(module().name, copy.filesCount(module().files.length)), module().files)}>
+      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} aria-label={label(copy.rowLabel(module().name, copy.filesCount(module().total)), module().files)}>
         <Name text={module().name} />
-        <span class="changes-row-files">{copy.filesCount(module().files.length)}</span>
+        <span class="changes-row-files">{copy.filesCount(module().total)}</span>
         <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
       </TreeItem>
       <Show when={open(moduleKey(module().name))}>
@@ -75,8 +92,8 @@ export const ChangedTree = (props: { grouped: Grouped; selected: string | undefi
       </Show>
     </>}</For>
     <For each={props.grouped.noise}>{noise => <>
-      <TreeItem value={kindValue(noise.kind)} class="changes-row changes-noise row-wash row-wash-inert" data-row="noise" data-key={kindValue(noise.kind)} aria-label={label(copy.noiseRow(noiseName[noise.kind], noise.files.length), noise.files)}>
-        <Name text={copy.noiseRow(noiseName[noise.kind], noise.files.length)} />
+      <TreeItem value={kindValue(noise.kind)} class="changes-row changes-noise row-wash row-wash-inert" data-row="noise" data-key={kindValue(noise.kind)} aria-label={label(copy.noiseRow(noiseName[noise.kind], noise.total), noise.files)}>
+        <Name text={copy.noiseRow(noiseName[noise.kind], noise.total)} />
       </TreeItem>
       <Show when={open(kindValue(noise.kind))}>
         <For each={noise.files}>{file => <File file={file} value={noiseKey(file.path)} key={noiseKey(file.path)} owner={kindValue(noise.kind)} noise />}</For>

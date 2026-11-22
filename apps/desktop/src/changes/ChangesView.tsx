@@ -16,7 +16,10 @@ import { notesFor } from "./notes";
 import { createEditor } from "./editor";
 import { createLate } from "./late";
 import { ChangedTree, moduleKey, noiseKey } from "./ChangedTree";
-import { groupModules } from "./modules";
+import { createFind, FindField } from "./Find";
+import { groupLens, lensAfter, LENSES, OVERVIEW, type Lens } from "./lens";
+import { noiseOf, type Grouped } from "./modules";
+import { Overview } from "./Overview";
 import type { DiffKeys } from "./DiffReader";
 import { createJump } from "./NoteBatch";
 import "./styles.css";
@@ -26,14 +29,15 @@ const ModuleScroll = lazy(() => loadReader().then(module => ({ default: module.M
 /** U7674b: the shown listing's totals; a `null` count adds nothing. */
 const totalsOf = (files: readonly ChangedFile[]) => files.reduce((sum, file) => ({ added: sum.added + (file.counts?.added ?? 0), removed: sum.removed + (file.counts?.removed ?? 0) }), { added: 0, removed: 0 });
 
-/** U7675c: the file after `gone` in `before` that `list` still holds, else the nearest one before it. */
+/** U7675c, U7679c: the row after `gone` in `before` that `list` still holds, else the nearest one before it; a module's is a module or the Overview, never a noise file. */
 const neighbourOf = (before: readonly string[], list: readonly string[], gone: string) => {
-  const at = before.indexOf(gone);
+  const pool = gone.startsWith("n:") ? before : before.filter(each => !each.startsWith("n:"));
+  const at = pool.indexOf(gone);
 
-  return before.slice(at + 1).find(each => list.includes(each)) ?? before.slice(0, at).reverse().find(each => list.includes(each));
+  return pool.slice(at + 1).find(each => list.includes(each)) ?? pool.slice(0, at).reverse().find(each => list.includes(each));
 };
 
-/** U7675c: the open file that leaves the listing: its name until the reader acts, and `leave` told its neighbour in tree order. */
+/** U7675c, U7679c: the open item that leaves the listing: its name until the reader acts, and `leave` told its neighbour in tree order. */
 const createLeaving = (watch: () => { list: string[]; key: string }, open: () => string | undefined, leave: (neighbour: string | undefined) => void) => {
   const [left, setLeft] = createSignal<string>();
   let before: string[] = [];
@@ -41,11 +45,12 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
 
   createEffect(watch, ({ list, key }) => {
     const chosen = untrack(open);
-    const was = chosen !== undefined && before.includes(chosen) ? chosen : before[0];
+    const was = chosen !== undefined && before.includes(chosen) ? chosen : undefined;
     const gone = key === source && was !== undefined && !list.includes(was) ? was : undefined;
 
     if (gone !== undefined) {
-      setLeft(gone);
+      // The Overview leaves only with the last file: the view's empty state shows, and the view takes focus.
+      if (gone !== OVERVIEW) setLeft(gone);
       leave(neighbourOf(before, list, gone));
     } else if (key !== source) setLeft(undefined);
 
@@ -56,11 +61,14 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
+type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
   { chords: ["k"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(-1); } },
+  { chords: ["l"], when: event => !typing(event), run: event => { event.preventDefault(); actions.lens(1); } },
+  { chords: ["Shift+l"], when: event => !typing(event), run: event => { event.preventDefault(); actions.lens(-1); } },
+  { chords: ["/"], when: event => !typing(event), run: event => { event.preventDefault(); actions.find(); } },
   { chords: ["]"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(1); } },
   { chords: ["["], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(-1); } },
   { chords: ["v"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.reveal(); } },
@@ -76,7 +84,7 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   } },
   { chords: ["g"], when: event => !typing(event), run: event => { event.preventDefault(); actions.jump(); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
-  { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.diff()?.focus(); } },
+  { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.enter(); } },
 ]);
 
 /** The targets a comparison can end on: a Tree and a Branch only for an Agent with a Worktree. */
@@ -98,27 +106,35 @@ const typing = (event: KeyboardEvent) => event.target instanceof Element && even
 
 type Memory = ReturnType<ReturnType<typeof useConnectedProject>["changePlaces"]["of"]>;
 
-/** U7675f, U7678c: each file's place, and each module's scroll, kept in the connection's memory. */
-const placesOf = (memory: Memory) => ({
+/** U7675f, U7678c, U7679a: each file's place, and each module's scroll, kept in the connection's memory; `at` names a place's key, by lens for a module's and plain for a noise file's. */
+const placesOf = (memory: Memory, at: (key: string) => string) => ({
   places: {
-    get: (file: string) => memory.places.get(file),
-    set: (file: string, place: NonNullable<ReturnType<typeof memory.places.get>>) => { memory.places.set(file, place); },
+    get: (file: string) => memory.places.get(at(file)),
+    set: (file: string, place: NonNullable<ReturnType<typeof memory.places.get>>) => { memory.places.set(at(file), place); },
   },
   scroll: (key: string) => ({
-    get: () => memory.places.get(key)?.scroll,
-    set: (top: number) => { memory.places.set(key, { revision: "", scroll: top, selection: { side: "new", start: 1, end: 1 } }); },
+    get: () => memory.places.get(at(key))?.scroll,
+    set: (top: number) => { memory.places.set(at(key), { revision: "", scroll: top, selection: { side: "new", start: 1, end: 1 } }); },
   }),
 });
 
-type Pane = { key: string; source: string };
+/** A pane's `lens` is the one its item was opened in, and none for a noise file, the same diff in every lens. The Overview is a pane and holds no scroll. */
+const lensSegments = LENSES.map(value => ({ value, label: copy.lenses[value] }));
+
+/** U7679a: a place's key in the memory: by lens for a file and a module's scroll, plain for a noise file, the same in every lens. */
+const placeAt = (each: Lens) => (key: string) => key.startsWith("n:") || noiseOf(key) !== undefined ? key : `${each}|${key}`;
+
+type Pane = { key: string; lens: Lens | undefined; source: string };
+
+const lensOf = (pane: Pane): Lens => pane.lens ?? "modules";
 
 /** U7674e: the module that was open stays until the next one's first screen has painted. A module of another comparison is another scroll, though it keeps its name. */
-const createPanes = (opened: () => string | undefined, source: () => string) => {
+const createPanes = (opened: () => string | undefined, lens: () => Lens, source: () => string) => {
   const view = createMemo(() => {
     const key = opened();
 
-    return key === undefined ? undefined : { key, source: source() };
-  }, { equals: (a, b) => a?.key === b?.key && a?.source === b?.source });
+    return key === undefined ? undefined : { key, lens: key.startsWith("n:") ? undefined : lens(), source: source() };
+  }, { equals: (a, b) => a?.key === b?.key && a?.lens === b?.lens && a?.source === b?.source });
 
   const [panes, setPanes] = createSignal<Pane[]>([]);
 
@@ -127,11 +143,11 @@ const createPanes = (opened: () => string | undefined, source: () => string) => 
   return { panes, ready: (pane: Pane) => setPanes(list => list.includes(pane) && list.at(-1) !== list[0] ? list.slice(list.indexOf(pane)) : list) };
 };
 
-/** Escape closes the keys list first, else the view unless a note field holds it. */
-const escapeKey = (event: KeyboardEvent, help: boolean, setHelp: (on: boolean) => void, close: () => void) => {
+/** Escape closes the keys list first, then the find, else the view unless a note field holds it. */
+const escapeKey = (event: KeyboardEvent, help: boolean, setHelp: (on: boolean) => void, finding: boolean, closeFind: () => void, close: () => void) => {
   if (event.key !== "Escape" || event.defaultPrevented || typing(event)) return;
 
-  if (help) setHelp(false); else close();
+  if (help) setHelp(false); else if (finding) closeFind(); else close();
 };
 
 /** U7672d: the Agent's Worktree and the compare target its remembered pick names. */
@@ -161,6 +177,66 @@ const createTarget = (id: () => string) => {
   return { worktree, target, own };
 };
 
+/** U7675a: the comparison's own answer, whichever read made it: the Daemon's changes for a Tree or Branch target, else the Agent's owned changes. */
+const createComparison = (id: () => string, own: () => "tree" | "branch" | null, groupFiles: () => readonly ChangedFile[] | undefined) => {
+  const { app, owned } = useConnectedProject();
+
+  const [listed] = createSignal<{ failure: string | null; files: ChangedFile[] } | undefined>(async () => {
+    const to = own();
+
+    if (!to) return undefined;
+    let files: ChangedFile[] = [];
+    const failure = await failureOf(async () => { files = (await app.rpc("agent.changedFiles", { id: id(), to })).files; });
+
+    return { failure, files };
+  }, { loadingValue: undefined });
+
+  const files = (): readonly ChangedFile[] => own() ? listed()?.files ?? [] : groupFiles() ?? [];
+  const pending = () => own() ? listed() === undefined : owned.read(id()) === undefined;
+  const failure = () => own() ? listed()?.failure ?? null : owned.read(id())?.failure ?? null;
+  const late = createLate(pending);
+
+  // The Daemon names a Worktree whose folder is gone with `worktree_missing` (code NOT_FOUND); any other failure keeps its own cause.
+  const missing = () => (failure() ?? "").startsWith("worktree_missing");
+  const [checked, setChecked] = createSignal(false);
+  let asked = false;
+
+  createEffect(() => own() ? listed() : owned.read(id()), () => {
+    if (asked) setChecked(true);
+    asked = false;
+  });
+
+  const reload = () => own() ? refresh(listed) : owned.refresh(id());
+
+  const retry = () => {
+    asked = true;
+    void reload();
+  };
+
+  return { files, pending, failure, late, missing, checked, retry, reload };
+};
+
+/** U7679a, U7679b: each lens's rows, made once for the listing. */
+const createLensed = (files: () => readonly ChangedFile[]) => createMemo(() => {
+  const all = files();
+  const made = new Map<Lens, Grouped>();
+
+  return (each: Lens): Grouped => {
+    const hit = made.get(each) ?? groupLens(all, each);
+
+    made.set(each, hit);
+
+    return hit;
+  };
+});
+
+/** U7675e, U7679e: the keys the view answers to. */
+const KeysHelp = () => <section class="changes-keys" aria-label={copy.keys}>
+  <ul>
+    <For each={copy.keysList}>{what => <li>{what}</li>}</For>
+  </ul>
+</section>;
+
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
   const { app, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
@@ -185,65 +261,39 @@ const Surface = (props: { id: string; name: string }) => {
   const memory = changePlaces.of(untrack(() => props.id));
   const [picked, setPicked] = createSignal<string | undefined>(memory.open);
   const [start, setStart] = createSignal<string>();
+  const [lens, setLens] = createSignal<Lens>(memory.lens);
 
-  const { places, scroll } = placesOf(memory);
+  const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
-  const [listed] = createSignal<{ failure: string | null; files: ChangedFile[] } | undefined>(async () => {
-    const to = own();
+  const lensed = createLensed(files);
 
-    if (!to) return undefined;
-    let files: ChangedFile[] = [];
-    const failure = await failureOf(async () => { files = (await app.rpc("agent.changedFiles", { id: props.id, to })).files; });
+  const listing = () => lensed()(lens());
 
-    return { failure, files };
-  }, { loadingValue: undefined });
+  // U7678a, U7679c: the rows that open something, in list order: the Overview, each module, then each noise file; none with no file listed.
+  const rowsOf = (each: Grouped) => files().length === 0 ? [] : [OVERVIEW, ...each.modules.map(module => moduleKey(module.name)), ...each.noise.flatMap(noise => noise.files.map(file => noiseKey(file.path)))];
 
-  const files = (): readonly ChangedFile[] => own() ? listed()?.files ?? [] : group()?.files ?? [];
+  const rows = () => rowsOf(listing());
 
-  const grouped = createMemo(() => groupModules(files()));
-
-  // U7678a: the rows that open something, in list order: each module, then each noise file.
-  const rows = () => [...grouped().modules.map(module => moduleKey(module.name)), ...grouped().noise.flatMap(noise => noise.files.map(file => noiseKey(file.path)))];
-
-  // U7674a, U7678d: what shows is the chosen module or noise file still listed, else the first module.
+  // U7674a, U7679c: what shows is the chosen item still listed, else the lens's Overview.
   const opened = () => {
     const chosen = picked();
 
     return chosen !== undefined && rows().includes(chosen) ? chosen : rows()[0];
   };
 
-  const { panes, ready } = createPanes(opened, () => `${target()}|${active()}`);
+  const { panes, ready } = createPanes(opened, lens, () => `${target()}|${active()}`);
 
-  const openFiles = (key: string): readonly ChangedFile[] => key.startsWith("m:") ? grouped().modules.find(module => moduleKey(module.name) === key)?.files ?? [] : files().filter(file => noiseKey(file.path) === key);
+  const openFiles = (key: string, each: Lens): readonly ChangedFile[] => key.startsWith("m:") ? lensed()(each).modules.find(module => moduleKey(module.name) === key)?.files ?? [] : files().filter(file => noiseKey(file.path) === key);
 
   createEffect(opened, file => { memory.open = file; });
 
-  // U7675a: the comparison's own answer, whichever read made it.
-  const pending = () => own() ? listed() === undefined : owned.read(props.id) === undefined;
-  const failure = () => own() ? listed()?.failure ?? null : owned.read(props.id)?.failure ?? null;
-  const late = createLate(pending);
-
-  // The Daemon names a Worktree whose folder is gone with `worktree_missing` (code NOT_FOUND); any other failure keeps its own cause.
-  const missing = () => (failure() ?? "").startsWith("worktree_missing");
-  const [checked, setChecked] = createSignal(false);
-  let asked = false;
-
-  createEffect(() => own() ? listed() : owned.read(props.id), () => {
-    if (asked) setChecked(true);
-    asked = false;
-  });
-
-  const retry = () => {
-    asked = true;
-
-    if (own()) refresh(listed); else void owned.refresh(props.id);
-  };
+  createEffect(lens, each => { memory.lens = each; });
 
   // U7693c: only the Fetch click lists again and reads the open file again, once, after the list answers.
   let diffKeys: DiffKeys | undefined;
 
   const remote = createRemoteMain(app, untrack(() => props.id), () => !pending(), () => {
-    void (own() ? refresh(listed) : owned.refresh(props.id)).then(() => diffKeys?.reload());
+    void reload().then(() => diffKeys?.reload());
   });
 
   const toLabel = () => target() === "tree" ? copy.targetTree : target() === "branch" ? copy.targetBranch : copy.changes;
@@ -254,7 +304,9 @@ const Surface = (props: { id: string; name: string }) => {
   let section: HTMLElement | undefined;
   let focusTree = (_path: string) => {};
 
-  const [left, setLeft] = createLeaving(() => ({ list: rows(), key: `${target()}|${active()}` }), picked, neighbour => {
+  let treeFocus = (): string | undefined => undefined;
+
+  const [left, setLeft] = createLeaving(() => ({ list: rows(), key: `${target()}|${active()}|${lens()}` }), picked, neighbour => {
     setPicked(neighbour);
     setStart(undefined);
     // The tree's focus choice below reads the open module: settle the write first.
@@ -268,6 +320,8 @@ const Surface = (props: { id: string; name: string }) => {
     setPicked(key);
     setStart(file);
   };
+
+  const find = createFind({ files, listing, opened, view: () => section, focusTree: key => focusTree(key), treeFocus: () => treeFocus(), choose: choosePath });
 
   const totals = () => totalsOf(files());
 
@@ -283,30 +337,54 @@ const Surface = (props: { id: string; name: string }) => {
     if (file && editable(file)) edit(file, at?.side === "new" ? at.line : file.line);
   };
 
-  // U7675e: J and K step files from anywhere, ] and [ step changes, Tab crosses from the list to the diff, ? lists them.
+  // U7675e, U7679e: J and K step the Overview and the modules from anywhere, ] and [ step changes, Tab crosses from the list to the diff or the Overview's entries, ? lists them.
   const [help, setHelp] = createSignal(false);
 
   const step = (direction: 1 | -1) => {
-    const order = grouped().modules.map(module => moduleKey(module.name));
+    const order = [...find.letters() === "" ? [OVERVIEW] : [], ...find.grouped().modules.map(module => moduleKey(module.name))];
     const at = order.indexOf(opened() ?? "");
-    const next = at === -1 ? direction === -1 ? order.at(-1) : undefined : order[at + direction];
+    const next = at !== -1 ? order[at + direction] : find.letters() !== "" || direction === -1 ? order[direction === 1 ? 0 : order.length - 1] : undefined;
 
     if (next === undefined) return;
     choosePath(next);
     focusTree(next);
   };
 
-  // U7690c: a note's file opens in its module's scroll, at that file.
-  const openPath = (path: string) => {
-    const module = grouped().modules.find(each => each.files.some(file => file.path === path));
-    const key = module ? moduleKey(module.name) : noiseKey(path);
+  // U7679a: a lens keeps the open item it lists and else opens its own Overview.
+  const switchLens = (next: Lens) => {
+    if (next === lens()) return;
 
-    if (rows().includes(key)) choosePath(key, path);
+    const inList = document.activeElement?.closest(".changes-tree") != null;
+    const chosen = picked();
+
+    if (chosen !== undefined && !rowsOf(lensed()(next)).includes(chosen)) setPicked(undefined);
+    setStart(undefined);
+    setLens(next);
+    flush();
+
+    if (inList) focusTree(opened() ?? OVERVIEW);
+  };
+
+  // U7679c: Tab from the list goes to the Overview's first entry, else to the diff.
+  const enter = () => {
+    if (opened() === OVERVIEW) section?.querySelector<HTMLElement>(".changes-overview [data-entry]")?.focus(); else diffKeys?.focus();
+  };
+
+  // U7690c, U7679b: a note's file opens in its module's scroll, at that file, in the open lens when it lists the file, else in Modules; a noise file opens alone.
+  const openPath = (path: string) => {
+    const inModule = (each: Lens) => lensed()(each).modules.find(module => module.files.some(file => file.path === path));
+    const here = inModule(lens());
+    const module = here ?? inModule("modules");
+    const key = noiseOf(path) === undefined && module ? moduleKey(module.name) : noiseKey(path);
+
+    if (noiseOf(path) === undefined && !here && module) switchLens("modules");
+
+    if (rowsOf(lensed()(lens())).includes(key)) choosePath(key, path);
   };
 
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, section: () => section, open: openPath });
 
-  registerChangesKeys(() => section, { jump: jump.open, step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
+  registerChangesKeys(() => section, { jump: jump.open, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
@@ -321,7 +399,7 @@ const Surface = (props: { id: string; name: string }) => {
     setPicked(undefined);
   };
 
-  const onKeyDown = (event: KeyboardEvent) => escapeKey(event, help(), setHelp, close);
+  const onKeyDown = (event: KeyboardEvent) => escapeKey(event, help(), setHelp, find.finding(), find.close, close);
 
   // Opening moves focus into the view, so Escape reaches its handler before any file does; the tree takes it when it draws.
   const initialFocus = captureFocus();
@@ -346,13 +424,7 @@ const Surface = (props: { id: string; name: string }) => {
     </Show>
     <StatusNote text={pending() && late() ? copy.comparing : empty() ? own() === "tree" ? copy.folderMatches(props.name, copy.remoteMain) : copy.noChangesAgainst(copy.remoteMain) : null} />
     <Show when={left()}>{gone => <StatusNote text={copy.fileGone(gone().slice(2), copy.remoteMain)} />}</Show>
-    <Show when={help()}>
-      <section class="changes-keys" aria-label={copy.keys}>
-        <ul>
-          <For each={copy.keysList}>{what => <li>{what}</li>}</For>
-        </ul>
-      </section>
-    </Show>
+    <Show when={help()}><KeysHelp /></Show>
     {jump.list()}
     <div class="changes-body">
       <div class="changes-side">
@@ -362,12 +434,23 @@ const Surface = (props: { id: string; name: string }) => {
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <ChangedTree grouped={grouped()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={openAt} />
+          <SegmentGroup label={copy.lens} segments={lensSegments} value={lens()} onValueChange={switchLens} />
+          <FindField find={find} />
+          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}>
+            <p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p>
+          </Show>
         </Show>
       </div>
-      <For each={panes()}>{pane => <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>
-      </div>}</For>
+      <For each={panes()}>{pane => {
+        const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
+
+        return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>}>
+            <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
+          </Show>
+        </div>;
+      }}</For>
     </div>
   </section>;
 };

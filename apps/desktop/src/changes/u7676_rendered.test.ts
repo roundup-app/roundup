@@ -68,6 +68,9 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await browser("open", new URL(`/src/changes/u2540.html${query}`, server.resolvedUrls.local[0] ?? "").href);
     await until("!!window.__fake && !!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
+    // U7679c: the view opens on the Overview and reads no file; this step chooses the first module, as a user does.
+    await until("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+    await browser("click", '.changes-side [data-row="module"]');
     await until(READY);
   };
 

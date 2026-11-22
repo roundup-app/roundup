@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, openDiff, openFile, saveNote, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
+import { COMPARISON, openDiff, openFile, openFirstModule, saveNote, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
 import { createSignal, flush } from "solid-js";
@@ -188,6 +188,7 @@ it("u2540a_late_content_cannot_cross_agents", async () => {
   let resolve!: (value: typeof COMPARISON) => void;
   app.handlers["agent.compareFile"] = () => new Promise(done => { resolve = done; });
   await openChanges();
+  await openFirstModule();
   await waitFor(() => expect(app.calls.some(call => call.method === "agent.compareFile")).toBe(true));
   connected.rail.select("plain");
   resolve(COMPARISON);

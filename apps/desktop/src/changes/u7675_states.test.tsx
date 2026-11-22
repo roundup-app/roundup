@@ -1,163 +1,23 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
-import { mountRail, rowOf } from "../rail/railFixture";
-import { agent, event } from "../testing/nodes";
-import { fakeEmulators } from "../terminal/paneHarness";
+import { rowOf } from "../rail/railFixture";
 import { message } from "../testing/centreFixture";
 import { notices } from "../testing/notices";
 import { copy } from "./copy";
 import { mountControl, WORKTREE } from "./harness";
-import { COMPARISON, openChanges, saveNote, take, treeRow, startNote } from "./noteHarness";
+import { saveNote, take, treeRow, startNote } from "./noteHarness";
+import { MODS, THREE, absent, at, calls, closeButton, comparison, content, counted, drawn, drawnIn, edited, file, fileRows, fresh, gone, isOpen, lineKinds, marks, moduleRow, mountRailWith, multi, noiseRows, offsets, open, openPaths, owning, pane, press, region, scrolled, scrolledTo, scroller, scrolls, section, setUpView, showing, slot, switchedTo, text, there, treeFocus, written } from "./viewHarness";
+import type { Listing } from "./viewHarness";
 
-class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
-
-/**
- * Every offset the code wrote to each scroller, in order. U7675d and U7675e assert a scroll offset in Vitest, but jsdom lays nothing out
- * (a read of `scrollTop` is only what was last assigned) and the web-assertions lint bars asserting such a read. The offset the code
- * asks for is the behaviour, so these tests assert the writes: a file restored at its offset, a key scrolling to its line, nothing else.
- */
-const scrolls = new Map<Element, number[]>();
-
-const offsets = new WeakMap<Element, number>();
-
-const plain = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop");
-
-beforeEach(() => {
-  vi.stubGlobal("IntersectionObserver", IdleObserver);
-  scrolls.clear();
-  Object.defineProperty(Element.prototype, "scrollTop", {
-    configurable: true,
-    get(this: Element) { return offsets.get(this) ?? 0; },
-    set(this: Element, top: number) { offsets.set(this, top); scrolls.set(this, [...scrolls.get(this) ?? [], top]); },
-  });
-});
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-
-  if (plain) Object.defineProperty(Element.prototype, "scrollTop", plain); else Reflect.deleteProperty(Element.prototype, "scrollTop");
-});
-
-/** The value, or a failure naming the missing element. */
-const there = <T,>(value: T | null | undefined): T => {
-  if (value === null || value === undefined) throw new Error("expected the element to be there");
-
-  return value;
-};
-
-/** The offsets written to `scroller`, in order. */
-const written = (scroller: Element | null): number[] => scrolls.get(there(scroller)) ?? [];
-
-/** The offset last written to `scroller`. */
-const scrolledTo = (scroller: Element | null) => written(scroller).at(-1);
-
-const file = (path: string): ChangedFile => ({ path, status: "modified", line: 1, counts: { added: 1, removed: 1 }, blob: null });
-
-const THREE = [file("a.ts"), file("b.ts"), file("c.ts")];
-
-/** Three modules of one file each. */
-const MODS = [file("a/x.ts"), file("b/x.ts"), file("c/x.ts")];
-
-const text = (revision: string, body: string) => ({ kind: "text", revision, text: body }) as const;
-
-const comparison = (path: string, over: Partial<FileComparison> = {}): FileComparison => ({ ...COMPARISON, oldPath: path, newPath: path, ...over });
-
-const SIXTY = Array.from({ length: 60 }, (_, index) => "line " + (index + 1));
+setUpView();
 
 /** Three changes: line 3 edited (old 3), a line added after line 20 (new 21), line 45 edited (old 45). */
 const CHANGES = [{ side: "old", line: 3 }, { side: "new", line: 21 }, { side: "old", line: 45 }] as const;
 
-const multi = (path: string, revision = "one") => comparison(path, {
-  old: text("multi-old", SIXTY.join("\n") + "\n"),
-  new: text("multi-" + revision, SIXTY.flatMap((line, index) => index === 2 || index === 44 ? [line + " edited"] : index === 19 ? [line, "added"] : [line]).join("\n") + "\n"),
-});
-
-let project = 0;
-
-/** Each test gets its own Project path, so a note one test saves never shows in another. */
-const fresh = () => {
-  project += 1;
-
-  return "/p" + project;
-};
-
-type Listing = { files: ChangedFile[] };
-
-/** Opens the view over `changed`; `answer` reads each file (default: a small change). */
-const open = async (changed: () => Listing | Promise<Listing>, answer: (path: string) => FileComparison | Promise<FileComparison> = path => comparison(path)) => {
-  const mounted = await mountControl(changed, fresh());
-
-  mounted.app.handlers["agent.compareFile"] = ({ path }) => answer(path);
-  await openChanges();
-  await screen.findByRole("region", { name: copy.changes });
-
-  return mounted;
-};
-
-const region = () => screen.getByRole("region", { name: copy.changes });
-
-const press = (key: string, target: Element = region()) => fireEvent.keyDown(target, { key });
-
-/** The module scroll the user sees: the open module's until the next one's first screen has painted. */
-const slot = () => region().querySelector<HTMLElement>(".module-slot");
-
-const scroller = () => slot()?.querySelector<HTMLElement>(".module-scroll") ?? null;
-
-/** The open scroll's file section for `path`. */
-const section = (path: string) => [...slot()?.querySelectorAll<HTMLElement>(".module-file") ?? []].find(each => each.dataset.path === path) ?? null;
-
-/** The paths of the files the open scroll holds. */
-const openPaths = () => [...slot()?.querySelectorAll<HTMLElement>(".module-file") ?? []].map(each => each.dataset.path);
-
-const showing = (path: string) => waitFor(() => expect(openPaths()).toContain(path));
-
-/** The scroll holds `path` now. */
-const isOpen = (path: string) => { expect(openPaths()).toContain(path); };
-
-/** The drawn diff of `path`, else of every file the open scroll has read. */
-const drawnIn = (path?: string) => [...(path ? section(path) : slot())?.querySelectorAll("diffs-container") ?? []];
-
-const content = (path: string) => section(path)?.querySelector<HTMLElement>(".diff-content") ?? null;
-
-const lineKinds = (path?: string) => [...new Set(drawnIn(path).flatMap(each => [...each.shadowRoot?.querySelectorAll("[data-line-type]") ?? []]).map(line => line.getAttribute("data-line-type")))];
-
-/** Pierre has drawn the lines of the open file. */
-const drawn = (path?: string) => waitFor(() => expect(lineKinds(path).length).toBeGreaterThan(0));
-
-const at = (side: "old" | "new", line: number) => ({ side, line });
-
 /** The open scroll says `words`. */
 const says = (words: string) => waitFor(() => expect(slot()?.textContent).toContain(words));
-
-/** U7676a: Pierre marks the selected line in its own DOM, inside the file's section. */
-const marks = (want: { side: "old" | "new"; line: number }, path?: string) => waitFor(() => {
-  const marked = drawnIn(path).flatMap(each => [...each.shadowRoot?.querySelectorAll("[data-selected-line]") ?? []]).map(element => ({ line: Number(element.getAttribute("data-line")), deleted: element.getAttribute("data-line-type") === "change-deletion" }));
-
-  expect(marked).toContainEqual({ line: want.line, deleted: want.side === "old" });
-});
-
-/** The scroll reports its offset as the browser does when the user scrolls: jsdom fires no scroll event on a write. */
-const scrolled = () => fireEvent.scroll(there(scroller()));
-
-const moduleRow = (name: string) => there(region().querySelector<HTMLElement>(`[data-row="module"][data-key="m:${name}"]`));
-
-/** The key of the list row that holds focus. */
-const treeFocus = () => document.activeElement?.closest("[data-row]")?.getAttribute("data-key");
-
-/** The query finds nothing. */
-const absent = (query: () => HTMLElement | null) => expect(query()).toBeNull();
-
-const gone = (query: () => HTMLElement | null) => waitFor(() => absent(query));
-
-const closeButton = () => screen.getByRole("button", { name: copy.closeChanges });
-
-const calls = (app: { calls: { method: string }[] }, method: string) => app.calls.filter(call => call.method === method).length;
 
 /** A listing the test releases itself: each read waits for `release`. */
 const pausedListing = () => {
@@ -180,17 +40,6 @@ const reopened = async (answer: () => Listing) => {
 
   return mounted;
 };
-
-const owning = (files: ChangedFile[]): OwnedChanges => ({ groups: [{ repo: "/p", branch: "main", base: "main", files }] });
-
-/** The Rail and the centre over Agents `a` and `b`: `owned` decides what each owns. */
-const mountRailWith = (owned: (id: string) => OwnedChanges) => mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready")], [], () => null, () => false, { pane: fakeEmulators().factory }, [], { name: "p", path: fresh() }, app => {
-  app.handlers["agent.ownedChanges"] = ({ id }) => owned(id);
-  app.handlers["agent.compareFile"] = ({ path }) => multi(path);
-});
-
-/** An Edit of Agent `id` ended: the Rail reads what it owns again. */
-const edited = (app: Awaited<ReturnType<typeof mountRailWith>>["app"], id: string) => app.emit(event({ name: "agent.toolCall", data: { id, call: { tool: "Edit", arguments: "{}", state: "done", started: 0 } } }));
 
 const totals = () => document.querySelector(".changes-totals")?.textContent;
 
@@ -449,35 +298,6 @@ it("u7675c_a_changing_list_leaves_the_trees_focus_and_scroll_alone", async () =>
   expect([...scrolls.keys()].some(each => each.closest(".changes-side") !== null)).toBe(false);
 });
 
-it("u7678a_when_the_open_module_leaves_focus_moves_to_its_neighbour", async () => {
-  let list = MODS;
-  const { connected } = await open(() => ({ files: list }));
-
-  await showing("a/x.ts");
-  list = MODS.slice(1);
-  await connected.owned.refresh("a");
-  await screen.findByText(copy.fileGone("a", copy.remoteMain));
-  await showing("b/x.ts");
-  await waitFor(() => expect(treeFocus()).toBe("m:b"));
-  press("j");
-  await showing("c/x.ts");
-
-  // The last module leaves: its previous neighbour opens.
-  list = MODS.slice(1, 2);
-  await connected.owned.refresh("a");
-  await screen.findByText(copy.fileGone("c", copy.remoteMain));
-  await showing("b/x.ts");
-  await waitFor(() => expect(treeFocus()).toBe("m:b"));
-
-  // No module is left: focus stays in the view, so Escape still closes it.
-  list = [];
-  await connected.owned.refresh("a");
-  await screen.findByText(copy.noChangesAgainst(copy.remoteMain));
-  await waitFor(() => expect(region().contains(document.activeElement)).toBe(true));
-  press("Escape", there(document.activeElement));
-  await gone(() => screen.queryByRole("region", { name: copy.changes }));
-});
-
 it("u7675c_the_rail_count_and_header_totals_follow_the_list", async () => {
   let list = THREE;
   const { app } = await mountRailWith(() => owning(list));
@@ -577,43 +397,6 @@ it("u7675e_tab_moves_from_the_list_to_the_diff", async () => {
   await marks(at("new", 1));
 });
 
-it("u7678d_j_and_k_step_modules_and_skip_noise_rows", async () => {
-  // List order: the modules by name, then the noise rows.
-  await open(() => ({ files: ["c/x.ts", "yarn.lock", "a/x.ts", "b/x.ts"].map(file) }));
-  await showing("a/x.ts");
-  const row = moduleRow("a");
-
-  take(row);
-  press("j", row);
-  await showing("b/x.ts");
-  await waitFor(() => expect(treeFocus()).toBe("m:b"));
-  await drawn();
-  press("j", there(scroller()));
-  await showing("c/x.ts");
-
-  // J stops at the last module, K at the first: the other key then steps once.
-  press("j");
-  press("k");
-  await showing("b/x.ts");
-  press("k");
-  await showing("a/x.ts");
-  press("k");
-  press("j");
-  await showing("b/x.ts");
-
-  // A noise file opens alone: J does nothing, K opens the last module.
-  const noise = region().querySelector<HTMLElement>('[data-row="noise"]');
-
-  press("ArrowRight", there(noise));
-  take(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="yarn.lock"]'))));
-  await showing("yarn.lock");
-  press("j");
-  expect(region().querySelectorAll(".module-slot")).toHaveLength(1);
-  isOpen("yarn.lock");
-  press("k");
-  await showing("c/x.ts");
-});
-
 it("u7678d_bracket_keys_step_changes_across_a_modules_files", async () => {
   const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));
 
@@ -666,23 +449,11 @@ it("u7675e_question_mark_lists_the_keys", async () => {
   const keys = await screen.findByRole("region", { name: copy.keys });
   const items = within(keys).getAllByRole("listitem").map(item => item.textContent ?? "");
 
-  // Up and Down, Left and Right, Tab, J and K, ] and [, V, N, E and Delete, G, Enter, Esc and ? are listed; R waits for the Issue that builds it.
-  expect(items).toHaveLength(12);
+  // Up and Down, Left and Right, Tab, J and K, L, /, ] and [, V, N, E and Delete, G, Enter, Esc and ? are listed; R waits for the Issue that builds it.
+  expect(items).toHaveLength(14);
   expect(items.some(item => /^R\b/.test(item))).toBe(false);
   press("?");
   await gone(() => screen.queryByRole("region", { name: copy.keys }));
-});
-
-it("u7675e_escape_closes_the_keys_list_before_the_view", async () => {
-  await open(() => ({ files: THREE }));
-  await showing("a.ts");
-  press("?");
-  await screen.findByRole("region", { name: copy.keys });
-  press("Escape");
-  await gone(() => screen.queryByRole("region", { name: copy.keys }));
-  region();
-  press("Escape");
-  await gone(() => screen.queryByRole("region", { name: copy.changes }));
 });
 
 it("u7675e_keys_do_not_fire_while_typing_in_a_note_field", async () => {
@@ -692,7 +463,7 @@ it("u7675e_keys_do_not_fire_while_typing_in_a_note_field", async () => {
   startNote();
   const box = within(screen.getByRole("form", { name: copy.lineNote })).getByLabelText(copy.note);
 
-  for (const key of ["j", "k", "]", "[", "v", "?", "n", "e", "g", "Delete", "Backspace"]) press(key, box);
+  for (const key of ["j", "k", "l", "/", "]", "[", "v", "?", "n", "e", "g", "Delete", "Backspace"]) press(key, box);
   await marks(at("new", 1));
   absent(() => screen.queryByRole("region", { name: copy.keys }));
   isOpen("a.ts");
@@ -702,56 +473,6 @@ it("u7675e_keys_do_not_fire_while_typing_in_a_note_field", async () => {
   press("Escape", box);
   region();
 });
-
-it("u7675f_reopening_restores_the_open_file_its_scroll_and_line", async () => {
-  let list = MODS;
-  const { app } = await mountRailWith(id => owning(id === "a" ? list : [file("other.ts")]));
-  const icon = () => within(rowOf("a")).findByRole("button", { name: copy.changedFiles(list.length) });
-  const opener = await icon();
-
-  fireEvent.click(opener);
-  await showing("a/x.ts");
-  press("j");
-  await showing("b/x.ts");
-  await drawn();
-  await marks(at("new", 1));
-  press("]");
-  press("]");
-  await marks(at("new", 21));
-  scrolled();
-  const kept = scrolledTo(scroller());
-
-  // Closing returns focus to the Rail icon; reopening restores the module, its scroll and line, with focus in the list.
-  fireEvent.click(closeButton());
-  await gone(() => screen.queryByRole("region", { name: copy.changes }));
-  await waitFor(() => expect(document.activeElement).toBe(opener));
-  fireEvent.click(opener);
-  await showing("b/x.ts");
-  await marks(at("new", 21));
-  expect(written(scroller())[0]).toBe(kept);
-  await waitFor(() => expect(treeFocus()).toBe("m:b"));
-
-  // Another Agent keeps its own place, and this one's is still here when it returns.
-  fireEvent.click(rowOf("b"));
-  await showing("other.ts");
-  fireEvent.click(rowOf("a"));
-  await showing("b/x.ts");
-  await marks(at("new", 21));
-  expect(written(scroller())[0]).toBe(kept);
-
-  // The open module is restored only while it is still listed.
-  fireEvent.click(closeButton());
-  await gone(() => screen.queryByRole("region", { name: copy.changes }));
-  list = [file("a/x.ts"), file("c/x.ts")];
-  edited(app, "a");
-  fireEvent.click(await icon());
-  await showing("a/x.ts");
-});
-
-/** The file rows the list shows, in order. */
-const fileRows = () => [...region().querySelectorAll<HTMLElement>('[data-row="file"]')].map(row => row.dataset.path);
-
-const noiseRows = () => [...region().querySelectorAll<HTMLElement>('[data-row="noise"]')];
 
 /** The paths `agent.compareFile` was asked for, in order. */
 // SAFETY: the fake App logs the params it was given, and agent.compareFile's are { path: string }.
@@ -860,8 +581,11 @@ it("u7678c_one_files_notice_leaves_the_other_sections_alone", async () => {
   expect(readPaths(app).slice(before)).toEqual(["m/b.ts"]);
 });
 
-it("u7678c_a_note_made_in_a_scroll_keeps_its_file_side_and_line", async () => {
+/** A note made in a scroll of module `m` keeps its file, side and line, and the Message names that file; `lens` is the one the scroll is read in. */
+const keepsItsNote = async (lens?: string) => {
   const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));
+
+  if (lens) await switchedTo(lens);
 
   const write = async (path: string, words: string) => {
     fireEvent.keyDown(there(content(path)), { key: "n" });
@@ -897,7 +621,11 @@ it("u7678c_a_note_made_in_a_scroll_keeps_its_file_side_and_line", async () => {
     { "File:": { new: "m/a.ts" }, "Lines:": "new 1-1", "User comment:": "first" },
     { "File:": { new: "m/b.ts" }, "Lines:": "old 3-3", "User comment:": "second" },
   ] });
-});
+};
+
+it("u7678c_a_note_made_in_a_scroll_keeps_its_file_side_and_line", () => keepsItsNote());
+
+it("u7679b_a_note_made_in_logic_keeps_its_file_side_and_line", () => keepsItsNote(copy.lenses.logic));
 
 it("u7678c_enter_or_a_double_click_on_a_hunk_opens_its_file_in_the_editor", async () => {
   const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));

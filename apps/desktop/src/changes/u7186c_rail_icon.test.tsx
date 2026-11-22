@@ -4,7 +4,7 @@ import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent, event } from "../testing/nodes";
 import { mountRail, rowOf, settled } from "../rail/railFixture";
 import { diffsLoaded } from "./diffDraw";
-import { COMPARISON, treeRow } from "./noteHarness";
+import { COMPARISON, openFirstModule, treeRow } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -56,6 +56,7 @@ it("u7186c_the_reader_stays_lazy", async () => {
 
   app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "3 changed files" }));
+  await openFirstModule();
   await waitFor(() => expect(diffsLoaded()).toBe(true));
 });
 

@@ -4,7 +4,7 @@ import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { RpcError } from "../app/seam";
 import { agent } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
-import { COMPARISON, treeRow } from "./noteHarness";
+import { COMPARISON, take, treeRow } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -31,7 +31,7 @@ it("u7853a_changes_reads_send_the_open_group", async () => {
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
-  await treeRow("own.ts");
+  take(await treeRow("own.ts"));
   await waitFor(() => expect(reads(app).at(-1)).toEqual({ id: "a", path: "own.ts", group: { repo: "/p", branch: "main" } }));
 
   const groups = await screen.findByRole("list", { name: "Repositories and branches" });
@@ -41,10 +41,11 @@ it("u7853a_changes_reads_send_the_open_group", async () => {
   if (!second) throw new Error("The group list has no second group");
 
   fireEvent.click(second);
-  await treeRow("other.ts");
+  take(await treeRow("other.ts"));
   await waitFor(() => expect(reads(app).at(-1)).toEqual({ id: "a", path: "other.ts", group: { repo: "/q", branch: "own/x" } }));
 
   fireEvent.click(rowOf("b"));
   await screen.findByText("b", { selector: ".changes-name" });
+  take(await treeRow("own.ts"));
   await waitFor(() => expect(reads(app).at(-1)).toEqual({ id: "b", path: "own.ts", group: { repo: "/p", branch: "main" } }));
 });

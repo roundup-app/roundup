@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
+import { copy } from "./copy";
 import { COMPARISON, treeRow } from "./noteHarness";
 
 afterEach(cleanup);
@@ -30,7 +31,10 @@ const open = async (nodes = [agent("a", "idle", "ready", tree("a")), agent("b", 
   return mounted;
 };
 
-const selected = () => screen.getByRole("radio", { checked: true }).getAttribute("aria-label");
+/** The Compare-to values; the lens switch (U7679a) is a radio group of its own. */
+const COMPARE = new RegExp(`^(${[copy.targetTree, copy.targetBranch, copy.changes].join("|")})$`);
+
+const selected = () => screen.getByRole("radio", { checked: true, name: COMPARE }).getAttribute("aria-label");
 
 const rowText = (row: HTMLElement) => row.textContent ?? "";
 
@@ -51,7 +55,7 @@ it("u7672c_from_is_a_label_not_a_control", async () => {
 it("u7672c_the_switch_has_three_values_and_opens_on_changes", async () => {
   await open();
 
-  const values = await screen.findAllByRole("radio");
+  const values = await screen.findAllByRole("radio", { name: COMPARE });
 
   expect(values.map(value => value.getAttribute("aria-label"))).toEqual(["Tree", "Branch", "Changes"]);
   expect(selected()).toBe("Changes");
@@ -80,8 +84,8 @@ it("u7672c_a_shared_checkout_offers_changes_alone", async () => {
   await treeRow("own.ts");
   expect(app.calls.filter(call => call.method === "agent.changedFiles")).toEqual([]);
   // A one-value switch would change nothing when pressed, so the header draws no control for it.
-  expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
-  expect(screen.queryAllByRole("radio")).toHaveLength(0);
+  expect(screen.queryAllByRole("radiogroup", { name: copy.compareTo })).toHaveLength(0);
+  expect(screen.queryAllByRole("radio", { name: COMPARE })).toHaveLength(0);
 });
 
 it("u7672c_tree_and_branch_show_one_group", async () => {

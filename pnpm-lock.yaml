@@ -14,8 +14,6 @@ overrides:
   fast-uri@<3.1.9: ^3.1.9
   undici@<8.12.2: ^8.12.2
 
-packageExtensionsChecksum: sha256-/TKq0M6kgn9bOMHIUi/nrLAw1ZyI7JHDOtbMvgARDHA=
-
 patchedDependencies:
   '@anthropic-ai/claude-agent-sdk@0.3.309':
     hash: d8707bddf875cf35ec61820522c3ad878c089948abecfdf77fb2d9f315d2fd59
@@ -32,9 +30,6 @@ patchedDependencies:
   '@pierre/diffs@1.6.1':
     hash: 08279593687b3188e69b1d40f5b8be72c42f4f91ac4034f7cc7e03aca2c0c974
     path: patches/@pierre__diffs@1.6.1.patch
-  '@pierre/trees@1.0.0-beta.6':
-    hash: f3b43cd7e08876aa8479f5c32f3b3e6e14fa166b842b5c22ea2ffc1a8aa68f77
-    path: patches/@pierre__trees@1.0.0-beta.6.patch
   '@xterm/addon-fit@0.12.0-beta.334':
     hash: ffd8c26a034117c5cca5e36a5d8359e12b0504f8a41f460702371b21e5d68b9b
     path: patches/@xterm__addon-fit@0.12.0-beta.334.patch
@@ -163,9 +158,6 @@ importers:
       '@pierre/highlights':
         specifier: 0.2.0
         version: 0.2.0
-      '@pierre/trees':
-        specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(patch_hash=f3b43cd7e08876aa8479f5c32f3b3e6e14fa166b842b5c22ea2ffc1a8aa68f77)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
       '@radix-ui/colors':
         specifier: 3.0.0
         version: 3.0.0
@@ -1675,26 +1667,6 @@ packages:
     resolution: {integrity: sha512-yNDd9GYLQl1mEUJR8AneJ5e4ohLIHQd/wZLWr4fagt78vS2RwwZNW530vVgHqXFAyFVcFlRmGUD5ramXH46OXw==}
     engines: {vscode: ^1.0.0}
 
-  '@pierre/theming@1.0.0':
-    resolution: {integrity: sha512-WsdrnhKfjeyXGDikZmN9pkpeZ5S/cl6EE72feiSc0tlynT1tMYqXqouhuv/foK+PY9OEnebOAVRQn3+rAstR8g==}
-    peerDependencies:
-      '@pierre/theme': ^1.1.0
-      '@shikijs/themes': ^3.0.0 || ^4.0.0
-      react: ^18.3.1 || ^19.0.0
-      react-dom: ^18.3.1 || ^19.0.0
-      shiki: ^3.0.0 || ^4.0.0
-    peerDependenciesMeta:
-      '@pierre/theme':
-        optional: true
-      '@shikijs/themes':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      shiki:
-        optional: true
-
   '@pierre/theming@1.0.2':
     resolution: {integrity: sha512-RmXLLqtx31UGcR8kZyO5hGAQ1EXz6loT1Cu0BFAGsbnBboIxp2BlomkLfWyvdT4WZXnBGyu25onL1gKpFQuSUw==}
     peerDependencies:
@@ -1714,12 +1686,6 @@ packages:
         optional: true
       shiki:
         optional: true
-
-  '@pierre/trees@1.0.0-beta.6':
-    resolution: {integrity: sha512-zxeuSFM9TveM7b5XofweJALCtm/tGYV9HZzdbf7Uf+kBxIlUyz24/EHaGRjB0dsmmfDQl2ETz7AWwJ15lhSnpw==}
-    peerDependencies:
-      react: ^18.3.1 || ^19.0.0
-      react-dom: ^18.3.1 || ^19.0.0
 
   '@preact/signals-core@1.14.4':
     resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
@@ -2971,12 +2937,6 @@ packages:
 
   '@xterm/xterm@6.1.0-beta.338':
     resolution: {integrity: sha512-VBygvapFKV5gsqvVFsk6gYpArn4AXnUtZvt3tfN2LXI284i0mivC6Kus84GMJo0GJPLRFziWcSPVz95nViPuWw==}
-
-  '@zag-js/collection@1.45.0':
-    resolution: {integrity: sha512-ikwXZPudIN5PpsD6+++hu+DcUfGviYax8jmNlAhDpocA+Fxpf334+4J6URNkPQYLHawAmhcCOO7MkHfYfXHEgw==}
-
-  '@zag-js/utils@1.45.0':
-    resolution: {integrity: sha512-LyeGfTEojjhDcajCCGxvjrgFuPoMia1HKefdP6KqvJpC78+1awahBoZpYYZlbab2WPawgCaprcDevBJFlOe6Ag==}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -8284,14 +8244,6 @@ snapshots:
 
   '@pierre/theme@2.0.0': {}
 
-  '@pierre/theming@1.0.0(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)':
-    optionalDependencies:
-      '@pierre/theme': 2.0.0
-      '@shikijs/themes': 4.5.0
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-      shiki: 4.5.0
-
   '@pierre/theming@1.0.2(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)':
     optionalDependencies:
       '@pierre/theme': 2.0.0
@@ -8299,19 +8251,6 @@ snapshots:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
       shiki: 4.5.0
-
-  '@pierre/trees@1.0.0-beta.6(patch_hash=f3b43cd7e08876aa8479f5c32f3b3e6e14fa166b842b5c22ea2ffc1a8aa68f77)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)':
-    dependencies:
-      '@pierre/theming': 1.0.0(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.5.0)
-      '@zag-js/collection': 1.45.0
-      preact: 11.0.0-beta.0
-      preact-render-to-string: 6.6.5(preact@11.0.0-beta.0)
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-    transitivePeerDependencies:
-      - '@pierre/theme'
-      - '@shikijs/themes'
-      - shiki
 
   '@preact/signals-core@1.14.4': {}
 
@@ -9433,12 +9372,6 @@ snapshots:
       '@xterm/xterm': 6.1.0-beta.338(patch_hash=53ba437868e94dd378771eeaed2e5eccf60f385bc6f65f6de6b48561ee88cbb6)
 
   '@xterm/xterm@6.1.0-beta.338(patch_hash=53ba437868e94dd378771eeaed2e5eccf60f385bc6f65f6de6b48561ee88cbb6)': {}
-
-  '@zag-js/collection@1.45.0':
-    dependencies:
-      '@zag-js/utils': 1.45.0
-
-  '@zag-js/utils@1.45.0': {}
 
   accepts@2.0.0:
     dependencies:
@@ -12174,12 +12107,14 @@ snapshots:
   preact-render-to-string@6.6.5(preact@11.0.0-beta.0):
     dependencies:
       preact: 11.0.0-beta.0
+    optional: true
 
   preact@10.29.8(preact-render-to-string@6.6.5(preact@11.0.0-beta.0)):
     optionalDependencies:
       preact-render-to-string: 6.6.5(preact@11.0.0-beta.0)
 
-  preact@11.0.0-beta.0: {}
+  preact@11.0.0-beta.0:
+    optional: true
 
   precinct@12.3.2:
     dependencies:
