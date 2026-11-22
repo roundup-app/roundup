@@ -373,6 +373,13 @@ mod update_keeps_runs {
         ack(&f, &agent, "startup").await;
         resumed(&f, "rail.startDoor", &ws).await;
         resumed(&f, "agent.resume", &agent).await;
+        // The fake `claude` logs its launch once its shell runs, after the Terminal is reported
+        // started: count the four launches only when all four have logged, or a late line reads
+        // as a launch the reopen made.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while launches(&f) < 4 && std::time::Instant::now() < deadline {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
         (f, ws, agent)
     }
 
