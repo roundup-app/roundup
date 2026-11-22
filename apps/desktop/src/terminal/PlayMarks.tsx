@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup } from "solid-js";
+import { createSignal, For, onCleanup, onMount, untrack } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { createMessageToast } from "../ink/messageToast";
 import { PlayMark } from "../ui/PlayMark";
@@ -16,7 +16,9 @@ const REFRESH_MS = 2000;
  * and shows that shell's Bubble (U7889d). Nothing is typed into the Agent's own Terminal.
  */
 export const PlayMarks = (props: { connected: ConnectedProject; agent: string; emulator: Emulator; host: HTMLElement; rowHeight: () => number }) => {
-  const { app, rail } = props.connected;
+  // The parent keys this component by Agent and Terminal, so these props never change while it lives.
+  const { connected, agent, emulator, host } = untrack(() => props);
+  const { app, rail } = connected;
   const [printed, setPrinted] = createSignal<readonly string[]>([]);
   const [lines, setLines] = createSignal<PlayLine[]>([], { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
   const [hover, setHover] = createSignal<number | null>(null);
@@ -25,7 +27,7 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
   let asking = false;
 
   const refresh = (): void => {
-    setLines(props.emulator.playLines?.(printed()) ?? []);
+    setLines(emulator.playLines?.(printed()) ?? []);
   };
 
   const ask = async (): Promise<void> => {
@@ -35,7 +37,7 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
     lastAsk = Date.now();
 
     try {
-      setPrinted((await app.rpc("agent.printedCommands", { id: props.agent })).commands);
+      setPrinted((await app.rpc("agent.printedCommands", { id: agent })).commands);
     } catch {
       // The record may not exist yet: no ▶ shows until it does.
     } finally {
@@ -45,27 +47,28 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
     refresh();
   };
 
-  void ask();
-  props.emulator.onFrame?.(() => {
-    refresh();
+  onMount(() => {
+    void ask();
+    emulator.onFrame?.(() => {
+      refresh();
 
-    if (Date.now() - lastAsk >= REFRESH_MS) void ask();
+      if (Date.now() - lastAsk >= REFRESH_MS) void ask();
+    });
   });
-  createEffect(printed, refresh);
 
-  makeEventListener(props.host, "mousemove", (move) => {
+  makeEventListener(host, "mousemove", (move) => {
     const height = props.rowHeight();
 
-    setHover(height > 0 ? Math.floor((move.clientY - props.host.getBoundingClientRect().top) / height) : null);
+    setHover(height > 0 ? Math.floor((move.clientY - host.getBoundingClientRect().top) / height) : null);
   });
-  makeEventListener(props.host, "mouseleave", () => setHover(null));
+  makeEventListener(host, "mouseleave", () => setHover(null));
   onCleanup(() => setHover(null));
 
   createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
 
   const run = async (command: string): Promise<void> => {
     try {
-      const opened = await app.rpc("agent.runPrinted", { id: props.agent, command });
+      const opened = await app.rpc("agent.runPrinted", { id: agent, command });
 
       setFailure(null);
       rail.revealTerminal?.(opened.terminal_id);
@@ -81,10 +84,12 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
           name={copy.runPrinted(line.command)}
           row={line.row}
           span={line.span}
-          shown={hover() !== null && hover()! >= line.row && hover()! < line.row + line.span}
+          shown={covers(hover(), line.row, line.span)}
           run={() => void run(line.command)}
         />
       )}</For>
     </div>
   );
 };
+
+const covers = (at: number | null, row: number, span: number): boolean => at !== null && at >= row && at < row + span;

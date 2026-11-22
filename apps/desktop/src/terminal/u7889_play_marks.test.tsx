@@ -6,9 +6,14 @@ import { info, node } from "../testing/nodes";
 import { createXtermEmulators } from "./emulator";
 import { callsTo, mountPane } from "./paneHarness";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const BREW = "brew upgrade ollama && brew services restart ollama";
+
 const OLLAMA = "ollama run inkling-2-mini";
 
 /** An Agent whose Terminal prints `lines`, and whose record holds `BREW` and `OLLAMA` as shell commands. */
@@ -20,7 +25,14 @@ const mountPrinting = async (lines: string[]) => {
   mounted.connected.rail.select("a");
   flush();
 
-  const emulator = await vi.waitFor(() => { const found = mounted.emulators.get("t-a"); expect(found?.onFrame).toBeDefined(); return found!; });
+  const emulator = await vi.waitFor(() => {
+    const found = mounted.emulators.get("t-a");
+
+    expect(found?.onFrame).toBeDefined();
+
+    // SAFETY: the expectation above fails the poll until the emulator exists.
+    return found as NonNullable<typeof found>;
+  });
 
   emulator.screenLines = lines;
   await vi.waitFor(() => { emulator.frame(); expect(mounted.app.calls.some((call) => call.method === "agent.printedCommands")).toBe(true); });
@@ -39,7 +51,8 @@ it("u7889a_one_play_mark_per_shell_line_and_none_in_prose", async () => {
 it("u7889a_a_screen_line_matches_only_a_printed_command_wrapped_or_not", () => {
   const spy = vi.spyOn(xtermModule, "Terminal");
   const emulator = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }))("t");
-  const terminal = spy.mock.instances[0]!;
+  // SAFETY: the Terminal constructor ran once when the emulator was created.
+  const terminal = spy.mock.instances[0] as (typeof spy.mock.instances)[number];
 
   spy.mockRestore();
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));

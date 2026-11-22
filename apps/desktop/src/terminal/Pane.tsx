@@ -122,7 +122,13 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const [preparing, setPreparing] = createSignal(false);
 
   /** U7889: the Agent and Terminal whose marks show, as one string, so the marks live and die with the selection, not with each refreshed row. */
-  const playKey = createMemo(() => { const node = selected(); const terminal = terminalId(); return node?.kind === "agent" && terminal !== null && screen() !== undefined ? `${node.id}\n${terminal}` : null; });
+  const playKey = createMemo(() => {
+    const node = selected();
+    const terminal = terminalId();
+
+    return node?.kind === "agent" && terminal !== null && screen() !== undefined ? `${node.id}\n${terminal}` : null;
+  });
+
   let preparation: AbortController | undefined;
   rail.prepareTerminal = async () => {
     preparation?.abort();
@@ -305,7 +311,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <div class="pane-over">{props.over}</div>{props.header}
         <Show when={playKey()} keyed>
-          {(key) => { const [agent = "", terminal = ""] = key.split("\n"); return <PlayMarks connected={connected} agent={agent} emulator={screens.emulatorFor(terminal)} host={screen()!} rowHeight={() => screens.rows(terminal)?.height ?? 0} />; }}
+          {(key) => {
+            const [agent = "", terminal = ""] = key.split("\n");
+            const host = screen();
+
+            return host ? <PlayMarks connected={connected} agent={agent} emulator={screens.emulatorFor(terminal)} host={host} rowHeight={() => screens.rows(terminal)?.height ?? 0} /> : null;
+          }}
         </Show>
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />

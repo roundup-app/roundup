@@ -53,11 +53,13 @@ pub(super) fn shell_commands(record: &[u8]) -> Vec<String> {
         let Ok(entry) = serde_json::from_slice::<Value>(line) else {
             continue;
         };
-        if entry["type"] != "assistant" {
+        if entry.get("type").and_then(Value::as_str) != Some("assistant") {
             continue;
         }
-        for part in entry["message"]["content"].as_array().into_iter().flatten() {
-            if let Some(text) = part["text"].as_str().filter(|_| part["type"] == "text") {
+        let content = entry.pointer("/message/content").and_then(Value::as_array);
+        for part in content.into_iter().flatten() {
+            let is_text = part.get("type").and_then(Value::as_str) == Some("text");
+            if let Some(text) = part.get("text").and_then(Value::as_str).filter(|_| is_text) {
                 commands_of(text, &mut found);
             }
         }

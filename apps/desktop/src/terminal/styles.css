@@ -283,8 +283,8 @@
   position: absolute;
   inset-inline-end: var(--space-2);
   inset-block-start: calc(var(--play-row) * var(--play-row-height));
-  block-size: max(var(--play-row-height), 24px);
-  inline-size: 24px;
+  block-size: max(var(--play-row-height), 1.5rem);
+  inline-size: 1.5rem;
   display: grid;
   place-items: center;
   pointer-events: auto;
