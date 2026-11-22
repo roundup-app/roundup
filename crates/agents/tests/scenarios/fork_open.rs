@@ -337,7 +337,7 @@ mod update_keeps_runs {
     use contracts::Kind;
     use rpc::Module;
 
-    const LAUNCHES: &str = "echo started >> launches.log\nexec sleep 30";
+    const LAUNCHES: &str = "echo started >> \"$(dirname \"$0\")/launches.log\"\nexec sleep 30";
 
     async fn ack(f: &Fixture, id: &str, source: &str) {
         let attempt = f.attempt(id).await;
