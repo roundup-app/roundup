@@ -82,24 +82,19 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
     fireEvent.click(tab(name));
     await waitFor(() => expect(tab(name).getAttribute("aria-selected")).toBe("true"));
 
-    for (const [command, heading] of [["import-work", "Import Claude Code"], ["project-settings", "Project settings"]] as const) {
-      openProjectPage(command);
-      const page = await screen.findByRole("region", { name: heading });
-      expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: heading })).toBe(page);
-      expect(screen.queryByRole("dialog")).toBeNull();
+    openProjectPage("import-work");
+    const page = await screen.findByRole("region", { name: "Import Claude Code" });
+    expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Import Claude Code" })).toBe(page);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
+    fireEvent.click(within(page).getByRole("button", { name: "Close" }));
 
-      if (command === "import-work") expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
-      else await waitFor(() => expect(within(page).getByRole("textbox", { name: /Workstreams at once/ })).toHaveProperty("value", String(cap)));
-      fireEvent.click(within(page).getByRole("button", { name: "Close" }));
-    }
-
-    expect(app.of(path(name)).calls.filter(call => call.method === "project.get")).toHaveLength(2);
     expect(app.of(path(name)).calls.filter(call => call.method === "project.importDiscover")).toHaveLength(1);
   }
 });
 
 
-it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keeps_each_page_with_its_project_%s", async command => {
+it("u3814_project_switch_keeps_each_page_with_its_project", async () => {
   const { app } = await openTabs({ api: [], web: [] });
 
   for (const [name, cap] of [["api", 2], ["web", 7]] as const) {
@@ -107,43 +102,35 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
   }
 
-  const heading = command === "import-work" ? "Import Claude Code" : "Project settings";
+  const heading = "Import Claude Code";
 
   for (const name of ["api", "web"]) {
     fireEvent.click(tab(name));
     await waitFor(() => expect(tab(name).getAttribute("aria-selected")).toBe("true"));
-    openProjectPage(command);
+    openProjectPage("import-work");
     const page = await screen.findByRole("region", { name: heading });
 
-    if (command === "import-work") {
-      fireEvent.click(await within(page).findByRole("checkbox", { name: new RegExp(name) }));
-      fireEvent.click(within(page).getByRole("button", { name: name === "api" ? "Last month" : "Last day" }));
-    } else {
-      await waitFor(() => expect(within(page).getByRole("textbox", { name: /Workstreams at once/ })).toHaveProperty("value", name === "api" ? "2" : "7"));
-
-      if (name === "api") fireEvent.input(within(page).getByRole("textbox", { name: /Workstreams at once/ }), { target: { value: "unfinished" } });
-    }
+    fireEvent.click(await within(page).findByRole("checkbox", { name: new RegExp(name) }));
+    fireEvent.click(within(page).getByRole("button", { name: name === "api" ? "Last month" : "Last day" }));
   }
 
   fireEvent.click(tab("api"));
   await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
   const page = await screen.findByRole("region", { name: heading });
 
-  if (command === "import-work") {
-    expect(await within(page).findByRole("checkbox", { name: /api/ })).toBeTruthy();
-    expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
-    expect(within(page).queryByRole("checkbox", { name: /web/ })).toBeNull();
-  } else await waitFor(() => expect(within(page).getByRole("textbox", { name: /Workstreams at once/ })).toHaveProperty("value", "unfinished"));
+  expect(await within(page).findByRole("checkbox", { name: /api/ })).toBeTruthy();
+  expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
+  expect(within(page).queryByRole("checkbox", { name: /web/ })).toBeNull();
   expect(app.of(path("api")).calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
 });
 
-it.each(["import-work", "project-settings"] as const)("u3814_escape_restores_the_previous_center_and_focus_missing_element_%s", async command => {
+it("u3814_escape_restores_the_previous_center_and_focus_missing_element", async () => {
   await openTabs({ api: [workstream("w")] });
   const opener = document.createElement("button");
   document.body.append(opener);
   opener.focus();
-  openProjectPage(command);
-  const page = await screen.findByRole("region", { name: command === "import-work" ? "Import Claude Code" : "Project settings" });
+  openProjectPage("import-work");
+  const page = await screen.findByRole("region", { name: "Import Claude Code" });
   opener.remove();
   fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement?.closest(".rail")).not.toBeNull());
@@ -159,9 +146,7 @@ it("u3814_switching_settings_pages_keeps_the_original_return_destination", async
   openProjectPage("import-work");
   const imported = await screen.findByRole("region", { name: "Import Claude Code" });
   expect(appPage.isConnected).toBe(false);
-  openProjectPage("project-settings");
-  const page = await screen.findByRole("region", { name: "Project settings" });
-  fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
+  fireEvent.keyDown(imported, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(overview));
   expect(imported.isConnected).toBe(false);
 });
@@ -196,16 +181,15 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     })()`);
     await lane.until("document.querySelector('.import-panel').textContent.includes('could not be saved for reload')");
     await lane.capture("U3815", "retention-failure");
-    await lane.evaluate(`(() => { window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: '/Users/you/harness', command: 'project-settings' } })); return true; })()`);
-    await lane.until("!!document.querySelector('.settings-view textarea')");
-    await lane.capture("U3814", "project-settings");
+    await lane.evaluate(`(() => { window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: '/Users/you/harness', command: 'import-work' } })); return true; })()`);
+    await lane.until("!!document.querySelector('.settings-view')");
     await lane.browser("click", '.rail-row[data-id="agent-1"]');
-    expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
+    expect(await lane.evaluate("!!document.querySelector('.settings-view')")).toBe(true);
     await lane.browser("click", "#shelf-tab-pads");
-    expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
+    expect(await lane.evaluate("!!document.querySelector('.settings-view')")).toBe(true);
     await lane.browser("click", ".terminal-new");
     await lane.until("!!document.querySelector('.bubble:not([hidden])')");
-    expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
+    expect(await lane.evaluate("!!document.querySelector('.settings-view')")).toBe(true);
     await lane.capture("U3814", "terminal-bubble-and-settings");
     await lane.browser("click", ".bubble [aria-label=Minimise]");
     await lane.browser("click", ".settings-head button");
@@ -231,9 +215,6 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
           await lane.browser("click", ".strip-add");
           await lane.until("document.querySelector('.project-tab[data-selected=true]')?.dataset.path === '/Users/you/second-project'");
           await lane.until("!document.querySelector('.import-panel')");
-          await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: '/Users/you/second-project', command: 'project-settings' } }))");
-          await lane.until("!!document.querySelector('.settings-view textarea')");
-          await lane.capture("U3814", "second-project-settings");
           await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] .tab-name');
           await lane.until("!!document.querySelector('.import-panel')");
           await lane.capture("U3814", "original-project-import");
@@ -262,12 +243,14 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   const visiblePanel = () => view.querySelector('[role="tabpanel"]:not([hidden])');
   const tabs = new Map(within(view).getAllByRole("tab").map(tab => [tab.getAttribute("data-value"), tab]));
 
-  for (const name of ["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"]) {
+  // U7887a: a selected Project adds its Project page after Agents.
+  const pages = project ? ["Agents", "Project", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"] : ["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"];
+
+  for (const name of pages) {
     fireEvent.click(tabs.get(name)!);
     await waitFor(() => expect(visiblePanel()?.getAttribute("aria-labelledby")).toBe(tabs.get(name)!.id));
   }
 
-  const pages = ["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"];
   tabs.get("Agents")!.focus();
   await Promise.resolve();
 
@@ -304,4 +287,13 @@ it("u4277a_section_navigation_keeps_unsubmitted_font_text", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
   expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("300");
   expect(appSettings().fontSize).toBe(17);
+});
+
+it("u7887d_no_project_settings_page_opens_in_the_centre", async () => {
+  await openTabs({ api: [workstream("w")] });
+
+  openProjectPage("project-settings");
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  expect(screen.queryByRole("region", { name: "Project settings" })).toBeNull();
 });

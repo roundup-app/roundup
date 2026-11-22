@@ -9,12 +9,16 @@ export type Entry = {
   label: string;
   description: string;
   hiddenHint?: boolean;
+  /** A control a settings link can name, which the search does not list. */
+  linkOnly?: boolean;
   when?: () => boolean;
 };
 
 /** What decides which entries are live: the open Project, the App's update facts (U7208a) and the terminal's numeric fields. */
 type Live = {
   project: () => string | null;
+  /** The Project the Project page is about. */
+  viewed: () => string | null;
   updates: Updates;
   numericFields: readonly { name: string; label: string; hint: string }[];
 };
@@ -22,6 +26,7 @@ type Live = {
 /** U5243a: every control the search ranks, whether its page is showing or not. */
 export const settingsEntries = ({
   project,
+  viewed,
   updates,
   numericFields,
 }: Live): Entry[] => {
@@ -144,6 +149,20 @@ export const settingsEntries = ({
       description: copy.focusMarkersHint,
       hiddenHint: true,
     },
+    ...[
+      ["workstreams", copy.workstreams],
+      ["program", copy.programCommand],
+      ["program-folder", copy.programFolder],
+      ["program-worktree", copy.programAdopt],
+    ].map(([id, label]) => ({
+      id: id!,
+      page: copy.settingsProject,
+      group: id === "workstreams" ? copy.workstreams : copy.program,
+      label: label!,
+      description: label!,
+      linkOnly: true,
+      when: () => !!viewed(),
+    })),
   ];
 
   return all.filter((entry) => entry.when?.() ?? true);

@@ -28,6 +28,8 @@ import { settingsEntries } from "./entries";
 import { markControls, registerSettingsPlace } from "./place";
 import { UpdateRow, updateFailure } from "./UpdateRow";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
+import { ConnectedProjectContext, type ConnectedProject } from "../state/connectedProject";
+import { ProjectPage } from "./ProjectPage";
 
 /** The segment control loads with the first page that shows one, not with the App. */
 const SegmentGroup = <V extends string>(props: Parameters<typeof import("../ui/SegmentGroup").SegmentGroup<V>>[0]) =>
@@ -39,11 +41,17 @@ const IconNames = (props: { onFailure: (failure: string | null) => void }) => (
 );
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
+export const AppSettings = (props: { app: App; project: () => string | null; connectionOf?: (path: string) => ConnectedProject | undefined; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
   const view = props.view ?? createSettingsView();
   const updates = useUpdates();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
+  // U7887c: a link can name a Project other than the selected one; choosing another Project takes the page back to it.
+  const [named, setNamed] = createSignal<string | null>(null);
+  const viewed = () => named() ?? props.project();
+  const viewedConnection = () => { const path = viewed(); return path === null ? undefined : props.connectionOf?.(path); };
+  createEffect(() => props.project(), () => { setNamed(null); }, { defer: true });
+  createEffect(() => viewed(), path => { if (path === null && untrack(section) === copy.settingsProject) setSection(copy.settingsAgents); }, { defer: true });
   const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});
   const drafts = draftStorage("app-settings");
   const offeredLine = dismissable(() => offered()?.failure);
@@ -329,13 +337,13 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   for (const program of ["roundup", "core", "check"] as const) createMessageToast({ get message() { return program === "check" ? (updates.checkFailed() ? copy.updateCheckFailed : null) : updateFailure(updates, program); }, dismiss: () => program === "check" ? updates.dismissCheck() : updates.dismiss(program) });
 
-  const entries = () => settingsEntries({ project: props.project, updates, numericFields });
+  const entries = (path: string | null = viewed()) => settingsEntries({ project: props.project, viewed: () => path, updates, numericFields });
 
   // U5243a: `fuzzysort` ranks the live entries by label, description, page and group.
   const [query, setQuery] = createSignal("");
   const searching = () => query().trim() !== "";
-  const results = createMemo(() => searching() ? fuzzysort.go(query().trim(), entries(), { keys: ["label", "description", "page", "group"] }).map(result => result.obj) : []);
-  onCleanup(registerSettingsPlace({ entries, setQuery, setSection, show: () => show() }));
+  const results = createMemo(() => searching() ? fuzzysort.go(query().trim(), entries().filter(entry => !entry.linkOnly), { keys: ["label", "description", "page", "group"] }).map(result => result.obj) : []);
+  onCleanup(registerSettingsPlace({ entries, setProject: setNamed, setQuery, setSection, show: () => show() }));
 
   return <>
     <Show when={view.open()}>
@@ -367,6 +375,10 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <div class="settings-category" aria-hidden="true">{copy.settingsAgents}</div>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsTerminal}</div>
+          <Show when={viewed()}>
+            <div class="settings-category" aria-hidden="true">{copy.settingsProject}</div>
+            <Tabs.Trigger value={copy.settingsProject}>{copy.settingsProject}</Tabs.Trigger>
+          </Show>
           <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsEditor}</div>
           <Tabs.Trigger value="Editor">{copy.settingsEditor}</Tabs.Trigger>
@@ -390,6 +402,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Show>
         {controls.naming()}
       </SettingsGroup></Tabs.Content>
+      <Tabs.Content value={copy.settingsProject}>
+        <Show when={viewedConnection()} keyed>{open => <ConnectedProjectContext value={open}><ProjectPage /></ConnectedProjectContext>}</Show>
+      </Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
         {controls.fontWeight()}

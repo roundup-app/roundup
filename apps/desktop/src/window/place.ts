@@ -36,7 +36,7 @@ export const parsePlace = (url: string): Parsed => {
 /** PL1, PL2: a click on a place link selects its open Project and moves the user there; a link that cannot say where fails in one line and changes nothing. */
 export const createPlaceRoute = ({ app, projects, connectionOf, openShelf, fail }: {
   app: App;
-  projects: Pick<ProjectsState, "select">;
+  projects: Pick<ProjectsState, "select" | "active">;
   connectionOf: (path: string) => ConnectedProject | undefined;
   openShelf: (tab: ShelfTab) => void;
   fail: (message: string | null) => void;
@@ -46,13 +46,20 @@ export const createPlaceRoute = ({ app, projects, connectionOf, openShelf, fail 
 
   if ("failure" in parsed) return fail(parsed.failure);
 
+  // U7887c: the Project page is about the named Project, or the selected one; reaching it selects nothing.
+  const aboutProject = parsed.place.kind === "settings" && parsed.place.page === "project";
   let connection: ConnectedProject | undefined;
+  const selected = projects.active();
 
   for (const project of parsed.key === null ? [] : await app.projects()) {
     if (project.running && connectionOf(project.path) && await projectKeyOf(app.forProject(project.path)).catch(() => null) === parsed.key) connection = connectionOf(project.path);
   }
 
+  if (aboutProject && parsed.key === null && selected !== null) connection = connectionOf(selected);
+
   if (!connection) return fail(parsed.key === null ? linkCopy.placeNoProject : linkCopy.placeProject(parsed.key));
+
+  if (aboutProject) return fail(goToSetting("project", parsed.place.kind === "settings" ? parsed.place.control : null, connection.project.path));
 
   projects.select(connection.project.path);
   connection.settingsView.close(false);

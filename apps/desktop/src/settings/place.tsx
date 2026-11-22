@@ -14,10 +14,11 @@ export const SETTINGS_PAGES = {
   pads: copy.settingsPads,
   machines: copy.settingsMachines,
   updates: copy.settingsUpdates,
+  project: copy.settingsProject,
 } as const;
 
 /** What App Settings hands over so a link can move it. */
-type Live = { entries: () => Entry[]; setQuery: (query: string) => void; setSection: (section: string) => void; show: () => void };
+type Live = { entries: (viewed?: string | null) => Entry[]; setProject: (path: string | null) => void; setQuery: (query: string) => void; setSection: (section: string) => void; show: () => void };
 
 let live: Live | undefined;
 
@@ -44,6 +45,9 @@ export const markControls = <K extends string>(renders: Record<K, () => JSX.Elem
   }])) as Record<K, () => JSX.Element>;
 };
 
+/** PL2: one control known by its entry id, for a field that sits inside a larger form. */
+export const markControl = (id: string, render: () => JSX.Element): JSX.Element => markControls({ [id]: render })[id]!();
+
 /** Deferred controls mount after their page, so the focus waits for the control a short while. */
 const focusControl = (id: string) => {
   const reach = (target: HTMLElement) => { target.focus(); target.scrollIntoView({ block: "nearest" }); };
@@ -65,14 +69,15 @@ const focusControl = (id: string) => {
   setTimeout(() => watch.disconnect(), 2000);
 };
 
-/** PL2: open `page` and focus the control whose entry id is `control`, changing no value; the line saying why nothing moved, or `null`. */
-export const goToSetting = (page: string, control: string | null): string | null => {
+/** PL2, U7887c: open `page` and focus the control whose entry id is `control`, changing no value; the line saying why nothing moved, or `null`. `project` is the Project path a Project page is about. */
+export const goToSetting = (page: string, control: string | null, project: string | null = null): string | null => {
   const target = Object.entries(SETTINGS_PAGES).find(([name]) => name === page)?.[1];
 
   if (!live || !target) return copy.noSettingsPage(page);
 
-  if (control !== null && !live.entries().some(entry => entry.id === control && entry.page === target)) return copy.noSettingsControl(control, target);
+  if (control !== null && !live.entries(project).some(entry => entry.id === control && entry.page === target)) return copy.noSettingsControl(control, target);
 
+  if (project !== null) live.setProject(project);
   live.setQuery("");
   live.setSection(target);
   live.show();
