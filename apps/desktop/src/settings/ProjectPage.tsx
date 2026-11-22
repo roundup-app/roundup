@@ -9,6 +9,7 @@ import { ConnectedProjectContext, useConnectedProject, type ConnectedProject } f
 import { failureOf } from "../app/failureOf";
 import { Tabs } from "../ui/Tabs";
 import { Checkbox } from "../ui/Checkbox";
+import { createDraftField } from "../state/draftField";
 import { ProgramSettings } from "./ProgramSettings";
 
 /** a whole number of 1 or more, else `null`. */
@@ -18,8 +19,10 @@ const capOf = (text: string): number | null => /^\d+$/.test(text.trim()) && Numb
  * The cap: Enter or blur with a changed value, or the `No limit` toggle, is one `project.setWorkstreamCap`; a bad entry is refused in the field and calls nothing. */
 export const ProjectPage = () => {
   const { app, drafts } = useConnectedProject();
-  drafts.validate("settings", v.object({ text: v.string() }));
+  const schema = v.object({ text: v.string() });
+  drafts.validate("settings", schema);
   const destination = { surface: "settings", object: "workstreamCap", recipient: null };
+  const field = createDraftField(drafts, destination, schema);
   const draft = () => drafts.list().findLast(entry => entry.destination.surface === "settings" && entry.destination.object === "workstreamCap");
   onSettled(() => drafts.editor(destination));
   const [saved, setSaved] = createSignal<number | null>(null);
@@ -84,9 +87,9 @@ export const ProjectPage = () => {
       <span>{copy.runAtMost}</span>
       <textarea class="field-frame" rows={1} inputmode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
         onInput={event => {
-          const field = event.currentTarget;
-          setText(field.value);
-          drafts.edit(destination, { text: field.value }, { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }, "ordinary");
+          const input = event.currentTarget;
+          setText(input.value);
+          field.keep({ text: input.value }, { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection });
         }} onBlur={commit}
         onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } }} />
       <span>{copy.workstreamsAtOnce}</span>
