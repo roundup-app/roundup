@@ -49,6 +49,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; con
   // U7887c: a link can name a Project other than the selected one; choosing another Project takes the page back to it.
   const [named, setNamed] = createSignal<string | null>(null);
   const viewed = () => named() ?? props.project();
+
   const viewedConnection = () => {
     const path = viewed();
 

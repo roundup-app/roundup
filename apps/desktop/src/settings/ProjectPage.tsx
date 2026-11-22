@@ -75,6 +75,7 @@ export const ProjectPage = () => {
 
     return problem ? copy.draftRetention(copy.settingsProject, copy.workstreams, problem.cause) : null;
   });
+
   createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
   createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
 
