@@ -53,14 +53,14 @@ export const foldsOf = (diff: FileDiffMetadata): Fold[] => {
   return rest > 0 ? [...leading, { index: diff.hunks.length, step: "up", old: [from.old, from.old + rest], new: [from.new, from.new + rest] }] : leading;
 };
 
-/** U7692b: the fold V opens: of those with lines still hidden, the first one after the focused line, else the last before it. */
+/** U7692b: the fold X opens: of those with lines still hidden, the first one after the focused line, else the last before it. */
 export const nearestFold = (folds: readonly Fold[], selection: { side: "old" | "new"; start: number }, hidden: (fold: Fold) => boolean): Fold | undefined => {
   const open = folds.filter(hidden);
 
   return open.find(fold => fold[selection.side][1] > selection.start) ?? open.at(-1);
 };
 
-/** U7692b: the function V runs: it opens the nearest fold with lines still hidden, by the step the library's separator uses; the library says which lines are hidden. */
+/** U7692b: the function X runs: it opens the nearest fold with lines still hidden, by the step the library's separator uses; the library says which lines are hidden. */
 export const revealerOf = (
   view: { isLineRenderable: (line: number) => boolean; expandHunk: (index: number, step: Fold["step"]) => void },
   diff: FileDiffMetadata,

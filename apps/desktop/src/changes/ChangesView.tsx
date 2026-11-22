@@ -18,6 +18,8 @@ import { createLate } from "./late";
 import { ChangedTree, moduleKey, noiseKey } from "./ChangedTree";
 import { createFind, FindField } from "./Find";
 import { groupLens, lensAfter, LENSES, OVERVIEW, type Lens } from "./lens";
+import { createViewed } from "./createViewed";
+import { comparisonOf } from "./viewed";
 import { noiseOf, type Grouped } from "./modules";
 import { Overview } from "./Overview";
 import type { DiffKeys } from "./DiffReader";
@@ -61,7 +63,7 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
+type KeyActions = { jump: () => void; viewed: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
@@ -71,7 +73,8 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["/"], when: event => !typing(event), run: event => { event.preventDefault(); actions.find(); } },
   { chords: ["]"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(1); } },
   { chords: ["["], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(-1); } },
-  { chords: ["v"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.reveal(); } },
+  { chords: ["v"], when: event => !typing(event), run: event => { event.preventDefault(); actions.viewed(); } },
+  { chords: ["x"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.reveal(); } },
   { chords: ["n"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.note(); } },
   { chords: ["e"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.edit(); } },
   { chords: ["Delete", "Backspace"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.remove(); } },
@@ -382,9 +385,11 @@ const Surface = (props: { id: string; name: string }) => {
     if (rowsOf(lensed()(lens())).includes(key)) choosePath(key, path);
   };
 
+  const viewed = createViewed({ memory, comparison: () => comparisonOf(target(), own() ? undefined : groupKey()), files, settled: () => !pending() && failure() === null, lensed, lens, opened, open: next => { setLens(next.lens); choosePath(next.key); flush(); focusTree(next.key); } });
+
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, section: () => section, open: openPath });
 
-  registerChangesKeys(() => section, { jump: jump.open, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
+  registerChangesKeys(() => section, { jump: jump.open, viewed: viewed.markOpen, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
@@ -415,6 +420,7 @@ const Surface = (props: { id: string; name: string }) => {
         <SegmentGroup label={copy.compareTo} segments={segmentsOf(worktree() !== null)} value={target()} onValueChange={choose} />
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
+      <Show when={viewed.progress().total > 0}><span class="changes-progress">{copy.viewedProgress(viewed.progress().viewed, viewed.progress().total)}</span></Show>
       <button type="button" data-button="quiet" onClick={close}>{copy.closeChanges}</button>
     </header>
     <Show when={remote.chip()}>{chip => <Show when={causeOf(chip()) !== ""}><p class="changes-remote-cause">{causeOf(chip())}</p></Show>}</Show>
@@ -436,7 +442,7 @@ const Surface = (props: { id: string; name: string }) => {
         <Show when={files().length > 0}>
           <SegmentGroup label={copy.lens} segments={lensSegments} value={lens()} onValueChange={switchLens} />
           <FindField find={find} />
-          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}>
             <p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p>
           </Show>
@@ -446,7 +452,7 @@ const Surface = (props: { id: string; name: string }) => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>}>
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>}>
             <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;

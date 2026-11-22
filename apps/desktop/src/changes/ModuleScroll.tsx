@@ -8,6 +8,7 @@ import type { Shared } from "./diffDraw";
 import type { Places } from "./lines";
 import { NoteBatch } from "./NoteBatch";
 import type { Note, Notes } from "./notes";
+import { copy } from "./copy";
 
 type Line = { side: "old" | "new"; line: number };
 
@@ -19,7 +20,7 @@ const lineOf = (event: MouseEvent): Line | undefined => {
 };
 
 /** U7678c: one module's hunks as one scroll: each file under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
-export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; group?: OwnedGroupKey | undefined; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void }) => {
+export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; group?: OwnedGroupKey | undefined; viewed?: { on: boolean; changed: boolean; toggle: () => void } | undefined; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void }) => {
   let scroller: HTMLDivElement | undefined;
   const sections = new Map<string, HTMLElement>();
   const readers = new Map<string, DiffKeys>();
@@ -153,6 +154,10 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
   }));
 
   return <div class="module-pane">
+    <Show when={props.viewed}>{viewed => <header class="module-head">
+      <Show when={viewed().changed}><span class="module-changed">{copy.changedSinceViewed}</span></Show>
+      <button type="button" data-button="quiet" aria-pressed={viewed().on ? "true" : "false"} onClick={() => viewed().toggle()}>{copy.viewed}</button>
+    </header>}</Show>
     <div class="module-scroll" tabindex="-1" aria-label={props.name} onDblClick={doubleClicked} ref={element => { scroller = element; shared.scroller = element; }}>
     <For each={paths()}>{path => <section class="module-file" data-path={path} style={{ "min-block-size": `calc(var(--space-5) * ${lines(path)})` }} ref={element => { sections.set(path, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(path); readers.delete(path); }); }}>
       <Show when={wanted().has(path)} fallback={<header class="diff-header"><p class="diff-path">{path}</p></header>}>

@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { rowOf } from "../rail/railFixture";
 import { copy } from "./copy";
 import { marked, openChanges, saveNote, take, startNote } from "./noteHarness";
-import { MODS, THREE, absent, at, calls, chooseLens, closeButton, content, counted, drawn, edited, file, fileRows, gone, isOpen, landed, lensGroup, lensNow, marks, moduleRow, mountRailWith, multi, noiseRows, open, openPaths, owning, pane, press, region, scrolled, scrolledTo, scroller, setUpView, showing, slot, switchedTo, there, treeFocus, written } from "./viewHarness";
+import { MODS, THREE, absent, at, calls, chooseLens, closeButton, content, counted, drawn, edited, file, fileRows, gone, isOpen, landed, lensGroup, lensNow, marks, moduleKeys, moduleRow, mountRailWith, multi, noiseRows, open, openPaths, owning, pane, press, region, scrolled, scrolledTo, scroller, setUpView, showing, slot, switchedTo, takeNoise, there, treeFocus, written } from "./viewHarness";
 
 setUpView();
 
@@ -188,8 +188,6 @@ const SMALL = [counted("crates/a/src/x.rs", 5, 1), counted("pnpm-lock.yaml", 4, 
 /** The list's rows in order, each by its key (a file by its path: its key is its module's). */
 const listKeys = () => [...region().querySelectorAll<HTMLElement>(".changes-tree [data-row]")].map(row => row.dataset.row === "file" ? row.dataset.path : row.dataset.key);
 
-const moduleKeys = () => [...region().querySelectorAll<HTMLElement>('.changes-tree [data-row="module"]')].map(row => row.dataset.key);
-
 const overviewRow = () => there(region().querySelector<HTMLElement>('[data-row="overview"]'));
 
 const entries = () => [...pane().querySelectorAll<HTMLElement>("[data-entry]")];
@@ -201,12 +199,6 @@ const typeIn = (letters: string) => fireEvent.input(finder(), { target: { value:
 
 /** The row or entry says its module's file count and sums. */
 const holds = (row: Element, files: number, added: number, removed: number) => [copy.filesCount(files), copy.addedLines(added), copy.removedLines(removed)].every(part => row.textContent?.includes(part));
-
-/** A noise row unfolds by Right, which chooses nothing; its file row then opens alone. */
-const takeNoise = async (path: string) => {
-  for (const folded of region().querySelectorAll<HTMLElement>('[data-row="noise"][aria-expanded="false"]')) press("ArrowRight", folded);
-  take(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="' + path + '"]'))));
-};
 
 const noiseKeys = () => noiseRows().map(row => row.dataset.key);
 
@@ -545,7 +537,7 @@ it("u7679d_typed_letters_fire_no_key", async () => {
   press("/");
   await waitFor(() => expect(document.activeElement).toBe(finder()));
 
-  for (const key of ["j", "k", "v", "r", "g", "n", "l", "/", "]", "[", "?", "e", "Delete"]) press(key, finder());
+  for (const key of ["j", "k", "v", "x", "r", "g", "n", "l", "/", "]", "[", "?", "e", "Delete"]) press(key, finder());
   absent(() => screen.queryByRole("form", { name: copy.lineNote }));
   absent(() => screen.queryByRole("region", { name: copy.keys }));
   absent(() => screen.queryByRole("combobox", { name: copy.jumpToNote }));

@@ -8,7 +8,7 @@ import { agent, event } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { COMPARISON, marked, openChanges, openFirstModule } from "./noteHarness";
+import { COMPARISON, marked, openChanges, openFirstModule, take } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -156,6 +156,15 @@ export const edited = (app: Awaited<ReturnType<typeof mountRailWith>>["app"], id
 export const fileRows = () => [...region().querySelectorAll<HTMLElement>('[data-row="file"]')].map(row => row.dataset.path);
 
 export const noiseRows = () => [...region().querySelectorAll<HTMLElement>('[data-row="noise"]')];
+
+/** The list's module rows in order, each by its key. */
+export const moduleKeys = () => [...region().querySelectorAll<HTMLElement>('.changes-tree [data-row="module"]')].map(row => row.dataset.key);
+
+/** A noise row unfolds by Right, which chooses nothing; its file row then opens alone. */
+export const takeNoise = async (path: string) => {
+  for (const folded of region().querySelectorAll<HTMLElement>('[data-row="noise"][aria-expanded="false"]')) press("ArrowRight", folded);
+  take(await waitFor(() => there(region().querySelector<HTMLElement>('[data-row="file"][data-path="' + path + '"]'))));
+};
 
 /** The lens fixture: seven files, each with counts of its own. */
 export const counted = (path: string, added: number, removed: number): ChangedFile => ({ path, status: "modified", line: 1, counts: { added, removed }, blob: null });

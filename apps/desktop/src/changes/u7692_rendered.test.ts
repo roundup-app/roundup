@@ -162,7 +162,7 @@ const focusDiff = async (path = EXAMPLE) => {
   await browser("eval", `(() => { const mount = document.querySelector('.module-file[data-path="${path}"] .diff-content'); mount.tabIndex = -1; mount.focus(); })()`);
 };
 
-it("u7692b_v_reveals_the_nearest_fold_by_the_click_step", async () => {
+it("u7692b_x_reveals_the_nearest_fold_by_the_click_step", async () => {
   await open(FOLDS);
   await smallBeside(EXAMPLE);
   await showDiff();
@@ -171,26 +171,26 @@ it("u7692b_v_reveals_the_nearest_fold_by_the_click_step", async () => {
 
   await focusDiff();
 
-  // The focused line is the first change's, line 1: V opens the fold after it, then each further V opens more of it, then the next.
-  await browser("press", "v");
+  // The focused line is the first change's, line 1: X opens the fold after it, then each further X opens more of it, then the next.
+  await browser("press", "x");
   await folded({ ...ALL, "1": "250 unmodified lines" });
-  await browser("press", "v");
+  await browser("press", "x");
   await folded({ ...ALL, "1": "50 unmodified lines" });
-  await browser("press", "v");
+  await browser("press", "x");
   await folded({ "2": ALL["2"], "3": ALL["3"] });
-  await browser("press", "v");
+  await browser("press", "x");
   await folded({ "3": ALL["3"] });
 
-  // A file with no fold: V does nothing, and the file above it keeps its last fold. `]` steps through the four changes, then into the next file.
+  // A file with no fold: X does nothing, and the file above it keeps its last fold. `]` steps through the four changes, then into the next file.
   for (let step = 0; step < 4; step++) await browser("press", "]");
-  await browser("press", "v");
+  await browser("press", "x");
   await folded({ "3": ALL["3"] });
 
-  // Back at the last change of the first file, V opens its last fold, and a further V has nothing to open.
+  // Back at the last change of the first file, X opens its last fold, and a further X has nothing to open.
   await browser("press", "[");
-  await browser("press", "v");
+  await browser("press", "x");
   await folded({});
-  await browser("press", "v");
+  await browser("press", "x");
   await folded({});
   expect(await reads()).toBe(before);
 }, 60_000);

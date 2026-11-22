@@ -18,6 +18,12 @@ export const copy = {
   lens: "Lens",
   lenses: { modules: "Modules", logic: "Logic", tests: "Tests" },
   overview: sharedCopy.overview,
+  /** U7680a: the button and the row's word, the header's count and U7680d's words. */
+  viewed: "Viewed",
+  /** @prose */
+  viewedProgress: (viewed: number, total: number) => viewed === total ? `All ${total} viewed` : `${viewed} of ${total} viewed`,
+  /** @prose */
+  changedSinceViewed: "Changed since you viewed it",
   findFile: "Find a file",
   /** @prose */
   noChangesIn: (lens: string) => `No changes in ${lens}`,
@@ -99,7 +105,9 @@ export const copy = {
     /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
-    "V shows more of the nearest hidden lines.",
+    "V marks the open item viewed and opens the next one.",
+    /** @prose */
+    "X shows more of the nearest hidden lines.",
     /** @prose */
     "Enter opens the file in the editor.",
     /** @prose */
