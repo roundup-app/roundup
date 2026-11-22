@@ -622,6 +622,10 @@ export const Bubbles = (props: {
     },
   );
 
+  // U7889d: a Terminal another surface started (a click on a printed command) is shown and focused as one the user opens.
+  rail.revealTerminal = (id) => setWanted({ id, focus: captureFocus(true) });
+  onCleanup(() => { rail.revealTerminal = undefined; });
+
   // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a pressed key repeats nothing.
   const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 

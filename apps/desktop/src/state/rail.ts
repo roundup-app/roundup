@@ -49,6 +49,8 @@ export type RailState = {
   /** U5151c: acknowledge this node's current failure; sends nothing to the Agent. U7189: the owner has seen this Terminal's status. */
   dismiss(item: RailNode | TerminalInfo): void;
   prepareTerminal?: (() => Promise<TerminalPreparation | undefined>) | undefined;
+  /** U7889d: shows a Terminal's Bubble, restored when minimised, and focuses it as one the user opens; the Bubbles host sets it. */
+  revealTerminal?: ((id: string) => void) | undefined;
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];

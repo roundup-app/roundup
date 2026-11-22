@@ -2,6 +2,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   starting: sharedCopy.starting,
+  runPrinted: (command: string) => `Run ${command}`,
   terminalFocusChanged: "Terminal focus changed",
   terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready.",
   terminalPreparationUnavailable: "Terminal could not open: its renderer was not available.",

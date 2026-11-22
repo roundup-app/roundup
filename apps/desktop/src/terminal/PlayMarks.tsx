@@ -1,0 +1,90 @@
+import { createEffect, createSignal, For, onCleanup } from "solid-js";
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { createMessageToast } from "../ink/messageToast";
+import { PlayMark } from "../ui/PlayMark";
+import type { ConnectedProject } from "../state/connectedProject";
+import type { Emulator } from "./emulator";
+import type { PlayLine } from "./playLines";
+import { copy } from "./copy";
+
+/** The Daemon is asked again for an Agent's printed commands at most this often while its screen changes. */
+const REFRESH_MS = 2000;
+
+/**
+ * U7889: a ▶ beside each screen line of an Agent's Terminal that equals a shell command the Agent printed (U7889a); it shows
+ * while the pointer is over the line or the button has focus. A click runs the command in a shell the Agent owns (U7889b, c)
+ * and shows that shell's Bubble (U7889d). Nothing is typed into the Agent's own Terminal.
+ */
+export const PlayMarks = (props: { connected: ConnectedProject; agent: string; emulator: Emulator; host: HTMLElement; rowHeight: () => number }) => {
+  const { app, rail } = props.connected;
+  const [printed, setPrinted] = createSignal<readonly string[]>([]);
+  const [lines, setLines] = createSignal<PlayLine[]>([], { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
+  const [hover, setHover] = createSignal<number | null>(null);
+  const [failure, setFailure] = createSignal<string | null>(null);
+  let lastAsk = 0;
+  let asking = false;
+
+  const refresh = (): void => {
+    setLines(props.emulator.playLines?.(printed()) ?? []);
+  };
+
+  const ask = async (): Promise<void> => {
+    if (asking) return;
+
+    asking = true;
+    lastAsk = Date.now();
+
+    try {
+      setPrinted((await app.rpc("agent.printedCommands", { id: props.agent })).commands);
+    } catch {
+      // The record may not exist yet: no ▶ shows until it does.
+    } finally {
+      asking = false;
+    }
+
+    refresh();
+  };
+
+  void ask();
+  props.emulator.onFrame?.(() => {
+    refresh();
+
+    if (Date.now() - lastAsk >= REFRESH_MS) void ask();
+  });
+  createEffect(printed, refresh);
+
+  makeEventListener(props.host, "mousemove", (move) => {
+    const height = props.rowHeight();
+
+    setHover(height > 0 ? Math.floor((move.clientY - props.host.getBoundingClientRect().top) / height) : null);
+  });
+  makeEventListener(props.host, "mouseleave", () => setHover(null));
+  onCleanup(() => setHover(null));
+
+  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+
+  const run = async (command: string): Promise<void> => {
+    try {
+      const opened = await app.rpc("agent.runPrinted", { id: props.agent, command });
+
+      setFailure(null);
+      rail.revealTerminal?.(opened.terminal_id);
+    } catch (thrown) {
+      setFailure(thrown instanceof Error ? thrown.message : String(thrown));
+    }
+  };
+
+  return (
+    <div class="play-marks" style={{ "--play-row-height": `${props.rowHeight()}px` }}>
+      <For each={lines()}>{(line) => (
+        <PlayMark
+          name={copy.runPrinted(line.command)}
+          row={line.row}
+          span={line.span}
+          shown={hover() !== null && hover()! >= line.row && hover()! < line.row + line.span}
+          run={() => void run(line.command)}
+        />
+      )}</For>
+    </div>
+  );
+};
