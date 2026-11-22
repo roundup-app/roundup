@@ -3,7 +3,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
 import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
-import { hunkFunction } from "./modules";
+import { hunkFunction, type Takes } from "./modules";
 import type { LineSelection } from "./lines";
 import type { Note, NoteFormDraft } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
@@ -121,6 +121,44 @@ const patchOf = async (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesP
 /** U7678c: one scroll that a module's files share, and the one Virtualizer its views hang from. */
 export type Shared = { scroller: HTMLElement | undefined; virtualizer?: InstanceType<typeof import("@pierre/diffs").Virtualizer> | undefined };
 
+/** U7683d: the hunks of `patch` with a changed line `pick` takes, the header kept; every hunk when none is taken, so a section never draws nothing. */
+export const keepHunks = (patch: string, pick: Takes): string => {
+  const lines = patch.split("\n");
+  const first = lines.findIndex(line => line.startsWith("@@"));
+
+  if (first === -1) return patch;
+
+  const kept: string[] = [];
+  let hunk: string[] = [];
+  let taken = false;
+  let old = 0;
+  let next = 0;
+
+  const close = () => {
+    if (taken) kept.push(...hunk);
+    hunk = [];
+    taken = false;
+  };
+
+  for (const line of lines.slice(first)) {
+    const header = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+
+    if (header) {
+      close();
+      old = Number(header[1]);
+      next = Number(header[2]);
+    } else if (line.startsWith("+")) taken ||= pick("new", next++);
+    else if (line.startsWith("-")) taken ||= pick("old", old++);
+    else if (line.startsWith(" ")) { old++; next++; }
+
+    hunk.push(line);
+  }
+
+  close();
+
+  return kept.length === 0 ? patch : [...lines.slice(0, first), ...kept].join("\n").replace(/\n*$/, "\n");
+};
+
 /** U7678c: each hunk header gains the function line git's default would name, read from the old text above the hunk. */
 const withFunctions = (patch: string, old: string) => {
   const lines = old.split("\n");
@@ -156,6 +194,8 @@ type Hooks = {
   note: (range: LineSelection) => void;
   /** U7677: the element an annotation draws as; the reader owns what it holds. */
   annotation: (metadata: Annotated) => HTMLElement;
+  /** U7683d: a flow's section draws only the hunks with a changed line this takes. */
+  only?: Takes | undefined;
 };
 
 /** Pierre's range as the App's selection: its side named for the App, its ends in line order whichever way it ran. */
@@ -199,7 +239,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   const { coarse } = made;
 
   await yielded();
-  const patch = withFunctions(made.patch, oldFile.contents);
+  const patch = withFunctions(hooks.only ? keepHunks(made.patch, hooks.only) : made.patch, oldFile.contents);
 
   // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
   const container = document.createElement("diffs-container");

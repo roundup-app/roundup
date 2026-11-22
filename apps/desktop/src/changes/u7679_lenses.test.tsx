@@ -276,7 +276,11 @@ it("u7679a_l_and_shift_l_step_the_lenses_in_switch_order", async () => {
   press("l", there(content("crates/a/src/x.rs")));
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.tests));
   press("l");
+  await waitFor(() => expect(lensNow()).toBe(copy.lenses.flows));
+  press("l");
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.modules));
+  shiftL();
+  await waitFor(() => expect(lensNow()).toBe(copy.lenses.flows));
   shiftL();
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.tests));
   shiftL();

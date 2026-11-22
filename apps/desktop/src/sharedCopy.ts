@@ -63,6 +63,7 @@ export const copy = {
   switchProject: "Switch Project",
   reviewChanges: "Review changes",
   diff: "Diff",
+  typescript: "TypeScript",
   closeView: (name: string) => `Close ${name}`,
   railDraftConflict: "The original name has changed. Your unfinished work remains. Copy it or discard it before renaming again.",
   railDraftMissingTarget: "Unavailable target",

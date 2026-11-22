@@ -69,7 +69,7 @@ export const createFind = (around: Around) => {
     const module = grouped().modules[0];
     const noise = grouped().noise[0];
 
-    if (module?.files[0]) return { key: moduleKey(module.name), path: module.files[0].path, value: fileValue(module.files[0].path) };
+    if (module?.files[0]) return { key: moduleKey(module.name), path: module.files[0].path, value: fileValue(moduleKey(module.name), module.files[0].path) };
 
     return noise?.files[0] ? { key: noiseKey(noise.files[0].path), path: noise.files[0].path, value: noiseKey(noise.files[0].path) } : undefined;
   };
