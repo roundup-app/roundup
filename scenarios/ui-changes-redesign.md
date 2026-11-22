@@ -12,7 +12,7 @@ Module: `apps/desktop/src/changes/`. Ids: U7674a, U7674b, U7674c, U7674d, U7674e
 - **Kept.** Enter or a double click on a file opens the editor (U2539d). Asserted in the U2539d tests of `u2539d_choose.test.tsx`.
 
 **U7674b the header is one line.** Given the open view, then:
-- **Content.** The header holds the Agent's name, From, the switch (U7672c), the shown group's file count with `+added -removed` totals summed from each entry's `counts` (U7610a), and one close button; no title apart from the Agent's name, no `Changes: <Agent> vs <base>` text (amends U7186c's title), no Back, no status line. Asserted in `u7674b_the_header_holds_name_from_switch_totals_and_one_close`.
+- **Content.** The header holds the Agent's name, From, the switch (U7672c), the shown group's file count with `+added -removed` totals summed from each entry's `counts` (U7610a), U7680a's "N of M viewed" when the lens lists a module, and one close button; no title apart from the Agent's name, no `Changes: <Agent> vs <base>` text (amends U7186c's title), no Back, no status line. Asserted in `u7674b_the_header_holds_name_from_switch_totals_and_one_close`.
 - **From.** From is a quiet fixed label, not a control (kept from U7672c). Asserted in `u7672c_from_is_a_label_not_a_control`.
 - **Totals.** Choosing another group or switch value changes the count and totals to that listing's; an entry whose `counts` is `null` adds nothing to the totals. Asserted in `u7674b_totals_follow_the_shown_group`.
 - **Escape.** Escape closes the view, unless a note field (#7676) holds it, which keeps the view open. Asserted in `u7674b_escape_closes_the_view_unless_a_note_field_holds_it`.
