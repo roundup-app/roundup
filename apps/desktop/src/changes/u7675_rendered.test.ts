@@ -149,7 +149,10 @@ it("u7675g_the_states_are_captured_for_the_critic", async () => {
     { run: async () => {
       await opened({ files: MANY });
       await until(READY);
-      await read("(() => { document.querySelector('.changes-side file-tree-container').shadowRoot.querySelector('[data-file-tree-virtualized-scroll]').scrollTop = 2400; return true; })()");
+      // The 500 files are one module: unfold it, then scroll the list itself.
+      await read("(() => { document.querySelector('.changes-side [data-row=\"module\"]').focus(); return true; })()");
+      await browser("press", "ArrowRight");
+      await read("(() => { document.querySelector('.changes-tree').scrollTop = 2400; return true; })()");
       await shot("tree-scrolled", READY);
       // U7675c: a file leaves the list; the tree's scroll and focus stay for the critic to compare with the shot before.
       await owns(MANY.slice(1));

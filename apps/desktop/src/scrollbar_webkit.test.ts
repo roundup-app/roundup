@@ -169,11 +169,11 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void>; areas: stri
         window.__fake.setStatus("agent-1", "idle", "idle");
       });
       await page.click(".changes-icon");
-      await page.waitForSelector(".changes-side file-tree-container");
+      await page.waitForSelector(".changes-side .changes-tree [data-row]");
       // This page mounts the App without main.tsx, so load the sheets and start the scrollbars it would have.
       await page.evaluate('Promise.all([import("/src/sheets.ts"), import("/src/scrollHover.ts")]).then(([, scrollHover]) => scrollHover.trackScrollbars(document))');
     },
-    areas: [".diff-content"],
+    areas: [".module-scroll"],
   },
 ];
 

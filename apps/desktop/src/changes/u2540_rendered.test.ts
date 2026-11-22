@@ -183,7 +183,7 @@ it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
     window.__fake.app.handlers['agent.compareFile'] = () => { throw new Error('Worktree read refused; retry loading this diff'); };
     return window.__worktrees.refresh('agent-1');
   })()`);
-  await wait("!!document.querySelector('.app-toasts [role=alert]')");
+  await wait("!!document.querySelector('.module-file [role=alert]')");
   const checks = await capture("dense-refresh-failure", "U5646d");
 
   expect(checks.D2.status).toBe("pass");
@@ -191,7 +191,7 @@ it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
   expect(checks.D6.status).toBe("pass");
   await browser("eval", "window.__fake.app.handlers['agent.compareFile'] = window.__comparisonHandler");
   await click("Retry");
-  await wait("!document.querySelector('.app-toasts [role=alert]')");
+  await wait("!document.querySelector('.module-file [role=alert]')");
   expect(await browser("eval", "document.querySelector('diffs-container') === window.__retainedDiff")).toBe(true);
   await capture("dense-recovered", "U5646d");
 

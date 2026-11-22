@@ -26,7 +26,7 @@ Module: `apps/desktop/src/changes/`. Ids: U7674a, U7674b, U7674c, U7674d, U7674e
 - **Checks moved.** The PR names the Checks this moves (rule 8: a named theme is not a Token, so outside the diff surface Tokens only) and measures rule 7 against `docs/perf.md`. Policy.
 
 **U7674e opening is fast and never blanks the pane.** Given the fake App, then:
-- **One comparison.** Opening the view requests only the first file's `agent.compareFile`. Asserted in `u7674e_opening_requests_only_the_first_files_comparison`.
+- **One comparison.** Opening the view requests only the first file's `agent.compareFile`. Asserted in `u7678c_opening_a_module_reads_only_the_files_its_first_screen_shows`, which replaces the first-file test.
 - **No blank.** Up and Down keep the open diff on screen until the next file's diff paints. Asserted in `u7674e_up_and_down_never_blank_the_pane`.
 - **Switch.** Choosing a switch value or group opens its first file. Asserted in `u7674e_choosing_a_value_opens_its_first_file`.
 - **Lazy.** The reader chunk loads when the view opens, never at startup, and the 10,000-line fallback stands (amends U2540d's and U7186c's Reader clause: it loaded on choosing a file). Asserted in `u7186c_the_reader_stays_lazy` and `u2540d_lazy`, edited to the open.

@@ -19,10 +19,10 @@ export const createEditor = (app: ReturnType<typeof useConnectedProject>["app"],
 
   const editable = (file: ChangedFile) => file.status !== "deleted" && root() !== undefined;
 
-  const edit = (file: ChangedFile) => {
+  const edit = (file: ChangedFile, line = file.line) => {
     const target = changedPath(root() ?? "", file);
 
-    void failureOf(() => app.openInEditor(target, file.line ?? undefined)).then(error => {
+    void failureOf(() => app.openInEditor(target, line ?? undefined)).then(error => {
       if (error) setFailures(previous => new Map(previous).set(file.path, error));
       else clear(file.path);
     });

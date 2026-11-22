@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { failureOf } from "../app/failureOf";
 import { BlockedFailure, StatusNote } from "../ink/MountedLine";
@@ -15,12 +15,13 @@ import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
 import { createEditor } from "./editor";
 import { createLate } from "./late";
-import { ChangedTree, firstInTree, treeOrder } from "./ChangedTree";
+import { ChangedTree, moduleKey, noiseKey } from "./ChangedTree";
+import { groupModules } from "./modules";
 import type { DiffKeys } from "./DiffReader";
 import { createJump } from "./NoteBatch";
 import "./styles.css";
 
-const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
+const ModuleScroll = lazy(() => loadReader().then(module => ({ default: module.ModuleScroll })));
 
 /** U7674b: the shown listing's totals; a `null` count adds nothing. */
 const totalsOf = (files: readonly ChangedFile[]) => files.reduce((sum, file) => ({ added: sum.added + (file.counts?.added ?? 0), removed: sum.removed + (file.counts?.removed ?? 0) }), { added: 0, removed: 0 });
@@ -55,7 +56,7 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void };
+type KeyActions = { jump: () => void; step: (direction: 1 | -1) => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
@@ -66,6 +67,13 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["n"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.note(); } },
   { chords: ["e"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.edit(); } },
   { chords: ["Delete", "Backspace"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.remove(); } },
+  { chords: ["Enter"], when: event => onContent(event), run: event => {
+    event.preventDefault();
+
+    const at = actions.diff()?.at();
+
+    if (at) actions.open(at.path, at);
+  } },
   { chords: ["g"], when: event => !typing(event), run: event => { event.preventDefault(); actions.jump(); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.diff()?.focus(); } },
@@ -83,32 +91,63 @@ const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? rep
 /** U7676b: N, E and Delete act on the focused diff, never while a field or the editor holds the key. */
 const inDiff = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".diff-reader") !== null;
 
+/** U7678c: Enter acts on the diff's own text, never on a field, button or link inside the reader. */
+const onContent = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".diff-content") !== null && event.target.closest("button, a") === null;
+
 const typing = (event: KeyboardEvent) => event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])") !== null;
 
-/** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
-const Surface = (props: { id: string; name: string }) => {
-  const { app, rail, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
-  const notes = notesFor(app, project.path, drafts);
+type Memory = ReturnType<ReturnType<typeof useConnectedProject>["changePlaces"]["of"]>;
+
+/** U7675f, U7678c: each file's place, and each module's scroll, kept in the connection's memory. */
+const placesOf = (memory: Memory) => ({
+  places: {
+    get: (file: string) => memory.places.get(file),
+    set: (file: string, place: NonNullable<ReturnType<typeof memory.places.get>>) => { memory.places.set(file, place); },
+  },
+  scroll: (key: string) => ({
+    get: () => memory.places.get(key)?.scroll,
+    set: (top: number) => { memory.places.set(key, { revision: "", scroll: top, selection: { side: "new", start: 1, end: 1 } }); },
+  }),
+});
+
+type Pane = { key: string; source: string };
+
+/** U7674e: the module that was open stays until the next one's first screen has painted. A module of another comparison is another scroll, though it keeps its name. */
+const createPanes = (opened: () => string | undefined, source: () => string) => {
+  const view = createMemo(() => {
+    const key = opened();
+
+    return key === undefined ? undefined : { key, source: source() };
+  }, { equals: (a, b) => a?.key === b?.key && a?.source === b?.source });
+
+  const [panes, setPanes] = createSignal<Pane[]>([]);
+
+  createEffect(view, next => { if (next) setPanes(list => list.includes(next) ? list : [...list, next]); });
+
+  return { panes, ready: (pane: Pane) => setPanes(list => list.includes(pane) && list.at(-1) !== list[0] ? list.slice(list.indexOf(pane)) : list) };
+};
+
+/** Escape closes the keys list first, else the view unless a note field holds it. */
+const escapeKey = (event: KeyboardEvent, help: boolean, setHelp: (on: boolean) => void, close: () => void) => {
+  if (event.key !== "Escape" || event.defaultPrevented || typing(event)) return;
+
+  if (help) setHelp(false); else close();
+};
+
+/** U7672d: the Agent's Worktree and the compare target its remembered pick names. */
+const createTarget = (id: () => string) => {
+  const { rail, changeTargets } = useConnectedProject();
 
   // Read live, not through the keyed Agent: losing or regaining the Worktree must not remount the view and its open note form.
   const worktree = () => {
-    const node = rail.nodes.find(candidate => candidate.id === props.id);
+    const node = rail.nodes.find(candidate => candidate.id === id());
 
     return node && isDoor(node) ? node.worktree?.path ?? null : null;
   };
 
-  const groups = () => {
-    const read = owned.read(props.id);
-
-    return read?.failure === null ? read.groups : [];
-  };
-
-  const [active, setActive] = createSignal(0);
-  const group = () => groups()[active()] ?? groups()[0];
-
   // U7672d: a remembered Tree or Branch for an Agent without a Worktree of its own falls back to Changes.
   const target = (): ChangeTarget => {
-    const chosen = changeTargets.read(props.id);
+    const chosen = changeTargets.read(id());
 
     return chosen !== "changes" && worktree() === null ? "changes" : chosen;
   };
@@ -119,14 +158,35 @@ const Surface = (props: { id: string; name: string }) => {
     return chosen === "changes" ? null : chosen;
   };
 
+  return { worktree, target, own };
+};
+
+/** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
+const Surface = (props: { id: string; name: string }) => {
+  const { app, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
+  const notes = notesFor(app, project.path, drafts);
+  const { worktree, target, own } = createTarget(() => props.id);
+
+  const groups = () => {
+    const read = owned.read(props.id);
+
+    return read?.failure === null ? read.groups : [];
+  };
+
+  const [active, setActive] = createSignal(0);
+  const group = () => groups()[active()] ?? groups()[0];
+
+  // U7853a: the open group as the Daemon reads it, stable while a refresh brings the same repository and branch.
+  const groupKey = createMemo(() => { const open = group();
+
+    return open && { repo: open.repo, branch: open.branch }; }, { equals: (a, b) => a?.repo === b?.repo && a?.branch === b?.branch });
+
   // U7675d, U7675f: the open file and each file's place outlive the view for the connection's session.
   const memory = changePlaces.of(untrack(() => props.id));
-  const [path, setPath] = createSignal<string | undefined>(memory.open);
+  const [picked, setPicked] = createSignal<string | undefined>(memory.open);
+  const [start, setStart] = createSignal<string>();
 
-  const places = {
-    get: (file: string) => memory.places.get(file),
-    set: (file: string, place: NonNullable<ReturnType<typeof memory.places.get>>) => { memory.places.set(file, place); },
-  };
+  const { places, scroll } = placesOf(memory);
 
   const [listed] = createSignal<{ failure: string | null; files: ChangedFile[] } | undefined>(async () => {
     const to = own();
@@ -140,8 +200,21 @@ const Surface = (props: { id: string; name: string }) => {
 
   const files = (): readonly ChangedFile[] => own() ? listed()?.files ?? [] : group()?.files ?? [];
 
-  // U7674a: the file shown is the chosen one still listed, else the first in tree order.
-  const opened = () => files().find(file => file.path === path())?.path ?? firstInTree(files());
+  const grouped = createMemo(() => groupModules(files()));
+
+  // U7678a: the rows that open something, in list order: each module, then each noise file.
+  const rows = () => [...grouped().modules.map(module => moduleKey(module.name)), ...grouped().noise.flatMap(noise => noise.files.map(file => noiseKey(file.path)))];
+
+  // U7674a, U7678d: what shows is the chosen module or noise file still listed, else the first module.
+  const opened = () => {
+    const chosen = picked();
+
+    return chosen !== undefined && rows().includes(chosen) ? chosen : rows()[0];
+  };
+
+  const { panes, ready } = createPanes(opened, () => `${target()}|${active()}`);
+
+  const openFiles = (key: string): readonly ChangedFile[] => key.startsWith("m:") ? grouped().modules.find(module => moduleKey(module.name) === key)?.files ?? [] : files().filter(file => noiseKey(file.path) === key);
 
   createEffect(opened, file => { memory.open = file; });
 
@@ -181,15 +254,19 @@ const Surface = (props: { id: string; name: string }) => {
   let section: HTMLElement | undefined;
   let focusTree = (_path: string) => {};
 
-  const [left, setLeft] = createLeaving(() => ({ list: treeOrder(files()), key: `${target()}|${active()}` }), path, neighbour => {
-    setPath(neighbour);
+  const [left, setLeft] = createLeaving(() => ({ list: rows(), key: `${target()}|${active()}` }), picked, neighbour => {
+    setPicked(neighbour);
+    setStart(undefined);
+    // The tree's focus choice below reads the open module: settle the write first.
+    flush();
 
     if (neighbour) focusTree(neighbour); else section?.focus();
   });
 
-  const choosePath = (file: string) => {
-    if (file !== untrack(opened)) setLeft(undefined);
-    setPath(file);
+  const choosePath = (key: string, file?: string) => {
+    if (key !== untrack(opened)) setLeft(undefined);
+    setPicked(key);
+    setStart(file);
   };
 
   const totals = () => totalsOf(files());
@@ -199,22 +276,37 @@ const Surface = (props: { id: string; name: string }) => {
 
   const { editable, edit } = createEditor(app, root);
 
+  // U2539d, U7678c: Enter or a double click on a file or a hunk opens the file in the editor, at the hunk's line when it is a new one, else at the file's first change.
+  const openAt = (path: string, at?: { side: "old" | "new"; line: number }) => {
+    const file = files().find(each => each.path === path);
+
+    if (file && editable(file)) edit(file, at?.side === "new" ? at.line : file.line);
+  };
+
   // U7675e: J and K step files from anywhere, ] and [ step changes, Tab crosses from the list to the diff, ? lists them.
   const [help, setHelp] = createSignal(false);
 
   const step = (direction: 1 | -1) => {
-    const order = treeOrder(files());
+    const order = grouped().modules.map(module => moduleKey(module.name));
     const at = order.indexOf(opened() ?? "");
-    const next = order[at + direction];
+    const next = at === -1 ? direction === -1 ? order.at(-1) : undefined : order[at + direction];
 
     if (next === undefined) return;
     choosePath(next);
     focusTree(next);
   };
 
-  const jump = createJump({ id: untrack(() => props.id), notes, files, opened, keys: () => diffKeys, section: () => section, open: choosePath });
+  // U7690c: a note's file opens in its module's scroll, at that file.
+  const openPath = (path: string) => {
+    const module = grouped().modules.find(each => each.files.some(file => file.path === path));
+    const key = module ? moduleKey(module.name) : noiseKey(path);
 
-  registerChangesKeys(() => section, { jump: jump.open, step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on) });
+    if (rows().includes(key)) choosePath(key, path);
+  };
+
+  const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, section: () => section, open: openPath });
+
+  registerChangesKeys(() => section, { jump: jump.open, step, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
@@ -226,29 +318,10 @@ const Surface = (props: { id: string; name: string }) => {
 
   const choose = (value: ChangeTarget) => {
     changeTargets.choose(props.id, value);
-    setPath(undefined);
+    setPicked(undefined);
   };
 
-  const editChosen = (chosen: string) => {
-    const file = files().find(each => each.path === chosen);
-
-    if (file && editable(file)) edit(file);
-  };
-
-  // Escape closes the keys list first, else the view unless a note field holds it.
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
-
-    if (typing(event)) return;
-
-    if (help()) {
-      setHelp(false);
-
-      return;
-    }
-
-    close();
-  };
+  const onKeyDown = (event: KeyboardEvent) => escapeKey(event, help(), setHelp, close);
 
   // Opening moves focus into the view, so Escape reaches its handler before any file does; the tree takes it when it draws.
   const initialFocus = captureFocus();
@@ -272,7 +345,7 @@ const Surface = (props: { id: string; name: string }) => {
       <StatusNote text={missing() && checked() ? copy.stillMissing : null} />
     </Show>
     <StatusNote text={pending() && late() ? copy.comparing : empty() ? own() === "tree" ? copy.folderMatches(props.name, copy.remoteMain) : copy.noChangesAgainst(copy.remoteMain) : null} />
-    <Show when={left()}>{file => <StatusNote text={copy.fileGone(file(), copy.remoteMain)} />}</Show>
+    <Show when={left()}>{gone => <StatusNote text={copy.fileGone(gone().slice(2), copy.remoteMain)} />}</Show>
     <Show when={help()}>
       <section class="changes-keys" aria-label={copy.keys}>
         <ul>
@@ -285,16 +358,16 @@ const Surface = (props: { id: string; name: string }) => {
       <div class="changes-side">
         <Show when={groups().length > 1 && !own()}>
           <ul class="changes-groups" aria-label={copy.changeGroups}>
-            <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
+            <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPicked(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <ChangedTree files={files()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={editChosen} />
+          <ChangedTree grouped={grouped()} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} selected={opened()} controls={controls => { focusTree = controls.focus; }} onChoose={choosePath} onEdit={openAt} />
         </Show>
       </div>
-      <Show when={opened()}>
-        {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} blob={files().find(file => file.path === chosen())?.blob} places={places} keys={api => { diffKeys = api; }} target={jump.aim()} arrived={jump.arrived} to={own() ?? "tree"} notes={notes} onEdited={() => {}} recover={() => showView("notes")} /></Loading>}
-      </Show>
+      <For each={panes()}>{pane => <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
+        <Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key)} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} notes={notes} recover={() => showView("notes")} open={openAt} /></Loading>
+      </div>}</For>
     </div>
   </section>;
 };

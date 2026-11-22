@@ -3,19 +3,30 @@ import { clockTime, copy as sharedCopy } from "../sharedCopy";
 /** The count noun of a note line (U7676d). */
 const noun = (count: number) => count === 1 ? sharedCopy.note.toLowerCase() : `${sharedCopy.note.toLowerCase()}s`;
 
+/** The count noun of a file count, said once for every line that counts files. */
+const fileNoun = (count: number) => count === 1 ? "file" : "files";
+
+const filesOf = (count: number) => `${count} ${fileNoun(count)}`;
+
 export const copy = {
   checking: sharedCopy.checking,
   sending: sharedCopy.sending,
   saving: sharedCopy.saving,
   changes: "Changes",
   topLevel: "Top level",
+  modules: "Modules",
+  generated: "Generated",
+  lockfiles: "Lockfiles",
+  filesCount: filesOf,
+  rowLabel: sharedCopy.named,
+  noiseRow: (kind: string, count: number) => sharedCopy.dotted(kind, filesOf(count)),
   remoteMain: "remote main",
   changeGroups: "Repositories and branches",
   compareFrom: "From",
   compareTo: "To",
   targetTree: "Tree",
   targetBranch: "Branch",
-  changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
+  changedFiles: (count: number) => `${count} changed ${fileNoun(count)}`,
   reviewChanges: sharedCopy.reviewChanges,
   dismissFailure: sharedCopy.dismissFailure,
   comparisonRenderFailed: "Comparison failed · reopen the file to retry.",
@@ -39,6 +50,7 @@ export const copy = {
   folderMatches: (agent: string, from: string) => `Everything in ${agent}'s folder matches ${from}`,
   /** @prose */
   compareFailed: (from: string, to: string) => `Couldn't compare ${from} with ${to}`,
+  fileReadFailed: (path: string) => `Couldn't read ${path}`,
   /** @prose */
   folderGone: (agent: string) => `${agent}'s folder no longer exists`,
   /** @prose */
@@ -65,13 +77,13 @@ export const copy = {
   keys: "Keys",
   keysList: [
     /** @prose */
-    "Up and Down move between files.",
+    "Up and Down move between modules.",
     /** @prose */
-    "Left and Right fold or unfold a directory.",
+    "Left and Right fold or unfold a module.",
     /** @prose */
     "Tab goes from the list to the diff.",
     /** @prose */
-    "J and K open the next or previous file.",
+    "J and K go to the next or previous module.",
     /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
@@ -112,6 +124,7 @@ export const copy = {
   notesRegion: sharedCopy.draftSurface("changes"),
   notes: sharedCopy.draftSurface("notes"),
   originalContext: " · Original context",
+  cannotCompare: " · Can't compare",
   originalContextStatus: "Original context",
   editNoteAction: sharedCopy.editAction,
   checkMessageHistory: "Check Message history",
@@ -180,10 +193,9 @@ export const copy = {
   worktreeCiText: sharedCopy.worktreeCiText,
   worktreePrText: sharedCopy.worktreePrText,
   worktreeReadUnavailable: sharedCopy.worktreeReadUnavailable,
-  statusAdded: "Added",
+  statusNew: sharedCopy.newWord,
   statusModified: "Modified",
   statusRenamed: "Renamed",
   statusDeleted: "Deleted",
-  statusUntracked: "Untracked",
   copy: sharedCopy.copy,
 } as const;

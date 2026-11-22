@@ -171,7 +171,7 @@ impl Git {
         if !worktree.path.is_dir() {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
-        let base = self.comparison_base(worktree)?;
+        let base = self.comparison_base(&worktree.path)?;
         let end = (to == CompareTarget::Branch).then_some("HEAD");
         let changed = self.files_against(&worktree.path, &base, end)?;
         let Some(language) = language else {

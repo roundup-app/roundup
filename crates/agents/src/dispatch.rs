@@ -218,9 +218,14 @@ impl Agents {
     ) -> Result<contracts::agent::FileComparison, RpcError> {
         let shared = &self.shared;
         {
-            let contracts::agent::CompareFileParams { id, path, to } = p;
+            let contracts::agent::CompareFileParams {
+                id,
+                path,
+                to,
+                group,
+            } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            self.compare_file(&id, &path, to).await
+            self.compare_file(&id, &path, to, group).await
         }
     }
 
