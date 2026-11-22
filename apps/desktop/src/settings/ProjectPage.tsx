@@ -96,7 +96,7 @@ export const ProjectPage = () => {
     </label>);
 
   return <>
-    <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
+    <SettingsGroup name={copy.workstreams}><div class="app-dialog-form settings-project-form">
       {capField()}
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
     </div></SettingsGroup>
