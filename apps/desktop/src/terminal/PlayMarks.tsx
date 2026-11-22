@@ -13,6 +13,9 @@ import { copy } from "./copy";
 /** The Daemon is asked again for an Agent's printed commands at most this often while its screen changes. */
 const REFRESH_MS = 2000;
 
+const sameLines = (a: readonly PlayLine[], b: readonly PlayLine[]): boolean =>
+  a.length === b.length && a.every((line, at) => line.row === b[at]?.row && line.span === b[at]?.span && line.command === b[at]?.command);
+
 /**
  * U7889: a ▶ beside each screen line of an Agent's Terminal that equals a shell command the Agent printed (U7889a); it shows
  * while the pointer is over the line or the button has focus. A click runs the command in a shell the Agent owns (U7889b, c)
@@ -23,7 +26,7 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
   const { connected, agent, emulator, host } = untrack(() => props);
   const { app, rail } = connected;
   const [printed, setPrinted] = createSignal<readonly string[]>([]);
-  const [lines, setLines] = createSignal<PlayLine[]>([], { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
+  const [lines, setLines] = createSignal<PlayLine[]>([], { equals: sameLines });
   const [hover, setHover] = createSignal<number | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   let lastAsk = 0;
