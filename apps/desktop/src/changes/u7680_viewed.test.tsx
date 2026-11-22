@@ -1,11 +1,12 @@
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { agent } from "../testing/nodes";
 import { copy } from "./copy";
 import { openChanges, take } from "./noteHarness";
-import { chooseLens, closeButton, comparison, counted, gone, isOpen, landed, lensNow, moduleKeys, moduleRow, owning, pane, press, region, setUpView, showing, takeNoise, treeFocus } from "./viewHarness";
+import { chooseLens, closeButton, comparison, counted, gone, isOpen, landed, lensNow, moduleKeys, moduleRow, owning, pane, press, region, setUpView, showing, takeNoise, there, treeFocus } from "./viewHarness";
 
 setUpView();
 
@@ -201,14 +202,17 @@ it("u7680c_a_mark_in_logic_marks_only_the_logic_files", async () => {
 });
 
 /** An Agent with a Worktree, so the switch offers Tree and Branch: Changes lists a and b, Branch lists a (the same blob) and c. */
-const withBranch = () => mountRail([agent("a", "idle", "ready", { worktree: { path: "/w/a", branch: "own/a", base: "main", adopted: false } })], [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
-    app.handlers["agent.ownedChanges"] = () => owning([f("a/x.ts"), f("b/x.ts")]);
+/** Agent `node` owns `owned`; its Branch changes are a/x.ts and c/y.ts. */
+const mountOwned = (node: ReturnType<typeof agent>, owned: OwnedChanges) => mountRail([node], [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
+    app.handlers["agent.ownedChanges"] = () => owned;
     app.handlers["agent.changedFiles"] = () => ({ files: [f("a/x.ts"), f("c/y.ts")] });
     app.handlers["agent.compareFile"] = ({ path }) => comparison(path);
   });
 
-const openFromRail = async () => {
-  fireEvent.click(await within(rowOf("a")).findByRole("button", { name: copy.changedFiles(2) }));
+const withBranch = () => mountOwned(agent("a", "idle", "ready", { worktree: { path: "/w/a", branch: "own/a", base: "main", adopted: false } }), owning([f("a/x.ts"), f("b/x.ts")]));
+
+const openFromRail = async (id = "a", count = 2) => {
+  fireEvent.click(await within(rowOf(id)).findByRole("button", { name: copy.changedFiles(count) }));
   await screen.findByRole("region", { name: copy.changes });
 };
 
@@ -231,6 +235,26 @@ it("u7680c_reopening_restores_the_marks_and_each_comparison_keeps_its_own", asyn
   fireEvent.click(closeButton());
   await gone(() => screen.queryByRole("region", { name: copy.changes }));
   await openFromRail();
+  await waitFor(() => expect(said("a")).toContain(copy.viewed));
+});
+
+it("u7680c_each_group_keeps_its_own_marks", async () => {
+  const group = (repo: string, branch: string, files: ChangedFile[]) => ({ repo, branch, base: "main", files });
+
+  await mountOwned(agent("g", "idle", "ready"), { groups: [group("/p", "main", [f("a/x.ts"), f("b/x.ts")]), group("/q", "own/x", [f("a/x.ts"), f("c/y.ts")])] });
+  await openFromRail("g", 4);
+  await waitFor(() => moduleRow("a"));
+  await choose("a", "a/x.ts");
+  press("v");
+  await showing("b/x.ts");
+
+  // The second group lists the same file with the same blob: it is another comparison.
+  const [first, second] = within(screen.getByRole("list", { name: copy.changeGroups })).getAllByRole("button");
+
+  fireEvent.click(there(second));
+  await waitFor(() => moduleRow("c"));
+  expect(said("a")).not.toContain(copy.viewed);
+  fireEvent.click(there(first));
   await waitFor(() => expect(said("a")).toContain(copy.viewed));
 });
 

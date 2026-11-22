@@ -7,6 +7,9 @@ export type Seen = { marks: ReadonlyMap<string, string | null>; changed: Readonl
 
 export const NOTHING_SEEN: Seen = { marks: new Map(), changed: new Set() };
 
+/** U7680c: the comparison a mark belongs to: the Compare-to value, and the group when the Agent's own changes are shown. */
+export const comparisonOf = (target: string, group?: { repo: string; branch: string }) => `${target}\0${group ? `${group.repo}\0${group.branch}` : ""}`;
+
 const keyOf = (comparison: string, path: string) => `${comparison}\0${path}`;
 
 const keysOf = (comparison: string, files: readonly ChangedFile[]) => new Set(files.map(file => keyOf(comparison, file.path)));

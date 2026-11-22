@@ -19,6 +19,7 @@ import { ChangedTree, moduleKey, noiseKey } from "./ChangedTree";
 import { createFind, FindField } from "./Find";
 import { groupLens, lensAfter, LENSES, OVERVIEW, type Lens } from "./lens";
 import { createViewed } from "./createViewed";
+import { comparisonOf } from "./viewed";
 import { noiseOf, type Grouped } from "./modules";
 import { Overview } from "./Overview";
 import type { DiffKeys } from "./DiffReader";
@@ -384,10 +385,7 @@ const Surface = (props: { id: string; name: string }) => {
     if (rowsOf(lensed()(lens())).includes(key)) choosePath(key, path);
   };
 
-  // U7680c: the marks belong to the comparison they were made in: the Compare-to value, and the group when the Agent's own changes are shown.
-  const comparison = () => `${target()}\0${own() ? "" : `${groupKey()?.repo}\0${groupKey()?.branch}`}`;
-
-  const viewed = createViewed({ memory, comparison, files, settled: () => !pending() && failure() === null, lensed, lens, opened, open: next => { setLens(next.lens); choosePath(next.key); flush(); focusTree(next.key); } });
+  const viewed = createViewed({ memory, comparison: () => comparisonOf(target(), own() ? undefined : groupKey()), files, settled: () => !pending() && failure() === null, lensed, lens, opened, open: next => { setLens(next.lens); choosePath(next.key); flush(); focusTree(next.key); } });
 
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, section: () => section, open: openPath });
 
