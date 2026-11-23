@@ -268,10 +268,7 @@ export const RailRowView = (props: {
 
         return <span {...trigger()} class="row-state"><KindGlyph kind={kind() ?? "idle"} label={glyphText()} /></span>;
       }}</Tip>
-      <span class="name-group">
-        {name()}
-        <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
-      </span>
+      <span class="name-group">{name()}<Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show></span>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
