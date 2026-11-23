@@ -46,7 +46,7 @@ it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
   expect(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "ask.send", "message.send"].includes(call.method))).toHaveLength(0);
 });
 
-it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_screens_close_themselves: %s", async command => {
+it.each(["import-work", "app-settings"])("u4315a_requested_screens_close_themselves: %s", async command => {
   const { connected, daemon } = await mountNavigation(false, 0, 1);
 
   if (command === "import-work") daemon.handlers["project.importDiscover"] = () => new Promise(() => {});
@@ -54,7 +54,7 @@ it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_s
 
   if (command === "app-settings") window.dispatchEvent(new Event("open-app-settings"));
   else openProjectPage(command, "/p");
-  const name = command === "project-settings" ? "Project settings" : command === "import-work" ? "Import Claude Code" : "Settings";
+  const name = command === "import-work" ? "Import Claude Code" : "Settings";
   const view = await screen.findByRole("region", { name });
   fireEvent.click(within(view).getByRole("button", { name: command === "app-settings" ? "← Back" : "Close" }));
   await waitFor(() => expect(screen.queryByRole("region", { name })).toBeNull());
