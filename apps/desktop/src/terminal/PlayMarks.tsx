@@ -64,12 +64,16 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
     emulator.onFrame?.(framed);
   });
 
-  makeEventListener(host, "mousemove", (move) => {
-    const height = props.rowHeight();
+  // The marks sit beside the host, so the pointer moving onto a ▶ stays inside `region` and keeps it shown.
+  const region = host.parentElement ?? host;
 
-    setHover(height > 0 ? Math.floor((move.clientY - host.getBoundingClientRect().top) / height) : null);
+  makeEventListener(region, "mousemove", (move) => {
+    const height = props.rowHeight();
+    const rows = host.querySelector(".xterm-screen") ?? host;
+
+    setHover(height > 0 ? Math.floor((move.clientY - rows.getBoundingClientRect().top) / height) : null);
   });
-  makeEventListener(host, "mouseleave", () => setHover(null));
+  makeEventListener(region, "mouseleave", () => setHover(null));
   onCleanup(() => setHover(null));
 
   createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });

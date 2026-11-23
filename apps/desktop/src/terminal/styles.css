@@ -274,16 +274,16 @@
 /* U7889: the ▶ beside a printed command sits at the screen's trailing edge over the line's rows, out of the flow, so it resizes nothing. */
 .play-marks {
   position: absolute;
-  inset: 0;
+  inset: var(--terminal-inset) 0 0;
   pointer-events: none;
   z-index: 1;
 }
 
 .play-mark {
   position: absolute;
-  inset-inline-end: var(--space-2);
+  inset-inline-end: var(--space-6);
   inset-block-start: calc(var(--play-row) * var(--play-row-height));
-  block-size: max(var(--play-row-height), 1.5rem);
+  block-size: calc(var(--play-span) * var(--play-row-height));
   inline-size: 1.5rem;
   display: grid;
   place-items: center;

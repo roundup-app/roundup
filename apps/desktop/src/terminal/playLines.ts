@@ -30,12 +30,15 @@ export const playLines = (terminal: Pick<Terminal, "buffer" | "rows">, printed: 
 
   while (first < end) {
     let last = first;
-    let text = buffer.getLine(first)?.translateToString(true) ?? "";
+    // A row that continues into the next fills the pane, so every row but the last keeps its trailing cells.
+    let text = "";
 
     for (let next = buffer.getLine(last + 1); next?.isWrapped; next = buffer.getLine(last + 1)) {
+      text += buffer.getLine(last)?.translateToString(false) ?? "";
       last++;
-      text = (buffer.getLine(last - 1)?.translateToString(false) ?? "") + next.translateToString(true);
     }
+
+    text += buffer.getLine(last)?.translateToString(true) ?? "";
 
     const command = spelled(text, commands);
     const top = Math.max(first, buffer.viewportY);

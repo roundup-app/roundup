@@ -14,6 +14,8 @@ afterEach(() => {
 
 const BREW = "brew upgrade ollama && brew services restart ollama";
 
+const LONG = "ls -la /usr/local/bin /usr/local/lib /opt/x";
+
 const OLLAMA = "ollama run inkling-2-mini";
 
 /** An Agent whose Terminal prints `lines`, and whose record holds `BREW` and `OLLAMA` as shell commands. */
@@ -59,10 +61,10 @@ it("u7889a_a_screen_line_matches_only_a_printed_command_wrapped_or_not", () => {
   emulator.show(document.body.appendChild(document.createElement("div")), false);
   terminal.resize(20, 10);
 
-  const written = new Promise<void>((resolve) => emulator.write(new TextEncoder().encode(`prose\r\nollama run inkling-2-mini\r\nollama run inkling\r\nls\r\n`), resolve));
+  const written = new Promise<void>((resolve) => emulator.write(new TextEncoder().encode(`prose\r\nollama run inkling-2-mini\r\nollama run inkling\r\nls\r\n${LONG}\r\n`), resolve));
 
   return written.then(() => {
-    expect(emulator.playLines?.([OLLAMA, "ls"])).toEqual([{ row: 1, span: 2, command: OLLAMA }, { row: 4, span: 1, command: "ls" }]);
+    expect(emulator.playLines?.([OLLAMA, "ls", LONG])).toEqual([{ row: 1, span: 2, command: OLLAMA }, { row: 4, span: 1, command: "ls" }, { row: 5, span: 3, command: LONG }]);
     expect(emulator.playLines?.([])).toEqual([]);
     emulator.dispose();
   });
@@ -99,5 +101,14 @@ it("u7889e_play_mark_is_a_named_button_reachable_by_keyboard", async () => {
 
   expect(mark.tabIndex).toBeGreaterThanOrEqual(0);
   mark.focus();
+  expect(document.activeElement).toBe(mark);
+});
+
+it("u7889e_the_play_mark_chord_moves_focus_to_the_first_mark", async () => {
+  const { container } = await mountPrinting(SCREEN);
+  const mark = screen.getByRole("button", { name: `Run ${BREW}` });
+
+  expect(document.activeElement).not.toBe(mark);
+  container.querySelector(".pane-screen")?.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyR", key: "r", altKey: true, metaKey: true, bubbles: true, cancelable: true }));
   expect(document.activeElement).toBe(mark);
 });
