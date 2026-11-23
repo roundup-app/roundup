@@ -119,7 +119,7 @@ export const PlayMarksHost = (props: { connected: ConnectedProject; selected: ()
     <Show when={key()} keyed>
       {(pair) => {
         const [agent = "", terminal = ""] = pair.split("\n");
-        const host = props.screen();
+        const host = untrack(props.screen);
 
         return host ? <PlayMarks connected={props.connected} agent={agent} emulator={props.screens.emulatorFor(terminal)} host={host} rowHeight={() => props.screens.rows(terminal)?.height ?? 0} /> : null;
       }}
