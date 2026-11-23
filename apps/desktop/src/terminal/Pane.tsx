@@ -256,8 +256,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     { action: CHORDS["terminal.text-larger"], chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
     { action: CHORDS["terminal.text-smaller"], chords: ["Meta+-"], run: resize("shrink") },
     { action: CHORDS["terminal.text-reset"], chords: ["Meta+0"], run: resize("reset") },
-    { action: CHORDS["terminal.find"], chords: undefined, run: () => setFinding(true) },
-    { action: CHORDS["terminal.play-marks"], chords: undefined, run: () => untrack(screen)?.parentElement?.querySelector<HTMLElement>(".play-marks button")?.focus() },
+    { action: CHORDS["terminal.find"], chords: undefined, run: () => setFinding(true) }, { action: CHORDS["terminal.play-marks"], chords: undefined, run: () => untrack(screen)?.parentElement?.querySelector<HTMLElement>(".play-marks button")?.focus() },
   ].map(({ action, chords, run }) => ({
     action,
     ...chords && { chords },
