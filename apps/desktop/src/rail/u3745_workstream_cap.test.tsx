@@ -1,6 +1,8 @@
-import { openProjectPage } from "../testing/menuProbe";
+import { ToastHost } from "../testing/toastHost";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { ProjectPage } from "../settings/ProjectPage";
 import { isChecked } from "../testing/checked";
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountRail, railCallsTo, settled } from "./railFixture";
 
@@ -11,7 +13,7 @@ const mount = async (cap: number | null) => {
   mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, machine: null, program: null, models: { roles: [] } });
   mounted.app.handlers["project.setWorkstreamCap"] = () => null;
 
-  openProjectPage("project-settings");
+  render(() => <ToastHost><ConnectedProjectContext value={mounted.connected}><ProjectPage /></ConnectedProjectContext></ToastHost>);
 
   return { app: mounted.app, field: async () => await screen.findByLabelText<HTMLInputElement>("Workstreams at once") };
 };
@@ -28,7 +30,7 @@ it("u3745_a_commit_sets_the_cap_once_and_no_limit_sets_null", async () => {
   fireEvent.blur(input);
 
   await waitFor(() => expect(railCallsTo(app, "project.setWorkstreamCap")).toEqual([{ cap: 3 }]));
-  // The Project settings ignore a gesture while a save is in flight; the next one comes after its reply.
+  // The Project page ignores a gesture while a save is in flight; the next one comes after its reply.
   await settled();
 
   fireEvent.click(screen.getByRole("checkbox", { name: "No limit" }));

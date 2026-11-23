@@ -529,7 +529,7 @@ export const App = (props: {
           </Show>
           </div>
           <Show when={forkAsked()}><Loading><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Loading></Show>
-          <UpdatesHost app={props.app} notify={toasts.notify}><AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
+          <UpdatesHost app={props.app} notify={toasts.notify}><AppSettings app={props.app} project={() => projects.active()} connectionOf={connectionOf} view={settingsView} navigation={() => {
             const open = activeConnection();
 
             return `${projects.active()}\n${open?.rail.selected()}`;
