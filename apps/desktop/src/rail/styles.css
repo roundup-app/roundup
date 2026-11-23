@@ -628,7 +628,8 @@
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
 .rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .rail-chevron { opacity: 1; pointer-events: auto; }
 
-/* U7205h: the chips sit on the row's one line, left of the Changes icon; the name gives way first. */
+/* U7205h: the chips sit --space-2 after the name in one group, left of the Changes icon; the name gives way first. */
+.rail-row .name-group { display: flex; flex: 0 1 auto; min-width: 0; align-items: center; gap: var(--space-2); }
 .rail-row .worktree-chips { flex: none; max-width: none; }
 /* U7276b: shown chips take their own presses, so a press on one never drags the row. */
 .rail-row:is(:focus-within, [data-selected="true"]) .worktree-chips { pointer-events: auto; }
