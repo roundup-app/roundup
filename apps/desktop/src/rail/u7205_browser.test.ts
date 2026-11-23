@@ -118,7 +118,9 @@ run("u7205h_a_worktree_row_is_one_line_with_chips_left_of_the_changes_icon", asy
     expect(chip.right).toBeLessThanOrEqual(read.changes + 1);
   }
 
-  for (const right of read.ageRight) expect(Math.abs(right - read.ageRight[0]!)).toBeLessThanOrEqual(1);
+  const [first = 0] = read.ageRight;
+
+  for (const right of read.ageRight) expect(Math.abs(right - first)).toBeLessThanOrEqual(1);
 }, 60_000);
 
 run("u7205h_the_chips_hide_below_the_narrow_width", async () => {
