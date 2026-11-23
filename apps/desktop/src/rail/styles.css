@@ -414,8 +414,9 @@
   flex: none;
 }
 
-/* U397's 163 px stress surface gives the row its whole width; U466's supported resize widths retain the row inset. */
-.rail {
+/* U397's 163 px stress surface gives the row its whole width; U466's supported resize widths retain the row inset.
+   U6228i: the container is the box the rows draw in, so a peek (the body at --rail-peek-width over a 56 px strip) measures its own width. */
+.rail-body {
   container-type: inline-size;
   container-name: rail;
 }
