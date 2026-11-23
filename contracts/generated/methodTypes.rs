@@ -37,6 +37,8 @@
     Method { name: "rail.move", params: "agent_MoveParams", result: "null" },
     Method { name: "rail.rename", params: "agent_RenameParams", result: "agent_RailNode" },
     Method { name: "rail.startDoor", params: "agent_StartDoorParams", result: "agent_RailNode" },
+    Method { name: "agent.printedCommands", params: "agent_NodeId", result: "agent_PrintedCommands" },
+    Method { name: "agent.runPrinted", params: "agent_RunPrintedParams", result: "terminal_Opened" },
     Method { name: "agent.run", params: "agent_RunParams", result: "terminal_Opened" },
     Method { name: "project.setWorktrees", params: "project_Worktrees", result: "null" },
     Method { name: "project.setMachine", params: "project_SetMachine", result: "null" },
