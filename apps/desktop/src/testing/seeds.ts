@@ -125,15 +125,7 @@ const nestedTree = (now: number): RailNode[] => [
     can_resume: true, has_conversation: true,
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
-  agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30), final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } }),
-  // U7205h: an Agent with a Worktree whose ahead, CI and PR chips sit on its one line.
-  agent("worktree-chips", "working", "editing src/rail/styles.css", {
-    name: "rail-row-chips",
-    parent: "auth",
-    order: 3,
-    status: statusAt(now, "working", "editing src/rail/styles.css", 9),
-    worktree: { path: "/p/.roundup/rail-row-chips", branch: "roundup/rail-row-chips", adopted: false, base: "main" },
-  }),
+  agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30), final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" }, worktree: { path: "/p/.roundup/docs", branch: "roundup/docs", adopted: false, base: "main" } }),
   ...cyclingAgents(now, 31, (index) => (index % 3 === 0 ? "payments" : null)),
 ];
 
