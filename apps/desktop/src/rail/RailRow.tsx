@@ -225,7 +225,6 @@ export const RailRowView = (props: {
     title: !props.editing ? cutName.title() : undefined,
     "data-multiple": multiple() ? "true" : undefined,
     "data-mode": isMode(props.row.node) ? "true" : undefined,
-    "data-worktree": worktree() ? "true" : undefined,
     "data-finished": finished() ? "true" : undefined,
     "data-editing": String(props.editing), "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": String(props.lifted),
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },

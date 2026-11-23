@@ -126,14 +126,6 @@ const nestedTree = (now: number): RailNode[] => [
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
   agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30), final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } }),
-  // U7205h: an Agent with a Worktree whose ahead, CI and PR chips sit on its one line.
-  agent("worktree-chips", "working", "editing src/rail/styles.css", {
-    name: "rail-row-chips",
-    parent: "auth",
-    order: 3,
-    status: statusAt(now, "working", "editing src/rail/styles.css", 9),
-    worktree: { path: "/p/.roundup/rail-row-chips", branch: "roundup/rail-row-chips", adopted: false, base: "main" },
-  }),
   ...cyclingAgents(now, 31, (index) => (index % 3 === 0 ? "payments" : null)),
 ];
 
@@ -645,7 +637,6 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     const waiting = nodes.find(node => node.kind === "workstream" && node.attempt === null);
 
     app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 3, machine: null, program: null, models: { roles: [] } });
-    app.handlers["agent.worktreeState"] = () => ({ ahead: 3, behind: 0, dirty: false, ci: { state: "passed", stale: false }, pr: { number: 7205, stale: false } });
     app.handlers["workstream.queue"] = () => ({ running: 3, cap: 3, entries: waiting ? [{ workstream: waiting.id, start: { kind: "queued" } }] : [] });
   }
 
@@ -690,6 +681,9 @@ export const seedApp = (name: SeedName, now: number): Controls => {
   if (name === "resources") {
     // U408's observer: the densest case, 999.9 GB, 1600% and 12.3 TB, for the Agent with a Worktree.
     const dense = { memory_bytes: 999.9e9, cpu_percent: 1600, disk_bytes: 12.3e12 };
+
+    // U7205h: the Worktree Agent shows its ahead, CI and PR chips.
+    app.handlers["agent.worktreeState"] = () => ({ ahead: 3, behind: 0, dirty: false, ci: { state: "passed", stale: false }, pr: { number: 7205, stale: false } });
 
     app.handlers["project.resources"] = () => ({
       agents: [{ id: "worktree-agent", ...dense }, { id: "bare-agent", memory_bytes: 5e6, cpu_percent: 0, disk_bytes: null }],

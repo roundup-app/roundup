@@ -96,10 +96,8 @@ const readChips = `() => {
 
 const openWorktreeRow = async () => {
   await page.scheme("dark");
-  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
-  await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row .row-age').length > 3`);
-
-  for (let i = 0; i < 6; i++) await page.call<void>(`() => { document.querySelectorAll('.rail-tree .rail-chevron[aria-expanded="false"]').forEach(b => b.click()); }`);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=resources", 1512, 950);
+  await page.until(`() => Boolean(window.__fake) && document.querySelectorAll('.rail-row .row-age').length > 1`);
 
   await page.until(`() => Boolean(document.querySelector('.rail-tree .worktree-chip'))`);
 };
