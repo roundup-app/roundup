@@ -168,6 +168,8 @@ export const copy = {
   newWorkstreamTitle: "New Workstream",
   startNow: "Start now",
   workstreams: "Workstreams",
+  project: "Project",
+  program: "Program",
   assign: word.assign,
   assignTodo: word.assign,
   overview: "Overview",

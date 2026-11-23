@@ -1,5 +1,7 @@
-import { openProjectPage } from "../testing/menuProbe";
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { ToastHost } from "../testing/toastHost";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { ProjectPage } from "../settings/ProjectPage";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountRail, railCallsTo, settled } from "./railFixture";
 
@@ -10,7 +12,7 @@ const mount = async (program: { argv: string[]; dir: string; adoptDir?: string }
   mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: null, machine: null, program, models: { roles: [] } });
   mounted.app.handlers["project.setProgram"] = () => null;
   mounted.app.handlers["project.clearProgram"] = () => null;
-  openProjectPage("project-settings");
+  render(() => <ToastHost><ConnectedProjectContext value={mounted.connected}><ProjectPage /></ConnectedProjectContext></ToastHost>);
 
   return mounted.app;
 };

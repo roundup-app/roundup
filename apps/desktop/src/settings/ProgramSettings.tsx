@@ -1,7 +1,8 @@
-import { Show, createSignal, onSettled } from "solid-js";
+import { Show, createSignal, onSettled, untrack } from "solid-js";
 import { parseArgsStringToArgv } from "string-argv";
 import { copy } from "./copy";
-import { SettingsGroup } from "../settings/SettingsShell";
+import { SettingsGroup } from "./SettingsShell";
+import { markControl } from "./place";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../app/failureOf";
 import { BusyButton } from "../ui/BusyButton";
@@ -62,18 +63,21 @@ const checked = (folder: string, adopt: string): { dir: string; adoptDir: string
   return { dir, adoptDir };
 };
 
+/** PL2: the settings-link control of each field. */
+const CONTROL_IDS = { command: "program", folder: "program-folder", adopt: "program-worktree" } as const;
+
 const ProgramField = (props: { name: Field; label: string; refusal: Refusal; value: string; setValue: (value: string) => void; ref: (element: HTMLTextAreaElement) => void; commit: () => void; keys: (event: KeyboardEvent) => void }) => {
   const failed = () => props.refusal !== null && props.refusal.field === props.name;
   const errorId = () => `program-${props.name}-error`;
 
-  return <Field.Root invalid={failed()}>
+  return markControl(untrack(() => CONTROL_IDS[props.name]), () => <Field.Root invalid={failed()}>
     <label class="app-dialog-field">
       <span class="program-label">{props.label}</span>
       <textarea ref={props.ref} class="field-frame program-field" rows={1} spellcheck={false} autocorrect="off" autocapitalize="off" aria-invalid={failed() ? "true" : undefined} aria-describedby={failed() ? errorId() : undefined} aria-label={props.label} value={props.value}
         onInput={event => props.setValue(event.currentTarget.value)} onBlur={() => props.commit()} onKeyDown={event => props.keys(event)} />
     </label>
     <Field.ErrorText id={errorId()}>{props.refusal !== null && failed() ? copy.programRefused(props.refusal.text) : null}</Field.ErrorText>
-  </Field.Root>;
+  </Field.Root>);
 };
 
 /** PG6: the Project's `Program` section. Enter or blur with a changed value is one `project.setProgram`; a bad entry is refused in the field and calls nothing. */
@@ -150,7 +154,7 @@ export const ProgramSettings = () => {
 
   const keys = (event: KeyboardEvent) => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } };
 
-  return <SettingsGroup name={copy.program}><div class="app-dialog-form">
+  return <SettingsGroup name={copy.program}><div class="app-dialog-form settings-project-form">
     <ProgramField name="command" label={copy.programCommand} refusal={refusal()} value={command()} setValue={setCommand} ref={element => { commandField = element; }} commit={commit} keys={keys} />
     <ProgramField name="folder" label={copy.programFolder} refusal={refusal()} value={folder()} setValue={setFolder} ref={element => { folderField = element; }} commit={commit} keys={keys} />
     <ProgramField name="adopt" label={copy.programAdopt} refusal={refusal()} value={adopt()} setValue={setAdopt} ref={element => { adoptField = element; }} commit={commit} keys={keys} />
