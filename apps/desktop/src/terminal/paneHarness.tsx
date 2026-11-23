@@ -37,6 +37,9 @@ type FakeEmulator = Emulator & {
   scroll(atBottom: boolean): void;
   /** Simulates a drawn frame with this row grid. */
   draw(rows: ViewRows): void;
+  /** U7889a: the text of each view row; `frame()` then reports a drawn frame. */
+  screenLines: string[];
+  frame(): void;
 };
 
 export const fakeEmulators = () => {
@@ -52,6 +55,8 @@ export const fakeEmulators = () => {
     let rowsListener: (rows: ViewRows) => void = () => {};
 
     let bottom = true;
+
+    let frameListener: () => void = () => {};
 
     let screenEl: HTMLElement | null = null;
 
@@ -93,6 +98,10 @@ export const fakeEmulators = () => {
       },
       selection: () => emulator.selectedText,
       turns: () => [],
+      screenLines: [],
+      playLines: (printed) => emulator.screenLines.flatMap((text, row) => printed.includes(text.trim()) ? [{ row, span: 1, command: text.trim() }] : []),
+      onFrame: (next) => { frameListener = next; },
+      frame: () => frameListener(),
       selectTurn: () => {},
       paste: (text) => {
         emulator.pasted.push(text);
