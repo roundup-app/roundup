@@ -1,4 +1,5 @@
 import "./ProjectOpening.css";
+import { coreFailureText } from "../terminal/coreFailure";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import { queueFocus } from "../keys/focus";
@@ -43,7 +44,7 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
   const causes = (request: ProjectRequest, error: Error, created: { path: string; id: string; stage: "start" } | undefined) => {
     const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
     const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
-    const cause = retained?.cause ?? error.message;
+    const cause = coreFailureText(retained?.cause ?? error.message);
 
     return {
       resultCause: partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause,

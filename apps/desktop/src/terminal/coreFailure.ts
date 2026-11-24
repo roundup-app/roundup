@@ -27,12 +27,20 @@ const SEGMENT = /^([^\s:]+): /;
 /** U7191f: a start or Restart failure the Daemon names: `Mode <name> (<id>) Attempt <n> Terminal <address> core code <code>: <cause>`. */
 const NAMED = /^(.+?) core code (\S+): /s;
 
+const SUBJECT = /^Mode (.+?) \(\d+\) Attempt \d+ Terminal (\S+)$/s;
+
+const stop = (label: string) => label.replace(/\.$/, "");
+
 /** `message` with a coded core failure replaced by its App label; any other message stays as it is. */
 export const coreFailureText = (message: string): string => {
   const named = NAMED.exec(message);
   const [, subject, code] = named ?? [];
 
-  if (subject !== undefined && code !== undefined && isCoreFailureCode(code)) return `${LABELS[code]} (${subject})`;
+  if (subject !== undefined && code !== undefined && isCoreFailureCode(code)) {
+    const place = SUBJECT.exec(subject);
+
+    return place === null ? LABELS[code] : `${stop(LABELS[code])} — ${place[1]}, Terminal ${place[2]}.`;
+  }
 
   const first = SEGMENT.exec(message);
   const head = first?.[1];
