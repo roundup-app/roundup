@@ -9,8 +9,6 @@ export const storageCopy = {
 
     return `Could not save ${work.join(", ")}: ${causes.join("; ")}. Retry saving.`;
   },
-  coreFailure_cause: (cause: string, agent: string, address: string) =>
-    address === "none" ? `${cause} Agent ${agent}.` : `${cause} Agent ${agent} was on Terminal ${address}.`,
 } as const;
 
 export const copy = {
@@ -54,4 +52,6 @@ export const copy = {
   coreFailure_core_io: "Terminals could not be reached.",
   coreFailure_named: (label: string, agent: string, address: string) =>
     address === "none" ? `${label} Agent ${agent} was affected.` : `${label} Agent ${agent} was on Terminal ${address}.`,
+  coreFailure_cause: (cause: string, agent: string, address: string) =>
+    address === "none" ? `${cause} Agent ${agent}.` : `${cause} Agent ${agent} was on Terminal ${address}.`,
 } as const;
