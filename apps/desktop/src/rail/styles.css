@@ -629,9 +629,12 @@
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
 .rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .rail-chevron { opacity: 1; pointer-events: auto; }
 
-.rail-row[data-worktree="true"] { --elbow-y: calc((var(--space-6) + var(--space-2) - var(--space-3)) / 2); min-height: calc(var(--space-6) + var(--space-2)); }
-.rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
-.rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; max-width: calc(100% - var(--space-4) - var(--space-2) - var(--space-3)); overflow: hidden; }
+/* U7205h: the chips sit --space-2 after the name in one group, left of the Changes icon; the name gives way first. */
+.rail-row .name-group { display: flex; flex: 1 1 0; min-width: 0; overflow: hidden; align-items: center; }
+.name-group .name { flex: 0 1 auto; }
+.rail-row .worktree-chips { flex: none; max-width: none; padding-inline-start: var(--space-2); }
+/* U7205h: at rest the chips stay readable to assistive tech but take no width, so they never cut a name that fits. */
+.rail-row:not(:focus-within, [data-selected="true"]) .worktree-chips { max-width: 0; padding-inline-start: 0; overflow: hidden; }
 /* U7276b: shown chips take their own presses, so a press on one never drags the row. */
 .rail-row:is(:focus-within, [data-selected="true"]) .worktree-chips { pointer-events: auto; }
 
