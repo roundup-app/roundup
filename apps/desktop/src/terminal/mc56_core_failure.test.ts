@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { flush } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { createFailures } from "./failures";
-import { coreFailureCodes, coreFailureLabel, coreFailureText } from "./coreFailure";
+import { coreFailureCodes, coreFailureLabel, coreFailureText } from "../coreFailure";
 
 /** The Avoid words of GLOSSARY.md's tables, as `loop/rules.sh vocab` reads them: a cell ends at its first `.` or `;`. */
 const avoidWords = (): string[] => {

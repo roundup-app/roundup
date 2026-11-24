@@ -43,4 +43,12 @@ export const copy = {
   clipboardCopyRetry: "Try again, or select text and use the context menu.",
   copy: sharedCopy.copy,
   daemonExit: (exit: string) => `Disconnected: ${exit}`,
+  coreFailure_core_missing: "Terminals are not available on this Mac.",
+  coreFailure_unsupported_generation: "Terminals need an update before they can start.",
+  coreFailure_core_closed: "The Terminal connection was lost.",
+  coreFailure_core_silent: "Terminals did not answer.",
+  coreFailure_core_error: "The Terminal could not start.",
+  coreFailure_core_protocol: "Terminals answered in a way the App cannot read.",
+  coreFailure_core_io: "Terminals could not be reached.",
+  coreFailure_named: (label: string, agent: string, address: string) => `${label} — ${agent}, Terminal ${address}.`,
 } as const;

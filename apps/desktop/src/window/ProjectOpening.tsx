@@ -1,5 +1,5 @@
 import "./ProjectOpening.css";
-import { coreFailureText } from "../terminal/coreFailure";
+import { coreFailureText } from "../coreFailure";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import { queueFocus } from "../keys/focus";

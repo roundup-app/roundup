@@ -3,7 +3,7 @@ import { applying } from "../app/pending";
 import type { Applied } from "../app/pending";
 import { unknownOutcomeLine } from "../app/failureOf";
 import { RpcError } from "../app/seam";
-import { coreFailureText } from "../terminal/coreFailure";
+import { coreFailureText } from "../coreFailure";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { isDoor } from "../state/doorNode";
 import type { RailState } from "../state/rail";

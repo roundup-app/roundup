@@ -1,4 +1,4 @@
-import { copy } from "./copy";
+import { copy } from "./app/copy";
 
 /** MC56: the Daemon's coded answer when the Terminal host fails, in App words: no host name, code or hint. */
 const LABELS = {
@@ -39,7 +39,7 @@ export const coreFailureText = (message: string): string => {
   if (subject !== undefined && code !== undefined && isCoreFailureCode(code)) {
     const place = SUBJECT.exec(subject);
 
-    return place === null ? LABELS[code] : `${stop(LABELS[code])} — ${place[1]}, Terminal ${place[2]}.`;
+    return place === null ? LABELS[code] : copy.coreFailure_named(stop(LABELS[code]), place[1] ?? "", place[2] ?? "");
   }
 
   const first = SEGMENT.exec(message);
