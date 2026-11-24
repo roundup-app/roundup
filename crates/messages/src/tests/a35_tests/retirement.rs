@@ -304,25 +304,3 @@ async fn u7191d_the_retirement_hold_frees_after_a_failure() {
     h.messages.take_over_restart("door", "r").await.unwrap();
     h.messages.reserve_restart("door", "r", None).await.unwrap();
 }
-
-#[tokio::test]
-async fn u7191d_a_start_failure_that_typed_nothing_frees_the_hold() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = RestartHarness::new(dir.path());
-    h.send(Actor::user(), "door", "first").await;
-    h.messages
-        .reserve_restart("door", "k1", None)
-        .await
-        .unwrap();
-    assert!(
-        h.messages
-            .reserve_restart("door", "k2", None)
-            .await
-            .is_err()
-    );
-    h.messages.free_restart("door", "k1").await.unwrap();
-    h.messages
-        .reserve_restart("door", "k2", None)
-        .await
-        .unwrap();
-}

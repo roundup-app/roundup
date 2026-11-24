@@ -754,7 +754,7 @@ fn project_db(run: &Run) -> std::path::PathBuf {
         .expect("the Project database")
 }
 
-/// Fail one Restart on the missing program, leaving its hold `Reserved` under `key`.
+/// Fail one Restart on the missing program.
 async fn fail_start(run: &mut Run, key: &str) {
     let fake = run.dir.path().join("claude");
     std::fs::rename(&fake, fake.with_extension("disabled")).unwrap();
@@ -762,18 +762,29 @@ async fn fail_start(run: &mut Run, key: &str) {
     std::fs::rename(fake.with_extension("disabled"), &fake).unwrap();
 }
 
-#[tokio::test]
-async fn u7191d_a_restart_after_a_core_kill_takes_over_a_reserved_hold() {
-    let mut run = mode("Once").await;
-    fail_start(&mut run, "killed-1").await;
-    restart(&mut run, "after-reload").await.unwrap();
-    run.finish().await;
+fn open_holds(run: &Run) -> i64 {
+    rusqlite::Connection::open(project_db(run))
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM message_restarts WHERE released IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
+
+/// Leave a hold under `killed-1` by a typing failure whose outcome is unknown.
+async fn leave_hold(run: &mut Run) {
+    std::fs::write(run.dir.path().join("input-gate"), "flush").unwrap();
+    assert!(restart(run, "killed-1").await.is_err());
+    std::fs::remove_file(run.dir.path().join("input-gate")).unwrap();
+    assert_eq!(open_holds(run), 1);
 }
 
 #[tokio::test]
 async fn u7191d_a_restart_after_a_core_kill_takes_over_a_starting_hold() {
     let mut run = mode("Once").await;
-    fail_start(&mut run, "killed-1").await;
+    leave_hold(&mut run).await;
     let db = rusqlite::Connection::open(project_db(&run)).unwrap();
     let updated = db
         .execute(
@@ -783,16 +794,16 @@ async fn u7191d_a_restart_after_a_core_kill_takes_over_a_starting_hold() {
         .unwrap();
     assert_eq!(updated, 1);
     restart(&mut run, "after-reload").await.unwrap();
+    assert_eq!(open_holds(&run), 0);
     run.finish().await;
 }
 
 #[tokio::test]
 async fn u7191d_a_restart_after_a_core_kill_takes_over_a_typing_hold() {
     let mut run = mode("Once").await;
-    std::fs::write(run.dir.path().join("input-gate"), "flush").unwrap();
-    assert!(restart(&mut run, "killed-1").await.is_err());
-    std::fs::remove_file(run.dir.path().join("input-gate")).unwrap();
+    leave_hold(&mut run).await;
     restart(&mut run, "after-reload").await.unwrap();
+    assert_eq!(open_holds(&run), 0);
     run.finish().await;
 }
 
@@ -800,7 +811,7 @@ async fn u7191d_a_restart_after_a_core_kill_takes_over_a_typing_hold() {
 async fn u7191d_a_start_failure_that_typed_nothing_frees_the_hold() {
     let mut run = mode("Once").await;
     fail_start(&mut run, "failed-1").await;
-    restart(&mut run, "failed-2").await.unwrap();
+    assert_eq!(open_holds(&run), 0);
     run.finish().await;
 }
 
