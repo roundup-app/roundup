@@ -312,6 +312,7 @@
 }
 
 .pane .stopped-bar-id {
+  margin-inline-end: var(--space-2); /* the flex gap plus this sets the id --space-4 from its first action */
   color: var(--grey);
   font-variant-numeric: tabular-nums;
 }

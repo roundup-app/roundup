@@ -56,7 +56,7 @@ describe("u7191i stopped Agent bar", () => {
     const { app } = await mount([stopped("a")]);
 
     app.handlers["agent.resume"] = () => node("a");
-    fireEvent.click(within(await screen.findByRole("group", { name: "Conversation 11111111…" })).getByRole("button", { name: "Restart" }));
+    fireEvent.click(within(await screen.findByRole("group", { name: "Saved conversation" })).getByRole("button", { name: "Restart" }));
 
     await waitFor(() => { expect(calls(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]); });
   });

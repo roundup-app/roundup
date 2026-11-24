@@ -47,9 +47,9 @@ const Bar = (props: { node: RailNode; id: string }) => {
   };
 
   return (
-    <div class="stopped-bar" role="group" aria-label={copy.conversationId(props.id)}>
+    <div class="stopped-bar" role="group" aria-label={copy.conversationBar}>
       <Tip kind="changing" text={props.id}>
-        {(trigger) => <span {...trigger()} class="stopped-bar-id" tabindex={0}>{copy.conversationId(props.id)}</span>}
+        {(trigger) => <span {...trigger()} class="stopped-bar-id">{copy.conversationId(props.id)}</span>}
       </Tip>
       <CopyButton data-button="quiet" app={app} text={props.id} identity={props.node.id} onFailure={error => { failed(clipboardFailure("copy", error), props.node.id); }}>{copy.copy}</CopyButton>
       <BusyButton kind="quiet" busyLabel={copy.forking} onClick={fork}>{copy.fork}</BusyButton>

@@ -33,6 +33,7 @@ export const copy = {
   askBarShortcut: sharedCopy.askBarShortcut,
   selectCommand: "Select command",
   /** U7191i: the stopped Agent's saved conversation id, shortened; the full id is the tooltip and what Copy writes. */
+  conversationBar: "Saved conversation",
   conversationId: (id: string) => `Conversation ${id.slice(0, 8)}…`,
   copy: sharedCopy.copy,
   copied: sharedCopy.copied,
