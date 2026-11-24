@@ -733,3 +733,113 @@ async fn a7494d_a_nested_mode_launches_as_a_root_mode_does() {
     };
     assert_eq!(words(&nested_brief), words(&root_brief));
 }
+
+fn project_db(run: &Run) -> std::path::PathBuf {
+    fn find(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+        for entry in std::fs::read_dir(dir).ok()?.flatten() {
+            let path = entry.path();
+            if path.file_name().is_some_and(|name| name == "project.db") {
+                return Some(path);
+            }
+            if path.is_dir()
+                && let Some(found) = find(&path)
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    find(run.data.path())
+        .or_else(|| run.daemon.data.as_ref().and_then(|data| find(data.path())))
+        .expect("the Project database")
+}
+
+/// Fail one Restart on the missing program, leaving its hold `Reserved` under `key`.
+async fn fail_start(run: &mut Run, key: &str) {
+    let fake = run.dir.path().join("claude");
+    std::fs::rename(&fake, fake.with_extension("disabled")).unwrap();
+    assert!(restart(run, key).await.is_err());
+    std::fs::rename(fake.with_extension("disabled"), &fake).unwrap();
+}
+
+#[tokio::test]
+async fn u7191d_a_restart_after_a_core_kill_takes_over_a_reserved_hold() {
+    let mut run = mode("Once").await;
+    fail_start(&mut run, "killed-1").await;
+    restart(&mut run, "after-reload").await.unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u7191d_a_restart_after_a_core_kill_takes_over_a_starting_hold() {
+    let mut run = mode("Once").await;
+    fail_start(&mut run, "killed-1").await;
+    let db = rusqlite::Connection::open(project_db(&run)).unwrap();
+    let held = db
+        .execute(
+            "UPDATE message_restarts SET session='\"Starting\"' WHERE released IS NULL",
+            [],
+        )
+        .unwrap();
+    assert_eq!(held, 1);
+    restart(&mut run, "after-reload").await.unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u7191d_a_restart_after_a_core_kill_takes_over_a_typing_hold() {
+    let mut run = mode("Once").await;
+    std::fs::write(run.dir.path().join("input-gate"), "flush").unwrap();
+    assert!(restart(&mut run, "killed-1").await.is_err());
+    std::fs::remove_file(run.dir.path().join("input-gate")).unwrap();
+    restart(&mut run, "after-reload").await.unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u7191d_a_start_failure_that_typed_nothing_frees_the_hold() {
+    let mut run = mode("Once").await;
+    fail_start(&mut run, "failed-1").await;
+    restart(&mut run, "failed-2").await.unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u7191g_an_unknown_outcome_is_refused_naming_agent_attempt_and_terminal() {
+    let mut run = mode("Once").await;
+    std::fs::write(run.dir.path().join("input-gate"), "flush").unwrap();
+    assert!(restart(&mut run, "unknown-1").await.is_err());
+    std::fs::remove_file(run.dir.path().join("input-gate")).unwrap();
+    let refused = restart(&mut run, "unknown-1").await.unwrap_err();
+    assert!(refused.message.contains(&run.child), "{refused}");
+    assert!(refused.message.contains("Attempt"), "{refused}");
+    assert!(refused.message.contains("Terminal"), "{refused}");
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u7191g_a_prompt_is_typed_once_per_program() {
+    let mut run = mode("Once").await;
+    std::fs::write(run.dir.path().join("input-gate"), "flush").unwrap();
+    assert!(restart(&mut run, "unknown-1").await.is_err());
+    std::fs::remove_file(run.dir.path().join("input-gate")).unwrap();
+    restart(&mut run, "fresh-2").await.unwrap();
+    assert_eq!(
+        recorded_bytes(&run).await,
+        b"\x1b[200~Once\x1b[201~\r".to_vec()
+    );
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u7191f_a_failed_start_logs_one_line_naming_agent_core_id_and_code() {
+    let mut run = mode("Once").await;
+    let fake = run.dir.path().join("claude");
+    std::fs::rename(&fake, fake.with_extension("disabled")).unwrap();
+    let error = restart(&mut run, "named-1").await.unwrap_err();
+    std::fs::rename(fake.with_extension("disabled"), &fake).unwrap();
+    assert!(error.message.contains(&run.child), "{error}");
+    assert!(error.message.contains("Terminal "), "{error}");
+    assert!(error.message.contains("core code"), "{error}");
+    run.finish().await;
+}

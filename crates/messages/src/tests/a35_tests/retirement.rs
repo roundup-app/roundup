@@ -280,3 +280,49 @@ async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
     assert_eq!(h.messages.thread("door").unwrap(), before);
     assert!(h.inbox.written().is_empty());
 }
+
+#[tokio::test]
+async fn u7191d_the_retirement_hold_frees_after_a_failure() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = RestartHarness::new(dir.path());
+    h.send(Actor::user(), "door", "first").await;
+    // A retirement whose removal failed leaves the Agent on the Rail and refuses a Restart.
+    h.messages.reserve_retirement("door", "c").await.unwrap();
+    h.status("1", "2", Kind::Done).await;
+    h.rail.0.lock().unwrap()[0] = edit(agent_node("door", Kind::Done), |door| {
+        door.status_revision = contracts::agent::Ordinal::parse("2");
+    });
+    let held = h
+        .messages
+        .reserve_restart("door", "r", None)
+        .await
+        .unwrap_err();
+    assert!(
+        held.to_string().contains("another restart reserved"),
+        "{held}"
+    );
+    h.messages.take_over_restart("door", "r").await.unwrap();
+    h.messages.reserve_restart("door", "r", None).await.unwrap();
+}
+
+#[tokio::test]
+async fn u7191d_a_start_failure_that_typed_nothing_frees_the_hold() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = RestartHarness::new(dir.path());
+    h.send(Actor::user(), "door", "first").await;
+    h.messages
+        .reserve_restart("door", "k1", None)
+        .await
+        .unwrap();
+    assert!(
+        h.messages
+            .reserve_restart("door", "k2", None)
+            .await
+            .is_err()
+    );
+    h.messages.free_restart("door", "k1").await.unwrap();
+    h.messages
+        .reserve_restart("door", "k2", None)
+        .await
+        .unwrap();
+}

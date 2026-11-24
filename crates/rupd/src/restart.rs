@@ -61,6 +61,9 @@ impl Daemon {
         let key = format!("mode:{}", p.request);
         // A retry reads the originally reserved text, even after the setting has changed.
         if messages.session_restart(&p.id, &key)?.is_none() {
+            // U7191d: this Restart stops the old program first, so a hold another key left guards
+            // nothing; it ends here, whether it came from a failure, an App reload or a Daemon restart.
+            messages.take_over_restart(&p.id, &key).await?;
             messages
                 .reserve_restart(&p.id, &key, node.mode_prompt().as_deref())
                 .await?;
@@ -89,7 +92,7 @@ impl Daemon {
                     if error.code != code::UNKNOWN_OUTCOME {
                         messages.set_session_restart(&p.id, &key, SessionRestart::Reserved)?;
                     }
-                    return Err(error);
+                    return Err(self.named_failure(node, None, error));
                 }
             };
             state = SessionRestart::Started {
@@ -109,7 +112,14 @@ impl Daemon {
                         attempt: attempt.clone(),
                     },
                 )?;
-                self.agents.mode_prompt(&p.id, attempt, prompt).await?;
+                if let Err(error) = self.agents.mode_prompt(&p.id, attempt, prompt).await {
+                    // U7191d: only an unknown outcome may have typed; any other failure typed
+                    // nothing, so the hold frees at once.
+                    if error.code != code::UNKNOWN_OUTCOME {
+                        messages.free_restart(&p.id, &key).await?;
+                    }
+                    return Err(self.named_failure(node, Some(attempt), error));
+                }
             }
             state = SessionRestart::Acknowledged {
                 attempt: attempt.clone(),
@@ -127,9 +137,17 @@ impl Daemon {
             messages.set_session_restart(&p.id, &key, state.clone())?;
         }
         if !matches!(state, SessionRestart::Released { .. }) {
-            return Err(RpcError::unknown_outcome(
-                "restart or Mode prompt outcome is unknown; it will not be typed again. Inspect the Mode Agent's Terminal",
-            ));
+            let attempt = match &state {
+                SessionRestart::Started { attempt }
+                | SessionRestart::Typing { attempt }
+                | SessionRestart::Acknowledged { attempt } => Some(attempt.as_str()),
+                _ => None,
+            };
+            return Err(RpcError::unknown_outcome(format!(
+                "{}: restart or Mode prompt outcome is unknown; it will not be typed again. \
+                 Inspect the Mode Agent's Terminal, or choose Restart again to start a fresh one",
+                self.failure_subject(node, attempt)
+            )));
         }
         self.rail()
             .await?
@@ -137,4 +155,45 @@ impl Daemon {
             .find(|n| n.id == p.id)
             .ok_or_else(|| RpcError::not_found(p.id))
     }
+
+    /// U7191f: the Agent, its Attempt and its Terminal's herdr-core address.
+    fn failure_subject(&self, node: &RailNode, attempt: Option<&str>) -> String {
+        let (id, name) = (&node.id, &node.name);
+        let terminal = node
+            .terminal_id()
+            .and_then(|terminal| self.terminals.core_record(&terminal).ok().flatten())
+            .map_or_else(|| "none".to_owned(), |(core_id, _)| core_id);
+        format!(
+            "Mode {name} ({id}) Attempt {} Terminal {terminal}",
+            attempt.unwrap_or("none")
+        )
+    }
+
+    /// U7191f: `error` naming the Agent, its Terminal address and the core error code, with one
+    /// line in the Daemon's log.
+    fn named_failure(
+        &self,
+        node: &RailNode,
+        attempt: Option<&str>,
+        mut error: RpcError,
+    ) -> RpcError {
+        if error.code == code::UNKNOWN_OUTCOME && error.message.starts_with("Mode ") {
+            return error;
+        }
+        let subject = self.failure_subject(node, attempt);
+        let core = core_code(&error.message).unwrap_or("none");
+        error.message = format!("{subject} core code {core}: {}", error.message);
+        eprintln!("rupd: restart failed: {}", error.message);
+        error
+    }
+}
+
+/// The herdr-core error code (`core_closed`, `core_silent`, ...) a message carries.
+fn core_code(message: &str) -> Option<&str> {
+    let start = message.find("core_")?;
+    let rest = &message[start..];
+    let end = rest
+        .find(|c: char| !(c.is_ascii_lowercase() || c == '_'))
+        .unwrap_or(rest.len());
+    Some(&rest[..end])
 }

@@ -687,7 +687,15 @@ impl Shared {
         .await;
         let result = {
             let mut runs = shared.runs();
-            match cleanup {
+            // U7191d: a core that closed or is missing took its programs with it, so the
+            // Terminal is gone and the slot frees like a confirmed cleanup.
+            match cleanup.or_else(|cleanup| {
+                if core_lost(&cleanup) {
+                    Ok(())
+                } else {
+                    Err(cleanup)
+                }
+            }) {
                 Ok(()) => {
                     if let Some(Slot::ResumeCleanup { old: Some(old), .. }) = runs.take(&id) {
                         runs.put(&id, Slot::Running(*old));
@@ -715,10 +723,24 @@ impl Shared {
     }
 }
 
+/// U7191d: whether `error` says the herdr-core connection closed or the core is missing.
+fn core_lost(error: &RpcError) -> bool {
+    ["core_closed", "core_missing"]
+        .iter()
+        .any(|code| error.message.contains(code))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::tests::*;
+
+    #[test]
+    fn u7191d_resume_cleanup_frees_after_a_failure() {
+        let lost = RpcError::internal("core_closed: the core closed");
+        assert!(core_lost(&lost));
+        assert!(!core_lost(&RpcError::internal("core_silent: no answer")));
+    }
 
     fn ctx(bus: Bus) -> Ctx {
         Ctx {

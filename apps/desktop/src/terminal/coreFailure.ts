@@ -24,8 +24,16 @@ export const coreFailureLabel = (code: string): string => (isCoreFailureCode(cod
 /** The Daemon keeps a core failure's code at the start of its message (MC4): `core_closed: ...`, or `machine: core_closed: ...`. */
 const SEGMENT = /^([^\s:]+): /;
 
+/** U7191f: a start or Restart failure the Daemon names: `Mode <name> (<id>) Attempt <n> Terminal <address> core code <code>: <cause>`. */
+const NAMED = /^(.+?) core code (\S+): /s;
+
 /** `message` with a coded core failure replaced by its App label; any other message stays as it is. */
 export const coreFailureText = (message: string): string => {
+  const named = NAMED.exec(message);
+  const [, subject, code] = named ?? [];
+
+  if (subject !== undefined && code !== undefined && isCoreFailureCode(code)) return `${LABELS[code]} (${subject})`;
+
   const first = SEGMENT.exec(message);
   const head = first?.[1];
 
