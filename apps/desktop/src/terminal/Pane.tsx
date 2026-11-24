@@ -32,6 +32,7 @@ import type { Screens } from "./screens";
 import "./styles.css";
 import { doorTerminalId } from "../state/doorNode";
 import { centreState } from "./centreState";
+import { StoppedBar } from "./StoppedBar";
 
 
 type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; notice?: boolean; recovery: Recovery };
@@ -97,6 +98,14 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   onSettled(() => { props.screensRef?.(screens); });
 
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
+
+  /** U7191i: a stopped Agent whose saved conversation the Daemon names. */
+  const stopped = createMemo(() => {
+    const node = selected();
+    const id = node?.kind === "agent" ? node.overview?.id : undefined;
+
+    return node && id !== undefined && rail.exitOf(node) !== null ? { node, id } : null;
+  });
 
   /** Why the selected Workstream's Door is not running, so a stopped, failed or still-starting Door each read differently. */
   const doorState = createMemo(() => {
@@ -301,6 +310,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       >
         <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <div class="pane-over">{props.over}</div>{props.header}<PlayMarksHost connected={connected} selected={selected} screens={screens} screen={screen} />
+        <Show when={stopped()}>
+          {(stoppedNode) => <StoppedBar node={stoppedNode().node} id={stoppedNode().id} />}
+        </Show>
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
