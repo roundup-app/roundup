@@ -633,6 +633,8 @@
 .rail-row .name-group { display: flex; flex: 1 1 0; min-width: 0; overflow: hidden; align-items: center; gap: var(--space-2); }
 .name-group .name { flex: 0 1 auto; }
 .rail-row .worktree-chips { flex: none; max-width: none; }
+/* U7205h: at rest the chips are not drawn and take no room, so they never cut a name that fits. */
+.rail-row:not(:focus-within, [data-selected="true"]) .worktree-chips { display: none; }
 /* U7276b: shown chips take their own presses, so a press on one never drags the row. */
 .rail-row:is(:focus-within, [data-selected="true"]) .worktree-chips { pointer-events: auto; }
 

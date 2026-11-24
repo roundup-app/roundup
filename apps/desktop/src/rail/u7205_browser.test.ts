@@ -104,8 +104,11 @@ const openWorktreeRow = async () => {
   await page.until(`() => Boolean(document.querySelector('.rail-tree .worktree-chip'))`);
 };
 
+const focusWorktreeRow = () => page.call<void>(`() => { [...document.querySelectorAll('.rail-tree .rail-row')].find(r => r.querySelector('.worktree-chips')).focus(); }`);
+
 run("u7205h_a_worktree_row_is_one_line_with_chips_left_of_the_changes_icon", async () => {
   await openWorktreeRow();
+  await focusWorktreeRow();
 
   const read = await page.call<Chips>(readChips);
 
@@ -125,9 +128,21 @@ run("u7205h_a_worktree_row_is_one_line_with_chips_left_of_the_changes_icon", asy
 
 run("u7205h_the_chips_hide_below_the_narrow_width", async () => {
   await openWorktreeRow();
+  await focusWorktreeRow();
   await page.call<void>(`() => { document.querySelector('.rail').style.width = '5rem'; }`);
 
   const read = await page.call<Chips>(readChips);
 
   for (const chip of read.chips) expect(chip.shown).toBe(false);
+}, 60_000);
+
+run("u7205h_a_resting_worktree_row_reserves_no_room_for_its_chips", async () => {
+  await openWorktreeRow();
+
+  const room = await page.call<number>(`() => {
+    const row = [...document.querySelectorAll('.rail-tree .rail-row')].find(r => r.querySelector('.worktree-chips'));
+    return row.querySelector('.worktree-chips').getBoundingClientRect().width;
+  }`);
+
+  expect(room).toBe(0);
 }, 60_000);
