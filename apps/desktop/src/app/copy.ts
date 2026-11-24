@@ -51,5 +51,5 @@ export const copy = {
   coreFailure_core_protocol: "Terminals answered in a way the App cannot read.",
   coreFailure_core_io: "Terminals could not be reached.",
   coreFailure_named: (label: string, agent: string, address: string) =>
-    address === "none" ? `${label} Agent ${agent}.` : `${label} Agent ${agent} was on Terminal ${address}.`,
+    address === "none" ? `${label} Agent ${agent} was affected.` : `${label} Agent ${agent} was on Terminal ${address}.`,
 } as const;

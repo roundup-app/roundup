@@ -29,23 +29,29 @@ const NAMED = /^(.+?) core code (\S+): /s;
 
 const SUBJECT = /^Mode (.+?) \(\d+\) Attempt (?:\d+|none) Terminal (\S+)$/s;
 
-/** `message` with a coded core failure replaced by its App label; a named failure without a core code keeps its cause, and any other message stays as it is. */
-export const coreFailureText = (message: string): string => {
+/** A named failure's text: a coded one in App words, an uncoded one keeping its cause; null when `message` is no named failure. */
+const namedText = (message: string): string | null => {
   const named = NAMED.exec(message);
 
-  if (named !== null) {
-    const [whole, subject = "", code = ""] = named;
-    const place = SUBJECT.exec(subject);
-    const agent = place?.[1] ?? "";
-    const address = place?.[2] ?? "none";
-    const where = address === "none" ? "" : ` Terminal ${address}`;
+  if (named === null) return null;
 
-    if (isCoreFailureCode(code)) {
-      return place === null ? LABELS[code] : copy.coreFailure_named(LABELS[code], agent, address);
-    }
+  const [whole, subject = "", code = ""] = named;
+  const place = SUBJECT.exec(subject);
+  const agent = place?.[1] ?? "";
+  const address = place?.[2] ?? "none";
 
-    if (place !== null) return `${coreFailureText(message.slice(whole.length))} Agent ${agent}${where ? ` was on${where}` : ""}.`;
-  }
+  if (isCoreFailureCode(code)) return place === null ? LABELS[code] : copy.coreFailure_named(LABELS[code], agent, address);
+
+  if (place === null) return null;
+
+  return `${coreFailureText(message.slice(whole.length))} Agent ${agent}${address === "none" ? "" : ` was on Terminal ${address}`}.`;
+};
+
+/** `message` with a coded core failure replaced by its App label; a named failure without a core code keeps its cause, and any other message stays as it is. */
+export const coreFailureText = (message: string): string => {
+  const named = namedText(message);
+
+  if (named !== null) return named;
 
   const first = SEGMENT.exec(message);
   const head = first?.[1];
