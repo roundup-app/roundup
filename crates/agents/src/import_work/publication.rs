@@ -170,6 +170,7 @@ impl Agents {
                 Resumption {
                     ack_bound: RESUME_ACK_BOUND,
                     conversation: Some((source, &effective.to_string_lossy())),
+                    fork: false,
                     prompt: None,
                     publication: RailPublication::Immediate,
                     mode: None,

@@ -9,6 +9,8 @@ pub(super) struct Resumption<'a> {
     pub ack_bound: Duration,
     /// A conversation (id, cwd) that is not the one the Rail saved.
     pub conversation: Option<(&'a str, &'a str)>,
+    /// U7191i: continue `conversation` as a new session (`--fork-session`).
+    pub fork: bool,
     pub prompt: Option<String>,
     pub publication: RailPublication,
     pub mode: Option<contracts::agent::ResumeMode>,
@@ -70,6 +72,7 @@ impl Agents {
             Resumption {
                 ack_bound: RESUME_ACK_BOUND,
                 conversation: None,
+                fork: false,
                 prompt: None,
                 publication: RailPublication::Immediate,
                 mode,
@@ -78,6 +81,96 @@ impl Agents {
             },
         )
         .await
+    }
+
+    /// U7191i: start a new Agent from `id`'s saved conversation as a new session, in the same
+    /// Workstream and folder, placed right after `id`. `id` and its conversation are untouched.
+    pub(super) async fn offshoot(&self, ctx: &Ctx, id: &str) -> Result<RailNode, RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user forks a conversation"));
+        }
+        let stopped = match self.shared.runs().slot(id) {
+            None | Some(Slot::Gone) => true,
+            Some(Slot::Running(run)) => run.ended(),
+            Some(_) => false,
+        };
+        if !stopped {
+            return Err(RpcError::conflict(format!("{id} is not stopped")));
+        }
+        let (conversation, cwd, new) = {
+            let mut rail = self.shared.rail();
+            let source = rail.node(crate::rail::agent_id(id)?)?;
+            if source.kind() != NodeKind::Agent {
+                return Err(RpcError::conflict(format!("{id} is not an Agent")));
+            }
+            let Some((conversation, cwd)) = rail.conversation(crate::rail::agent_id(id)?)? else {
+                return Err(RpcError::conflict(format!(
+                    "{id} has no saved conversation"
+                )));
+            };
+            let taken = rail
+                .tree()?
+                .into_iter()
+                .filter(|node| node.parent == source.parent)
+                .map(|node| node.base.name)
+                .collect::<Vec<_>>();
+            let name = name::unique(&source.base.name, taken.iter().map(String::as_str));
+            let model = source.model();
+            let effort = source.effort();
+            let machine = source.machine();
+            let new = rail.insert_agent(rail::NewAgent {
+                name: &name,
+                parent: source.parent.as_deref(),
+                work: None,
+                start_attribution: None,
+                visibility: contracts::agent::RailVisibility::default(),
+                spawn_prompt: None,
+                spawner: None,
+                role: None,
+                model: model.as_deref(),
+                effort: effort.as_deref(),
+                mode_prompt: None,
+                machine: machine.as_deref(),
+            })?;
+            rail.place_after(crate::rail::agent_id(&new.id)?, crate::rail::agent_id(id)?)?;
+            (conversation, cwd, new)
+        };
+        ctx.emit(EventData::RailChanged);
+        let resumed = self
+            .resume_conversation(
+                ctx,
+                &new.id,
+                Resumption {
+                    ack_bound: RESUME_ACK_BOUND,
+                    conversation: Some((&conversation, &cwd)),
+                    fork: true,
+                    prompt: None,
+                    publication: RailPublication::Immediate,
+                    mode: None,
+                    permission_mode: None,
+                    size: (80, 24),
+                },
+            )
+            .await;
+        match resumed {
+            Ok(node) => Ok(node),
+            Err(err) => {
+                if err.code != rpc::code::UNKNOWN_OUTCOME {
+                    // A failed fork leaves no row; the source is never touched.
+                    let mut rail = self.shared.rail();
+                    let mut runs = self.shared.runs();
+                    runs.forget(&new.id);
+                    self.shared.events.observed.notify_waiters();
+                    report_undo(
+                        "remove the failed offshoot from the Rail",
+                        rail.remove(crate::rail::agent_id(&new.id)?),
+                    );
+                    drop((rail, runs));
+                    ctx.emit(EventData::RailChanged);
+                }
+                Err(err)
+            }
+        }
     }
 
     /// LC8: give child `id` more extras. A name that does not exist fails the call and the child
@@ -149,6 +242,7 @@ impl Agents {
             Resumption {
                 ack_bound,
                 conversation: None,
+                fork: false,
                 prompt: None,
                 publication: RailPublication::Immediate,
                 mode: None,
@@ -205,6 +299,7 @@ impl Agents {
     fn reserve_resume(&self, id: &str, resumption: &Resumption<'_>) -> Result<Reserved, RpcError> {
         let Resumption {
             conversation,
+            fork,
             prompt,
             mode,
             ..
@@ -237,6 +332,7 @@ impl Agents {
                 since: (self.shared.clock)(),
                 old,
                 conversation_id: conversation_id.clone(),
+                fork: *fork,
                 cwd: saved_cwd.clone(),
                 prompt: prompt.clone(),
                 starred: false,
@@ -247,6 +343,7 @@ impl Agents {
         );
         Ok(Reserved {
             attempt,
+            fork: *fork,
             conversation_id,
             saved_cwd,
             done_rx,
@@ -409,6 +506,7 @@ impl Agents {
         let Resumption {
             ack_bound,
             conversation: _,
+            fork: _,
             prompt: _,
             publication: _,
             mode,
@@ -486,7 +584,11 @@ impl Agents {
             id,
             attempt: &reserved.attempt,
             cwd: &effective_cwd,
-            origin: Origin::Resume(&reserved.conversation_id),
+            origin: if reserved.fork {
+                Origin::Offshoot(&reserved.conversation_id)
+            } else {
+                Origin::Resume(&reserved.conversation_id)
+            },
             attach: Attach::AfterAck,
             permission: if mode == Some(contracts::agent::ResumeMode::Yolo) {
                 Permission::Bypass
@@ -548,6 +650,7 @@ fn at_step(id: &str, step: &str, err: RpcError) -> RpcError {
 /// A reserved Attempt: its slot is `Slot::Resuming`, with the conversation it continues.
 struct Reserved {
     attempt: Ordinal,
+    fork: bool,
     conversation_id: String,
     saved_cwd: String,
     done_rx: oneshot::Receiver<Result<(), RpcError>>,

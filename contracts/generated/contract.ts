@@ -26,6 +26,7 @@ export const CONTRACT = {
     "agent.links": "d908b9e1dcd0624e",
     "agent.made": "56910f9e5f6740d8",
     "agent.makeWorkstream": "b0bf88e3e19a3664",
+    "agent.offshoot": "e79fc59c0d717d3d",
     "agent.ownedChanges": "87a1a536ad077489",
     "agent.printedCommands": "4f47166592fea733",
     "agent.prompt": "827059ae7d416823",
