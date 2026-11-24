@@ -1,3 +1,4 @@
+import { Show, createMemo } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { BusyButton } from "../ui/BusyButton";
 import { Tip } from "../ui/Tip";
@@ -12,7 +13,21 @@ import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
 
 /** U7191i: a stopped Agent's saved conversation id, with Copy, Fork and Restart, in the Pane's top inset. */
-export const StoppedBar = (props: { node: RailNode; id: string }) => {
+export const StoppedBar = (props: { selected: () => RailNode | null }) => {
+  const { rail } = useConnectedProject();
+
+  /** A stopped Agent whose saved conversation the Daemon names. */
+  const stopped = createMemo(() => {
+    const node = props.selected();
+    const id = node?.kind === "agent" ? node.overview?.id : undefined;
+
+    return node && id !== undefined && rail.exitOf(node) !== null ? { node, id } : null;
+  });
+
+  return <Show when={stopped()}>{(held) => <Bar node={held().node} id={held().id} />}</Show>;
+};
+
+const Bar = (props: { node: RailNode; id: string }) => {
   const { app, rail } = useConnectedProject();
   const failed = (message: string, item?: string) => { rail.commandFailure.show(message, item ?? null, "pane"); };
 
