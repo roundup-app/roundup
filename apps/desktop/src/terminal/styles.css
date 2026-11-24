@@ -311,11 +311,11 @@
   font-size: var(--text-caption);
 }
 
-.pane .stopped-bar [data-busy-button] {
+.stopped-bar [data-busy-button] {
   justify-items: start; /* the actions sit --space-2 apart as drawn: no reserved busy-label width, the busy label grows the button */
 }
 
-.pane .stopped-bar [data-busy-button]::after {
+.stopped-bar [data-busy-button]::after {
   content: none;
 }
 
