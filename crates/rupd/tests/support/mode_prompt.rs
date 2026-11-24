@@ -782,6 +782,23 @@ async fn leave_hold(run: &mut Run) {
 }
 
 #[tokio::test]
+async fn u7191d_a_restart_after_a_core_kill_takes_over_a_reserved_hold() {
+    let mut run = mode("Once").await;
+    leave_hold(&mut run).await;
+    let db = rusqlite::Connection::open(project_db(&run)).unwrap();
+    let updated = db
+        .execute(
+            "UPDATE message_restarts SET session='\"Starting\"' WHERE released IS NULL",
+            [],
+        )
+        .unwrap();
+    assert_eq!(updated, 1);
+    restart(&mut run, "after-reload").await.unwrap();
+    assert_eq!(open_holds(&run), 0);
+    run.finish().await;
+}
+
+#[tokio::test]
 async fn u7191d_a_restart_after_a_core_kill_takes_over_a_starting_hold() {
     let mut run = mode("Once").await;
     leave_hold(&mut run).await;
