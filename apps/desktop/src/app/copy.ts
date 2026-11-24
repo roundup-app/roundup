@@ -50,5 +50,5 @@ export const copy = {
   coreFailure_core_error: "The Terminal could not start.",
   coreFailure_core_protocol: "Terminals answered in a way the App cannot read.",
   coreFailure_core_io: "Terminals could not be reached.",
-  coreFailure_named: (label: string, agent: string, address: string) => `${label} — ${agent}, Terminal ${address}.`,
+  coreFailure_named: (label: string, agent: string, address: string) => `${label} Agent ${agent} was on Terminal ${address}.`,
 } as const;
