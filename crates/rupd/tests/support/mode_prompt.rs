@@ -811,6 +811,7 @@ async fn u7191d_a_restart_after_a_core_kill_takes_over_a_typing_hold() {
 async fn u7191d_a_start_failure_that_typed_nothing_frees_the_hold() {
     let mut run = mode("Once").await;
     fail_start(&mut run, "failed-1").await;
+    restart(&mut run, "failed-2").await.unwrap();
     assert_eq!(open_holds(&run), 0);
     run.finish().await;
 }

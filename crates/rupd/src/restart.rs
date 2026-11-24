@@ -88,9 +88,10 @@ impl Daemon {
                 Ok(fresh) => fresh,
                 Err(error) => {
                     // The lifecycle result confirms cleanup; an interrupted/unknown launch
-                    // keeps Starting. Any other failure typed nothing, so the hold frees at once.
+                    // keeps Starting. Any other failure typed nothing: the hold goes back to
+                    // Reserved with its original prompt (A4665), and a new Restart takes it over.
                     if error.code != code::UNKNOWN_OUTCOME {
-                        messages.free_restart(&p.id, &key).await?;
+                        messages.set_session_restart(&p.id, &key, SessionRestart::Reserved)?;
                     }
                     return Err(self.named_failure(node, None, error));
                 }

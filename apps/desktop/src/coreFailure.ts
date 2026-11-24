@@ -44,7 +44,7 @@ const namedText = (message: string): string | null => {
 
   if (place === null) return null;
 
-  return `${coreFailureText(message.slice(whole.length))} Agent ${agent}${address === "none" ? "" : ` was on Terminal ${address}`}.`;
+  return copy.coreFailure_cause(coreFailureText(message.slice(whole.length)), agent, address);
 };
 
 /** `message` with a coded core failure replaced by its App label; a named failure without a core code keeps its cause, and any other message stays as it is. */

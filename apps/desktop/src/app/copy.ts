@@ -9,6 +9,8 @@ export const storageCopy = {
 
     return `Could not save ${work.join(", ")}: ${causes.join("; ")}. Retry saving.`;
   },
+  coreFailure_cause: (cause: string, agent: string, address: string) =>
+    address === "none" ? `${cause} Agent ${agent}.` : `${cause} Agent ${agent} was on Terminal ${address}.`,
 } as const;
 
 export const copy = {
