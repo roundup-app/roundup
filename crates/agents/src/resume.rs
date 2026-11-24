@@ -735,11 +735,53 @@ mod tests {
     use super::*;
     use crate::tests::*;
 
-    #[test]
-    fn u7191d_resume_cleanup_frees_after_a_failure() {
-        let lost = RpcError::internal("core_closed: the core closed");
-        assert!(core_lost(&lost));
-        assert!(!core_lost(&RpcError::internal("core_silent: no answer")));
+    #[tokio::test]
+    async fn u7191d_resume_cleanup_frees_after_a_failure() {
+        for (failure, freed) in [
+            ("core_closed: the core closed", true),
+            ("core_silent: no answer", false),
+        ] {
+            let (dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+            let id = running_agent(&shared, None);
+            let agents = owner_agents(shared, dir.path())
+                .with_resume_effect(move |_, _| Err(RpcError::internal(failure)));
+            let shared = agents.shared.clone();
+            {
+                let mut runs = shared.runs();
+                let Some(Slot::Running(old)) = runs.take(&id) else {
+                    panic!("running_agent leaves a Running slot");
+                };
+                runs.put(
+                    &id,
+                    Slot::ResumeCleanup {
+                        old: Some(Box::new(old)),
+                        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                        terminal_id: "1".into(),
+                        pending: true,
+                        error: RpcError::internal("failed"),
+                    },
+                );
+            }
+            let (done, result) = oneshot::channel();
+            Shared::finish_cleanup(
+                shared.clone(),
+                id.clone(),
+                "1".into(),
+                RpcError::internal("resume failed"),
+                done,
+            )
+            .await;
+            assert!(result.await.unwrap().is_err());
+            let runs = shared.runs();
+            if freed {
+                assert!(matches!(runs.slot(&id), Some(Slot::Running(_))));
+            } else {
+                assert!(matches!(
+                    runs.slot(&id),
+                    Some(Slot::ResumeCleanup { pending: false, .. })
+                ));
+            }
+        }
     }
 
     fn ctx(bus: Bus) -> Ctx {
