@@ -24,7 +24,7 @@ export const StoppedBar = (props: { selected: () => RailNode | null }) => {
     return node && id !== undefined && rail.exitOf(node) !== null ? { node, id } : null;
   });
 
-  return <Show when={stopped()}>{(held) => <Bar node={held().node} id={held().id} />}</Show>;
+  return <Show when={stopped()}>{(s) => <Bar node={s().node} id={s().id} />}</Show>;
 };
 
 const Bar = (props: { node: RailNode; id: string }) => {
