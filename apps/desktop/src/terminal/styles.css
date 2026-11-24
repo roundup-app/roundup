@@ -311,6 +311,14 @@
   font-size: var(--text-caption);
 }
 
+.pane .stopped-bar [data-busy-button] {
+  justify-items: start; /* the actions sit --space-2 apart as drawn: no reserved busy-label width, the busy label grows the button */
+}
+
+.pane .stopped-bar [data-busy-button]::after {
+  content: none;
+}
+
 .pane .stopped-bar-id {
   margin-inline-end: var(--space-2); /* the flex gap plus this sets the id --space-4 from its first action */
   color: var(--grey);
