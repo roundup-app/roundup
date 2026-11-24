@@ -52,6 +52,9 @@ export const copy = {
   coreFailure_core_io: "Terminals could not be reached.",
   coreFailure_named: (label: string, agent: string, address: string) =>
     address === "none" ? `${label} Agent ${agent} was affected.` : `${label} Agent ${agent} was on Terminal ${address}.`,
-  coreFailure_cause: (cause: string, agent: string, address: string) =>
-    address === "none" ? `${cause} Agent ${agent}.` : `${cause} Agent ${agent} was on Terminal ${address}.`,
+  coreFailure_cause: (cause: string, agent: string, address: string) => {
+    const sentence = cause.replace(/[.\s]+$/, "");
+
+    return address === "none" ? `${sentence}. Agent ${agent} was affected.` : `${sentence}. Agent ${agent} was on Terminal ${address}.`;
+  },
 } as const;
