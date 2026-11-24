@@ -292,14 +292,14 @@ async fn u7191d_the_retirement_hold_frees_after_a_failure() {
     h.rail.0.lock().unwrap()[0] = edit(agent_node("door", Kind::Done), |door| {
         door.status_revision = contracts::agent::Ordinal::parse("2");
     });
-    let held = h
+    let refused = h
         .messages
         .reserve_restart("door", "r", None)
         .await
         .unwrap_err();
     assert!(
-        held.to_string().contains("another restart reserved"),
-        "{held}"
+        refused.to_string().contains("another restart reserved"),
+        "{refused}"
     );
     h.messages.take_over_restart("door", "r").await.unwrap();
     h.messages.reserve_restart("door", "r", None).await.unwrap();

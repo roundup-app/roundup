@@ -775,13 +775,13 @@ async fn u7191d_a_restart_after_a_core_kill_takes_over_a_starting_hold() {
     let mut run = mode("Once").await;
     fail_start(&mut run, "killed-1").await;
     let db = rusqlite::Connection::open(project_db(&run)).unwrap();
-    let held = db
+    let updated = db
         .execute(
             "UPDATE message_restarts SET session='\"Starting\"' WHERE released IS NULL",
             [],
         )
         .unwrap();
-    assert_eq!(held, 1);
+    assert_eq!(updated, 1);
     restart(&mut run, "after-reload").await.unwrap();
     run.finish().await;
 }

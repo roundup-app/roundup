@@ -183,7 +183,7 @@ impl Daemon {
         let subject = self.failure_subject(node, attempt);
         let core = core_code(&error.message).unwrap_or("none");
         error.message = format!("{subject} core code {core}: {}", error.message);
-        eprintln!("rupd: restart failed: {}", error.message);
+        eprintln!("restart failed: {}", error.message);
         error
     }
 }
