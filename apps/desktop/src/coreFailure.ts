@@ -27,17 +27,24 @@ const SEGMENT = /^([^\s:]+): /;
 /** U7191f: a start or Restart failure the Daemon names: `Mode <name> (<id>) Attempt <n> Terminal <address> core code <code>: <cause>`. */
 const NAMED = /^(.+?) core code (\S+): /s;
 
-const SUBJECT = /^Mode (.+?) \(\d+\) Attempt \d+ Terminal (\S+)$/s;
+const SUBJECT = /^Mode (.+?) \(\d+\) Attempt (?:\d+|none) Terminal (\S+)$/s;
 
-/** `message` with a coded core failure replaced by its App label; any other message stays as it is. */
+/** `message` with a coded core failure replaced by its App label; a named failure without a core code keeps its cause, and any other message stays as it is. */
 export const coreFailureText = (message: string): string => {
   const named = NAMED.exec(message);
-  const [, subject, code] = named ?? [];
 
-  if (subject !== undefined && code !== undefined && isCoreFailureCode(code)) {
+  if (named !== null) {
+    const [whole, subject = "", code = ""] = named;
     const place = SUBJECT.exec(subject);
+    const agent = place?.[1] ?? "";
+    const address = place?.[2] ?? "none";
+    const where = address === "none" ? "" : ` Terminal ${address}`;
 
-    return place === null ? LABELS[code] : copy.coreFailure_named(LABELS[code], place[1] ?? "", place[2] ?? "");
+    if (isCoreFailureCode(code)) {
+      return place === null ? LABELS[code] : copy.coreFailure_named(LABELS[code], agent, address);
+    }
+
+    if (place !== null) return `${coreFailureText(message.slice(whole.length))} Agent ${agent}${where ? ` was on${where}` : ""}.`;
   }
 
   const first = SEGMENT.exec(message);

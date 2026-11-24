@@ -20,3 +20,9 @@ it("u7191f_a_rail_command_failure_shows_the_fixed_copy", async () => {
 
   expect(commandFailure.message()).toBe("The Terminal connection was lost. Agent team was on Terminal 1:4.");
 });
+
+it("u7191f_a_named_failure_without_a_core_code_shows_its_cause_and_the_agent", () => {
+  const line = coreFailureText("Mode team (7) Attempt none Terminal none core code none: Attempt is no longer live");
+
+  expect(line).toBe("Attempt is no longer live Agent team.");
+});
