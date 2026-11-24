@@ -44,6 +44,7 @@ describe("u7191i stopped Agent bar", () => {
 
       return made;
     };
+
     fireEvent.click(await screen.findByRole("button", { name: "Fork" }));
 
     await waitFor(() => { expect(connected.rail.selected()).toBe("b"); });
