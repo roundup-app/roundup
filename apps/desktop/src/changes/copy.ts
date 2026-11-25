@@ -16,7 +16,32 @@ export const copy = {
   topLevel: "Top level",
   /** U7679a: the switch at the top of the list, its segments and the first row of every lens (U7679c). */
   lens: "Lens",
-  lenses: { modules: "Modules", logic: "Logic", tests: "Tests" },
+  lenses: { flows: "Flows", modules: "Modules", logic: "Logic", tests: "Tests" },
+  /** U7683c: the two items that follow the flows, the words under the call tree and the rows of a call. */
+  unplaced: "Unplaced",
+  notTraced: "Not traced",
+  callTree: "Call tree",
+  /** @prose */
+  unchangedCalls: (count: number) => `${count} unchanged ${count === 1 ? "call" : "calls"}`,
+  /** @prose */
+  calledBy: (count: number) => `Called by ${count}`,
+  endsHere: "ends here",
+  callStatus: { added: "Added", removed: "Removed", changed: "Changed" },
+  /** U7683f: the trace states of a language. */
+  trace: "Trace",
+  /** @prose */
+  tracing: (language: string) => `Tracing ${language} calls`,
+  /** @prose */
+  languageNotTraced: (language: string, files: number) => sharedCopy.dotted(`${language} not traced`, filesOf(files)),
+  /** @prose */
+  noServer: (language: string, files: number) => sharedCopy.dotted(`${language} has no language server`, filesOf(files)),
+  /** @prose */
+  traceFailed: (language: string | undefined) => language === undefined ? "Couldn't trace calls" : `Couldn't trace ${language} calls`,
+  /** @prose */
+  changedSinceTraced: "Changed since traced",
+  /** @prose */
+  flowsNeedWorktree: "Choose Tree or Branch to trace calls",
+  languageName: (language: string) => language === "typescript" ? sharedCopy.typescript : `${language.slice(0, 1).toUpperCase()}${language.slice(1)}`,
   overview: sharedCopy.overview,
   /** U7680a: the button and the row's word, the header's count and U7680d's words. */
   viewed: "Viewed",

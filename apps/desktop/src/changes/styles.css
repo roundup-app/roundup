@@ -228,6 +228,13 @@
 /* U7679a, U7679d: the lens switch and the find sit above the list; the no-match line takes the list's place. */
 .changes-side .app-segments, .changes-find { flex: none; margin-inline: var(--space-3); }
 .changes-nomatch { margin: 0; padding-inline: var(--space-3); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
+/* U7683e: the call tree steps in one space step with each level of the call; D2 reads the depth from --flow-depth. */
+.flow-tree-rows .changes-row { padding-inline-start: calc(var(--space-2) + var(--flow-depth, 0) * var(--space-2)); }
+/* U7683d, U7683f: a section's function name and the trace lines sit on their column's text edge; a failed trace's cause sets apart on its own line. */
+.module-function { margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
+.flow-states { display: flex; flex-direction: column; gap: var(--space-1); padding-inline: var(--space-4); }
+.flow-states p { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
+.flow-cause { flex-basis: 100%; }
 /* U7679c: the Overview pane lists the lens's modules, one entry for each, with the numbers of its row. */
 .changes-overview { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .changes-overview ul { margin: 0; padding: 0; list-style: none; }

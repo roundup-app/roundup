@@ -20,14 +20,14 @@ export const Counts = (props: { added: number; removed: number }) => <span class
 
 export const Name = (props: { text: string }) => <span class="changes-row-name">{props.text}</span>;
 
-/** A file row's tree value: its path under the module that holds it. */
-export const fileValue = (path: string) => `f:${path}`;
+/** A file row's tree value: its path under the item that holds it; a file two flows hold is two rows. */
+export const fileValue = (owner: string, path: string) => `f:${owner}\0${path}`;
 
 export const kindValue = (kind: NoiseKind) => `k:${kind}`;
 
 const treeItems = (grouped: Grouped, overview: boolean): TreeItemData[] => [
   ...overview ? [{ value: OVERVIEW, label: copy.overview }] : [],
-  ...grouped.modules.map(module => ({ value: moduleKey(module.name), label: module.name, children: module.files.map(file => ({ value: fileValue(file.path), label: file.path })) })),
+  ...grouped.modules.map(module => ({ value: moduleKey(module.name), label: module.label ?? module.name, children: module.files.map(file => ({ value: fileValue(moduleKey(module.name), file.path), label: file.path })) })),
   ...grouped.noise.map(noise => ({ value: kindValue(noise.kind), label: noiseName[noise.kind], children: noise.files.map(file => ({ value: noiseKey(file.path), label: file.path })) })),
 ];
 
@@ -36,11 +36,11 @@ const focusedValue = (): string | undefined => {
   const row = document.activeElement instanceof Element ? document.activeElement.closest<HTMLElement>(".changes-tree [data-row]") : null;
   const { row: kind, key, path } = row?.dataset ?? {};
 
-  return kind === "file" && path !== undefined && !key?.startsWith("n:") ? fileValue(path) : key;
+  return kind === "file" && path !== undefined && key !== undefined && !key.startsWith("n:") ? fileValue(key, path) : key;
 };
 
 /** U7678a, U7678b, U7679c: the Overview row, then the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, the Overview row gone. */
-export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
+export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
   const open = (value: string) => props.finding || expanded().includes(value);
@@ -48,10 +48,10 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   const marked = (files: readonly ChangedFile[]) => files.some(file => props.unfinished.has(file.path));
 
   /** U7680a, U7680d: a module row's name adds the words it shows: unfinished work, Viewed, and Changed since you viewed it. */
-  const label = (text: string, files: readonly ChangedFile[], key?: string) => [marked(files) ? copy.unfinishedWork : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : ""].filter(Boolean).reduce(copy.rowLabel, text);
+  const label = (text: string, files: readonly ChangedFile[], key?: string) => [marked(files) ? copy.unfinishedWork : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : ""].filter(Boolean).reduce(copy.rowLabel, text);
 
-  /** Each file row's module key, by the file's tree value. */
-  const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(file.path), moduleKey(module.name)] as const))));
+  /** Each file row's module key and path, by the file's tree value. */
+  const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(moduleKey(module.name), file.path), { owner: moduleKey(module.name), path: file.path }] as const))));
 
   /** A module row chooses itself, a file row its module at that file; a noise row (`k:`) chooses nothing, so the open scroll stays. */
   const choose = (value: string | null) => {
@@ -61,7 +61,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
 
     const owner = owners().get(value);
 
-    if (owner !== undefined) props.onChoose(owner, value.slice(2));
+    if (owner !== undefined) props.onChoose(owner.owner, owner.path);
     else if (value.startsWith("m:")) props.onChoose(value);
     else if (value.startsWith("n:")) props.onChoose(value, value.slice(2));
   };
@@ -85,15 +85,15 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
       </TreeItem>
     </Show>
     <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
-      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} aria-label={label(copy.rowLabel(module().name, copy.filesCount(module().total)), module().files, moduleKey(module().name))}>
-        <Name text={module().name} />
+      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} data-dim={props.dimmed?.has(moduleKey(module().name)) ? "true" : undefined} aria-label={label(copy.rowLabel(module().label ?? module().name, copy.filesCount(module().total)), module().files, moduleKey(module().name))}>
+        <Name text={module().label ?? module().name} />
         <span class="changes-row-files">{copy.filesCount(module().total)}</span>
         <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
         <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
         <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>
       </TreeItem>
       <Show when={open(moduleKey(module().name))}>
-        <For each={module().files}>{file => <File file={file} value={fileValue(file.path)} key={moduleKey(module().name)} owner={moduleKey(module().name)} />}</For>
+        <For each={module().files}>{file => <File file={file} value={fileValue(moduleKey(module().name), file.path)} key={moduleKey(module().name)} owner={moduleKey(module().name)} />}</For>
       </Show>
     </>}</For>
     <For each={props.grouped.noise}>{noise => <>
