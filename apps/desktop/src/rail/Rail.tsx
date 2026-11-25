@@ -202,7 +202,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     known: () => knownTodos.isLoaded() && !knownTodos.failure() && knownPads.loaded() && !knownPads.failure() ? { todos: knownTodos.all(), pads: knownPads.pads() } : null,
   });
 
-  const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
+
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
   const [editingName, setEditingName] = createSignal<string | null>(null);
@@ -395,6 +395,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     return contextMenu(app, [
       { id: "group", label: copy.group, run: async () => {
         const ids = chosen.map(each => each.id);
+        const added = rail.adding();
         // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the pending change.
         const outcome = await railCommand(rail, { item: node.id, draw: () => rail.drawGroup(ids, copy.newWorkstreamTitle), call: () => app.rpc("rail.group", { ids }) });
 
@@ -402,7 +403,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
         const group = outcome.value;
 
         if (rail.collapsed().has(group.id)) rail.toggleCollapsed(group.id);
-        rail.select(group.id);
+        added(group.id);
         setSelected([group.id]);
         setEditingName(group.id);
       } },
@@ -489,10 +490,10 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
   const spawnAgent = () => {
     if (!canSpawn()) return;
-    const focus = captureFocus(true);
+    const added = rail.adding();
 
     void railCommand(rail, { ...spawn(null), label: copy.newAgent, retry: spawnAgent }).then(outcome => {
-      if (outcome.kind === "applied") setWanted({ id: outcome.value, focus });
+      if (outcome.kind === "applied") added(outcome.value);
     });
   };
 
@@ -549,7 +550,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
   /** Sends the task revision `sent` as a note to `door`, or as a new Agent's prompt; the composer closes unless newer typing waits. */
   const deliver = async (sent: { revision: string; destination: Destination }, prompt: string | null, door: string | null) => {
-    const focus = captureFocus(true);
+    const added = rail.adding();
 
     const retry = () => {
       const saved = retained.records().find(entry => entry.revision === sent.revision);
@@ -582,7 +583,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
       if (outcome.kind !== "applied" || latest?.status === "draft" && sameDestination(latest.destination, sent.destination)) return;
 
-      if (outcome.result !== null) setWanted({ id: outcome.result, focus });
+      if (outcome.result !== null) added(outcome.result);
       endCompose();
     } finally {
       clearTimeout(slow);
@@ -676,19 +677,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
       queueMicrotask(() => rowElement(id)?.scrollIntoView({ block: "nearest" }));
     },
   );
-
-  const placed = createMemo(() => {
-    const request = wanted();
-
-    return request !== null && rail.nodes.some((node) => node.id === request.id) ? request : null;
-  });
-
-  createEffect(placed, request => {
-    if (request === null) return;
-
-    request.focus(() => rail.select(request.id));
-    setWanted(null);
-  });
 
   const guardCtrlClick = (element: HTMLElement) => {
     const ctrlClick = ctrlClickGuard();
