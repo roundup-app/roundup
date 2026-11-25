@@ -10,6 +10,12 @@ import type { FlowDetail } from "./modules";
 /** The status a row says aloud: an unchanged call says nothing. */
 const changedStatus = (status: CallStatus | undefined) => status === "unchanged" ? undefined : status;
 
+const labelOf = (row: { label: string; status?: CallStatus | undefined }) => {
+  const status = changedStatus(row.status);
+
+  return status ? copy.rowLabel(row.label, copy.callStatus[status]) : row.label;
+};
+
 /** U7683e: one row of a flow's call tree: a function or a call, the section Enter opens, and the rows below it. */
 type Row = { value: string; label: string; status?: CallStatus | undefined; section?: string | undefined; children: Row[] };
 
@@ -63,7 +69,7 @@ export const FlowTree = (props: { flow: FlowDetail; open: (section: string) => v
     <AppTree class="flow-tree-rows" aria-label={copy.callTree} items={dataOf(rows())} controller={controller} activation="manual" expanded={all().filter(row => row.children.length > 0 && open(row.value)).map(row => row.value)} onExpandedChange={next => setCollapsed(all().filter(row => row.children.length > 0 && !next.includes(row.value)).map(row => row.value))} onValueChange={value => { const section = value === null ? undefined : sectionOf().get(value);
 
  if (section !== undefined) props.open(section); }}>
-      <For each={flatten(rows(), open)}>{row => <TreeItem value={row.value} class="changes-row row-wash" data-row="call" data-status={row.status} aria-label={changedStatus(row.status) ? copy.rowLabel(row.label, copy.callStatus[changedStatus(row.status) ?? "changed"]) : row.label}>
+      <For each={flatten(rows(), open)}>{row => <TreeItem value={row.value} class="changes-row row-wash" data-row="call" data-status={row.status} aria-label={labelOf(row)}>
         <Name text={row.label} />
         <Show when={changedStatus(row.status)}>{status => <span class="changes-row-status">{copy.callStatus[status()]}</span>}</Show>
       </TreeItem>}</For>
