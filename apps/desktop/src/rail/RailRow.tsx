@@ -225,7 +225,6 @@ export const RailRowView = (props: {
     title: !props.editing ? cutName.title() : undefined,
     "data-multiple": multiple() ? "true" : undefined,
     "data-mode": isMode(props.row.node) ? "true" : undefined,
-    "data-worktree": worktree() ? "true" : undefined,
     "data-finished": finished() ? "true" : undefined,
     "data-editing": String(props.editing), "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": String(props.lifted),
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
@@ -269,12 +268,11 @@ export const RailRowView = (props: {
 
         return <span {...trigger()} class="row-state"><KindGlyph kind={kind() ?? "idle"} label={glyphText()} /></span>;
       }}</Tip>
-      {name()}
+      <span class="name-group">{name()}<Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show></span>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
-      <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
       <Show when={!isGroup()}><MachineIcon node={props.row.node} /></Show>
       <Show when={unreachable()}>{reached => <BusyButton kind="quiet" class="rail-unreachable" busyLabel={retry() ? copy.retrying : copy.opening} aria-label={`${reachLabel()} ${reached().name}`} onClick={reachAct}>{reachLabel()}</BusyButton>}</Show>
       <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><BusyButton kind="quiet" class="rail-resume" busyLabel={copy.resuming} aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</BusyButton></Show>

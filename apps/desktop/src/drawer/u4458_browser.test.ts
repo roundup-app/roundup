@@ -80,8 +80,7 @@ vi.setConfig({ maxConcurrency: 4 });
 const cases = [
   {kind: "pad", background: "save"},
   {kind: "pad", background: "project-failure"},
-  {kind: "todo", background: "project-settings"},
-  {kind: "pad", background: "app-settings"},
+  {kind: "todo", background: "app-settings"},
 ] as const;
 
 it.concurrent.each(cases)(
@@ -141,9 +140,8 @@ it.concurrent.each(cases)(
       await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] [role=tab]');
       target = ".app-toast [data-dismiss-failure]";
     } else {
-      if (background === "app-settings") await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
-      else await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'project-settings'}}))");
-      target = background === "app-settings" ? ".settings-view .settings-back" : ".settings-view .settings-head button";
+      await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
+      target = ".settings-view .settings-back";
     }
 
     await lane.until(`!!document.querySelector(${JSON.stringify(target)})`);

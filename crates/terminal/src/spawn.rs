@@ -47,6 +47,21 @@ impl Terminals {
         owner: Option<String>,
         labels: Option<Value>,
     ) -> Result<Spawned, Error> {
+        // U7191e: a closed core connection is reopened and the start tried once more; the retry
+        // attaches a program the first try already started (MC52), never a second one.
+        reopen_once(
+            || self.start_once(params.clone(), owner.clone(), labels.clone()),
+            || async { self.core.lock().await.take() },
+        )
+        .await
+    }
+
+    async fn start_once(
+        &self,
+        params: SpawnParams,
+        owner: Option<String>,
+        labels: Option<Value>,
+    ) -> Result<Spawned, Error> {
         check_program(&params)?;
         window(params.cols, params.rows)?;
         let conn = match &params.machine {
@@ -486,3 +501,69 @@ pub(super) const OTHER_TERMINALS: &[&str] = &[
     "TMUX_PANE",
     "STY",
 ];
+
+/// U7191e: whether `error` is a core connection that closed, went silent or is missing.
+fn is_core_loss(error: &Error) -> bool {
+    matches!(error, Error::Internal(text)
+        if ["core_closed", "core_silent", "core_missing"].iter().any(|code| text.starts_with(code)))
+}
+
+/// U7191e: run `op`; after a core-loss failure `reopen` the connection and run it once more. A
+/// second failure is returned as it is.
+async fn reopen_once<T, Op, Fut, Re, ReFut, Dropped>(mut op: Op, reopen: Re) -> Result<T, Error>
+where
+    Op: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, Error>>,
+    Re: FnOnce() -> ReFut,
+    ReFut: std::future::Future<Output = Dropped>,
+{
+    match op().await {
+        Err(error) if is_core_loss(&error) => {
+            reopen().await;
+            op().await
+        }
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod reopen_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[tokio::test]
+    async fn u7191e_a_closed_core_connection_is_reopened_and_the_start_retried_once() {
+        let (runs, reopened) = (AtomicUsize::new(0), AtomicUsize::new(0));
+        let out = reopen_once(
+            || async {
+                if runs.fetch_add(1, Ordering::SeqCst) == 0 {
+                    Err(Error::internal("core_closed: the core closed"))
+                } else {
+                    Ok(7)
+                }
+            },
+            || async { reopened.fetch_add(1, Ordering::SeqCst) },
+        )
+        .await;
+        assert_eq!(out.unwrap(), 7);
+        assert_eq!(
+            (runs.load(Ordering::SeqCst), reopened.load(Ordering::SeqCst)),
+            (2, 1)
+        );
+    }
+
+    #[tokio::test]
+    async fn u7191e_a_second_core_failure_is_not_retried_again() {
+        let runs = AtomicUsize::new(0);
+        let out: Result<(), Error> = reopen_once(
+            || async {
+                runs.fetch_add(1, Ordering::SeqCst);
+                Err(Error::internal("core_silent: no answer"))
+            },
+            || async {},
+        )
+        .await;
+        assert!(out.is_err());
+        assert_eq!(runs.load(Ordering::SeqCst), 2);
+    }
+}

@@ -52,7 +52,7 @@ export const copy = {
   askDropped: "Dropped",
   askFailed: sharedCopy.draftStatus.failed,
   askWhere: (project: string, workstream: string) => `${project} / ${workstream}`,
-  askProject: "Project",
+  askProject: sharedCopy.project,
   askProjectOf: (text: string) => `Project for ${text}`,
   askAnotherWorkstream: "Another Workstream",
   askNewWorkstream: sharedCopy.newWorkstreamTitle,

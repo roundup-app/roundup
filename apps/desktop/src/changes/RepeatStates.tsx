@@ -1,0 +1,13 @@
+import { Show } from "solid-js";
+import { copy } from "./copy";
+import type { RepeatScan } from "./repeats";
+
+/** U7685e: what the repeat check says while it runs, fails, stops short or is not asked; a finished check with none says nothing. */
+export const RepeatStates = (props: { scan: RepeatScan; /** The Agent has a Worktree but the comparison is not its Tree. */ notAsked: boolean }) => <Show when={props.notAsked || props.scan.scanning() || props.scan.failed() !== null || props.scan.partial()}>
+  <section class="flow-states" aria-label={copy.repeats}>
+    <Show when={props.notAsked}><p>{copy.repeatsNeedTree}</p></Show>
+    <Show when={props.scan.scanning()}><p>{copy.checkingRepeats}</p></Show>
+    <Show when={props.scan.failed()}>{cause => <p>{copy.repeatsFailed} <button type="button" data-button="quiet" onClick={() => props.scan.again()}>{copy.retry}</button> <span class="flow-cause">{cause()}</span></p>}</Show>
+    <Show when={props.scan.partial()}><p>{copy.repeatsPartial}</p></Show>
+  </section>
+</Show>;

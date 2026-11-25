@@ -293,6 +293,9 @@ const d2 = (page: Page): Measure =>
 
     const padPadding = padDepth > 0 ? (px(page.token("space-1") ?? "") ?? NaN) + padDepth * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
 
+    // U7683e: a call in a flow's tree carries its depth in --flow-depth, one space step in for each level.
+    const flowPadding = el instanceof HTMLElement && el.matches(".flow-tree-rows .changes-row") ? (px(page.token("space-2") ?? "") ?? NaN) * (1 + Number(el.style.getPropertyValue("--flow-depth") || 0)) : null;
+
     const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
     const chip = el.matches("kbd.key-chip");
     const chipPadding = px(page.token("key-chip-padding") ?? "");
@@ -310,7 +313,7 @@ const d2 = (page: Page): Measure =>
       const keyGap = chip && (property === "column-gap" || property === "row-gap") && value === (px(page.token("space-1") ?? "") ?? NaN) / 4;
 
       const conforms = keyGap ? true : chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
-        : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && (treePadding ?? padPadding) !== null && value === (treePadding ?? padPadding));
+        : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && (treePadding ?? padPadding ?? flowPadding) !== null && value === (treePadding ?? padPadding ?? flowPadding));
 
       if (!conforms && !(/^(margin|padding)-/.test(property) && vendorWins(page, el, property))) return { [property]: style.getPropertyValue(property) };
     }

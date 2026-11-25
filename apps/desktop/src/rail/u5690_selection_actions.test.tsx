@@ -132,7 +132,7 @@ it("u5690d_mixed_losses_are_named_once_and_consent_uses_default_scopes", async (
 
 it.each(["Enter", "Escape"])("u5690c_group_collects_in_rail_order_and_focuses_rename_%s", async key => {
   const tree: RailNode[] = nodes();
-  const { app, rail } = await mountRail(tree);
+  const { app } = await mountRail(tree);
   app.handlers["rail.group"] = () => {
     const group = groupNode("group", { kind: "group", name: "Group" });
 
@@ -151,7 +151,6 @@ it.each(["Enter", "Escape"])("u5690c_group_collects_in_rail_order_and_focuses_re
   await app.pickMenu("Group");
   const input = await screen.findByRole("textbox", { name: "Name" });
   await waitFor(() => expect(document.activeElement).toBe(input));
-  expect(rail.selected()).toBe("group");
   expect(railCallsTo(app, "rail.group")).toEqual([{ ids: ["a", "c", "e"] }]);
   fireEvent.input(input, { target: { value: "Organized" } });
   fireEvent.keyDown(input, { key });

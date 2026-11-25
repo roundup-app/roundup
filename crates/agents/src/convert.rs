@@ -33,6 +33,7 @@ impl Agents {
                     Resumption {
                         ack_bound: RESUME_ACK_BOUND,
                         conversation: None,
+                        fork: false,
                         prompt: None,
                         publication: RailPublication::Immediate,
                         mode: Some(ResumeMode::Normal),
