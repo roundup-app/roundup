@@ -35,12 +35,12 @@ export const RepeatedLines = (props: { id: string; hit: ScanHit; to: CompareTarg
     if (on && (excerpt()?.kind === undefined || excerpt()?.kind === "failed")) void read(props.id, props.to, other());
   });
 
-  return <div class="repeat-mark">
+  return <div class="repeat-mark" data-surface="diff">
     <button type="button" data-button="quiet" aria-expanded={shown() ? "true" : "false"} onClick={() => setShown(!shown())}>{copy.repeatsAt(place())}</button>
     <Show when={shown()}>
       <div class="repeat-place" role="group" aria-label={place()}>
         <button type="button" data-button="quiet" aria-label={copy.openRepeat(place())} onClick={() => props.open(other().path, { side: "new", line: other().start })}>{place()}</button>
-        <Show when={excerpt()} keyed>{each => body(each)}</Show>
+        <div role="status"><Show when={excerpt()} keyed>{each => body(each)}</Show></div>
       </div>
     </Show>
   </div>;
