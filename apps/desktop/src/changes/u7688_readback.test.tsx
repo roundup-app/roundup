@@ -33,18 +33,18 @@ const account = (over: Partial<Account> = {}): Account => ({ overview: "Adds a l
 
 const result = (state: "read" | "stale", over: Partial<Account> = {}): Readback => ({ state, ...account(over) });
 
-type Held = { state: Readback };
+type Answering = { state: Readback };
 
-/** The view over the Tree target, whose Daemon holds `held.state`; `agent.readbackStart` moves it to reading. */
-const treeOpen = async (held: Held) => {
+/** The view over the Tree target, whose Daemon holds `answer.state`; `agent.readbackStart` moves it to reading. */
+const treeOpen = async (answer: Answering) => {
   const mounted = await mountControl(() => ({ files: FILES }), fresh());
 
   mounted.app.handlers["agent.compareFile"] = ({ path }) => read(path);
-  mounted.app.handlers["agent.readback"] = () => held.state;
+  mounted.app.handlers["agent.readback"] = () => answer.state;
   mounted.app.handlers["agent.readbackStart"] = () => {
-    held.state = { state: "reading" };
+    answer.state = { state: "reading" };
 
-    return held.state;
+    return answer.state;
   };
 
   await openChanges();
@@ -86,8 +86,8 @@ it("u7688a_only_the_user_starts_a_readback_and_a_comparison_without_a_tree_offer
 });
 
 it("u7688b_a_kept_result_shows_on_open_and_starts_no_run", async () => {
-  const held: Held = { state: result("read") };
-  const { app } = await treeOpen(held);
+  const answer: Answering = { state: result("read") };
+  const { app } = await treeOpen(answer);
 
   expect(await screen.findByText(copy.readbackCredit)).toBeTruthy();
   expect(starts(app)).toBe(0);
@@ -95,14 +95,14 @@ it("u7688b_a_kept_result_shows_on_open_and_starts_no_run", async () => {
 });
 
 it("u7688b_a_running_readback_keeps_the_view_usable_and_shows_its_result_when_it_ends", async () => {
-  const held: Held = { state: { state: "notRead" } };
+  const answer: Answering = { state: { state: "notRead" } };
 
-  await treeOpen(held);
+  await treeOpen(answer);
   fireEvent.click(await startButton());
   await screen.findByText(copy.readingBack);
   expect(moduleRow("pkg")).toBeTruthy();
 
-  held.state = result("read");
+  answer.state = result("read");
   expect(await screen.findByText(account().overview, {}, { timeout: 3000 })).toBeTruthy();
   expect(screen.queryByText(copy.readingBack)).toBeNull();
 });
@@ -110,14 +110,14 @@ it("u7688b_a_running_readback_keeps_the_view_usable_and_shows_its_result_when_it
 const turnEnds = (app: { emit: (value: ReturnType<typeof event>) => void }) => app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "done", label: "done", since: 0, finished: "1" } } }));
 
 it("u7688b_a_write_makes_the_read_stale_dimmed_and_read_back_again_runs_again", async () => {
-  const held: Held = { state: result("read") };
-  const { app } = await treeOpen(held);
+  const answer: Answering = { state: result("read") };
+  const { app } = await treeOpen(answer);
 
   await screen.findByText(copy.readbackCredit);
   expect(pane().querySelector('[data-stale="true"]')).toBeNull();
 
   // The turn wrote a file, and the Daemon now says the diff moved under the result.
-  held.state = result("stale");
+  answer.state = result("stale");
   edited(app, "a");
   turnEnds(app);
 
@@ -129,8 +129,8 @@ it("u7688b_a_write_makes_the_read_stale_dimmed_and_read_back_again_runs_again", 
 });
 
 it("u7688b_a_failed_readback_says_why_and_retries", async () => {
-  const held: Held = { state: { state: "failed", kind: "badAnswer", cause: CAUSE } };
-  const { app } = await treeOpen(held);
+  const answer: Answering = { state: { state: "failed", kind: "badAnswer", cause: CAUSE } };
+  const { app } = await treeOpen(answer);
 
   await screen.findByText(copy.readbackFailed, { exact: false });
   expect(pane().querySelector(".flow-cause")?.textContent).toBeTruthy();
