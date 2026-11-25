@@ -228,9 +228,11 @@
 /* U7679a, U7679d: the lens switch and the find sit above the list; the no-match line takes the list's place. */
 .changes-side .app-segments, .changes-find { flex: none; margin-inline: var(--space-3); }
 .changes-nomatch { margin: 0; padding-inline: var(--space-3); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
-/* U7683e: the call tree steps in with each level of the call: the entry, its calls, then every call below those, on the spacing scale. */
-.flow-tree-rows .changes-row[data-level="1"] { padding-inline-start: var(--space-5); }
-.flow-tree-rows .changes-row:not([data-level="0"], [data-level="1"]) { padding-inline-start: var(--space-6); }
+/* U7683e: the call tree steps in 8 px with each level of the call; D2 allows only space steps, so the fourth level and every one below it share the last step. */
+.flow-tree-rows .changes-row { padding-inline-start: var(--space-2); }
+.flow-tree-rows .changes-row[data-level="1"] { padding-inline-start: var(--space-4); }
+.flow-tree-rows .changes-row[data-level="2"] { padding-inline-start: var(--space-5); }
+.flow-tree-rows .changes-row:not([data-level="0"], [data-level="1"], [data-level="2"]) { padding-inline-start: var(--space-6); }
 /* U7683d, U7683f: a section's function name and the trace lines sit on their column's text edge; a failed trace's cause sets apart on its own line. */
 .module-function { margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 .flow-states { display: flex; flex-direction: column; gap: var(--space-1); padding-inline: var(--space-4); }
