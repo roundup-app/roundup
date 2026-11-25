@@ -41,7 +41,7 @@ const Figure = (props: { calls: readonly Call[] }) => {
   });
 
   return <>
-    <Show when={failed()}>{cause => <p role="alert">{copy.diagramFailed}: {cause()}</p>}</Show>
+    <Show when={failed()}>{cause => <p>{copy.diagramFailed} <span class="flow-cause">{cause()}</span></p>}</Show>
     <Show when={laid()}>{each => <svg class="readback-figure" aria-hidden="true" viewBox={`0 0 ${each().layout.width} ${each().layout.height}`} width={each().layout.width}>
       <defs><marker id={arrow} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="readback-arrow" d="M0 0 L10 5 L0 10 z" /></marker></defs>
       <For each={each().calls}>{(_, at) => <polyline points={(each().layout.routes[String(at())] ?? []).map(point => `${point.x},${point.y}`).join(" ")} marker-end={`url(#${arrow})`} />}</For>

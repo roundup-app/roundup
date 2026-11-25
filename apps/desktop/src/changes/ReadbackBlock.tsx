@@ -20,7 +20,7 @@ const AccountText = (props: { account: Account } & Linking) => <>
   <p class="readback-credit">{copy.readbackCredit}</p>
   <p class="readback-overview">{props.account.overview}</p>
   <ReadbackDiagram text={props.account.diagram} />
-  <Show when={gapsFailure(props.account)}>{cause => <p class="flow-cause">{copy.gapsNotCompared(props.agent)}: {cause()}</p>}</Show>
+  <Show when={gapsFailure(props.account)}>{cause => <p class="flow-cause">{copy.gapsNotCompared(props.agent)} {cause()}</p>}</Show>
   <Show when={gapsOf(props.account).length > 0}><GapList gaps={gapsOf(props.account)} agent={props.agent} listed={props.listed} go={props.go} /></Show>
 </>;
 
