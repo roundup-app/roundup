@@ -22,6 +22,7 @@ import { registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
 import { captureActions, modalOpen } from "../keys/registry";
 import { Find } from "./Find";
+import { PlayMarksHost } from "./PlayMarks";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "./fontSize";
@@ -31,6 +32,7 @@ import type { Screens } from "./screens";
 import "./styles.css";
 import { doorTerminalId } from "../state/doorNode";
 import { centreState } from "./centreState";
+import { StoppedBar } from "./StoppedBar";
 
 
 type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; notice?: boolean; recovery: Recovery };
@@ -255,7 +257,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     { action: CHORDS["terminal.text-larger"], chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
     { action: CHORDS["terminal.text-smaller"], chords: ["Meta+-"], run: resize("shrink") },
     { action: CHORDS["terminal.text-reset"], chords: ["Meta+0"], run: resize("reset") },
-    { action: CHORDS["terminal.find"], chords: undefined, run: () => setFinding(true) },
+    { action: CHORDS["terminal.find"], chords: undefined, run: () => setFinding(true) }, { action: CHORDS["terminal.play-marks"], chords: undefined, run: () => untrack(screen)?.parentElement?.querySelector<HTMLElement>(".play-marks button")?.focus() },
   ].map(({ action, chords, run }) => ({
     action,
     ...chords && { chords },
@@ -299,7 +301,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
-        <div class="pane-over">{props.over}</div>{props.header}
+        <div class="pane-over">{props.over}</div>{props.header}<PlayMarksHost connected={connected} selected={selected} screens={screens} screen={screen} /><StoppedBar selected={selected} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>

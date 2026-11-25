@@ -19,6 +19,7 @@ mod models;
 mod one_shot;
 mod overview_cache;
 mod placement;
+mod printed;
 mod profiles;
 mod readback;
 mod rewind;

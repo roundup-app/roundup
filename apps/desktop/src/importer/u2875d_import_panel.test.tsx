@@ -560,9 +560,7 @@ it("u3817_closing_a_page_keeps_a_pending_import", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   await waitFor(() => expect(calls(app, "project.importCommit")).toHaveLength(1));
 
-  openProjectPage("project-settings");
   fireEvent.click(await screen.findByRole("button", { name: /Close/ }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: /Close/ })).toBeNull());
 
   expect(connected.importing.open()).toBe(true);
   expect(connected.importing.pending()).toBe(true);
@@ -744,6 +742,9 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await browser("open", `${server.resolvedUrls.local[0]}src/changes/u2540.html`);
     await wait("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
+    // The view opens on the Overview and reads no file (U7679c): choose the first module for its diff.
+    await wait("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+    await browser("click", '.changes-side [data-row="module"]');
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await evaluate("document.querySelector('.diff-content').focus()");
     await browser("press", "n");

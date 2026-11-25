@@ -34,13 +34,13 @@ const open = async (before?: (mounted: Awaited<ReturnType<typeof mountControl>>)
 
 const press = (key: string, target: Element = screen.getByRole("region", { name: copy.changes })) => fireEvent.keyDown(target, { key });
 
-it("u7692b_the_keys_list_gains_v", async () => {
+it("u7692b_the_keys_list_gains_x", async () => {
   await open();
   press("?");
   const keys = await screen.findByRole("region", { name: copy.keys });
   const items = within(keys).getAllByRole("listitem").map(item => item.textContent ?? "");
 
-  expect(items.filter(item => /^V\b/.test(item))).toHaveLength(1);
+  expect(items.filter(item => /^X\b/.test(item))).toHaveLength(1);
   expect(items.some(item => /^R\b/.test(item))).toBe(false);
 });
 

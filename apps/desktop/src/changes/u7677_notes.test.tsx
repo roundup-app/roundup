@@ -7,6 +7,9 @@ import { COMPARISON, noteList, openDiff, openFile, saveNote, startNote } from ".
 import { afterEach, expect, it, vi } from "vitest";
 import { storageIdle } from "../state/storage";
 
+// The pane's read lands after its element (U7678d reads a module's first file at mount): N waits for it, as a user's key does.
+const beginNote = () => waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
+
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await storageIdle(); localStorage.clear(); });
 
 const present = <T,>(value: T | null | undefined): T => {
@@ -136,7 +139,7 @@ it("u7677c_clicking_the_text_edits_and_the_buttons_edit_and_remove", async () =>
 
 it("u7677d_the_field_grows_to_twelve_lines_then_scrolls", async () => {
   await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(field(), { target: { value: "1\n2\n3\n4" } });
   await waitFor(() => expect(field().rows).toBe(4));
   fireEvent.input(field(), { target: { value: Array.from({ length: 30 }, (_, at) => `${at}`).join("\n") } });
@@ -145,7 +148,7 @@ it("u7677d_the_field_grows_to_twelve_lines_then_scrolls", async () => {
 
 it("u7677d_focus_is_marked_by_the_note_attribute", async () => {
   await openDiff();
-  startNote();
+  await beginNote();
   const note = screen.getByRole("form", { name: copy.lineNote });
 
   fireEvent.focusIn(field());
@@ -157,7 +160,7 @@ it("u7677d_focus_is_marked_by_the_note_attribute", async () => {
 
 it("u7677d_save_is_disabled_while_the_field_is_empty", async () => {
   await openDiff();
-  startNote();
+  await beginNote();
   expect(form().getByText(copy.saveHint)).toBeTruthy();
   expect(form().getByRole("button", { name: "Save" }).getAttribute("aria-disabled")).toBe("true");
   fireEvent.input(field(), { target: { value: "text" } });

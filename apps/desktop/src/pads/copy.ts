@@ -55,7 +55,7 @@ export const copy = {
   highlight: "Highlight",
   colours: { default: sharedCopy.defaultChoice, blue: "Blue", green: "Green", purple: "Purple", red: "Red", amber: "Amber" },
   calloutKinds: { NOTE: "NOTE", TIP: "TIP", IMPORTANT: "IMPORTANT", WARNING: "WARNING", CAUTION: "CAUTION" },
-  languages: { typescript: "TypeScript", javascript: "JavaScript", python: "Python", diff: sharedCopy.diff },
+  languages: { typescript: sharedCopy.typescript, javascript: "JavaScript", python: "Python", diff: sharedCopy.diff },
   callouts: "Callouts",
   drawingItem: "Drawing",
   editDrawing: sharedCopy.editAction,
