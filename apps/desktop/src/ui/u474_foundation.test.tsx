@@ -51,6 +51,7 @@ const rawIconOwners = new Map([
   ["header/Strip.tsx:{copy.openAFolder}", "#1605 add Project"],
   ["rail/RailRow.tsx:{copy.collapse}", "#1607 collapse Workstream"],
   ["rail/RailRow.tsx:{props.doorFailure ? copy.retryDoor : copy.startDoor}", "#1607 start/retry Door (label hidden in compact rows)"],
+  ["rail/RailRow.tsx:{copy.markDone}", "#7915 Mark done on the state dot (the dot paints its status glyph alone)"],
   ["rail/RowIcons.tsx:{props.label}", "#1607 clear/stop/open folder/open editor via RowIcon"],
   ["pads/PadDrawer.tsx:{copy.makeYours}", "#1988 cancelled: make yours"],
   ["pads/PadDrawer.tsx:{copy.openOwner}", "#1988 cancelled: open owner"],
