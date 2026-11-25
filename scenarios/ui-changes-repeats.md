@@ -17,7 +17,7 @@ Module: `apps/desktop/src/changes/` (the scan, the mark, the excerpt, the row co
 **U7685b clicking the mark shows the other place, and Enter opens it.** Given the marked file, then:
 - **Excerpt.** Clicking the label shows under it, read-only, the other place: its path and lines and the text of lines 12 to 30 of `pkg/src/owned.ts`, read with `agent.compareFile` of that path on the Tree target when the mark opens; clicking again hides it. Asserted in `u7685b_clicking_the_mark_shows_the_other_place_and_enter_opens_it_in_the_editor`.
 - **Failed.** A failed read says so under the label with its cause, and the next opening reads again. Asserted in `u7685b_a_failed_read_of_the_other_place_says_its_cause_and_the_next_click_reads_again`.
-- **Not text.** A place that is not text says "No text to show". Asserted in `u7685b_a_place_that_is_not_text_says_there_is_no_text_to_show`.
+- **Not text.** A place that is not text says "No text". Asserted in `u7685b_a_place_that_is_not_text_says_there_is_no_text_to_show`.
 - **Editor.** Enter on the shown place's path (a button, so the view's own Enter on a line of the diff does not fire) opens `pkg/src/owned.ts` at line 12 in the editor, though the listing does not hold the file: the editor's open (U2539d) takes a path the listing lacks, and still opens none for a deleted file the listing holds. Asserted in the same test and, for the deleted file, `u2539d_a_deleted_file_opens_nothing`.
 
 **U7685c the row counts its repeats.** Given the fixture's hits, then:
@@ -34,9 +34,9 @@ Module: `apps/desktop/src/changes/` (the scan, the mark, the excerpt, the row co
 - **Scanning.** A scan pending past 150 ms (`createLate`) shows "Checking for repeats" in the header, none before. Asserted in `u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_says_nothing`.
 - **Done.** The marks and counts of U7685a and U7685c, and no words. Asserted in `u7685a_a_repeat_is_marked_at_its_lines_and_names_the_other_place`.
 - **None.** A scan that finds nothing leaves no mark and no words, never "0 repeats". Asserted in `u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_says_nothing`.
-- **Failed.** A request that fails shows "Couldn't check for repeats", its cause and Retry, which asks again. Asserted in `u7685e_a_failed_scan_shows_its_cause_and_retry_asks_again_and_a_partial_one_keeps_its_marks`.
-- **Partial.** Decided here, since C7684d answers `complete: false` at its bound: the marks found show, with the quiet line "Checked part of the repo for repeats". Asserted in the same test.
-- **Not asked.** The Changes and Branch targets of an Agent with a Worktree say "Choose Tree to check for repeats", and no mark shows. Asserted in `u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_says_nothing`.
+- **Failed.** A request that fails shows "Couldn't check repeats", its cause and Retry, which asks again. Asserted in `u7685e_a_failed_scan_shows_its_cause_and_retry_asks_again_and_a_partial_one_keeps_its_marks`.
+- **Partial.** Decided here, since C7684d answers `complete: false` at its bound: the marks found show, with the quiet line "Repeats partly checked". Asserted in the same test.
+- **Not asked.** The Changes and Branch targets of an Agent with a Worktree say "Repeats need Tree", and no mark shows. Asserted in `u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_says_nothing`.
 
 **U7685f a change to the diff scans again.** My reading, kept: a turn that wrote a file, and a listing that read again, each ask once more. Given the fixture on the Tree target, then:
 - **Turn.** When an Agent's turn ends after a file-writing call (U7186a), the scan is asked again once, however many writes the turn made, and a turn with no write asks none. Asserted in `u7685f_a_changed_diff_scans_again_once_and_keeps_the_marks_meanwhile`.

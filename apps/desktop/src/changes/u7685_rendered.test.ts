@@ -104,7 +104,7 @@ it("u7685h_the_repeats_are_captured_for_the_critic", async () => {
     { name: "marks", mode: "done", run: async () => { await browser("click", '.changes-side [data-row="module"]'); await shot("marks", MARKED + " && " + said("1 repeat")); } },
     { name: "place", mode: "done", run: async () => { await browser("click", '.changes-side [data-row="module"]'); await until(MARKED); await browser("click", ".repeat-mark button"); await shot("place", "!!document.querySelector('.repeat-excerpt')"); } },
     { name: "scanning", mode: "slow", run: () => shot("scanning", said("Checking for repeats")) },
-    { name: "failed", mode: "failed", run: () => shot("failed", said("Couldn't check for repeats")) },
+    { name: "failed", mode: "failed", run: () => shot("failed", said("Couldn't check repeats")) },
   ];
 
   try {
