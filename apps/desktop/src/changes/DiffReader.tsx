@@ -20,6 +20,9 @@ import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileSt
 import { annotate, drawDiff, gatheredNotes, lineAnnotations } from "./diffDraw";
 import { outdated } from "./diffDraw";
 import type { Annotated, Composer, Noted, Shared } from "./diffDraw";
+import { RepeatedLines } from "./RepeatedLines";
+import { createRepeated } from "./repeats";
+import type { ScanHit } from "@contracts/agent/ScanHit";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteView } from "./NoteView";
@@ -191,7 +194,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
@@ -219,6 +222,8 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const { slots, sweep } = createSlots();
 
+  const repeated = createRepeated(() => props.repeats, () => props.only);
+
   onCleanup(() => sweep(undefined));
 
   const annotation = (metadata: Annotated) => {
@@ -227,6 +232,8 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
     const content = () => {
       if ("unfinished" in metadata) return <button type="button" class="diff-note" onClick={() => openNote({ side: metadata.side, start: metadata.start, end: metadata.end })}>{copy.unfinishedWork}</button>;
+
+      if ("repeating" in metadata) return <RepeatedLines id={props.id} hit={metadata.hit} to={props.to ?? "tree"} open={(path, at) => props.openAt?.(path, at)} />;
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
 
@@ -240,12 +247,17 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let mark = (_ranges: readonly Noted[]) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  let repeat = (_spans: readonly { start: number; end: number }[]) => {};
+
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));
-    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
+    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata || "repeating" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
   });
+
+  // U7685a: the lines of a repeat carry the stamp the style keys on, again after each render.
+  createEffect(() => ({ view: renderer(), spans: repeated().map(({ start, end }) => ({ start, end })) }), ({ view, spans }) => { if (view) repeat(spans); });
 
   // U7678d: a file with nothing to draw is settled once its read is.
   createEffect(() => !loading() && !drawableOf(read(), hidden()), settled => { if (settled) props.onDrawn?.(); });
@@ -270,6 +282,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       const { view, virtualizer, container, fileDiff, coarse } = drawn;
 
       mark = drawn.mark;
+      repeat = drawn.repeat;
 
       setCoarse(coarse);
 

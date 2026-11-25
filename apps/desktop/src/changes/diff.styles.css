@@ -12,6 +12,10 @@
 /* U7677a: a noted line keeps a 2 px accent bar and a faint tint, drawn from the marker the reader stamps; the focused note's bar turns full accent. No border. */
 [data-line][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer); background-size: var(--note-bar-width) 100%, auto; background-position: left top; background-repeat: no-repeat; }
 [data-line][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer); }
+/* U7685a: a repeating line keeps a bar on its right edge in the grey of the counts, drawn from the marker the reader stamps; a noted line keeps its bar on the left too. No border. */
+[data-line][data-repeat] { --repeat-bar-layer: linear-gradient(var(--grey), var(--grey)); background-image: var(--repeat-bar-layer); background-size: var(--note-bar-width) 100%; background-position: right top; background-repeat: no-repeat; }
+[data-line][data-repeat][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer), var(--repeat-bar-layer); background-size: var(--note-bar-width) 100%, auto, var(--note-bar-width) 100%; background-position: left top, left top, right top; }
+[data-line][data-repeat][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer), var(--repeat-bar-layer); }
 :focus { outline: none; }
 
 /* U7678c: a hunk's function sits beside its fold's count, in the count's ink, and gives way before the count does. */

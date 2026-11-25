@@ -6,12 +6,10 @@ import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
 import type { Done } from "./flows";
 import { createLate } from "./late";
-import { WRITING } from "./owned";
+import { watchTurns } from "./owned";
 
 /** U7683b: the one language the App never traces by itself: Rust starts only on Trace (the owner's decision 7). */
 const MANUAL = "rust";
-
-const TURN_ENDS = ["done", "idle", "error"];
 
 /** U7683f: what a language's trace ended as. */
 type Result = { kind: "done"; answer: Done } | { kind: "noServer" } | { kind: "failed"; cause: string };
@@ -123,12 +121,9 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
     if (ready && to && !begun) begin();
   });
 
-  const stop = input.events.subscribe(event => {
-    if (event.name === "agent.toolCall" && event.data.id === input.id && WRITING.has(event.data.call.tool) && event.data.call.state !== "running") {
-      untrack(() => setStale(new Set([...results()].flatMap(([language, result]) => result.kind === "done" ? [language] : []))));
-    } else if (event.name === "agent.status" && event.data.id === input.id && TURN_ENDS.includes(event.data.status.kind)) {
-      untrack(() => { for (const language of stale()) if (language !== MANUAL) void trace(language); });
-    }
+  const stop = watchTurns(input.events, input.id, {
+    wrote: () => untrack(() => setStale(new Set([...results()].flatMap(([language, result]) => result.kind === "done" ? [language] : [])))),
+    ended: () => untrack(() => { for (const language of stale()) if (language !== MANUAL) void trace(language); }),
   });
 
   onCleanup(stop);
