@@ -218,6 +218,9 @@ it("u3800a_one_drag_fixture", async () => {
   await feed("leave");
   expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(0);
   await feed("over");
+  // U7915a: migrate shows needs-you, so the first click on its dot marks it done and selects nothing; the plain dot then selects.
+  await browser("click", ".rail-row[data-id=migrate] .row-state");
+  await browser("wait", "--fn", "!document.querySelector('.rail-row[data-id=migrate] .row-mark')");
   await browser("click", ".rail-row[data-id=migrate] .row-state");
   await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected]')?.dataset.id === 'migrate'");
   expect(await read<number>("document.querySelectorAll('.drop-over').length")).toBe(0);

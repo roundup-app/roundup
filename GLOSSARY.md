@@ -203,6 +203,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Program status (`ProgramStatus`, `terminal.status`) | status | — |
 | Call path (`CallPaths`, `agent.callPaths`) | Flow | — |
 | Language server | — | — |
+| Mark done (`markDone`) | — | — |
+
+**Mark done.** The owner clears a `needs-you` Status from the attention lists by choice (`scenarios/mark-done.md`): the same dismissal as U5151c, keyed by Agent id, Attempt and Status revision, so the Agent's next `needs-you` shows again. It sends nothing to the Agent.
 
 **Program status.** What a program in a Terminal reports about itself with OSC 7501 (`scenarios/terminal-program-status.md`): records of a state, a message and a title that the Daemon folds into the Terminal's Status. `blocked` in a report is Kind `needs-you`; Kind `blocked` stays the Daemon's.
 
