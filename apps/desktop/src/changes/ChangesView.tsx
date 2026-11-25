@@ -13,7 +13,7 @@ import { causeOf, createRemoteMain } from "./remote";
 import { RemoteChip } from "./RemoteChip";
 import { loadReader } from "./chunks";
 import { notesFor } from "./notes";
-import { createEditor } from "./editor";
+import { createOpenAt } from "./editor";
 import { createLate } from "./late";
 import { ChangedTree, moduleKey, noiseKey } from "./ChangedTree";
 import { createFind, FindField } from "./Find";
@@ -184,6 +184,26 @@ const createTarget = (id: () => string) => {
   return { worktree, target, own };
 };
 
+/** U7853a: the Agent's owned groups, the open one, and the open one's identity: stable while a refresh brings the same repository and branch. */
+const createOwnedGroup = (id: () => string) => {
+  const { owned } = useConnectedProject();
+
+  const groups = () => {
+    const read = owned.read(id());
+
+    return read?.failure === null ? read.groups : [];
+  };
+
+  const [active, setActive] = createSignal(0);
+  const group = () => groups()[active()] ?? groups()[0];
+
+  const groupKey = createMemo(() => { const open = group();
+
+    return open && { repo: open.repo, branch: open.branch }; }, { equals: (a, b) => a?.repo === b?.repo && a?.branch === b?.branch });
+
+  return { groups, active, setActive, group, groupKey };
+};
+
 /** U7675a: the comparison's own answer, whichever read made it: the Daemon's changes for a Tree or Branch target, else the Agent's owned changes. */
 const createComparison = (id: () => string, own: () => "tree" | "branch" | null, groupFiles: () => readonly ChangedFile[] | undefined) => {
   const { app, owned } = useConnectedProject();
@@ -247,23 +267,11 @@ const KeysHelp = () => <section class="changes-keys" aria-label={copy.keys}>
 
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
-  const { app, events, owned, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
+  const { app, events, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
   const { worktree, target, own } = createTarget(() => props.id);
 
-  const groups = () => {
-    const read = owned.read(props.id);
-
-    return read?.failure === null ? read.groups : [];
-  };
-
-  const [active, setActive] = createSignal(0);
-  const group = () => groups()[active()] ?? groups()[0];
-
-  // U7853a: the open group as the Daemon reads it, stable while a refresh brings the same repository and branch.
-  const groupKey = createMemo(() => { const open = group();
-
-    return open && { repo: open.repo, branch: open.branch }; }, { equals: (a, b) => a?.repo === b?.repo && a?.branch === b?.branch });
+  const { groups, active, setActive, group, groupKey } = createOwnedGroup(() => props.id);
 
   // U7675d, U7675f: the open file and each file's place outlive the view for the connection's session.
   const memory = changePlaces.of(untrack(() => props.id));
@@ -351,16 +359,7 @@ const Surface = (props: { id: string; name: string }) => {
   const totals = () => totalsOf(files());
 
   // U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card.
-  const root = () => own() ? worktree() ?? undefined : group()?.repo;
-
-  const { editable, edit } = createEditor(app, root);
-
-  // U2539d, U7678c: Enter or a double click on a file or a hunk opens the file in the editor, at the hunk's line when it is a new one, else at the file's first change.
-  const openAt = (path: string, at?: { side: "old" | "new"; line: number }) => {
-    const file = files().find(each => each.path === path);
-
-    if (file && editable(file)) edit(file, at?.side === "new" ? at.line : file.line);
-  };
+  const openAt = createOpenAt(app, () => own() ? worktree() ?? undefined : group()?.repo, files);
 
   // U7675e, U7679e: J and K step the Overview and the modules from anywhere, ] and [ step changes, Tab crosses from the list to the diff or the Overview's entries, ? lists them.
   const [help, setHelp] = createSignal(false);

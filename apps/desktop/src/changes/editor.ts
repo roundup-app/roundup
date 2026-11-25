@@ -39,3 +39,14 @@ export const createEditor = (app: ReturnType<typeof useConnectedProject>["app"],
 
   return { editable, edit };
 };
+
+/** U2539d, U7678c: Enter or a double click on a file or a hunk opens the file in the editor, at the hunk's line when it is a new one, else at the file's first change. */
+export const createOpenAt = (app: Parameters<typeof createEditor>[0], root: () => string | undefined, files: () => readonly ChangedFile[]) => {
+  const { editable, edit } = createEditor(app, root);
+
+  return (path: string, at?: { side: "old" | "new"; line: number }) => {
+    const file = files().find(each => each.path === path);
+
+    if (file && editable(file)) edit(file, at?.side === "new" ? at.line : file.line);
+  };
+};
