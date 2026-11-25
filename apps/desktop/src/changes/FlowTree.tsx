@@ -52,9 +52,16 @@ const rowsOf = (flow: FlowDetail): Row[] => {
   return [{ value: "entry", label: flow.symbols.get(entry)?.name ?? entry, status: flow.tree.status, section: flow.sections.get(entry), children: below(entry, "entry") }];
 };
 
-const dataOf = (rows: readonly Row[]): TreeItemData[] => rows.map(row => ({ value: row.value, label: row.label, children: dataOf(row.children) }));
+const dataOf = (rows: readonly Row[]): TreeItemData[] => rows.map(row => {
+  const item: TreeItemData = { value: row.value, label: row.label };
 
-const flatten = (rows: readonly Row[], open: (value: string) => boolean): Row[] => rows.flatMap(row => [row, ...open(row.value) ? flatten(row.children, open) : []]);
+  if (row.children.length > 0) item.children = dataOf(row.children);
+
+  return item;
+});
+
+/** A row and how deep it sits: the call tree draws each level one Token step in. */
+const flatten = (rows: readonly Row[], open: (value: string) => boolean, depth = 0): (Row & { depth: number })[] => rows.flatMap(row => [{ ...row, depth }, ...open(row.value) ? flatten(row.children, open, depth + 1) : []]);
 
 /** U7683e: the call tree of the open flow, above its scroll; Enter or a click on a row opens the section it names. */
 export const FlowTree = (props: { flow: FlowDetail; open: (section: string) => void }) => {
@@ -69,7 +76,7 @@ export const FlowTree = (props: { flow: FlowDetail; open: (section: string) => v
     <AppTree class="flow-tree-rows" aria-label={copy.callTree} items={dataOf(rows())} controller={controller} activation="manual" expanded={all().filter(row => row.children.length > 0 && open(row.value)).map(row => row.value)} onExpandedChange={next => setCollapsed(all().filter(row => row.children.length > 0 && !next.includes(row.value)).map(row => row.value))} onValueChange={value => { const section = value === null ? undefined : sectionOf().get(value);
 
  if (section !== undefined) props.open(section); }}>
-      <For each={flatten(rows(), open)}>{row => <TreeItem value={row.value} class="changes-row row-wash" data-row="call" data-status={row.status} aria-label={labelOf(row)}>
+      <For each={flatten(rows(), open)}>{row => <TreeItem value={row.value} class="changes-row row-wash" data-row="call" data-status={row.status} data-level={row.depth} aria-label={labelOf(row)}>
         <Name text={row.label} />
         <Show when={changedStatus(row.status)}>{status => <span class="changes-row-status">{copy.callStatus[status()]}</span>}</Show>
       </TreeItem>}</For>
