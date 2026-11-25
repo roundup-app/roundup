@@ -1,15 +1,15 @@
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { createTwoFilesPatch } from "diff";
+import * as diff from "diff";
 import { expect, it } from "vitest";
 import type { CallPaths } from "@contracts/agent/CallPaths";
 import type { Kind } from "@contracts/Kind";
 import { event } from "../testing/nodes";
 import { copy } from "./copy";
 import { keepHunks } from "./diffDraw";
-import { answers, FLOW_FILES, flowComparison, LOAD, LOOKUP, OTHER, RUN, RUST, ALIAS, TYPES_ONLY, TYPESCRIPT } from "./flowFixture";
+import { answers, FLOW_FILES, flowComparison, LOAD, LOOKUP, OTHER, RUN, RUST, SHOUT, ALIAS, TYPES_ONLY, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
-import { take, treeRow } from "./noteHarness";
-import { chooseLens, drawnIn, edited, landed, moduleKeys, moduleRow, openPaths, pane, press, region, setUpView, showing, slot } from "./viewHarness";
+import { saveNote, take, treeRow } from "./noteHarness";
+import { chooseLens, drawnIn, edited, landed, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
 
 setUpView();
 
@@ -62,7 +62,7 @@ const said = (entry: { key: string }) => moduleRow(flowName(entry.key)).getAttri
 const sectionOf = (symbol: { path: string; key: string }) => symbol.path + "\0" + symbol.key;
 
 /** The new-side lines Pierre drew as added in a section. */
-const added = (id: string) => drawnIn(id).flatMap(each => [...each.shadowRoot?.querySelectorAll('[data-line-type="change-addition"]') ?? []]).map(line => Number(line.getAttribute("data-line")));
+const added = (id: string) => drawnIn(id).flatMap(each => [...each.shadowRoot?.querySelectorAll('[data-line-type="change-addition"][data-line]') ?? []]).map(line => Number(line.getAttribute("data-line")));
 
 const status = (kind: Kind) => ({ id: "a", attempt: "1", status_revision: "2", status: { kind, label: kind, since: 0, finished: "1" } });
 
@@ -118,6 +118,27 @@ it("u7683b_a_write_dims_the_flows_and_a_turn_end_traces_typescript_again_once_an
   app.emit(event({ name: "agent.status", data: status("idle") }));
   await tick();
   expect(asked()).toHaveLength(3);
+});
+
+it("u7683b_a_write_dims_a_traced_rust_and_offers_trace_and_a_turn_end_never_traces_it", async () => {
+  const { app } = await flowsOpen();
+
+  await traced();
+  fireEvent.click(within(region()).getByRole("button", { name: copy.trace }));
+  await waitFor(() => expect(moduleKeys()).toContain(flowKey({ key: SHOUT.key })));
+
+  edited(app, "a");
+  await waitFor(() => expect(screen.getAllByText(copy.changedSinceTraced)).toHaveLength(2));
+
+  // The turn's end traces TypeScript again and Rust not at all; Trace asks for Rust once more.
+  app.emit(event({ name: "agent.status", data: status("done") }));
+  await waitFor(() => expect(asked()).toEqual(["lookup", "typescript", "rust", "typescript"]));
+  await tick();
+  expect(asked()).toEqual(["lookup", "typescript", "rust", "typescript"]);
+  expect(screen.getAllByText(copy.changedSinceTraced)).toHaveLength(1);
+
+  fireEvent.click(within(region()).getByRole("button", { name: copy.trace }));
+  await waitFor(() => expect(asked()).toEqual(["lookup", "typescript", "rust", "typescript", "rust"]));
 });
 
 it("u7683b_a_new_to_value_drops_the_old_answer_and_traces_typescript_again", async () => {
@@ -176,18 +197,34 @@ it("u7683d_a_flow_opens_its_sections_in_call_order_each_with_only_the_hunks_that
   expect(openPaths()).toContain(sectionOf(LOAD));
 });
 
+it("u7683d_a_note_in_a_flow_draws_in_the_section_that_holds_its_line", async () => {
+  await flowsOpen();
+  await traced();
+  take(moduleRow(flowName(RUN.key)));
+  await waitFor(() => expect(added(sectionOf(RUN))).toEqual([2]));
+  const note = "check this";
+
+  await saveNote(note);
+
+  const text = (id: string) => section(id)?.textContent ?? "";
+
+  // The note is on run.ts line 1, a line only run's section holds: it draws there once and not under load.
+  expect(text(sectionOf(RUN)).split(note)).toHaveLength(2);
+  expect(text(sectionOf(LOAD)).split(note)).toHaveLength(1);
+});
+
 it("u7683d_a_section_keeps_only_the_hunks_with_a_changed_line_its_function_holds", () => {
   const body = (line: (number: number) => string) => Array.from({ length: 25 }, (_, index) => line(index + 1)).join("\n") + "\n";
-  const patch = createTwoFilesPatch("a.ts", "a.ts", body(number => "line " + number), body(number => number === 2 || number === 20 ? "line " + number + " new" : "line " + number));
+  const patch = diff.createTwoFilesPatch("a.ts", "a.ts", body(number => "line " + number), body(number => number === 2 || number === 20 ? "line " + number + " new" : "line " + number));
   const hunks = (text: string) => text.split("\n").filter(line => line.startsWith("@@")).length;
-  const kept = keepHunks(patch, (side, line) => side === "new" && line >= 18);
+  const kept = keepHunks(patch, (side, line) => side === "new" && line >= 18, diff);
 
   expect(hunks(patch)).toBe(2);
   expect(hunks(kept)).toBe(1);
   expect(kept).not.toContain("line 2 new");
 
   // A function whose lines no hunk changed leaves the patch whole.
-  expect(keepHunks(patch, () => false)).toBe(patch);
+  expect(keepHunks(patch, () => false, diff)).toBe(patch);
 });
 
 it("u7683e_the_call_tree_marks_added_removed_and_changed_calls_folds_the_rest_and_a_row_opens_its_section", async () => {
@@ -242,6 +279,10 @@ it("u7683f_rust_and_a_language_with_no_server_say_so_and_trace_moves_the_rust_fi
   await waitFor(() => expect(asked()).toEqual(["lookup", "typescript", "rust"]));
   await waitFor(() => expect(moduleKeys()).toContain(flowKey({ key: RUST.symbols[0]?.key ?? "" })));
   expect(screen.queryByText(copy.languageNotTraced("Rust", 1))).toBeNull();
+
+  // A function that makes no call ends its tree there.
+  take(moduleRow(flowName(SHOUT.key)));
+  await waitFor(() => expect([...region().querySelectorAll('[data-row="call"]')].map(row => row.textContent)).toEqual(["shoutChanged", copy.endsHere]));
 });
 
 it("u7683g_marking_a_flow_viewed_opens_the_next_unviewed_flow_and_a_shared_file_reads_viewed_in_both", async () => {

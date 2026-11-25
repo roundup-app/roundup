@@ -121,42 +121,19 @@ const patchOf = async (oldFile: PatchFile, newFile: PatchFile, { createTwoFilesP
 /** U7678c: one scroll that a module's files share, and the one Virtualizer its views hang from. */
 export type Shared = { scroller: HTMLElement | undefined; virtualizer?: InstanceType<typeof import("@pierre/diffs").Virtualizer> | undefined };
 
-/** U7683d: the hunks of `patch` with a changed line `pick` takes, the header kept; every hunk when none is taken, so a section never draws nothing. */
-export const keepHunks = (patch: string, pick: Takes): string => {
-  const lines = patch.split("\n");
-  const first = lines.findIndex(line => line.startsWith("@@"));
+/** U7683d: the hunks of `patch` with a changed line `pick` takes, the header kept; the whole patch when none is taken, so a section never draws nothing. */
+export const keepHunks = (patch: string, pick: Takes, { parsePatch, formatPatch }: Pick<typeof import("diff"), "parsePatch" | "formatPatch">): string => {
+  const [file] = parsePatch(patch);
 
-  if (first === -1) return patch;
+  const kept = file?.hunks.filter(hunk => {
+    let old = hunk.oldStart;
+    let next = hunk.newStart;
 
-  const kept: string[] = [];
-  let hunk: string[] = [];
-  let taken = false;
-  let old = 0;
-  let next = 0;
+    // Every line is read, so both counters stay true to the hunk's lines.
+    return hunk.lines.map(line => line.startsWith("+") ? pick("new", next++) : line.startsWith("-") ? pick("old", old++) : line.startsWith(" ") && (old++, next++, false)).some(Boolean);
+  }) ?? [];
 
-  const close = () => {
-    if (taken) kept.push(...hunk);
-    hunk = [];
-    taken = false;
-  };
-
-  for (const line of lines.slice(first)) {
-    const header = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
-
-    if (header) {
-      close();
-      old = Number(header[1]);
-      next = Number(header[2]);
-    } else if (line.startsWith("+")) taken ||= pick("new", next++);
-    else if (line.startsWith("-")) taken ||= pick("old", old++);
-    else if (line.startsWith(" ")) { old++; next++; }
-
-    hunk.push(line);
-  }
-
-  close();
-
-  return kept.length === 0 ? patch : [...lines.slice(0, first), ...kept].join("\n").replace(/\n*$/, "\n");
+  return file && kept.length > 0 ? formatPatch({ ...file, hunks: kept }) : patch;
 };
 
 /** U7678c: each hunk header gains the function line git's default would name, read from the old text above the hunk. */
@@ -225,7 +202,8 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
     return module;
   }));
 
-  const { createTwoFilesPatch, structuredPatch, formatPatch } = await import("diff");
+  const diff = await import("diff");
+  const { createTwoFilesPatch, structuredPatch, formatPatch } = diff;
 
   if (!hooks.current()) return undefined;
 
@@ -239,7 +217,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   const { coarse } = made;
 
   await yielded();
-  const patch = withFunctions(hooks.only ? keepHunks(made.patch, hooks.only) : made.patch, oldFile.contents);
+  const patch = withFunctions(hooks.only ? keepHunks(made.patch, hooks.only, diff) : made.patch, oldFile.contents);
 
   // U2540's 10,000-line observer exceeded the browser bound with a full DOM; Pierre owns the visible window.
   const container = document.createElement("diffs-container");
