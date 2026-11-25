@@ -72,7 +72,22 @@ let library: Promise<typeof import("@pierre/diffs")> | undefined;
 export const diffsLoaded = () => library !== undefined;
 
 /** U7610c: ends the task the caller runs in, so a large rewrite's steps each leave the page a turn between them. */
-const yielded = () => new Promise(resolve => setTimeout(resolve));
+export const yielded = () => new Promise(resolve => setTimeout(resolve));
+
+/** U7610d: the first render of a 20,000-line diff is a task of its own; the annotation and repeat passes the renderer starts (the Flows lens and the repeat scan) run in the next one. False when the read went stale meanwhile, its render taken down. */
+export const renderedApart = async (drawn: NonNullable<Awaited<ReturnType<typeof drawDiff>>>, shared: Shared | undefined, current: () => boolean) => {
+  drawn.view.render({ fileContainer: drawn.container, fileDiff: drawn.fileDiff });
+
+  await yielded();
+
+  if (current()) return true;
+  drawn.view.cleanUp();
+
+  if (!shared) drawn.virtualizer.cleanUp();
+  drawn.container.remove();
+
+  return false;
+};
 
 type PatchFile = { name: string; contents: string };
 
