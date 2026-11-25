@@ -98,6 +98,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [failed, setFailed] = createSignal<ReadonlyMap<string, ImportFailure>>(new Map());
   const [restoreFailure, setRestoreFailure] = createSignal(restored.status === "failed");
   let latest = 0;
+  let adding: () => (id: string) => void = () => () => undefined;
   let deadline: ReturnType<typeof setTimeout> | undefined;
   const invalidate = () => { latest++; clearTimeout(deadline); };
 
@@ -275,6 +276,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       setStarting(true); setStartFailure(null); setFailure(null); invalidate(); setLoading(false);
       const text = prompt();
       const submittedRevision = draftRevision;
+      const added = adding();
 
       if (submittedRevision) await drafts?.submit(submittedRevision);
 
@@ -285,7 +287,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
         if (draftRevision === submittedRevision) draftRevision = undefined;
 
-        setListingAgent(node.id); setDiscovery(null); setVerified(false);
+        added(node.id); setListingAgent(node.id); setDiscovery(null); setVerified(false);
 
         if (prompt() === text) setPromptSignal(DEFAULT_PROMPT);
 
@@ -316,9 +318,9 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       return persist(false);
     },
-    reconnect: (nextApp: AppSeam, nextOpened: typeof onOpened) => {
+    reconnect: (nextApp: AppSeam, nextOpened: typeof onOpened, nextAdding: typeof adding = () => () => undefined) => {
       app = nextApp;
-      onOpened = nextOpened;
+      onOpened = nextOpened; adding = nextAdding;
       invalidate();
       setLoading(false);
       setDiscovery(null);

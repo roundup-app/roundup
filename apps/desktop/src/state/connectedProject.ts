@@ -292,7 +292,7 @@ export const connectProject = async (
   // Import selections and pending acknowledgements share the App-owned Project lifetime.
   const importing = drafts.importing ?? createImport(app, project.path, onImported, drafts);
 
-  importing.reconnect(app, onImported);
+  importing.reconnect(app, onImported, rail.adding);
   drafts.importing = importing;
 
 

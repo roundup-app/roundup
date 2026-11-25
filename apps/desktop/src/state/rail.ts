@@ -7,6 +7,7 @@ import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
 import { applying } from "../app/pending";
 import PQueue from "p-queue";
+import { createWantedRows } from "./wantedRows";
 import { createEffect, createMemo, createRoot, createSignal, flush, latest, onCleanup, createStore, reconcile, snapshot, untrack } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
@@ -115,6 +116,8 @@ export type RailState = {
   unsavedDismissal(): string | null;
   retryDismissal(): void;
   clearUnsavedDismissal(): void;
+  /** U7916: called when the user starts an add; the function it returns takes the new row's id from the reply and selects the row once `rail.tree` holds it, unless the user picks another row first. A press or focus change is no pick, and neither moves focus. */
+  adding(): (id: string) => void;
   select(id: string | null, intent?: "open", focus?: ReturnType<typeof captureFocus>): void;
   /** Whether showing the selection acknowledges its Agent’s alerts. */
   shouldAcknowledgeAlerts(): boolean;
@@ -371,11 +374,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
   let wantedWorkstream: string | null = null;
   let workstreamUnknown: string | null = null;
-  let workstreamFocus = captureFocus();
   let selectionRevision = 0;
   /** H7200d: the rows on the Rail when the selection was last made. */
   let seenAtSelect: ReadonlySet<string> = new Set();
-  let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
   const closedSections = createMemo((): ReadonlySet<RailSection> => new Set(viewer().sections));
@@ -493,14 +494,24 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     } else reselect(tree, before);
   };
 
-  /** Once the tree holds the Workstream just created, select it and start its Door. */
+  /** U7916: the one step every user add goes through. */
+  const wantedRows = createWantedRows(() => untrack(() => latest(() => model.tree)), () => selectionRevision, select);
+
+  const adding = () => {
+    const since = selectionRevision;
+    const focus = captureFocus(true);
+
+    return (id: string) => wantedRows.want(id, since, focus);
+  };
+
+  /** Once the tree holds the Workstream just created, start its Door; its selection is `adding`'s. */
   const openWanted = (tree: readonly RailNode[]) => {
     const wanted = wantedWorkstream;
 
+    wantedRows.settle(tree);
+
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
       wantedWorkstream = null;
-
-      if (selectionRevision === workstreamSelection) select(wanted, workstreamFocus);
 
       // The Door's start reads the selection just written to decide whether to prepare the shown Terminal's size.
       flush();
@@ -626,9 +637,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       try {
         if (workstreamUnknown !== null && !await askOnce(app, "new-workstream-again", { title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
 
-        workstreamFocus = captureFocus(true);
-        workstreamSelection = selectionRevision;
+        const added = adding();
+
         wantedWorkstream = (await app.rpc("rail.createWorkstream", params)).id;
+        added(wantedWorkstream);
         workstreamUnknown = null;
         commandFailure.acknowledge(null);
         await state.refresh();
@@ -683,6 +695,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     startDoor,
     resumeTurn: id => app.rpc("message.send", { to: id, kind: "note", body: copy.resumeNote, replyTo: null }).then(() => null, (error: Error) => error.message),
     retryDelivery: id => app.rpc("message.retryDelivery", { id }).then(() => null, (error: Error) => error.message),
+    adding,
     createWorkstream,
     createNamedWorkstream: name => makeWorkstream(name),
     workstreamCreating,

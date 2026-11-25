@@ -47,6 +47,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
   const submit = async () => {
     if (busy() || !value().name.trim() || !value().text.trim()) return;
     setBusy(true);
+    const added = rail.adding();
     const saved = value();
     // U5991a: the Mode's Row shows now; the refreshed tree or a failure lifts it.
     const lift = saved.id === null ? rail.drawNew("agent", saved.name.trim(), null) : null;
@@ -74,7 +75,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
       const shownMode = await field.send(() => applying(async () => {
         await rail.refresh();
         rail.setSectionOpen("modes", true);
-        rail.select(mode);
+        added(mode);
       }));
 
       if (!shown(shownMode)) return;
