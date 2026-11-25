@@ -108,7 +108,7 @@ impl<'a> MenuCommand<'a> {
             "app-settings" => Self::AppSettings,
             "fork-sheet" => Self::ForkSheet,
             "send-feedback" => Self::SendFeedback,
-            "import-work" | "project-settings" => Self::Project(id),
+            "import-work" => Self::Project(id),
             _ if id.starts_with("view:") || id.starts_with("action:") => Self::Project(id),
             _ => Self::Choice,
         }

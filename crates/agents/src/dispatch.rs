@@ -180,6 +180,31 @@ impl Agents {
         self.readback_start(&p.id, p.to).await
     }
 
+    async fn agent_printed_commands(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::PrintedCommands, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user reads printed commands"));
+        }
+        self.printed_commands(&p.id)
+            .map(|commands| contracts::agent::PrintedCommands { commands })
+    }
+
+    async fn agent_run_printed(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::RunPrintedParams,
+    ) -> Result<contracts::terminal::Opened, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden(
+                "only the user's click runs a printed command",
+            ));
+        }
+        self.run_printed(ctx, p).await
+    }
+
     async fn agent_readback(
         &self,
         ctx: &Ctx,

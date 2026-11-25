@@ -47,6 +47,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Original Terminal program (`TerminalInfo.program_pid`, `Terminals::program_pid`) | none | — |
 | Terminal incarnation (`TerminalInfo.incarnation`) | same | — |
 | Shell mark | same | shell integration (as a name; it is the means) |
+| Printed command (`PrintedCommands`, `agent.printedCommands`, `agent.runPrinted`, `Terminals::claim_free_shell`: a line of a `sh`, `bash`, `zsh` or `shell` block an Agent printed, read from its conversation record; a click runs one in a shell the Agent owns whose prompt is free) | command | — |
 | Turn | command | — |
 | FloatingLine (`ink/FloatingLine.tsx`) | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |

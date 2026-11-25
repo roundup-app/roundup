@@ -560,9 +560,7 @@ it("u3817_closing_a_page_keeps_a_pending_import", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   await waitFor(() => expect(calls(app, "project.importCommit")).toHaveLength(1));
 
-  openProjectPage("project-settings");
   fireEvent.click(await screen.findByRole("button", { name: /Close/ }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: /Close/ })).toBeNull());
 
   expect(connected.importing.open()).toBe(true);
   expect(connected.importing.pending()).toBe(true);

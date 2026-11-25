@@ -394,6 +394,7 @@ mod registration;
 mod removal;
 mod resume_wait;
 pub use resume_wait::RESUME_BODY;
+mod printed_run;
 mod remote_wiring;
 mod resume;
 mod spawn;

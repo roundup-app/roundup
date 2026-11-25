@@ -733,6 +733,19 @@ pub struct RunParams {
     pub cwd: Option<String>,
 }
 
+/// U7889a: the shell commands an Agent printed, in the order it printed them, each once.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct PrintedCommands {
+    pub commands: Vec<String>,
+}
+
+/// U7889c: run one of `id`'s printed commands in a shell the Agent owns.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RunPrintedParams {
+    pub id: String,
+    pub command: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct NodeId {
     pub id: String,

@@ -48,6 +48,7 @@ const emptyReads: Handlers = {
   "agent.readback": () => ({ state: "notRead" }),
   "agent.readbackStart": () => ({ state: "reading" }),
   "agent.links": () => ({ entries: [] }),
+  "agent.printedCommands": () => ({ commands: [] }),
   "agent.made": () => [],
   "terminal.list": () => [],
   "project.programRun": () => ({ state: "none" }),
