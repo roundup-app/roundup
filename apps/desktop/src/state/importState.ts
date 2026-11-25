@@ -51,10 +51,10 @@ const unimported = <T>(selected: ReadonlyMap<string, T>, submitted: ReadonlyMap<
   return rest;
 };
 
-/** U2875d: the import panel's state for one Project. The period and the unsubmitted selection are kept per Project path and restored unverified: only the user's confirm after a refresh submits. */
 /** The add step of an import with no Rail to select in. */
 const noAdd = (): (id: string) => void => () => undefined;
 
+/** U2875d: the import panel's state for one Project. The period and the unsubmitted selection are kept per Project path and restored unverified: only the user's confirm after a refresh submits. */
 export const createImport = (app: AppSeam, path: string, onOpened: (workstream: string, agent: string | null) => void, drafts?: ReturnType<typeof draftStorage>) => {
   const store = storedValue(`roundup:import:${path}`, savedSchema);
   const restored = store.restore();
