@@ -1,11 +1,13 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
 import { DiffReader } from "./DiffReader";
 import type { DiffKeys, DiffTarget } from "./DiffReader";
 import type { Shared } from "./diffDraw";
-import type { Places } from "./lines";
+import type { Place, Places } from "./lines";
+import type { Section } from "./modules";
 import { NoteBatch } from "./NoteBatch";
 import type { Note, Notes } from "./notes";
 import { copy } from "./copy";
@@ -19,15 +21,31 @@ const lineOf = (event: MouseEvent): Line | undefined => {
   return line && { side: line.dataset.lineType === "change-deletion" ? "old" : "new", line: Number(line.dataset.line) };
 };
 
-/** U7678c: one module's hunks as one scroll: each file under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
-export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; group?: OwnedGroupKey | undefined; viewed?: { on: boolean; changed: boolean; toggle: () => void } | undefined; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void }) => {
+/** U7678c, U7683d: one module's hunks as one scroll, or a flow's `sections` in call order (a file, or the hunks of one function of it): each under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
+export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; sections?: readonly Section[] | undefined; above?: JSX.Element; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: DiffKeys) => void; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; group?: OwnedGroupKey | undefined; viewed?: { on: boolean; changed: boolean; toggle: () => void } | undefined; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void }) => {
   let scroller: HTMLDivElement | undefined;
   const sections = new Map<string, HTMLElement>();
   const readers = new Map<string, DiffKeys>();
   const [wanted, setWanted] = createSignal<ReadonlySet<string>>(new Set());
   const [editing, setEditing] = createSignal<Note>();
-  const paths = createMemo(() => props.files.map(file => file.path));
-  const fileOf = (path: string) => props.files.find(file => file.path === path);
+  // A module's scroll is its files, keyed by path; a flow's is its sections, keyed by file and function, so a file can appear twice.
+  const entries = createMemo((): readonly Section[] => props.sections ?? props.files.map(file => ({ id: file.path, file })));
+  const paths = createMemo(() => entries().map(entry => entry.id));
+  const entryOf = (id: string) => entries().find(entry => entry.id === id);
+  const fileOf = (id: string) => entryOf(id)?.file;
+  const firstOf = (path: string) => entries().find(entry => entry.file.path === path)?.id;
+  const idOf = (at: string | undefined) => at === undefined ? undefined : entryOf(at) ? at : firstOf(at);
+  // A flow keeps each section's place under its own id, since a file in two sections reads two places; a module keeps the file's. One object per id, so the reader never sees a new place.
+  const kept = new Map<string, Places>();
+
+  const sectionPlaces = (id: string): Places => {
+    if (!props.sections) return props.places;
+    const own = kept.get(id) ?? { get: () => props.places.get(id), set: (_file: string, place: Place) => props.places.set(id, place) };
+
+    kept.set(id, own);
+
+    return own;
+  };
 
   // A place sized from the file's counts holds its section until it is read.
   const lines = (path: string) => {
@@ -62,7 +80,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
     return scroller && section ? section.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop : 0;
   };
 
-  const startPath = () => props.start ?? paths()[0];
+  const startPath = () => idOf(props.start) ?? paths()[0];
 
   const shared: Shared = { scroller: undefined };
 
@@ -75,7 +93,9 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
     want(current);
 
     if (scroller) {
-      scroller.scrollTop = props.start ? offset(props.start) : props.scroll.get() ?? 0;
+      const first = idOf(props.start);
+
+      scroller.scrollTop = first ? offset(first) : props.scroll.get() ?? 0;
       const remember = () => props.scroll.set(scroller?.scrollTop ?? 0);
 
       // listener-owner: removed in the cleanup below with the scroll.
@@ -88,7 +108,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
   });
 
   // U7678c: a file row of the open module moves the scroll to that file.
-  createEffect(() => props.start, start => {
+  createEffect(() => idOf(props.start), start => {
     if (!start || !scroller) return;
     current = start;
     want(start);
@@ -128,7 +148,8 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
   // U7678c: a double click on a hunk opens its file in the editor at the line it landed on.
   const doubleClicked = (event: MouseEvent) => {
-    const path = event.target instanceof Element ? event.target.closest<HTMLElement>(".module-file")?.dataset.path : undefined;
+    const id = event.target instanceof Element ? event.target.closest<HTMLElement>(".module-file")?.dataset.path : undefined;
+    const path = id === undefined ? undefined : fileOf(id)?.path;
 
     if (path !== undefined) props.open(path, lineOf(event));
   };
@@ -148,9 +169,9 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
     note: () => here()?.note(),
     edit: () => here()?.edit(),
     remove: () => here()?.remove(),
-    at: () => here()?.at() ?? { path: current, side: "new", line: 1 },
+    at: () => here()?.at() ?? { path: fileOf(current)?.path ?? current, side: "new", line: 1 },
     read: () => here()?.read(),
-    outdated: note => readers.get(note.comparison.newPath)?.outdated(note) ?? false,
+    outdated: note => readers.get(firstOf(note.comparison.newPath) ?? "")?.outdated(note) ?? false,
   }));
 
   return <div class="module-pane">
@@ -158,13 +179,22 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
       <Show when={viewed().changed}><span class="module-changed">{copy.changedSinceViewed}</span></Show>
       <button type="button" data-button="quiet" aria-pressed={viewed().on ? "true" : "false"} onClick={() => viewed().toggle()}>{copy.viewed}</button>
     </header>}</Show>
+    {props.above}
     <div class="module-scroll" tabindex="-1" aria-label={props.name} onDblClick={doubleClicked} ref={element => { scroller = element; shared.scroller = element; }}>
-    <For each={paths()}>{path => <section class="module-file" data-path={path} style={{ "min-block-size": `calc(var(--space-5) * ${lines(path)})` }} ref={element => { sections.set(path, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(path); readers.delete(path); }); }}>
-      <Show when={wanted().has(path)} fallback={<header class="diff-header"><p class="diff-path">{path}</p></header>}>
-        <DiffReader shared={shared} batch={false} counts={fileOf(path)?.counts} id={props.id} name={props.name} path={path} blob={fileOf(path)?.blob} places={props.places} to={props.to} group={props.group} notes={props.notes} editing={editing()?.comparison.newPath === path ? editing() : undefined} onEdited={() => setEditing(undefined)} onFocus={() => { current = path; }} target={props.target?.path === path ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(path, api); resume(); }} recover={props.recover} />
-      </Show>
-    </section>}</For>
+    <For each={paths()}>{id => {
+      // Memos keep these steady while a refresh brings new file objects, so a reader redraws only when what it draws changes.
+      const path = createMemo(() => fileOf(id)?.path ?? id);
+      const first = createMemo(() => firstOf(path()) === id);
+      const only = createMemo(() => entryOf(id)?.pick);
+
+      return <section class="module-file" data-path={id} style={{ "min-block-size": `calc(var(--space-5) * ${lines(id)})` }} ref={element => { sections.set(id, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(id); readers.delete(id); }); }}>
+        <Show when={entryOf(id)?.label}>{label => <p class="module-function">{label()}</p>}</Show>
+        <Show when={wanted().has(id)} fallback={<header class="diff-header"><p class="diff-path">{path()}</p></header>}>
+          <DiffReader shared={shared} batch={false} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
+        </Show>
+      </section>;
+    }}</For>
     </div>
-    <NoteBatch fallback={() => here()?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={undefined} readOf={path => readers.get(path)?.read()} edit={setEditing} />
+    <NoteBatch fallback={() => here()?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={undefined} readOf={path => readers.get(firstOf(path) ?? path)?.read()} edit={setEditing} />
   </div>;
 };

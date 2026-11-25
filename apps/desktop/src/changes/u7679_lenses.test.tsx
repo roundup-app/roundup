@@ -204,7 +204,7 @@ const noiseKeys = () => noiseRows().map(row => row.dataset.key);
 
 const shiftL = () => fireEvent.keyDown(region(), { key: "L", shiftKey: true });
 
-it("u7679a_the_switch_names_the_three_lenses_in_order_and_choosing_one_changes_the_list", async () => {
+it("u7679a_the_switch_names_the_four_lenses_in_order_and_choosing_one_changes_the_list", async () => {
   await landed(() => ({ files: LENS_FILES }));
   const radios = Object.values(copy.lenses).map(name => lensGroup().getByRole("radio", { name }));
 
@@ -276,7 +276,11 @@ it("u7679a_l_and_shift_l_step_the_lenses_in_switch_order", async () => {
   press("l", there(content("crates/a/src/x.rs")));
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.tests));
   press("l");
+  await waitFor(() => expect(lensNow()).toBe(copy.lenses.flows));
+  press("l");
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.modules));
+  shiftL();
+  await waitFor(() => expect(lensNow()).toBe(copy.lenses.flows));
   shiftL();
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.tests));
   shiftL();

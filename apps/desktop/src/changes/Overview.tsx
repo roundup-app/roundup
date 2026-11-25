@@ -21,7 +21,7 @@ export const Overview = (props: { lens: Lens; grouped: Grouped; choose: (key: st
       <ul>
         <For each={props.grouped.modules}>{module => <li>
           <button type="button" class="changes-row row-wash" data-entry={moduleKey(module.name)} onClick={() => props.choose(moduleKey(module.name))}>
-            <Name text={module.name} />
+            <Name text={module.label ?? module.name} />
             <span class="changes-row-files">{copy.filesCount(module.total)}</span>
             <Show when={module.counted}><Counts added={module.added} removed={module.removed} /></Show>
           </button>

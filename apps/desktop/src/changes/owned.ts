@@ -7,8 +7,8 @@ import { failureOf } from "../app/failureOf";
 
 export type OwnedRead = { failure: null; groups: OwnedGroup[] } | { failure: string };
 
-/** The tools whose finished call writes a file, for every adapter (U7186a, U7186c). */
-const WRITING = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
+/** The tools whose finished call writes a file, for every adapter (U7186a, U7186c): a finished call of one changes the Agent's Worktree. */
+export const WRITING = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 
 /** U7186c: what each Agent owns, read on first sight, again on a file-writing tool call and when a turn ends, and on no timer. */
 export const createOwnedChanges = (app: AppSeam, events: Events, daemonExit: Accessor<unknown>) => {
