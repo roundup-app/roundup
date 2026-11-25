@@ -497,13 +497,6 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   /** U7916: the one step every user add goes through. */
   const wantedRows = createWantedRows(() => untrack(() => latest(() => model.tree)), () => selectionRevision, select);
 
-  const adding = () => {
-    const since = selectionRevision;
-    const focus = captureFocus(true);
-
-    return (id: string) => wantedRows.want(id, since, focus);
-  };
-
   /** Once the tree holds the Workstream just created, start its Door; its selection is `adding`'s. */
   const openWanted = (tree: readonly RailNode[]) => {
     const wanted = wantedWorkstream;
@@ -637,7 +630,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       try {
         if (workstreamUnknown !== null && !await askOnce(app, "new-workstream-again", { title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
 
-        const added = adding();
+        const added = wantedRows.adding();
 
         wantedWorkstream = (await app.rpc("rail.createWorkstream", params)).id;
         added(wantedWorkstream);
@@ -695,7 +688,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     startDoor,
     resumeTurn: id => app.rpc("message.send", { to: id, kind: "note", body: copy.resumeNote, replyTo: null }).then(() => null, (error: Error) => error.message),
     retryDelivery: id => app.rpc("message.retryDelivery", { id }).then(() => null, (error: Error) => error.message),
-    adding,
+    adding: wantedRows.adding,
     createWorkstream,
     createNamedWorkstream: name => makeWorkstream(name),
     workstreamCreating,

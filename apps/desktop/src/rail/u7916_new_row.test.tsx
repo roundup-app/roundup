@@ -18,13 +18,13 @@ const mount = async () => {
   let nodes: RailNode[] = [workstream("home"), workstream("other")];
   let hidden: RailNode | null = null;
   let release: (() => void) | null = null;
-  let held = false;
+  let paused = false;
   let connected!: ConnectedProject;
 
   const make = (node: RailNode) => { hidden = node; };
 
   app.handlers["rail.tree"] = async () => {
-    if (held) await new Promise<void>(resolve => { release = resolve; });
+    if (paused) await new Promise<void>(resolve => { release = resolve; });
 
     return nodes;
   };
@@ -54,8 +54,8 @@ const mount = async () => {
   return {
     app,
     rail: () => connected.rail,
-    hold: () => { held = true; },
-    reveal: () => { if (hidden) nodes = [...nodes, hidden]; held = false; release?.(); },
+    hold: () => { paused = true; },
+    reveal: () => { if (hidden) nodes = [...nodes, hidden]; paused = false; release?.(); },
     appear: (node: RailNode) => { nodes = [...nodes, node]; },
   };
 };

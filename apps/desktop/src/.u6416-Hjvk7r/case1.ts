@@ -1,1 +1,0 @@
-setAll(all => [...all]);

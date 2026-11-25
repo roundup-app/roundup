@@ -1,4 +1,4 @@
-import type { captureFocus } from "../keys/focus";
+import { captureFocus } from "../keys/focus";
 import type { RailNode } from "@contracts/agent/RailNode";
 
 /** U7916: the rows the user added whose ids `rail.tree` has not shown yet. A row is selected once the tree holds it, unless the user picked another row after the add began (`picks` counts picks). */
@@ -14,11 +14,16 @@ export const createWantedRows = (tree: () => readonly RailNode[], picks: () => n
     for (const row of ready) if (picks() === row.since) select(row.id, row.focus);
   };
 
-  return {
-    settle,
-    want: (id: string, since: number, focus: ReturnType<typeof captureFocus>) => {
+  /** Called when the user starts an add; the function it returns takes the new row's id from the reply. */
+  const adding = () => {
+    const since = picks();
+    const focus = captureFocus(true);
+
+    return (id: string) => {
       wanted.push({ id, since, focus });
       settle();
-    },
+    };
   };
+
+  return { settle, adding };
 };
