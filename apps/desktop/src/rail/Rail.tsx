@@ -46,7 +46,7 @@ import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import { StartMachine } from "./StartMachine";
 import { createLaunch, railCommand } from "./railCommands";
-import { statusOf } from "./attention";
+import { markedBy, statusOf } from "./attention";
 import { hasConversation, isDoor } from "../state/doorNode";
 import { createDraftField } from "../state/draftField";
 import "./styles.css";
@@ -159,7 +159,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   const recoveryEntries = useRecoveryMenu();
 
   const todoCount = createAgentPads();
-  const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const failure = rail.commandFailure;
   const retained = draftsOf(connected.drafts);
@@ -184,6 +183,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
       return offered([
         { when: node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node), id: "dismiss", label: copy.dismissError, run: () => { rail.dismiss(node); } },
+        { when: markedBy(rail.topology(), node, rail.collapsed().has(node.id), rail.dismissed).length > 0, id: "mark-done", label: copy.markDone, run: () => { for (const each of markedBy(rail.topology(), node, rail.collapsed().has(node.id), rail.dismissed)) rail.dismiss(each); } },
         { when: moveAgent.available(node.id), id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) },
         { when: node.kind === "agent" && node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
         { when: node.kind === "agent" && node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
@@ -357,7 +357,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
         if (open.has(id) !== unfolded().has(parent)) setUnfolded(current => toggled(current, parent));
       }
-      else if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+      else if (open.has(id) === rail.collapsed().has(id)) rail.toggleCollapsed(id);
     }
   };
 
@@ -666,7 +666,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   } });
 
   registerKeys({ kind: "region", element: container }, [rename()]);
-  registerKeys({ kind: "app" }, [rename(strandedRow), ...strandedRowKeys({ nodes: () => rail.nodes, ids: nodeIds, selected: rail.selected, collapsed, active: () => daemonExit() === null, toggle: rail.toggleCollapsed, go: next => { setSelected([next]); rail.select(next); focusRow(next); } })]);
+  registerKeys({ kind: "app" }, [rename(strandedRow), ...strandedRowKeys({ nodes: () => rail.nodes, ids: nodeIds, selected: rail.selected, collapsed: rail.collapsed, active: () => daemonExit() === null, toggle: rail.toggleCollapsed, go: next => { setSelected([next]); rail.select(next); focusRow(next); } })]);
 
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(

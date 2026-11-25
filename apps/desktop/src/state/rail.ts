@@ -32,11 +32,11 @@ export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { 
 
 const isTerminal = (item: RailNode | TerminalInfo): item is TerminalInfo => "incarnation" in item;
 
-/** U5151c: one failure, bound to its Attempt and Status revision. U7189: a Terminal's status, bound to the Terminal and the time its Kind last changed, so a new status needs the owner again. */
+/** U5151c, U7915: one failure, or a `needs-you` marked done, bound to its Attempt and Status revision. U7189: a Terminal's status, bound to the Terminal and the time its Kind last changed, so a new status needs the owner again. */
 const failureKey = (item: RailNode | TerminalInfo): string | null => {
   if (isTerminal(item)) return item.status ? `terminal:${item.incarnation}:${item.status.since}` : null;
 
-  return isDoor(item) && item.status?.kind === "error" && item.attempt !== null && item.status_revision !== null ? `${item.id}:${item.attempt}:${item.status_revision}` : null;
+  return isDoor(item) && (item.status?.kind === "error" || item.status?.kind === "needs-you") && item.attempt !== null && item.status_revision !== null ? `${item.id}:${item.attempt}:${item.status_revision}` : null;
 };
 
 export type DismissalStorage = {

@@ -1,6 +1,6 @@
-# UI: The Changes list counts lines in the Daemon (U7610a–U7610c)
+# UI: The Changes list counts lines in the Daemon (U7610a–U7610d)
 
-Module: `crates/agents` and `crates/contracts` (U7610a), `apps/desktop/src/changes/` (U7610b). Ids: U7610a, U7610b, U7610c. Work order: [#7610](https://github.com/roundup-app/roundup/issues/7610); U7610c: [#7874](https://github.com/roundup-app/roundup/issues/7874), blocked by #7678.
+Module: `crates/agents` and `crates/contracts` (U7610a), `apps/desktop/src/changes/` (U7610b). Ids: U7610a, U7610b, U7610c, U7610d. Work order: [#7610](https://github.com/roundup-app/roundup/issues/7610); U7610c: [#7874](https://github.com/roundup-app/roundup/issues/7874), blocked by #7678; U7610d: [#7929](https://github.com/roundup-app/roundup/issues/7929).
 
 Opening Changes froze the App: each file row fetched both full versions through `agent.compareFile` and ran jsdiff's `diffLines` on the main thread, which takes 6.8 s for a 10,000-line rewrite. Contract change (rule 4): `agent.changedFiles` entries gain `counts`; every caller, `scenarios/rpc.md`, `GLOSSARY.md` and the fake App change in the implementation PR. The implementation PR's `Reuse:` section names the git CLI or library the Daemon counts with, as `agent.changedFiles` does. Observer: a Rust test on Linux against a temporary git repository for U7610a; Vitest against the fake App for U7610b. Never a native Mac capture.
 
@@ -18,6 +18,11 @@ Opening Changes froze the App: each file row fetched both full versions through 
 - **No long task.** Opening Changes runs no main-thread task of 200 ms or more on CI, in Chromium and in WebKit: the open yields between tasks or draws only the lines in view, through what the diff library the reader already uses offers before any new code (rule 9). Asserted by `u7610b_a_ten_thousand_line_rewrite_keeps_the_page_responsive`, unchanged: its 200 ms limit and its seed stay.
 - **Same screen.** The first screen of the open module shows the same rows and the same `+added -removed` counts as before, and every U7678 and U2540 test passes unedited. Asserted by those tests.
 - **Measured.** The implementation PR's body gives the longest block WebKit measured on its own check run, before and after. Policy.
+
+**U7610d the open keeps its longest task under 200 ms with margin, in ten runs in a row.** `apps/desktop/src/changes/`, no contract, no Token; amends U7610c's "Measured". After U7610c merged, the WebKit test again blocked 205 to 234 ms on CI (#7929), so the open's longest task sits too near the limit for a slower runner. Given the `u2540.html?dense` seed, then:
+- **Margin.** Ten runs of `u7610b_a_ten_thousand_line_rewrite_keeps_the_page_responsive` on CI's WebKit in a row run no main-thread task of 200 ms or more; its limit, seed and engines stay (no higher limit, retry or skip). Asserted by that test, run ten times in the implementation PR's check.
+- **Named step.** The implementation PR's body names the step that blocks longest, from a profile of the open on that seed, and the fix makes that step yield or move off the open, as U7610c did. Policy.
+- **Lenses start late.** If the Flows lens (U7683a) or the repeat scan (U7685d) is the step, its work starts after the first paint and yields between tasks; U7683 and U7685's tests pass unedited. Asserted by those tests.
 
 Checks on main (numbered references, not claims that this specification implements them):
 

@@ -829,3 +829,6 @@
 
 .program-label { flex: none; inline-size: calc(var(--space-6) * 2); }
 .program-field { flex: 1; inline-size: auto; min-inline-size: 0; text-align: start; overflow-x: auto; overscroll-behavior: contain; }
+
+/* U7915a: the amber dot marks the row done on a pointer click; it stays state, never a control. */
+.rail-row .row-mark { cursor: pointer; }
