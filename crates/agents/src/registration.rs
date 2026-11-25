@@ -105,6 +105,7 @@ impl Shared {
             since,
             old,
             conversation_id,
+            fork,
             cwd,
             prompt,
             starred,
@@ -115,7 +116,7 @@ impl Shared {
         else {
             return Err(RpcError::internal(format!("{id} is not Resuming")));
         };
-        let ack = is_resume_ack(&payload, &conversation_id, self.git.is_forked());
+        let ack = is_resume_ack(&payload, &conversation_id, fork || self.git.is_forked());
         let (terminal_id, rail) = match (terminal_id, rail) {
             (Some(terminal_id), Some(rail)) if ack => (terminal_id, rail),
             (terminal_id, rail) => {
@@ -134,6 +135,7 @@ impl Shared {
                         since,
                         old,
                         conversation_id,
+                        fork,
                         cwd,
                         prompt,
                         starred,
@@ -174,12 +176,15 @@ impl Shared {
         let ack = match runs.slot_mut(id) {
             Some(Slot::Resuming {
                 conversation_id,
+                fork,
                 parked,
                 terminal_id: Some(_),
                 ..
             }) => parked
                 .iter()
-                .position(|(_, payload)| is_resume_ack(payload, conversation_id, git_forked))
+                .position(|(_, payload)| {
+                    is_resume_ack(payload, conversation_id, *fork || git_forked)
+                })
                 .and_then(|position| parked.remove(position)),
             _ => None,
         };
