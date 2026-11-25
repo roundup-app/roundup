@@ -76,7 +76,7 @@ export const FlowTree = (props: { flow: FlowDetail; open: (section: string) => v
     <AppTree class="flow-tree-rows" aria-label={copy.callTree} items={dataOf(rows())} controller={controller} activation="manual" expanded={all().filter(row => row.children.length > 0 && open(row.value)).map(row => row.value)} onExpandedChange={next => setCollapsed(all().filter(row => row.children.length > 0 && !next.includes(row.value)).map(row => row.value))} onValueChange={value => { const section = value === null ? undefined : sectionOf().get(value);
 
  if (section !== undefined) props.open(section); }}>
-      <For each={flatten(rows(), open)}>{row => <TreeItem value={row.value} class="changes-row row-wash" data-row="call" data-status={row.status} data-level={row.depth} aria-label={labelOf(row)}>
+      <For each={flatten(rows(), open)}>{row => <TreeItem value={row.value} class="changes-row row-wash" data-row="call" data-status={row.status} style={{ "--flow-depth": row.depth }} aria-label={labelOf(row)}>
         <Name text={row.label} />
         <Show when={changedStatus(row.status)}>{status => <span class="changes-row-status">{copy.callStatus[status()]}</span>}</Show>
       </TreeItem>}</For>
