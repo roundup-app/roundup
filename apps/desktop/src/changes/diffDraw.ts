@@ -72,7 +72,7 @@ let library: Promise<typeof import("@pierre/diffs")> | undefined;
 export const diffsLoaded = () => library !== undefined;
 
 /** U7610c: ends the task the caller runs in, so a large rewrite's steps each leave the page a turn between them. */
-const yielded = () => new Promise(resolve => setTimeout(resolve));
+export const yielded = () => new Promise(resolve => setTimeout(resolve));
 
 type PatchFile = { name: string; contents: string };
 

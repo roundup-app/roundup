@@ -17,7 +17,7 @@ import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Takes } from "./modules";
 import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
-import { annotate, drawDiff, gatheredNotes, lineAnnotations } from "./diffDraw";
+import { annotate, drawDiff, gatheredNotes, lineAnnotations, yielded } from "./diffDraw";
 import { outdated } from "./diffDraw";
 import type { Annotated, Composer, Noted, Shared } from "./diffDraw";
 import { RepeatedLines } from "./RepeatedLines";
@@ -299,6 +299,16 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
       if (!shared) virtualizer.setup(mount);
       view.render({ fileContainer: container, fileDiff });
+
+      // U7610d: the first render of a 20,000-line diff is a task of its own; the annotation and repeat passes the renderer starts (the Flows lens and the repeat scan) run in the next one.
+      await yielded();
+
+      if (!current) { view.cleanUp();
+
+ if (!shared) virtualizer.cleanUp(); container.remove();
+
+ return; }
+
       setRenderer(view);
 
       view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
