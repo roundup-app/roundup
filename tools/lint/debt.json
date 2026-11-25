@@ -1,8 +1,8 @@
 {
   "size": [
 
-    {"path": "loop/builder.py", "ceiling": 1446, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "loop/builder.test.py", "ceiling": 1565, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "loop/builder.py", "ceiling": 1433, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "loop/builder.test.py", "ceiling": 1563, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "proofs/messages/PROOF.bend", "ceiling": 1630, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."}
   ],
   "ast": [
