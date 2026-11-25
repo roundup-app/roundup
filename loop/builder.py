@@ -388,14 +388,18 @@ def claude_env():
     return {**deadline.BASH_LIMITS, **{name: value for name, value in os.environ.items() if name != 'CLAUDE_CODE_OAUTH_TOKEN'}}
 
 
+def log_line(line):
+    """Say `line` in the log and as an item of the job summary."""
+    print(line, file=sys.stderr, flush=True)
+    if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(summary, 'a') as out:
+            out.write(f'- {line}\n')
+
+
 def log_cost(label, cost):
     """One line of the log and the job summary for a Claude Code call's dollar `cost`, on API credit only."""
     if switched():
-        line = f'cost of {label}: ' + (f'${cost:.4f}' if isinstance(cost, (int, float)) else 'not reported')
-        print(line, file=sys.stderr, flush=True)
-        if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
-            with open(summary, 'a') as out:
-                out.write(f'- {line}\n')
+        log_line(f'cost of {label}: ' + (f'${cost:.4f}' if isinstance(cost, (int, float)) else 'not reported'))
 
 
 def log_usage(label, lines):
@@ -405,12 +409,8 @@ def log_usage(label, lines):
     usage = scorecard.turns(scorecard.events('\n'.join(lines)))
     total = {key: sum(turn.get(key, 0) for turn in usage) for key in ('input_tokens', 'cached_input_tokens', 'output_tokens')}
     share = f"{total['cached_input_tokens'] / total['input_tokens']:.0%}" if total['input_tokens'] else 'n/a'
-    line = (f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
-            f"output {total['output_tokens']}" if usage else f'usage of {label}: not reported')
-    print(line, file=sys.stderr, flush=True)
-    if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
-        with open(summary, 'a') as out:
-            out.write(f'- {line}\n')
+    log_line(f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
+             f"output {total['output_tokens']}" if usage else f'usage of {label}: not reported')
 
 
 def say_why(events):
