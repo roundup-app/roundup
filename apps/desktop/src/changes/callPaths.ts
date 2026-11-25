@@ -21,7 +21,7 @@ type Line = { language: string; files: number; state: "tracing" | "untraced" | "
 
 const NO_SERVER: Result = { kind: "noServer" };
 
-type Held = { answer: CallPaths | undefined };
+type Reply = { answer: CallPaths | undefined };
 
 const lineOf = (row: LanguageRow, state: Line["state"], action: Line["action"] = undefined, cause: string | undefined = undefined): Line => ({ language: row.language, files: row.files, state, action, cause });
 
@@ -56,13 +56,13 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
   const ask = async (language: string | undefined) => {
     const to = input.to();
     const mine = generation;
-    const held: Held = { answer: undefined };
+    const reply: Reply = { answer: undefined };
 
     if (!to) return undefined;
 
-    const failure = await failureOf(async () => { held.answer = await input.app.rpc("agent.callPaths", language === undefined ? { id: input.id, to } : { id: input.id, to, language }); });
+    const failure = await failureOf(async () => { reply.answer = await input.app.rpc("agent.callPaths", language === undefined ? { id: input.id, to } : { id: input.id, to, language }); });
 
-    return mine === generation ? { failure, answer: held.answer } : undefined;
+    return mine === generation ? { failure, answer: reply.answer } : undefined;
   };
 
   const trace = async (language: string) => {
