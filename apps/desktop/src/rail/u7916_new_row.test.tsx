@@ -1,264 +1,513 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { flush } from "solid-js";
-import { RequestedApp as App } from "../testing/requestedApp";
+import { App } from "../App";
+import { RequestedApp } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, mode, workstream, node as groupNode } from "../testing/nodes";
-import { copy } from "./copy";
-import { chooseFooter, mountRail, pinnedAdd, rowOf, settled } from "./railFixture";
-import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
+import {
+  agent,
+  event,
+  mode,
+  workstream,
+  node as groupNode,
+} from "../testing/nodes";
+import { todo } from "../todos/testHarness";
+import { todoHandlers } from "../testing/stores";
+import type { TodoStore } from "../testing/stores";
+import type { Actor } from "@contracts/Actor";
+import { openProjectPage } from "../testing/menuProbe";
 import { fakeEmulators } from "../terminal/paneHarness";
+import {
+  openSwitcher,
+  field as switcherField,
+  switcherKey,
+} from "../switcher/switcherFixture";
+import { copy } from "./copy";
+import { chooseFooter, rowOf, settled } from "./railFixture";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 
-afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
-/** The Daemon answers the creating call at once; `rail.tree` shows the row only after `reveal`. */
-const mount = async () => {
+const MADE = { name: "made one" };
+
+/** The App on a fake Daemon. A creating call answers at once with the row `made`, which `rail.tree` shows only after `reveal`. */
+const mount = async (
+  options: { empty?: boolean; plain?: boolean; todos?: true } = {},
+) => {
   const root = createFakeApp();
   root.add("/p");
   const app = root.of("/p");
-  let nodes: RailNode[] = [workstream("home"), workstream("other")];
+
+  let nodes: RailNode[] = options.empty
+    ? []
+    : [
+        workstream("home"),
+        workstream("other"),
+        agent("keep", "idle", "", { can_save_as_mode: true }),
+      ];
+
   let hidden: RailNode | null = null;
-  let release: (() => void) | null = null;
-  let paused = false;
   let connected!: ConnectedProject;
 
-  const make = (node: RailNode) => { hidden = node; };
+  const make = <Node extends RailNode>(node: Node): Node => {
+    hidden = node;
 
-  app.handlers["rail.tree"] = async () => {
-    if (paused) await new Promise<void>(resolve => { release = resolve; });
-
-    return nodes;
+    return node;
   };
 
+  app.handlers["rail.tree"] = () => nodes;
   app.handlers["terminal.list"] = () => [];
-  app.handlers["agent.spawn"] = () => {
-    const made = agent("made", "idle", "starting");
+  app.handlers["agent.spawn"] = () =>
+    make(agent("made", "idle", "starting", MADE));
+  app.handlers["rail.createWorkstream"] = () => make(workstream("made", MADE));
+  app.handlers["rail.startDoor"] = () => workstream("made", MADE);
+  app.handlers["agent.createMode"] = () => make(mode("made", "go", MADE));
+  app.handlers["agent.restartMode"] = () => mode("made", "go", MADE);
+  app.handlers["agent.saveAsMode"] = () => make(mode("made", "go", MADE));
+  app.handlers["rail.group"] = () =>
+    make(groupNode("made", { kind: "group", ...MADE }));
+  app.handlers["agent.adoptable"] = () => [
+    {
+      path: "/w/feature",
+      branch: "feature",
+      ahead: 0,
+      dirty: false,
+      changed: 0,
+      refusal: null,
+    },
+  ];
+  app.handlers["agent.adopt"] = () => make(agent("made", "idle", "", MADE));
 
-    make(made);
+  if (options.todos) {
+    const store: TodoStore = { todos: [todo(1, { title: "Ship it" })] };
 
-    return made;
-  };
+    Object.assign(
+      app.handlers,
+      todoHandlers(store, (announced) => app.emit(event(announced))),
+      { "todo.startWorkstream": () => make(workstream("made", MADE)) },
+    );
+  }
 
-  app.handlers["rail.createWorkstream"] = () => {
-    const made = workstream("made");
+  const Mounted = options.plain ? App : RequestedApp;
+  render(() => (
+    <Mounted
+      app={root}
+      createEmulator={fakeEmulators().factory}
+      clock={() => 0}
+      reducedMotion={() => true}
+      initialShelfOpen
+      prepareIdle={(value) => {
+        connected = value;
+      }}
+    />
+  ));
+  await waitFor(() => expect(connected).toBeDefined());
 
-    make(made);
-
-    return made;
-  };
-
-  app.handlers["rail.startDoor"] = () => workstream("made");
-
-  render(() => <App app={root} createEmulator={fakeEmulators().factory} clock={() => 0} reducedMotion={() => true} prepareIdle={value => { connected = value; }} />);
-  await waitFor(() => expect(document.querySelector('.rail-row[data-id="home"]')).not.toBeNull());
+  if (!options.empty)
+    await waitFor(() =>
+      expect(
+        document.querySelector('.rail-row[data-id="home"]'),
+      ).not.toBeNull(),
+    );
 
   return {
     app,
+    root,
+    make,
     rail: () => connected.rail,
-    hold: () => { paused = true; },
-    reveal: () => { if (hidden) nodes = [...nodes, hidden]; paused = false; release?.(); },
-    appear: (node: RailNode) => { nodes = [...nodes, node]; },
+    shown: (id: string) => document.querySelector(`.rail-row[data-id="${id}"]`),
+    appear: async (node: RailNode, actor?: Actor) => {
+      nodes = [...nodes, node];
+      app.emit(
+        actor
+          ? { ...event({ name: "rail.changed" }), actor }
+          : event({ name: "rail.changed" }),
+      );
+      await waitFor(() =>
+        expect(
+          document.querySelector(`.rail-row[data-id="${node.id}"]`),
+        ).not.toBeNull(),
+      );
+    },
+    reveal: async () => {
+      if (hidden) {
+        nodes = [...nodes, hidden];
+        app.emit(event({ name: "rail.changed" }));
+        await waitFor(() =>
+          expect(
+            document.querySelector('.rail-row[data-id="made"]'),
+          ).not.toBeNull(),
+        );
+      }
+    },
+    calls: (method: string) =>
+      app.calls.filter((call) => call.method === method),
   };
 };
 
-
 type Mounted = Awaited<ReturnType<typeof mount>>;
 
-const footer = async (name: string) => {
-  fireEvent.click(await screen.findByRole("button", { name: "Create" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: new RegExp(`^${name}`) }));
+const required = <Value,>(value: Value | null | undefined): Value => {
+  if (value === null || value === undefined)
+    throw new Error("expected a value");
+
+  return value;
 };
 
-/** Each way the user adds a row; the others (chord, strip, empty Rail, menu bar, pane, Switcher, `⇧⌘N`) end in these two calls. */
-const addPaths = {
-  "cmd-n": { method: "agent.spawn", run: async () => { fireEvent.keyDown(window, { key: "n", code: "KeyN", metaKey: true }); } },
-  "footer-agent": { method: "agent.spawn", run: () => footer("Agent") },
-  "footer-workstream": { method: "rail.createWorkstream", run: () => footer("Workstream") },
-  "create-workstream": { method: "rail.createWorkstream", run: async (m: Mounted) => { void m.rail().createWorkstream(); } },
-} as const;
+const asks = async () => {
+  fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
 
-const created = (m: Mounted, method: string) => m.app.calls.filter(call => call.method === method);
+  const bar = await screen.findByRole<HTMLTextAreaElement>("textbox", {
+    name: "Ask",
+  });
 
+  fireEvent.pointerDown(bar);
+  bar.focus();
+};
+
+/** What the user does between the add and the row's appearance. None is a pick, so none cancels the selection or moves focus. */
 const interventions = {
-  press: () => fireEvent.pointerDown(document.querySelector(".rail-scroll") ?? document.body),
-  askBar: async () => {
-    fireEvent.keyDown(window, { key: "/", code: "Slash", metaKey: true });
-    await waitFor(() => expect(document.activeElement?.closest(".ask-bar")).not.toBeNull());
+  press: () => {
+    fireEvent.pointerDown(
+      document.querySelector(".rail-scroll") ?? document.body,
+    );
   },
-  none: () => undefined,
-} as const;
-
-
-const pathKeys = ["cmd-n", "footer-agent", "footer-workstream", "create-workstream"] as const;
-
-const stepKeys = ["press", "askBar", "none"] as const;
-
-const aCases = pathKeys.flatMap(path => stepKeys.map(step => [path, step] as const));
-
-it.each(aCases)("u7916a_an_added_agent_or_workstream_is_selected_after_a_press_%s_%s", async (path, step) => {
-  const m = await mount();
-  const { method, run } = addPaths[path];
-
-  m.hold();
-  await run(m);
-  await waitFor(() => expect(created(m, method)).toHaveLength(1));
-  await interventions[step]();
-  const focused = document.activeElement;
-  m.reveal();
-  await waitFor(() => expect(m.rail().selected()).toBe("made"));
-  await waitFor(() => expect(document.querySelector('.rail-row[data-id="made"][data-selected]')).not.toBeNull());
-  expect(created(m, method)).toHaveLength(1);
-
-  // With no press or focus change in between, an Agent's own Terminal takes focus on arrival (U3756).
-  if (step !== "none") expect(document.activeElement).toBe(focused);
-});
-
-it.each(["agent", "workstream"] as const)("u7916c_a_newer_pick_wins_and_an_agents_start_never_selects_%s", async path => {
-  const m = await mount();
-  m.hold();
-
-  await addPaths[path === "agent" ? "cmd-n" : "create-workstream"].run(m);
-  await waitFor(() => expect(created(m, path === "agent" ? "agent.spawn" : "rail.createWorkstream")).toHaveLength(1));
-  m.rail().select("other");
-  flush();
-  m.reveal();
-  await waitFor(() => expect(m.rail().nodes.some(node => node.id === "made")).toBe(true));
-  expect(m.rail().selected()).toBe("other");
-});
-
-it("u7916c_a_row_an_agent_starts_never_takes_the_selection", async () => {
-  const m = await mount();
-  m.rail().select("home");
-  flush();
-  m.appear(agent("spawned", "idle", "starting"));
-  await m.rail().refresh();
-  await waitFor(() => expect(m.rail().nodes.some(node => node.id === "spawned")).toBe(true));
-  expect(m.rail().selected()).toBe("home");
-});
-
-/** The Rail on a fake Daemon whose tree shows `made` only after `reveal`, with the Pane mounted. */
-const mountHidden = async (made: RailNode, setup?: (app: Awaited<ReturnType<typeof mountRail>>["app"]) => void) => {
-  const tree: RailNode[] = [workstream("home"), workstream("other"), agent("keep", "idle", "", { can_save_as_mode: true })];
-  const m = await mountRail(tree, [], () => null, () => true, { pane: fakeEmulators().factory }, [], undefined, setup);
-  let hidden = true;
-  const visible = () => (hidden ? tree : [...tree, made]);
-
-  m.app.handlers["rail.tree"] = () => visible();
-
-  return { ...m, tree, made, reveal: async () => { hidden = false; await m.rail.refresh(); } };
+  ask: asks,
+  /** Only a path a menu started has one: the menu closing hands focus back to its trigger. */
+  menu: () => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()),
 };
 
-const shownPane = (name: string) => expect(document.querySelector(".pane")?.textContent).toContain(name);
+type Add = {
+  creates: string;
+  menu?: true;
+  todos?: true;
+  /** The page this path opens covers the Ask bar. */
+  noAsk?: true;
+  empty?: boolean;
+  plain?: boolean;
+  run: (m: Mounted) => Promise<void> | void;
+};
 
-type Hidden = Awaited<ReturnType<typeof mountHidden>>;
+const emptyRail = (label: string) => () => {
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "No Agents yet" })).getByRole(
+      "button",
+      { name: label },
+    ),
+  );
+};
+
+const aPaths = {
+  "agent ⌘N": {
+    creates: "agent.spawn",
+    run: () => {
+      fireEvent.keyDown(window, { key: "n", code: "KeyN", metaKey: true });
+    },
+  },
+  "agent footer menu": {
+    creates: "agent.spawn",
+    menu: true,
+    run: () => chooseFooter("Agent"),
+  },
+  "agent empty Rail": {
+    creates: "agent.spawn",
+    empty: true,
+    run: emptyRail("New Agent"),
+  },
+  "agent menu bar": {
+    creates: "agent.spawn",
+    run: () => openProjectPage("action:chord:⌘N", "/p"),
+  },
+  "agent pane": {
+    creates: "agent.spawn",
+    plain: true,
+    run: async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "New Agent" }));
+    },
+  },
+  "agent ⇧⌘N prompt": {
+    creates: "agent.spawn",
+    run: async () => {
+      fireEvent.keyDown(document, {
+        key: "n",
+        code: "KeyN",
+        metaKey: true,
+        shiftKey: true,
+      });
+      const task = await screen.findByLabelText<HTMLTextAreaElement>(copy.task);
+      fireEvent.input(task, { target: { value: "go" } });
+      fireEvent.keyDown(task, { key: "Enter" });
+    },
+  },
+  "workstream footer menu": {
+    creates: "rail.createWorkstream",
+    menu: true,
+    run: () => chooseFooter("Workstream"),
+  },
+  "workstream ⌥⌘N": {
+    creates: "rail.createWorkstream",
+    run: () => {
+      fireEvent.keyDown(window, {
+        key: "n",
+        code: "KeyN",
+        metaKey: true,
+        altKey: true,
+      });
+    },
+  },
+  "workstream strip": {
+    creates: "rail.createWorkstream",
+    run: () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Collapse the Rail" }),
+      );
+      fireEvent.click(required(document.querySelector(".rail-strip-add")));
+    },
+  },
+  "workstream empty Rail": {
+    creates: "rail.createWorkstream",
+    empty: true,
+    run: emptyRail("New Workstream"),
+  },
+  "workstream Switcher": {
+    creates: "rail.createWorkstream",
+    run: async () => {
+      openSwitcher();
+      await waitFor(() => expect(switcherField()).not.toBeNull());
+      fireEvent.input(required(switcherField()), {
+        target: { value: "zzz plan" },
+      });
+      await waitFor(() =>
+        expect(required(switcherField()).value).toBe("zzz plan"),
+      );
+      switcherKey("Enter");
+      await waitFor(() => expect(switcherField()).toBeNull());
+    },
+  },
+} satisfies Record<string, Add>;
+
+const shownPane = () =>
+  waitFor(() =>
+    expect(
+      document.querySelector(
+        '.pane [data-agent="made"], .pane-group[aria-label="made one"]',
+      ),
+    ).not.toBeNull(),
+  );
+
+/** U7916a, U7916b: after `intervene`, the row the add made is selected once it appears, its pane shows, the add ran once and focus stays where `intervene` left it. */
+const selectsAfter = async (
+  path: Add,
+  intervention: keyof typeof interventions,
+  keepsFocus: boolean,
+) => {
+  const m = await mount(path);
+  await path.run(m);
+  await waitFor(() => expect(m.calls(path.creates)).toHaveLength(1));
+  await interventions[intervention]();
+  await settled();
+  const focused = document.activeElement;
+  await m.reveal();
+  await waitFor(() => expect(m.rail().selected()).toBe("made"));
+  await shownPane();
+  await settled();
+  expect(m.calls(path.creates)).toHaveLength(1);
+
+  // The menu a footer pick closes hands focus to its trigger, and arrival focus (U3756) then goes to the new row; no press or focus change is there to keep it.
+  if (keepsFocus && intervention !== "menu")
+    expect(document.activeElement).toBe(focused);
+};
+
+const cells = (paths: Readonly<Record<string, Add>>) =>
+  Object.entries(paths).flatMap(([name, path]) =>
+    // SAFETY: `Object.keys` of `interventions` lists exactly its own names.
+    (Object.keys(interventions) as (keyof typeof interventions)[])
+      .filter((intervention) => intervention !== "menu" || path.menu)
+      .filter((intervention) => intervention !== "ask" || !path.noAsk)
+      .map((intervention) => ({ name, path, intervention })),
+  );
+
+it.each(cells(aPaths))(
+  "u7916a_an_added_agent_or_workstream_is_selected_after_a_press: $name, $intervention",
+  ({ path, intervention }) => selectsAfter(path, intervention, true),
+);
 
 const bPaths = {
-  mode: {
-    made: mode("made", "go", { name: "made one" }),
-    setup: (app, made) => { app.handlers["agent.createMode"] = () => made; app.handlers["agent.restartMode"] = () => made; },
+  Mode: {
+    creates: "agent.createMode",
+    menu: true,
     run: async () => {
       await chooseFooter("Mode");
-      fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "made one" } });
-      fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: "go" } });
+      fireEvent.input(screen.getByRole("textbox", { name: "Name" }), {
+        target: { value: MADE.name },
+      });
+      fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), {
+        target: { value: "go" },
+      });
       fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
     },
   },
-  group: {
-    made: groupNode("made", { kind: "group", name: "made one" }),
-    setup: (app, made) => { app.handlers["rail.group"] = () => made; },
-    run: async m => {
-      for (const id of ["home", "other"]) { rowOf(id).focus(); fireEvent.click(rowOf(id), { metaKey: true }); await settled(); }
+  Group: {
+    creates: "rail.group",
+    run: async (m) => {
+      for (const name of ["home", "other"]) {
+        rowOf(name).focus();
+        fireEvent.click(rowOf(name), { metaKey: true });
+        await settled();
+      }
 
       fireEvent.contextMenu(rowOf("home"));
-      await m.app.pickMenu("Group");
+      await m.root.pickMenu("Group");
     },
   },
-  adopt: {
-    made: agent("made", "idle", "", { name: "made one" }),
-    setup: (app, made) => {
-      app.handlers["agent.adoptable"] = () => [{ path: "/w/feature", branch: "feature", ahead: 0, dirty: false, changed: 0, refusal: null }];
-      app.handlers["agent.adopt"] = () => made;
-    },
+  "Adopt Worktree": {
+    creates: "agent.adopt",
+    menu: true,
     run: async () => {
-      fireEvent.click(pinnedAdd());
-      fireEvent.click(await screen.findByRole("menuitem", { name: /^Adopt Worktree/ }));
+      fireEvent.click(await screen.findByRole("button", { name: "Create" }));
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: /^Adopt Worktree/ }),
+      );
       fireEvent.click(await screen.findByRole("option", { name: /feature/ }));
     },
   },
-  saveAsMode: {
-    made: mode("made", "go", { name: "made one" }),
-    setup: (app, made) => { app.handlers["agent.saveAsMode"] = () => made; },
-    run: async m => {
+  "Save as Mode": {
+    creates: "agent.saveAsMode",
+    run: async (m) => {
       fireEvent.contextMenu(rowOf("keep"), { clientX: 1, clientY: 1 });
-      await m.app.pickMenu(copy.saveAsMode);
-      fireEvent.input(await screen.findByRole("textbox", { name: copy.name }), { target: { value: "made one" } });
+      await m.root.pickMenu(copy.saveAsMode);
+      fireEvent.input(await screen.findByRole("textbox", { name: copy.name }), {
+        target: { value: MADE.name },
+      });
       fireEvent.click(screen.getByRole("button", { name: copy.saveMode }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     },
   },
-  import: {
-    made: agent("made", "idle", "starting", { name: "made one" }),
-    setup: (app, made) => { app.handlers["agent.spawn"] = () => made; },
-    run: async m => { await m.connected.importing.start(); },
+  "Todo's New Workstream": {
+    creates: "todo.startWorkstream",
+    todos: true,
+    run: async () => {
+      const group = await waitFor(() => {
+        const found = document.querySelector<HTMLElement>(
+          '[data-shelf-group="unassigned"] [data-slot="tree-item"][data-branch]',
+        );
+
+        expect(found).not.toBeNull();
+
+        return required(found);
+      });
+
+      fireEvent.click(group);
+      group.blur();
+      const row = await screen.findByRole("button", { name: /#1 Ship it/ });
+      row.focus();
+      fireEvent.keyDown(row, { key: "o", code: "KeyO" });
+      fireEvent.click(
+        within(await screen.findByRole("menu")).getByText("New Workstream…"),
+      );
+      fireEvent.click(
+        within(
+          await screen.findByRole("dialog", { name: "New Workstream" }),
+        ).getByRole("button", { name: "Create" }),
+      );
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    },
   },
-} satisfies Record<string, { made: RailNode; run: (m: Hidden) => Promise<void>; setup?: (app: Hidden["app"], made: RailNode) => void }>;
+  "import listing Agent": {
+    creates: "agent.spawn",
+    noAsk: true,
+    run: async (m) => {
+      openProjectPage("import-work", "/p");
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Start import Agent" }),
+      );
+      await waitFor(() => expect(m.calls("agent.spawn")).toHaveLength(1));
+    },
+  },
+} satisfies Record<string, Add>;
 
-const bKeys = ["mode", "group", "adopt", "saveAsMode", "import"] as const;
+it.each(cells(bPaths))(
+  "u7916b_every_other_add_path_selects_its_new_row: $name, $intervention",
+  ({ path, intervention }) => selectsAfter(path, intervention, false),
+);
 
-it.each(bKeys)("u7916b_every_other_add_path_selects_its_new_row_%s", async key => {
-  const path = bPaths[key];
-  const m = await mountHidden(path.made, app => { if ("setup" in path) path.setup(app, path.made); });
+const named = (paths: Readonly<Record<string, Add>>) =>
+  Object.entries(paths).map(([name, path]) => ({ name, path }));
 
-  await path.run(m);
-  await settled();
-  fireEvent.pointerDown(document.querySelector(".rail-scroll") ?? document.body);
-  await m.reveal();
-  await waitFor(() => expect(m.rail.selected()).toBe("made"));
-  shownPane("made");
-});
+const USER_PICK = "other";
 
-it.each(bKeys)("u7916c_a_newer_pick_wins_after_%s", async key => {
-  const path = bPaths[key];
-  const m = await mountHidden(path.made, app => { if ("setup" in path) path.setup(app, path.made); });
+/** U7916c: the user picks `other` after the add and before the new row appears. */
+it.each(named({ ...aPaths, ...bPaths }))(
+  "u7916c_a_newer_pick_wins_and_an_agents_start_never_selects: a pick after $name",
+  async ({ path }) => {
+    const m = await mount(path);
+    await path.run(m);
+    await waitFor(() => expect(m.calls(path.creates)).toHaveLength(1));
 
-  await path.run(m);
-  await settled();
-  m.rail.select("other");
-  flush();
-  await m.reveal();
-  await waitFor(() => expect(m.rail.nodes.some(node => node.id === "made")).toBe(true));
-  expect(m.rail.selected()).toBe("other");
-});
+    // An empty Rail has no other row yet: one arrives as the Daemon's own change.
+    if (!m.shown(USER_PICK)) await m.appear(workstream(USER_PICK));
+    const row = required(m.shown(USER_PICK));
+    fireEvent.pointerDown(row);
+    fireEvent.click(row.querySelector(".name") ?? row);
+    await waitFor(() => expect(m.rail().selected()).toBe(USER_PICK));
+    await m.reveal();
+    await settled();
+    expect(m.rail().selected()).toBe(USER_PICK);
+    expect(m.calls(path.creates)).toHaveLength(1);
+  },
+);
 
-it.each(["press", "newer pick"] as const)("u7916b_a_todos_new_workstream_selects_its_row_%s", async step => {
-  const { app, connected } = await mountTodos([todo(1, { title: "Ship the login fix" })], true, [workstream("home"), workstream("other")], true);
-  let revealed = false;
-  const made = workstream("made", { name: "Login" });
+const AGENT: Actor = { kind: "agent", id: "keep", parent: null };
 
-  app.handlers["rail.tree"] = () => (revealed ? [workstream("home"), workstream("other"), made] : [workstream("home"), workstream("other")]);
-  app.handlers["todo.startWorkstream"] = () => made;
-  const name = /^(?:Idle|Blocked|Done) #1 Ship the login fix/;
+/** What the Daemon shows when an Agent starts a row: a `rail.changed` it caused, and the row. */
+const started = {
+  agent_spawn: () => agent("started", "idle", "starting"),
+  rail_createWorkstream: () => workstream("started"),
+  "project.start": () => agent("started", "idle", "starting"),
+};
 
-  // The harness toggles the Unassigned group; the disclosure state outlives the first mount.
-  if (!screen.queryByRole("button", { name })) fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-slot="tree-item"][data-branch]') ?? document.body);
+// SAFETY: `Object.keys` of `started` lists exactly its own names.
+it.each(Object.keys(started) as (keyof typeof started)[])(
+  "u7916c_a_newer_pick_wins_and_an_agents_start_never_selects: the row an Agent starts with %s",
+  async (how) => {
+    const m = await mount();
+    fireEvent.click(required(required(m.shown("home")).querySelector(".name")));
+    await waitFor(() => expect(m.rail().selected()).toBe("home"));
 
-  const row = await screen.findByRole("button", { name });
+    if (how === "project.start") {
+      m.app.handlers["agent.spawn"] = () => started[how]();
 
-  row.focus();
-  fireEvent.keyDown(row, { key: "o", code: "KeyO" });
-  fireEvent.click(await screen.findByText("New Workstream…"));
-  const dialog = await screen.findByRole("dialog", { name: "New Workstream" });
+      const reply = await m.root.requestAction({
+        id: 7,
+        method: "project.start",
+        params: {
+          path: "/p",
+          source: "/p",
+          agent: { id: "keep", name: "keep" },
+          kind: "agent",
+          name: "started",
+          prompt: "go",
+        },
+      });
 
-  fireEvent.input(within(dialog).getByLabelText("Workstream name"), { target: { value: "Login" } });
-  fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
-  await waitFor(() => expect(todoCallsTo(app, "todo.startWorkstream")).toHaveLength(1));
+      expect(reply).not.toHaveProperty("error");
+      expect(m.calls("agent.spawn")).toHaveLength(1);
+    }
 
-  if (step === "press") fireEvent.pointerDown(document.body); else { connected.rail.select("other"); flush(); }
-
-  revealed = true;
-  await connected.rail.refresh();
-  await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "made")).toBe(true));
-  expect(connected.rail.selected()).toBe(step === "press" ? "made" : "other");
-  expect(todoCallsTo(app, "todo.startWorkstream")).toHaveLength(1);
-});
+    await m.appear(started[how](), AGENT);
+    await settled();
+    expect(m.shown("started")).not.toBeNull();
+    expect(m.rail().selected()).toBe("home");
+  },
+);
