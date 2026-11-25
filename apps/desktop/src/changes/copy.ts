@@ -229,7 +229,7 @@ export const copy = {
   /** U7688a to U7688f: the readback the Overview carries, its states, the gaps and the diagram. */
   readback: "Readback",
   /** @prose */
-  readbackQuiet: "A model reads the diff alone and says what it changes.",
+  readbackQuiet: "A model that never saw the conversation reads only the diff. It says what it changes.",
   /** @prose */
   readBack: "Read back changes",
   readBackAgain: "Read back again",
