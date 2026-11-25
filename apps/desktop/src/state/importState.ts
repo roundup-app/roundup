@@ -98,8 +98,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [failed, setFailed] = createSignal<ReadonlyMap<string, ImportFailure>>(new Map());
   const [restoreFailure, setRestoreFailure] = createSignal(restored.status === "failed");
   let latest = 0;
-  let adding: () => (id: string) => void = () => () => undefined;
-  let deadline: ReturnType<typeof setTimeout> | undefined;
+  let deadline: ReturnType<typeof setTimeout> | undefined; let adding: () => (id: string) => void = () => () => undefined;
   const invalidate = () => { latest++; clearTimeout(deadline); };
 
   const choices = () => versions().flatMap(entry => {
@@ -275,8 +274,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       if (starting() || pending()) return;
       setStarting(true); setStartFailure(null); setFailure(null); invalidate(); setLoading(false);
       const text = prompt();
-      const submittedRevision = draftRevision;
-      const added = adding();
+      const submittedRevision = draftRevision; const added = adding();
 
       if (submittedRevision) await drafts?.submit(submittedRevision);
 
