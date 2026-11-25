@@ -16,6 +16,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import carry  # noqa: E402
 import deadline  # noqa: E402
 import event_line  # noqa: E402
 import image_tools  # noqa: E402
@@ -387,14 +388,18 @@ def claude_env():
     return {**deadline.BASH_LIMITS, **{name: value for name, value in os.environ.items() if name != 'CLAUDE_CODE_OAUTH_TOKEN'}}
 
 
+def log_line(line):
+    """Say `line` in the log and as an item of the job summary."""
+    print(line, file=sys.stderr, flush=True)
+    if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(summary, 'a') as out:
+            out.write(f'- {line}\n')
+
+
 def log_cost(label, cost):
     """One line of the log and the job summary for a Claude Code call's dollar `cost`, on API credit only."""
     if switched():
-        line = f'cost of {label}: ' + (f'${cost:.4f}' if isinstance(cost, (int, float)) else 'not reported')
-        print(line, file=sys.stderr, flush=True)
-        if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
-            with open(summary, 'a') as out:
-                out.write(f'- {line}\n')
+        log_line(f'cost of {label}: ' + (f'${cost:.4f}' if isinstance(cost, (int, float)) else 'not reported'))
 
 
 def log_usage(label, lines):
@@ -404,12 +409,8 @@ def log_usage(label, lines):
     usage = scorecard.turns(scorecard.events('\n'.join(lines)))
     total = {key: sum(turn.get(key, 0) for turn in usage) for key in ('input_tokens', 'cached_input_tokens', 'output_tokens')}
     share = f"{total['cached_input_tokens'] / total['input_tokens']:.0%}" if total['input_tokens'] else 'n/a'
-    line = (f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
-            f"output {total['output_tokens']}" if usage else f'usage of {label}: not reported')
-    print(line, file=sys.stderr, flush=True)
-    if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
-        with open(summary, 'a') as out:
-            out.write(f'- {line}\n')
+    log_line(f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
+             f"output {total['output_tokens']}" if usage else f'usage of {label}: not reported')
 
 
 def say_why(events):
@@ -994,16 +995,10 @@ def restarted(pr):
 
 
 def approved(current, marker):
-    """Whether the last `marker` comment (`VERDICT:` or `CRITIC:`) on the PR's diff as its head holds it approves: one
-    naming that head, or an earlier head whose diff has the same patch-id (L24), as a merge of `main` keeps it."""
-    head, now = current['headRefOid'], None
+    """Whether the last `marker` comment (`VERDICT:` or `CRITIC:`) on the PR's diff as its head holds (`carry.stands_for`) approves."""
     for note in reversed(orders.marked(current['number'], marker)):
-        earlier = orders.field(note['body'], 'Head', '')
-        if earlier != head:
-            now = patch_id(head) if now is None else now
-            if not now or patch_id(earlier) != now:
-                continue
-        return note['body'].startswith(f'{marker} approve')
+        if carry.stands_for(current['headRefOid'], orders.field(note['body'], 'Head', ''), marker):
+            return note['body'].startswith(f'{marker} approve')
     return False
 
 
@@ -1100,9 +1095,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
         # A fix run answered the last reject, and its push or `fixed` starts a new review: that verdict decides, not the old one.
         return None
     criticisms = orders.marked(pr, 'CRITIC:')
-    if cause == 'critic' and not (criticisms and criticisms[-1]['body'].startswith('CRITIC: reject') and
-                                  orders.field(criticisms[-1]['body'], 'Head', '') == head and
-                                  orders.created(criticisms[-1]['created_at']) > answered):
+    if cause == 'critic' and not carry.open_reject(head, criticisms, answered):
         # The head moved, or a fix run answered this reject: its next critic run decides.
         return None
     if len(attempts) >= fix_attempts() and not plumbing and not revive(current, cause):
@@ -1203,31 +1196,24 @@ def clauses(ids):
     return '\n\n'.join(['\n'.join(text).rstrip() for text in found.values()] + missing)
 
 
-def patch_id(head):
-    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' when GitHub gives none."""
-    try:
-        diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
-                    '--allow-escape-sequences')
-    except subprocess.CalledProcessError:
-        return ''
-    found = subprocess.run(['git', 'patch-id', '--stable'], input=diff, check=True, text=True, capture_output=True).stdout
-    return found.split()[0] if found else ''
-
-
 def carried(current, marker, context):
     """L24: whether `context` keeps an earlier approval for the PR's head. When the diff there has the patch-id of the
     diff at a head whose `marker` comment approved, set the same `success` status naming that head; a head GitHub can no
     longer diff, or cannot diff at all (HTTP 422 on #5484's 2.5 GB deletion), carries nothing, so the run is a full one."""
-    head = current['headRefOid']
-    now = patch_id(head)
-    for note in reversed(orders.marked(current['number'], marker)):
-        if not note['body'].startswith(f'{marker} approve'):
-            continue
-        earlier = orders.field(note['body'], 'Head')
-        if now and patch_id(earlier) == now:
-            status(head, 'success', f'The diff is unchanged since {earlier[:9]}, which the {context} run approved', '', context)
-            return True
-    return False
+    if earlier := carry.approved_before(current, marker):
+        status(current['headRefOid'], 'success', f'The diff is unchanged since {earlier[:9]}, which the {context} run approved', '', context)
+    return bool(earlier)
+
+
+def carried_over_tests(current, run_url):
+    """L103: whether the PR's head changes only tests since the head the last `CRITIC:` comment names (`carry.over_tests`).
+    Set the status that comment's verdict gave, naming that head, and run no model; a reject too, which `carry.open_reject`
+    hands to a fix run."""
+    if found := carry.over_tests(current):
+        verdict, earlier = found
+        status(current['headRefOid'], 'success' if verdict == 'approve' else 'failure',
+               f'Only tests changed since {earlier[:9]}, which the critic run answered {verdict}', run_url, 'critic')
+    return bool(found)
 
 
 def review_task(pr, head):
@@ -1310,16 +1296,17 @@ CRITIC_CAP = 6000
 # L103: a finding line starting so is polish or an idea; it never blocks.
 POLISH = re.compile(r'(NOTE:|ideas\b)')
 
-def critic_task(pr, head):
+def critic_task(pr, head, run_url=''):
     """The design critic's task (L103), or None when the PR is not open at `head` or is a draft. A PR that changes
-    nothing under `apps/desktop/src/` gets its `critic` status `success` here, with no model run,."""
+    nothing under `apps/desktop/src/`, or only tests since the head the critic last judged, gets its `critic` status
+    here, with no model run."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
     if not orders.touches_desktop(pr):
         status(head, 'success', 'The PR changes nothing under apps/desktop/src: no design critic run', '', 'critic')
         return None
-    if carried(current, 'CRITIC:', 'critic'):
+    if carried_over_tests(current, run_url) or carried(current, 'CRITIC:', 'critic'):
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M),
@@ -1425,7 +1412,7 @@ def main(args):
         case ['review-post', pr, head, reviewer, ran, *measured] if pr.isdigit() and ran in ('true', 'false') and len(measured) < 2:
             return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url, *measured) else 1
         case ['critic-task', pr, head] if pr.isdigit():
-            return task_or_nothing(critic_task(int(pr), head))
+            return task_or_nothing(critic_task(int(pr), head, run_url))
         case ['critic-post', pr, head, critic, ran, *measured] if pr.isdigit() and ran in ('true', 'false') and len(measured) < 2:
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url, *measured) else 1
         case _:

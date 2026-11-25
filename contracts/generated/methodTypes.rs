@@ -21,6 +21,7 @@
     Method { name: "agent.fetchRemoteMain", params: "agent_NodeId", result: "agent_FetchedMain" },
     Method { name: "agent.land", params: "agent_NodeId", result: "agent_Landed" },
     Method { name: "agent.adoptable", params: "null", result: "agent_Adoptable[]" },
+    Method { name: "agent.offshoot", params: "agent_NodeId", result: "agent_RailNode" },
     Method { name: "agent.adopt", params: "agent_AdoptParams", result: "agent_RailNode" },
     Method { name: "agent.discard", params: "agent_NodeId", result: "null" },
     Method { name: "agent.links", params: "agent_NodeId", result: "links_LinkSet" },

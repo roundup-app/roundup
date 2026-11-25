@@ -32,6 +32,7 @@ import type { Screens } from "./screens";
 import "./styles.css";
 import { doorTerminalId } from "../state/doorNode";
 import { centreState } from "./centreState";
+import { StoppedBar } from "./StoppedBar";
 
 
 type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; notice?: boolean; recovery: Recovery };
@@ -300,7 +301,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
-        <div class="pane-over">{props.over}</div>{props.header}<PlayMarksHost connected={connected} selected={selected} screens={screens} screen={screen} />
+        <div class="pane-over">{props.over}</div>{props.header}<PlayMarksHost connected={connected} selected={selected} screens={screens} screen={screen} /><StoppedBar selected={selected} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>

@@ -9,6 +9,8 @@ pub(super) struct Resumption<'a> {
     pub ack_bound: Duration,
     /// A conversation (id, cwd) that is not the one the Rail saved.
     pub conversation: Option<(&'a str, &'a str)>,
+    /// U7191i: continue `conversation` as a new session (`--fork-session`).
+    pub fork: bool,
     pub prompt: Option<String>,
     pub publication: RailPublication,
     pub mode: Option<contracts::agent::ResumeMode>,
@@ -70,6 +72,7 @@ impl Agents {
             Resumption {
                 ack_bound: RESUME_ACK_BOUND,
                 conversation: None,
+                fork: false,
                 prompt: None,
                 publication: RailPublication::Immediate,
                 mode,
@@ -149,6 +152,7 @@ impl Agents {
             Resumption {
                 ack_bound,
                 conversation: None,
+                fork: false,
                 prompt: None,
                 publication: RailPublication::Immediate,
                 mode: None,
@@ -205,6 +209,7 @@ impl Agents {
     fn reserve_resume(&self, id: &str, resumption: &Resumption<'_>) -> Result<Reserved, RpcError> {
         let Resumption {
             conversation,
+            fork,
             prompt,
             mode,
             ..
@@ -237,6 +242,7 @@ impl Agents {
                 since: (self.shared.clock)(),
                 old,
                 conversation_id: conversation_id.clone(),
+                fork: *fork,
                 cwd: saved_cwd.clone(),
                 prompt: prompt.clone(),
                 starred: false,
@@ -247,6 +253,7 @@ impl Agents {
         );
         Ok(Reserved {
             attempt,
+            fork: *fork,
             conversation_id,
             saved_cwd,
             done_rx,
@@ -409,6 +416,7 @@ impl Agents {
         let Resumption {
             ack_bound,
             conversation: _,
+            fork: _,
             prompt: _,
             publication: _,
             mode,
@@ -486,7 +494,11 @@ impl Agents {
             id,
             attempt: &reserved.attempt,
             cwd: &effective_cwd,
-            origin: Origin::Resume(&reserved.conversation_id),
+            origin: if reserved.fork {
+                Origin::Offshoot(&reserved.conversation_id)
+            } else {
+                Origin::Resume(&reserved.conversation_id)
+            },
             attach: Attach::AfterAck,
             permission: if mode == Some(contracts::agent::ResumeMode::Yolo) {
                 Permission::Bypass
@@ -548,6 +560,7 @@ fn at_step(id: &str, step: &str, err: RpcError) -> RpcError {
 /// A reserved Attempt: its slot is `Slot::Resuming`, with the conversation it continues.
 struct Reserved {
     attempt: Ordinal,
+    fork: bool,
     conversation_id: String,
     saved_cwd: String,
     done_rx: oneshot::Receiver<Result<(), RpcError>>,

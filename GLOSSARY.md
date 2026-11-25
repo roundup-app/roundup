@@ -242,6 +242,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Context | same | — |
 | Channel | same | — |
 | Session restart (`ModeRestartParams`, `SessionRestart`, `agent.restartMode`, `Agents::mode_prompt`, `session_restart`, `set_session_restart`) | Restart session | — |
+| Offshoot (`agent.offshoot`, `Agents::offshoot`, `Origin::Offshoot`, `Rail::place_after`, `Launcher::forking`: a new Agent that continues a stopped Agent's saved conversation under a new session id, placed right after it) | Fork | — |
 | Mode first prompt (`ModePromptParams`, `RailNode.mode_prompt`, `agent.setModePrompt`) | First prompt | — |
 | Claude inbox (`CoordinationSink`, `with_coordination`, `coordinate`) | same | — |
 | Mcp | same | — |

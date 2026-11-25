@@ -301,6 +301,14 @@ impl Agents {
         self.adoptable_by(ctx, crate::AdoptBy::User).await
     }
 
+    async fn agent_offshoot(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.offshoot(ctx, &p.id).await
+    }
+
     async fn agent_adopt(
         &self,
         ctx: &Ctx,

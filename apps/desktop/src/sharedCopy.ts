@@ -237,6 +237,8 @@ export const copy = {
   resume: "Resume",
   resumeUnfinished: "Resume unfinished work",
   copy: "Copy",
+  restart: "Restart",
+  restarting: "Restarting…",
   comma: ", ",
   unreadResult: "Unread result",
   moveTo: "Move to…",
