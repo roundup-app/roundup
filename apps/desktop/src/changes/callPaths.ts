@@ -17,7 +17,7 @@ const TURN_ENDS = ["done", "idle", "error"];
 type Result = { kind: "done"; answer: Done } | { kind: "noServer" } | { kind: "failed"; cause: string };
 
 /** U7683f: the line a language shows, with the button it offers, if any. */
-export type Line = { language: string; files: number; state: "tracing" | "untraced" | "noServer" | "failed" | "dim"; cause: string | undefined; action: "trace" | "retry" | undefined };
+type Line = { language: string; files: number; state: "tracing" | "untraced" | "noServer" | "failed" | "dim"; cause: string | undefined; action: "trace" | "retry" | undefined };
 
 const NO_SERVER: Result = { kind: "noServer" };
 

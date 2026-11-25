@@ -1,6 +1,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { createTreeController, TreeItem, type TreeItemData } from "@ui-sdk/solid/tree";
 import type { CallStatus } from "@contracts/agent/CallStatus";
+import { Disclosure } from "../ui/Disclosure";
 import { AppTree } from "../ui/TreeView";
 import { Name } from "./ChangedTree";
 import { copy } from "./copy";
@@ -58,8 +59,7 @@ export const FlowTree = (props: { flow: FlowDetail; open: (section: string) => v
   const open = (value: string) => !collapsed().includes(value);
   const sectionOf = createMemo(() => new Map(all().map(row => [row.value, row.section])));
 
-  return <details class="flow-tree" open>
-    <summary>{copy.callTree}</summary>
+  return <Disclosure class="flow-tree" label={copy.callTree} defaultOpen>
     <AppTree class="flow-tree-rows" aria-label={copy.callTree} items={dataOf(rows())} controller={controller} activation="manual" expanded={all().filter(row => row.children.length > 0 && open(row.value)).map(row => row.value)} onExpandedChange={next => setCollapsed(all().filter(row => row.children.length > 0 && !next.includes(row.value)).map(row => row.value))} onValueChange={value => { const section = value === null ? undefined : sectionOf().get(value);
 
  if (section !== undefined) props.open(section); }}>
@@ -68,5 +68,5 @@ export const FlowTree = (props: { flow: FlowDetail; open: (section: string) => v
         <Show when={changedStatus(row.status)}>{status => <span class="changes-row-status">{copy.callStatus[status()]}</span>}</Show>
       </TreeItem>}</For>
     </AppTree>
-  </details>;
+  </Disclosure>;
 };

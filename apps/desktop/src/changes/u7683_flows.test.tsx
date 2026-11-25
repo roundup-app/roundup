@@ -144,7 +144,7 @@ it("u7683b_a_write_dims_a_traced_rust_and_offers_trace_and_a_turn_end_never_trac
 it("u7683b_a_new_to_value_drops_the_old_answer_and_traces_typescript_again", async () => {
   const slow = deferred<CallPaths>();
 
-  const { app } = await flowsOpen(({ language, to }) => language === "typescript" ? to === "tree" ? slow.promise : TYPES_ONLY : LOOKUP);
+  await flowsOpen(({ language, to }) => language === "typescript" ? to === "tree" ? slow.promise : TYPES_ONLY : LOOKUP);
 
   await waitFor(() => expect(asked()).toEqual(["lookup", "typescript"]));
   fireEvent.click(screen.getByRole("radio", { name: copy.targetBranch }));
@@ -245,7 +245,7 @@ it("u7683e_the_call_tree_marks_added_removed_and_changed_calls_folds_the_rest_an
 it("u7683f_tracing_shows_after_150_ms_a_failed_trace_says_why_and_retry_asks_again", async () => {
   const slow = deferred<CallPaths>();
 
-  const { app } = await flowsOpen(({ language }) => language === "typescript" ? slow.promise : LOOKUP);
+  await flowsOpen(({ language }) => language === "typescript" ? slow.promise : LOOKUP);
 
   await waitFor(() => expect(asked()).toEqual(["lookup", "typescript"]));
   expect(screen.queryByText(copy.tracing("TypeScript"))).toBeNull();
@@ -265,7 +265,7 @@ it("u7683f_tracing_shows_after_150_ms_a_failed_trace_says_why_and_retry_asks_aga
 });
 
 it("u7683f_rust_and_a_language_with_no_server_say_so_and_trace_moves_the_rust_files_into_flows", async () => {
-  const { app } = await flowsOpen();
+  await flowsOpen();
 
   await traced();
 
