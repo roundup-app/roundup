@@ -7,7 +7,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 const turns = (app: { calls: { method: string }[] }) => app.calls.map(call => call.method).filter(method => /^(agent|terminal)\.(send|write|stop|restart)|^message\.(?!list$)/.test(method));
 
-const dot = (name: string) => rowOf(name).querySelector<HTMLElement>("button.row-mark");
+const dot = (name: string) => rowOf(name).querySelector<HTMLElement>(".row-mark");
 
 const mustDot = (name: string): HTMLElement => {
   const found = dot(name);

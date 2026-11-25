@@ -94,9 +94,7 @@ const StateDot = (props: { kind: Kind; text: string; markable: boolean; onMark: 
   <Tip kind="changing" text={props.markable ? copy.markDone : props.text}>{(trigger, focus) => {
     props.onFocusHandlers(focus);
 
-    return <Show when={props.markable} fallback={<span {...trigger()} class="row-state"><KindGlyph kind={props.kind} label={props.text} /></span>}>
-      <button {...trigger({ onClick: props.onMark })} type="button" class="row-state row-mark" aria-label={copy.markDone}><KindGlyph kind={props.kind} label={props.text} /></button>
-    </Show>;
+    return <span {...trigger(props.markable ? { onClick: props.onMark } : undefined)} class={["row-state", { "row-mark": props.markable }]}><KindGlyph kind={props.kind} label={props.text} /></span>;
   }}</Tip>
 );
 
