@@ -1,11 +1,12 @@
 import PQueue from "p-queue";
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import type { Gap } from "@contracts/agent/Gap";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import type { ScanHits } from "@contracts/agent/ScanHits";
 import type { Events } from "../app/events";
 import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
-import type { Repeated } from "./diffDraw";
+import type { Gapped, Repeated } from "./diffDraw";
 import { createLate } from "./late";
 import type { Grouped, ModuleGroup, Takes } from "./modules";
 import { watchTurns } from "./owned";
@@ -15,8 +16,11 @@ const NONE: readonly ScanHit[] = [];
 /** U7685d: the browser has painted a frame: the next frame's callback runs before the paint, so the task after it runs after. */
 const afterPaint = () => new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve)));
 
-/** U7685a: the lines of `hit` a section that draws only the hunks `takes` shows, first to last; a whole file shows all of them, and none is undefined. */
-export const shownSpan = (hit: ScanHit, takes: Takes | undefined): { start: number; end: number } | undefined => {
+/** A place in a file's new side: the lines `start` to `end` of `path`. */
+export type Span = { path: string; start: number; end: number };
+
+/** U7685a, U7688e: the lines of `hit` a section that draws only the hunks `takes` shows, first to last; a whole file shows all of them, and none is undefined. */
+export const shownSpan = (hit: Pick<Span, "start" | "end">, takes: Takes | undefined): { start: number; end: number } | undefined => {
   if (!takes) return { start: hit.start, end: hit.end };
   const lines = Array.from({ length: hit.end - hit.start + 1 }, (_, at) => hit.start + at).filter(line => takes("new", line));
 
@@ -30,13 +34,20 @@ export const createRepeated = (hits: () => readonly ScanHit[] | undefined, only:
   return span ? [{ repeating: true as const, side: "new" as const, ...span, hit }] : [];
 }), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.hit === b[at]?.hit && each.start === b[at]?.start && each.end === b[at]?.end) });
 
-const itemHolds = (item: ModuleGroup, hit: ScanHit) => item.sections
-  ? item.sections.some(section => section.file.path === hit.path && shownSpan(hit, section.pick) !== undefined)
-  : item.files.some(file => file.path === hit.path);
+/** U7688e: a gap marks the line it names when a file shows it; the objects stay while the gaps do, so a mark is not drawn again. */
+export const createGapped = (gaps: () => readonly Gap[] | undefined, only: () => Takes | undefined) => createMemo((): readonly Gapped[] => (gaps() ?? []).flatMap(gap => {
+  const span = shownSpan({ start: gap.line, end: gap.line }, only());
 
-/** U7685c: for each item of `grouped` by its name, the repeats whose lines it holds; an item with none is left out. */
-export const repeatCounts = (grouped: Grouped, hits: readonly ScanHit[]): ReadonlyMap<string, number> =>
-  new Map(grouped.modules.flatMap(item => { const count = hits.filter(hit => itemHolds(item, hit)).length;
+  return span ? [{ gapped: true as const, side: "new" as const, ...span, gap }] : [];
+}), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.gap === b[at]?.gap) });
+
+const itemHolds = (item: ModuleGroup, span: Span) => item.sections
+  ? item.sections.some(section => section.file.path === span.path && shownSpan(span, section.pick) !== undefined)
+  : item.files.some(file => file.path === span.path);
+
+/** U7685c, U7688e: for each item of `grouped` by its name, the places (repeats, gaps) whose lines it holds; an item with none is left out. */
+export const placeCounts = (grouped: Grouped, spans: readonly Span[]): ReadonlyMap<string, number> =>
+  new Map(grouped.modules.flatMap(item => { const count = spans.filter(span => itemHolds(item, span)).length;
 
     return count > 0 ? [[item.name, count] as const] : []; }));
 
