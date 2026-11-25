@@ -32,6 +32,15 @@ export const copy = {
   askBarLabel: sharedCopy.askBarLabel,
   askBarShortcut: sharedCopy.askBarShortcut,
   selectCommand: "Select command",
+  /** U7191i: the stopped Agent's saved conversation id, shortened; the full id is the tooltip and what Copy writes. */
+  conversationBar: "Saved conversation",
+  conversationId: (id: string) => `Conversation ${id.slice(0, 8)}…`,
+  copy: sharedCopy.copy,
+  copied: sharedCopy.copied,
+  fork: "Fork",
+  forking: "Forking…",
+  restart: sharedCopy.restart,
+  restarting: sharedCopy.restarting,
   noOutputKeptFromAnEarlierRun: "No output kept from an earlier run.",
   /** The first line is the failure; the cause follows it for the tooltip. */
   terminalRestoreFailed: (cause: string) => `Could not restore Terminal output.\n${cause}`,

@@ -229,6 +229,7 @@ export type RpcMethods = {
   "agent.fetchRemoteMain": { params: agent_NodeId; result: agent_FetchedMain };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.adoptable": { params: null; result: agent_Adoptable[] };
+  "agent.offshoot": { params: agent_NodeId; result: agent_RailNode };
   "agent.adopt": { params: agent_AdoptParams; result: agent_RailNode };
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.links": { params: agent_NodeId; result: links_LinkSet };

@@ -159,6 +159,14 @@ pub struct Request<'a> {
 }
 
 impl Launcher {
+    /// U7191i: this Launcher for one launch that continues its conversation as a new session.
+    pub(crate) fn forking(&self) -> Self {
+        Self {
+            fork_session: true,
+            ..self.clone()
+        }
+    }
+
     /// A39 uses the same binary as every launch, through its own Placement seam.
     pub fn placement(&self) -> super::PlacementCall {
         super::PlacementCall {
