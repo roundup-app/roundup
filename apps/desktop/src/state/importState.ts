@@ -52,6 +52,9 @@ const unimported = <T>(selected: ReadonlyMap<string, T>, submitted: ReadonlyMap<
 };
 
 /** U2875d: the import panel's state for one Project. The period and the unsubmitted selection are kept per Project path and restored unverified: only the user's confirm after a refresh submits. */
+/** The add step of an import with no Rail to select in. */
+const noAdd = (): (id: string) => void => () => undefined;
+
 export const createImport = (app: AppSeam, path: string, onOpened: (workstream: string, agent: string | null) => void, drafts?: ReturnType<typeof draftStorage>) => {
   const store = storedValue(`roundup:import:${path}`, savedSchema);
   const restored = store.restore();
@@ -98,7 +101,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [failed, setFailed] = createSignal<ReadonlyMap<string, ImportFailure>>(new Map());
   const [restoreFailure, setRestoreFailure] = createSignal(restored.status === "failed");
   let latest = 0;
-  let deadline: ReturnType<typeof setTimeout> | undefined; let adding: () => (id: string) => void = () => () => undefined;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  let adding = noAdd;
   const invalidate = () => { latest++; clearTimeout(deadline); };
 
   const choices = () => versions().flatMap(entry => {
@@ -274,7 +278,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       if (starting() || pending()) return;
       setStarting(true); setStartFailure(null); setFailure(null); invalidate(); setLoading(false);
       const text = prompt();
-      const submittedRevision = draftRevision; const added = adding();
+      const submittedRevision = draftRevision;
+      const added = adding();
 
       if (submittedRevision) await drafts?.submit(submittedRevision);
 
@@ -285,7 +290,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
         if (draftRevision === submittedRevision) draftRevision = undefined;
 
-        added(node.id); setListingAgent(node.id); setDiscovery(null); setVerified(false);
+        added(node.id);
+        setListingAgent(node.id); setDiscovery(null); setVerified(false);
 
         if (prompt() === text) setPromptSignal(DEFAULT_PROMPT);
 
@@ -316,13 +322,10 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       return persist(false);
     },
-    reconnect: (nextApp: AppSeam, nextOpened: typeof onOpened, nextAdding: typeof adding = () => () => undefined) => {
-      app = nextApp;
-      onOpened = nextOpened; adding = nextAdding;
+    reconnect: (nextApp: AppSeam, nextOpened: typeof onOpened, nextAdding: typeof adding = noAdd) => {
+      app = nextApp; onOpened = nextOpened; adding = nextAdding;
       invalidate();
-      setLoading(false);
-      setDiscovery(null);
-      setVerified(false);
+      setLoading(false); setDiscovery(null); setVerified(false);
     },
     retryStorage: async () => {
       await saving;
