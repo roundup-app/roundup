@@ -10,6 +10,14 @@ export type OwnedRead = { failure: null; groups: OwnedGroup[] } | { failure: str
 /** The tools whose finished call writes a file, for every adapter (U7186a, U7186c): a finished call of one changes the Agent's Worktree. */
 export const WRITING = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 
+const TURN_ENDS = ["done", "idle", "error"];
+
+/** U7683b, U7685f: tells `on` when a file-writing call of Agent `id` finishes and when its turn ends; returns what stops the watch. */
+export const watchTurns = (events: Events, id: string, on: { wrote: () => void; ended: () => void }) => events.subscribe(event => {
+  if (event.name === "agent.toolCall" && event.data.id === id && WRITING.has(event.data.call.tool) && event.data.call.state !== "running") on.wrote();
+  else if (event.name === "agent.status" && event.data.id === id && TURN_ENDS.includes(event.data.status.kind)) on.ended();
+});
+
 /** U7186c: what each Agent owns, read on first sight, again on a file-writing tool call and when a turn ends, and on no timer. */
 export const createOwnedChanges = (app: AppSeam, events: Events, daemonExit: Accessor<unknown>) => {
   type Cell = [Accessor<OwnedRead | undefined>, Setter<OwnedRead | undefined>];
