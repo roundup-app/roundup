@@ -387,6 +387,7 @@ mod import_work;
 mod jobs;
 pub use jobs::{JobStop, OpenJob};
 mod model_wiring;
+mod offshoot;
 mod owners;
 mod program;
 mod rail_view;

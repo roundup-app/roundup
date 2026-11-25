@@ -297,3 +297,30 @@
 .play-mark:focus-visible {
   opacity: 1;
 }
+
+/* U7191i: the stopped Agent's session line lies in the Terminal's top inset at its left, over no row of text. */
+.pane .stopped-bar {
+  position: absolute;
+  top: 0;
+  left: var(--space-4);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: var(--terminal-inset);
+  font-size: var(--text-caption);
+}
+
+.stopped-bar [data-busy-button] {
+  justify-items: start; /* the actions sit --space-2 apart as drawn: no reserved busy-label width, the busy label grows the button */
+}
+
+.stopped-bar [data-busy-button]::after {
+  content: none;
+}
+
+.pane .stopped-bar-id {
+  margin-inline-end: var(--space-2); /* the flex gap plus this sets the id --space-4 from its first action */
+  color: var(--grey);
+  font-variant-numeric: tabular-nums;
+}
