@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { useConnectedProject } from "../state/connectedProject";
@@ -10,7 +10,7 @@ type Excerpt = { kind: "text"; text: string } | { kind: "none" } | { kind: "fail
 /** U7685b: lines `start` to `end` (1-based, inclusive) of `text`. */
 const linesOf = (text: string, start: number, end: number) => text.split("\n").slice(start - 1, end).join("\n");
 
-const body = (each: Excerpt) => each.kind === "text" ? <pre class="repeat-excerpt">{each.text}</pre> : each.kind === "none" ? <p>{copy.noTextToShow}</p> : <p role="alert">{each.cause}</p>;
+const body = (each: Excerpt) => each.kind === "text" ? <pre class="repeat-excerpt">{each.text}</pre> : each.kind === "none" ? <p>{copy.noTextToShow}</p> : <p>{each.cause}</p>;
 
 /** U7685a, U7685b: the mark under a repeat's last line: it names the other place, and a click shows that place's lines, read once, with the path that opens it in the editor. */
 export const RepeatedLines = (props: { id: string; hit: ScanHit; to: CompareTarget; open: (path: string, at: { side: "new"; line: number }) => void }) => {
@@ -30,16 +30,13 @@ export const RepeatedLines = (props: { id: string; hit: ScanHit; to: CompareTarg
     return setExcerpt(side.kind === "text" ? { kind: "text", text: linesOf(side.text, at.start, at.end) } : { kind: "none" });
   };
 
-  const toggle = () => {
-    const on = !shown();
-
-    setShown(on);
-
+  // A failed read asks again at the next opening.
+  createEffect(shown, on => {
     if (on && (excerpt()?.kind === undefined || excerpt()?.kind === "failed")) void read(props.id, props.to, other());
-  };
+  });
 
   return <div class="repeat-mark">
-    <button type="button" data-button="quiet" aria-expanded={shown() ? "true" : "false"} onClick={toggle}>{copy.repeatsAt(place())}</button>
+    <button type="button" data-button="quiet" aria-expanded={shown() ? "true" : "false"} onClick={() => setShown(!shown())}>{copy.repeatsAt(place())}</button>
     <Show when={shown()}>
       <div class="repeat-place" role="group" aria-label={place()}>
         <button type="button" data-button="quiet" aria-label={copy.openRepeat(place())} onClick={() => props.open(other().path, { side: "new", line: other().start })}>{place()}</button>
