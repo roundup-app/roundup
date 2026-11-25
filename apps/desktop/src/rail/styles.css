@@ -829,3 +829,6 @@
 
 .program-label { flex: none; inline-size: calc(var(--space-6) * 2); }
 .program-field { flex: 1; inline-size: auto; min-inline-size: 0; text-align: start; overflow-x: auto; overscroll-behavior: contain; }
+
+/* U7915a: the amber dot is a button that marks the row done. */
+.rail-row button.row-mark { appearance: none; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
