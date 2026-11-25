@@ -213,6 +213,17 @@ export const copy = {
   /** A line range under a path: "51" or "51–53". */
   lineSpan: (start: number, end: number) => start === end ? `${start}` : `${start}-${end}`,
   outdated: "Outdated",
+  /** U7685a, U7685b, U7685c: the repeat's mark, the other place it names, its row count and its states (U7685e). */
+  repeats: "Repeats",
+  repeatsAt: (place: string) => `Repeats ${place}`,
+  repeatsCount: (count: number) => `${count} ${count === 1 ? "repeat" : "repeats"}`,
+  repeatPlace: (path: string, start: number, end: number) => `${path} ${copy.lineSpan(start, end)}`,
+  openRepeat: (place: string) => `Open ${place} in the editor`,
+  noTextToShow: "No text to show",
+  checkingRepeats: "Checking for repeats",
+  repeatsPartial: "Checked part of the repo for repeats",
+  repeatsFailed: "Couldn't check for repeats",
+  repeatsNeedTree: "Choose Tree to check for repeats",
   /** U7690c: the jump list. */
   jumpToNote: "Jump to note",
   jumpPlaceholder: "Find a note",

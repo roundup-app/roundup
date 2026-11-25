@@ -1,5 +1,6 @@
 import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { ScanHit } from "@contracts/agent/ScanHit";
 import { copy } from "./copy";
 import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
@@ -14,7 +15,10 @@ export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: 
 /** U7677d: the composer drawn under the last line of the range being noted. */
 export type Composer = { composing: true; side: "old" | "new"; start: number; end: number; /** The note whose text this field edits; it is not drawn meanwhile. */ replacing?: number | undefined };
 
-export type Annotated = Note | Mark | Composer;
+/** U7685a: the mark under the last shown line of a repeat: the other place it names. */
+export type Repeated = { repeating: true; side: "new"; start: number; end: number; hit: ScanHit };
+
+export type Annotated = Note | Mark | Composer | Repeated;
 
 /** U7677a: the lines a note covers on one side, and whether its field holds focus. */
 export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
@@ -38,8 +42,9 @@ export const outdated = (note: Note, value: FileComparison | undefined) => note.
 const shown = (note: Note, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
 /** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line; each unfinished field as a mark. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[], composer?: Composer): DiffLineAnnotation<Annotated>[] => [
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = []): DiffLineAnnotation<Annotated>[] => [
   ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
+  ...repeats.map((repeat): DiffLineAnnotation<Repeated> => ({ side: sideName(repeat.side), lineNumber: repeat.end, metadata: repeat })),
   ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
     ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
@@ -179,7 +184,7 @@ type Hooks = {
 const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; end: number }): LineSelection => ({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
-export type Drawn = { mark: (ranges: readonly Noted[]) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
+export type Drawn = { mark: (ranges: readonly Noted[]) => void; /** U7685a: the new-side lines a repeat marks. */ repeat: (spans: readonly { start: number; end: number }[]) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
 /** U7678c: the module scroll's one Virtualizer, made on the first file drawn; undefined outside a shared scroll. */
 const sharedVirtualizer = (shared: Shared | undefined, Virtualizer: typeof import("@pierre/diffs").Virtualizer) => {
@@ -225,6 +230,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   const virtualizer = sharedVirtualizer(hooks.shared, Virtualizer) ?? new Virtualizer();
 
   let noted: readonly Noted[] = [];
+  let repeated: readonly { start: number; end: number }[] = [];
 
   let functions: readonly (string | undefined)[] = [];
 
@@ -238,6 +244,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
       line.toggleAttribute("data-noted", hit.length > 0);
       line.toggleAttribute("data-focused", hit.some(range => range.focused));
+      line.toggleAttribute("data-repeat", side === "new" && repeated.some(span => span.start <= number && number <= span.end));
     }
   };
 
@@ -295,5 +302,5 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   // U7610c: the reader's first render of the view is a task of its own.
   await yielded();
 
-  return hooks.current() ? { mark: ranges => { noted = ranges; stamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
+  return hooks.current() ? { mark: ranges => { noted = ranges; stamp(container); }, repeat: spans => { repeated = spans; stamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
 };

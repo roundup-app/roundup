@@ -45,8 +45,9 @@ export const createOpenAt = (app: Parameters<typeof createEditor>[0], root: () =
   const { editable, edit } = createEditor(app, root);
 
   return (path: string, at?: { side: "old" | "new"; line: number }) => {
-    const file = files().find(each => each.path === path);
+    // A path the listing lacks is a file the diff does not touch (U7685b): it opens at the line given.
+    const file = files().find(each => each.path === path) ?? { path, status: "modified" as const, line: null, counts: null, blob: null };
 
-    if (file && editable(file)) edit(file, at?.side === "new" ? at.line : file.line);
+    if (editable(file)) edit(file, at?.side === "new" ? at.line : file.line);
   };
 };
