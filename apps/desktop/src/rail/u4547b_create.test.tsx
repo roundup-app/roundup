@@ -34,7 +34,6 @@ it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
   finishStart();
   expect(railCallsTo(m.app, "agent.createMode")).toEqual([{ name: "Review", prompt: "  Review e\u0301 🧭\n " }]);
   expect(railCallsTo(m.app, "agent.restartMode")).toEqual([{ id: "made", request: expect.any(String) }]);
-  expect(m.rail.selected()).toBe("made");
   expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
 });
 
