@@ -1,38 +1,10 @@
-//! What an Agent with no Worktree of its own owns, and the reads of it (U7186a, U7853a).
+//! What the Agent's Worktree or an owned group is compared as, and the params that read it (U7672a, U7853a, U7955a).
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::ChangedFile;
-
-/// One repository and branch an Agent owns changes in (U7186a): `files` are the current state
-/// against `base`, the default branch, sorted by `path`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct OwnedGroup {
-    pub repo: String,
-    /// The top of the checkout the `files` paths are relative to (U7952a): a linked worktree's
-    /// when the recorded writes sit in one, else `repo`.
-    pub checkout: String,
-    pub branch: String,
-    pub base: String,
-    pub files: Vec<ChangedFile>,
-}
-
-/// The `repo` and `branch` of one `OwnedGroup` (U7853a): the Owned group key that
-/// `agent.compareFile` reads a file of, through the Agent's recorded writes.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct OwnedGroupKey {
-    pub repo: String,
-    pub branch: String,
-}
-
-/// What `agent.ownedChanges` returns (U7186a), sorted by `repo` then `branch`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct OwnedChanges {
-    pub groups: Vec<OwnedGroup>,
-}
+use super::OwnedGroupKey;
 
 /// What the Agent's own Worktree is compared as, against the remote's main (U7672a): everything
 /// in its folder now, or its commits only.
