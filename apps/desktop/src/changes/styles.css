@@ -224,7 +224,7 @@
 .changes-row-function { flex: none; max-inline-size: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--grey); font: var(--text-small) var(--font-ui); }
 .flow-account { padding: var(--space-3); font: var(--text-small) var(--font-ui); }
 .flow-account p { margin: 0; }
-.changes-row-files, .changes-row-counts, .changes-row-status, .changes-row-repeats, .changes-row-notes { flex: none; color: var(--grey); }
+.changes-row-files, .changes-row-counts, .changes-row-status, .changes-row-repeats, .changes-row-moved, .changes-row-notes { flex: none; color: var(--grey); }
 /* U7680a, U7680d: a module row's state is a glyph beside its counts; the row's accessible name says it in words. */
 .changes-row-state { flex: none; align-self: center; width: var(--space-3); height: var(--space-3); color: var(--grey); }
 .changes-row-state[data-state="changed"] { color: var(--text); }
@@ -252,8 +252,8 @@
 /* U7688e: the mark under the line a gap names: the same sunken ground as a repeat's. */
 .gap-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
 .gap-mark p { margin: 0; overflow-wrap: anywhere; }
-/* U7696a: the mark under a move's first range: the same sunken ground as a repeat's. */
-.moved-mark { margin: 0; padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
+/* U7696a: the mark under a move's first range: the diff's own ground shows through (D3 reads --diff-ground as saturated) under the diff's own ink. */
+.moved-mark { margin: 0; padding: var(--space-2); color: var(--diff-text); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 /* U7688b, U7688c: the readback above the Overview's modules; a stale one is dimmed, and a narrow pane shows the diagram's words alone. */
 .readback { display: grid; grid-template-columns: minmax(0, 1fr); min-inline-size: 0; container: readback / inline-size; gap: var(--space-3); padding: var(--space-3); font: var(--text-small) var(--font-ui); }
 .readback-diagram { margin: 0; }

@@ -61,6 +61,9 @@ export const labelLine = (moved: Moved) => moved.lines[0]?.end ?? 0;
 /** U7696a: whether a mark holds the new-side line. */
 export const holds = (moved: Moved, line: number) => moved.lines.some(range => range.start <= line && line <= range.end);
 
+/** U7696f: whether a mark names the function or type at `span`: a move when its first line moved, a rename when any of its lines carry one. */
+export const names = (moved: Moved, span: { start: number; end: number }) => moved.kind === "moved" ? holds(moved, span.start) : moved.lines.some(range => range.start <= span.end && span.start <= range.end);
+
 /** U7696e: what a repeat's lines still show once the lines of the moves are taken out: moved code is not also marked a repeat. */
 export const apart = (only: Takes | undefined, moves: readonly Moved[]): Takes | undefined => moves.length === 0 ? only : (side, line) => (only?.(side, line) ?? true) && !(side === "new" && moves.some(moved => holds(moved, line)));
 

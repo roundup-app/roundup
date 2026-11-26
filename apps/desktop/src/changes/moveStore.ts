@@ -8,7 +8,7 @@ import type { AppSeam } from "../app/seam";
 import { compareParams, revisionOf } from "./fileState";
 import { createLate } from "./late";
 import { readMoves } from "./moveReader";
-import { arrived, holds, leftFiles, sameBody } from "./moves";
+import { arrived, holds, leftFiles, names, sameBody } from "./moves";
 import type { Left, Moved } from "./moves";
 import { reply } from "./notes";
 import type { Entry } from "./symbols";
@@ -128,15 +128,17 @@ export const createMoves = (input: { app: AppSeam; id: string; to: () => Compare
     label: (entry: Entry): Moved["kind"] | undefined => {
       const left = crossed().find(pair => entry.side === "old" ? pair.from.path === entry.path && pair.from.old.start === entry.span.start : pair.to.path === entry.path && pair.to.new.start === entry.span.start);
 
-      return left ? "moved" : entry.side === "new" ? of(entry.path).find(moved => holds(moved, entry.span.start))?.kind : undefined;
+      return left ? "moved" : entry.side === "new" ? of(entry.path).find(moved => names(moved, entry.span))?.kind : undefined;
     },
     scanning: () => pending() && late(),
     failed: (): string | null => failures()[0] ?? null,
     /** The failed reads asked again. */
     again: () => {
-      for (const [path, read] of reads()) if (read.state === "failed") { const asked = requests.get(path);
+      for (const [path, read] of reads()) {
+        const asked = read.state === "failed" ? requests.get(path) : undefined;
 
- if (asked) start(path, asked.revision, asked.text); }
+        if (asked) start(path, asked.revision, asked.text);
+      }
 
       if (crossFailure() !== null) void check(leftFiles(input.symbols()));
     },

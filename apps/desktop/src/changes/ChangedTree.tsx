@@ -150,7 +150,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
         <Show when={notesOf(module()) > 0}><span class="changes-row-notes">{copy.noteCount(notesOf(module()))}</span></Show>
         <Show when={repeatsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.repeatsCount(repeatsOf(moduleKey(module().name)))}</span></Show>
         <Show when={gapsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.gapsCount(gapsOf(moduleKey(module().name)))}</span></Show>
-        <Show when={movedOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.movedCount(movedOf(moduleKey(module().name)))}</span></Show>
+        <Show when={movedOf(moduleKey(module().name)) > 0}><span class="changes-row-moved" data-state="moved">{copy.movedCount(movedOf(moduleKey(module().name)))}</span></Show>
         <Show when={module().untraced && props.readHint}><span class="changes-row-status">{copy.readToSee}</span></Show>
         <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
         <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>
