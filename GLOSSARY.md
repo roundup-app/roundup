@@ -262,6 +262,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Hunk id (`Hunk::id`: `<path>#<n>`, `n` counting that path's hunks from 1 in diff order, as the changes view names them) | same | — |
 | Gap (`Gap`: where the diff disagrees with the Agent's last message, with `path`, `quote` and the new-side `line`) | same | — |
 | Unplaced (`Account::unplaced`: the hunk ids no flow of a Readback holds, computed by the Daemon) | Unplaced | — |
+| Rank (`Rank`, `Account::ranks`: `core`, `forced` or `glue`, one per hunk id, in the model's answer) | Core, Forced, Glue | — |
+| Risk (`Risk`, `Account::risks`: `high`, `medium` or `low` with a one-sentence reason, one per flow and per module) | High risk, Medium risk | — |
 | Usage | same | — |
 | Evaluator | same | — |
 

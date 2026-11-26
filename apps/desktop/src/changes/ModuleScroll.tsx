@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
-import { DiffReader } from "./DiffReader";
+import { DiffIdentity, DiffReader } from "./DiffReader";
 import type { DiffKeys } from "./DiffReader";
 import type { Shared } from "./diffDraw";
 import type { Place, Places } from "./lines";
@@ -51,7 +51,7 @@ const lineOf = (event: MouseEvent): Line | undefined => {
 };
 
 /** U7678c, U7683d: one module's hunks as one scroll, or a flow's `sections` in call order (a file, or the hunks of one function of it): each under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
-export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; sections?: readonly Section[] | undefined; above?: JSX.Element; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: ScrollKeys) => void; /** U7691a: the item this scroll is, when it takes a note; U7691c: whether a Sent note on an item has gone Outdated. */ item?: ItemTarget | undefined; itemOutdated: (note: ItemNote) => boolean; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; group?: OwnedGroupKey | undefined; viewed?: { on: boolean; changed: boolean; toggle: () => void } | undefined; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void; /** U7685a: the scan's repeats, each drawn by the file that holds its lines. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the readback's gaps, each drawn by the file that holds its line. */ gaps?: readonly Gap[] | undefined }) => {
+export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; sections?: readonly Section[] | undefined; above?: JSX.Element; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: ScrollKeys) => void; /** U7691a: the item this scroll is, when it takes a note; U7691c: whether a Sent note on an item has gone Outdated. */ item?: ItemTarget | undefined; itemOutdated: (note: ItemNote) => boolean; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; group?: OwnedGroupKey | undefined; viewed?: { on: boolean; changed: boolean; toggle: () => void } | undefined; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void; /** U7685a: the scan's repeats, each drawn by the file that holds its lines. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the readback's gaps, each drawn by the file that holds its line. */ gaps?: readonly Gap[] | undefined; /** U7697a: the words of a file's rank, by path, while the rank order is in force. */ ranks?: ReadonlyMap<string, string> | undefined }) => {
   let scroller: HTMLDivElement | undefined;
   const sections = new Map<string, HTMLElement>();
   const readers = new Map<string, DiffKeys>();
@@ -244,12 +244,14 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
       const repeats = createMemo(() => (props.repeats ?? []).filter(hit => hit.path === path() && shownSpan(hit, only()) !== undefined), { equals: (a, b) => a.length === b.length && a.every((each, at) => each === b[at]) });
 
+      const rank = () => !props.sections ? props.ranks?.get(path()) : undefined;
+
       const gaps = createMemo(() => (props.gaps ?? []).filter(gap => gap.path === path() && shownSpan({ start: gap.line, end: gap.line }, only()) !== undefined), { equals: (a, b) => a.length === b.length && a.every((each, at) => each === b[at]) });
 
       return <section class="module-file" data-path={id} style={{ "min-block-size": `calc(var(--space-5) * ${lines(id)})` }} ref={element => { sections.set(id, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(id); readers.delete(id); }); }}>
         <Show when={entryOf(id)?.label}>{label => <p class="module-function">{label()}</p>}</Show>
-        <Show when={wanted().has(id)} fallback={<header class="diff-header"><p class="diff-path">{path()}</p></header>}>
-          <DiffReader shared={shared} batch={false} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} repeats={repeats()} gaps={gaps()} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
+        <Show when={wanted().has(id)} fallback={<header class="diff-header"><DiffIdentity read={undefined} path={path()} rank={rank()} /></header>}>
+          <DiffReader shared={shared} batch={false} rank={rank()} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} repeats={repeats()} gaps={gaps()} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
         </Show>
       </section>;
     }}</For>

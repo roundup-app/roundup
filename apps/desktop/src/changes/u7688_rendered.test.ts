@@ -36,6 +36,8 @@ const ACCOUNT = {
   flows: [],
   modules: [{ module: "crates/module-01", account: "Loads data through a cache." }],
   unplaced: [],
+  ranks: [],
+  risks: [],
   gaps: [GAP],
 };
 
