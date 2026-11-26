@@ -22,7 +22,7 @@ Module: `apps/desktop/src/changes/` (the flow items' name and account, the added
 
 **U7689c before a readback Not traced says how to see those files.** Given the flow fixture and no readback, then:
 - **Words.** On the Tree and Branch targets the Not traced row says "Read back to see them", and its pane holds the same line over an icon button named "Read back changes" that starts the readback (U7688a); R does too. Asserted in `u7689c_not_traced_offers_the_readback_on_tree_and_branch_and_none_on_changes`.
-- **Changes.** On the Changes target (U7688a) the row and the pane say nothing of a readback, and no button shows. Asserted in the same test.
+- **Changes.** The Changes target reads and shows a readback as Tree does (U7955a). Asserted in `u7955a_changes_reads_send_the_open_group_and_flows_traces`.
 - **After.** Once a readback runs, the words and the button leave the row and the pane. Asserted in the same test.
 
 **U7689d reading and failed leave the code's flows as they were; stale dims the readback's words.** Given the fixture, then:
