@@ -139,6 +139,6 @@ it("u7698f_the_explanation_is_captured_for_the_critic", async () => {
     await server.close();
   }
 
-  // D2, D5 and D6 hold on every state (U7698f); every capture is written before one fails the run.
-  expect(shots.flatMap(each => [each.checks.D2, each.checks.D5, each.checks.D6].some(check => check.status !== "pass") ? [each.name] : [])).toEqual([]);
+  // D2, D3, D5, D6 and D10 hold on every state (U7698f); every capture is written before one fails the run.
+  expect(shots.flatMap(each => [each.checks.D2, each.checks.D3, each.checks.D5, each.checks.D6, each.checks.D10].some(check => check.status !== "pass") ? [each.name] : [])).toEqual([]);
 }, 900_000);
