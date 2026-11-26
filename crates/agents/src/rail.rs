@@ -230,26 +230,9 @@ impl Rail {
         ).optional()?)
     }
 
-    /// U7946c: the one write of a first prompt. `prepared` becomes `uncertain` once, so a late
-    /// `SessionStart` after the bound, or a second one, finds nothing to write.
-    /// `None`: no delivery was prepared (nothing to gate); `Some(false)`: it already left `prepared`.
-    pub(super) fn claim_first_instruction(
-        &mut self,
-        agent: AgentId,
-        attempt: &str,
-    ) -> Result<Option<(String, bool)>, StoreError> {
-        let Some(delivery) = self.first_instruction(agent, attempt)? else {
-            return Ok(None);
-        };
-        let claimed = self.db.execute(
-            "UPDATE instruction_deliveries SET state='uncertain' WHERE id=? AND state='prepared'",
-            [&delivery],
-        )?;
-        Ok(Some((delivery, claimed == 1)))
-    }
-
-    /// U7946a: past `FIRST_PROMPT_BOUND` a first delivery still `prepared` was never written, so
-    /// it is `refused` with `cause`. Returns whether it changed.
+    /// U7946a: past `FIRST_PROMPT_BOUND` a first delivery still `prepared` has no receipt, so it is
+    /// `uncertain` with `cause`; the inbox write still lands on a late `SessionStart`, and its
+    /// receipt makes the delivery `submitted` and clears the cause. Returns whether it changed.
     pub(super) fn expire_first_instruction(
         &mut self,
         agent: AgentId,
@@ -260,7 +243,7 @@ impl Rail {
             return Ok(false);
         };
         Ok(self.db.execute(
-            "UPDATE instruction_deliveries SET state='refused', cause=? WHERE id=? AND state='prepared'",
+            "UPDATE instruction_deliveries SET state='uncertain', cause=? WHERE id=? AND state='prepared'",
             params![cause, delivery],
         )? == 1)
     }
@@ -286,7 +269,7 @@ impl Rail {
     ) -> Result<(), StoreError> {
         let state = serde_json::to_value(state)?;
         self.db.execute(
-            "UPDATE instruction_deliveries SET state=? WHERE id=?",
+            "UPDATE instruction_deliveries SET state=?, cause=NULL WHERE id=?",
             params![state.as_str(), delivery],
         )?;
         Ok(())

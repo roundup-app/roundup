@@ -29,19 +29,14 @@ impl Shared {
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
             }
-            // U7946c: a delivery that left `prepared` (the bound passed, or a first write began)
-            // is never written again.
-            let claim = crate::rail::agent_id(&id)
-                .and_then(|agent| shared.rail().claim_first_instruction(agent, &attempt));
-            let delivery = match claim {
-                Ok(Some((_, false))) => return,
-                Ok(Some((delivery, true))) => Some(delivery),
-                Ok(None) => None,
-                Err(err) => {
+            // U7946c: this task is the spawn's only write of its first prompt, so it lands once,
+            // however late `SessionStart` arrives.
+            let delivery = crate::rail::agent_id(&id)
+                .and_then(|agent| shared.rail().first_instruction(agent, &attempt))
+                .unwrap_or_else(|err| {
                     eprintln!("agents: no delivery state for {id}: {err}");
                     None
-                }
-            };
+                });
             let result = shared
                 .coordinate(Actor::daemon(), &id, Some(&attempt), prompt)
                 .await;
@@ -78,18 +73,18 @@ impl Shared {
         });
     }
 
-    /// U7946a: `FIRST_PROMPT_BOUND` after a spawn, a first prompt never written leaves `prepared`
-    /// for `refused`, with the cause its parent reads on `agent.instructions`.
+    /// U7946a: `FIRST_PROMPT_BOUND` after a spawn, a first prompt without a receipt leaves `prepared`
+    /// for `uncertain`, with the cause its parent reads on `agent.instructions`.
     pub(super) fn bound_first_prompt(&self, id: &str, attempt: &str) {
         let Some(shared) = self.me.upgrade() else {
             return;
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
-            tokio::time::sleep(crate::FIRST_PROMPT_BOUND).await;
+            tokio::time::sleep(shared.first_prompt_bound).await;
             let cause = format!(
-                "no SessionStart within {} s, so the prompt was never written",
-                crate::FIRST_PROMPT_BOUND.as_secs()
+                "no receipt within {} s of the spawn",
+                shared.first_prompt_bound.as_secs_f64()
             );
             match crate::rail::agent_id(&id).and_then(|agent| {
                 shared

@@ -150,6 +150,7 @@ impl Agents {
                 resume_effect: None,
                 steer_bound: STEER_BOUND,
                 receipt_bound: crate::RECEIPT_BOUND,
+                first_prompt_bound: crate::FIRST_PROMPT_BOUND,
                 ready_bound: crate::MODE_READY_BOUND,
                 steer: crate::SteerSettings {
                     before_steer: None,
@@ -254,6 +255,13 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
+    }
+
+    /// U7946a: leave a first prompt's `prepared` after `bound` instead of `FIRST_PROMPT_BOUND`.
+    /// Call it before the first call is made.
+    #[must_use]
+    pub fn with_first_prompt_bound(self, bound: Duration) -> Self {
+        self.configure(|shared| shared.first_prompt_bound = bound)
     }
 
     /// A7498a: wait `bound` instead of `RECEIPT_BOUND` for a first prompt's receipt after its Enter.
@@ -605,6 +613,7 @@ pub(super) mod tests {
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             receipt_bound: crate::RECEIPT_BOUND,
+            first_prompt_bound: crate::FIRST_PROMPT_BOUND,
             ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
@@ -667,6 +676,7 @@ pub(super) mod tests {
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             receipt_bound: crate::RECEIPT_BOUND,
+            first_prompt_bound: crate::FIRST_PROMPT_BOUND,
             ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
@@ -763,6 +773,7 @@ pub(super) mod tests {
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             receipt_bound: crate::RECEIPT_BOUND,
+            first_prompt_bound: crate::FIRST_PROMPT_BOUND,
             ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
