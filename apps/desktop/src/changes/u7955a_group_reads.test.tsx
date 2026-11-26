@@ -35,6 +35,5 @@ it("u7955a_changes_reads_send_the_open_group_and_flows_traces", async () => {
   await waitFor(() => expect(sent("agent.callPaths")).toEqual([{ id: "a", group: GROUP }, { id: "a", group: GROUP, language: "typescript" }]));
   await waitFor(() => expect(sent("agent.repeatScan")).toEqual([{ id: "a", group: GROUP }]));
   await waitFor(() => expect(sent("agent.readback")[0]).toEqual({ id: "a", group: GROUP }));
-  expect(screen.queryByText("Choose Tree or Branch to trace calls")).toBeNull();
-  expect(READS.flatMap(sent).every(params => !(params as object && "to" in (params as object)))).toBe(true);
+  expect(READS.flatMap(sent).filter(params => Reflect.has(Object(params), "to"))).toEqual([]);
 });

@@ -233,9 +233,13 @@ type Analyses = { app: AppSeam; events: Events; id: string; agent: () => string;
 
 /** U7683b, U7685c, U7685d: what the Daemon reads out of the listing once it is ready: the call paths, which a new `to` asks again; and the repeat scan, which compares the working tree, so only the Tree target asks, after a frame has painted. Each item's repeats come from the lens's own listing, never as a find narrows it. */
 const createAnalyses = (input: Analyses) => {
-  const at = createMemo((): Reach | null => { const own = input.own(); const group = input.group();
+  const at = createMemo((): Reach | null => {
+    const own = input.own();
+    const group = input.group();
 
-    return own ? { to: own } : group ? { group } : null; }, { equals: (a, b) => reachKey(a) === reachKey(b) });
+    return own ? { to: own } : group ? { group } : null;
+  }, { equals: (a, b) => reachKey(a) === reachKey(b) });
+
   const calls = createCallPaths({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
   const readback = createReadback({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
   const pad = createReadbackPad({ id: input.id, agent: input.agent, readback, at });

@@ -1,7 +1,7 @@
 //! U7955a: every read the Changes view makes traces and reads an Agent with no Worktree through its
 //! group (`scenarios/ui-changes-remote-main.md`).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rpc::code;
 use serde_json::{Value, json};
@@ -55,7 +55,7 @@ fn with_group(id: &str, group: &Value, extra: Value) -> Value {
 }
 
 /// What `method` answers for `group`, and that answer proving the checkout `top` was read.
-async fn proves(f: &Fixture, id: &str, method: &str, group: &Value, top: &PathBuf) {
+async fn proves(f: &Fixture, id: &str, method: &str, group: &Value, top: &Path) {
     let linked = top.ends_with("wt");
     let (file, language) = if linked {
         ("lin.rs", "rust")

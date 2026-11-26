@@ -187,7 +187,7 @@ const folderOf = (path: string): string => path.split("/").pop() ?? path;
 /** U7873a, U7955a: the Daemon refuses a `agent.compareFile` read, and each of `GROUPED`, with no `group` for an Agent with no Worktree; a fake's handler calls this first, so a caller that omits `group` fails its own test. */
 const GROUPED = new Set(["agent.callPaths", "agent.repeatScan", "agent.readback", "agent.readbackStart", "agent.explain", "agent.findDefects"]);
 
-export const refuseUngroupedRead = (app: FakeApp, params: { id: string; group?: unknown }): void => {
+export const refuseUngroupedRead = (app: FakeApp, params: { id: string; group?: object }): void => {
   const nodes = app.handlers["rail.tree"]?.(null);
 
   if (params.group || !Array.isArray(nodes)) return;
@@ -506,7 +506,10 @@ export const createFakeApp = (): FakeApp => {
 
       if (!handler) throw new RpcError(METHOD_NOT_FOUND, `no handler for ${method}`);
 
-      if (GROUPED.has(method)) refuseUngroupedRead(app, params as { id: string; group?: unknown });
+      // SAFETY: every GROUPED method takes an `id` and an optional `group` object.
+      const grouped = params as { id: string; group?: object };
+
+      if (GROUPED.has(method)) refuseUngroupedRead(app, grouped);
 
       return handler(params);
     },
