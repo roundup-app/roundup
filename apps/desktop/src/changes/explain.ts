@@ -14,7 +14,7 @@ type Place = Omit<Asked, "answer" | "blob">;
 
 const sameAsk = (a: Place, b: Place) => a.to === b.to && a.path === b.path && a.side === b.side && a.start === b.start && a.end === b.end && a.form === b.form;
 
-/** U7698e: an Agent's explanations, held by the connection's memory for its session (U7675f): closing the view loses none, and a restart drops them. */
+/** U7698e: an Agent's explanations, kept in the connection's memory for its session (U7675f): closing the view loses none, and a restart drops them. */
 export const createExplained = () => createSignal<readonly Asked[]>([]);
 
 type Kept = ReturnType<typeof createExplained>;
