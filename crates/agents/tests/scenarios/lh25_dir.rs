@@ -51,7 +51,7 @@ async fn wrote(f: &Fixture, id: &str, path: &Path) {
 }
 
 async fn folder(f: &Fixture, id: &str) -> PathBuf {
-    let read = f.call("agent.folder", json!({"id": id})).await.unwrap();
+    let read = f.call("agent.dir", json!({"id": id})).await.unwrap();
     PathBuf::from(read["path"].as_str().unwrap())
 }
 
@@ -104,7 +104,7 @@ async fn lh25_an_unknown_node_is_not_found() {
     let f = Fixture::new();
 
     let err = f
-        .call("agent.folder", json!({"id": "999"}))
+        .call("agent.dir", json!({"id": "999"}))
         .await
         .unwrap_err();
 

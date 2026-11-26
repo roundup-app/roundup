@@ -38,7 +38,7 @@ const mount = async (setup: Setup = {}) => {
   app.handlers["pad.list"] = () => setup.pads?.() ?? [];
   const { folder } = setup;
 
-  if (folder) app.handlers["agent.folder"] = () => ({ path: folder });
+  if (folder) app.handlers["agent.dir"] = () => ({ path: folder });
   padReadStorage("/p").write(setup.read ?? {});
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
@@ -113,7 +113,7 @@ it("lh26_the_editor_icon_opens_the_folder_the_daemon_names", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: copy.editor }));
   await waitFor(() => expect(app.editorOpened).toEqual(["/tmp/loop-own/u1"]));
-  expect(app.calls.filter(call => call.method === "agent.folder").map(call => call.params)).toEqual([{ id: "a" }]);
+  expect(app.calls.filter(call => call.method === "agent.dir").map(call => call.params)).toEqual([{ id: "a" }]);
 });
 
 it("lh8_entries_render_as_catalogue_icons_and_open_once", async () => {

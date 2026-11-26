@@ -21,7 +21,7 @@ impl Agents {
 
     /// LH25: the folder of a Rail node: its Worktree record, else the linked git worktree of its
     /// newest recorded write, else the Project folder.
-    pub(super) async fn folder_of(&self, id: &str) -> Result<String, RpcError> {
+    pub(super) async fn dir_of(&self, id: &str) -> Result<String, RpcError> {
         if let Some(worktree) = self.shared.node(id)?.worktree() {
             return Ok(worktree.path);
         }

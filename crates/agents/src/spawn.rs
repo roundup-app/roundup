@@ -497,7 +497,7 @@ impl Agents {
                 self.shared
                     .rail()
                     .node(crate::rail::agent_id(&workstream)?)?;
-                let cwd = self.folder_of(&workstream).await?;
+                let cwd = self.dir_of(&workstream).await?;
                 (workstream, cwd)
             }
             None => {

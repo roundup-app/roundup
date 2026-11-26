@@ -250,15 +250,15 @@ impl Agents {
         self.repeat_scan(&p.id).await
     }
 
-    async fn agent_folder(
+    async fn agent_dir(
         &self,
         ctx: &Ctx,
         p: contracts::agent::NodeId,
-    ) -> Result<contracts::agent::AgentFolder, RpcError> {
+    ) -> Result<contracts::agent::AgentDir, RpcError> {
         let NodeId { id } = p;
         self.shared.guard_reach(&ctx.actor, &id, true)?;
-        Ok(contracts::agent::AgentFolder {
-            path: self.folder_of(&id).await?,
+        Ok(contracts::agent::AgentDir {
+            path: self.dir_of(&id).await?,
         })
     }
 

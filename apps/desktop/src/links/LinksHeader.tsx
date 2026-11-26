@@ -74,7 +74,7 @@ export const LinksHeader = (props: { active: () => boolean }) => {
     editor: () => {
       const id = door()?.id;
 
-      if (id) void app.rpc("agent.folder", { id }).then(({ path }) => app.openInEditor(path)).catch(error => console.error(error));
+      if (id) void app.rpc("agent.dir", { id }).then(({ path }) => app.openInEditor(path)).catch(error => console.error(error));
     },
     terminal: () => {
       const id = door()?.id;
