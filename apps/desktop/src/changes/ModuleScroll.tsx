@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
-import { DiffReader } from "./DiffReader";
+import { DiffIdentity, DiffReader } from "./DiffReader";
 import type { DiffKeys, DiffTarget } from "./DiffReader";
 import type { Shared } from "./diffDraw";
 import type { Place, Places } from "./lines";
@@ -244,13 +244,14 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
       const repeats = createMemo(() => (props.repeats ?? []).filter(hit => hit.path === path() && shownSpan(hit, only()) !== undefined), { equals: (a, b) => a.length === b.length && a.every((each, at) => each === b[at]) });
 
+      const rank = () => !props.sections ? props.ranks?.get(path()) : undefined;
+
       const gaps = createMemo(() => (props.gaps ?? []).filter(gap => gap.path === path() && shownSpan({ start: gap.line, end: gap.line }, only()) !== undefined), { equals: (a, b) => a.length === b.length && a.every((each, at) => each === b[at]) });
 
       return <section class="module-file" data-path={id} style={{ "min-block-size": `calc(var(--space-5) * ${lines(id)})` }} ref={element => { sections.set(id, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(id); readers.delete(id); }); }}>
-        <Show when={!props.sections ? props.ranks?.get(path()) : undefined}>{word => <p class="module-function">{word()}</p>}</Show>
         <Show when={entryOf(id)?.label}>{label => <p class="module-function">{label()}</p>}</Show>
-        <Show when={wanted().has(id)} fallback={<header class="diff-header"><p class="diff-path">{path()}</p></header>}>
-          <DiffReader shared={shared} batch={false} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} repeats={repeats()} gaps={gaps()} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
+        <Show when={wanted().has(id)} fallback={<header class="diff-header"><DiffIdentity read={undefined} path={path()} rank={rank()} /></header>}>
+          <DiffReader shared={shared} batch={false} rank={rank()} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} repeats={repeats()} gaps={gaps()} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
         </Show>
       </section>;
     }}</For>
