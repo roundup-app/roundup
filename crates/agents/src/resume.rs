@@ -9,6 +9,8 @@ pub(super) struct Resumption<'a> {
     pub ack_bound: Duration,
     /// A conversation (id, cwd) that is not the one the Rail saved.
     pub conversation: Option<(&'a str, &'a str)>,
+    /// U7191i: continue `conversation` as a new session (`--fork-session`).
+    pub fork: bool,
     pub prompt: Option<String>,
     pub publication: RailPublication,
     pub mode: Option<contracts::agent::ResumeMode>,
@@ -70,6 +72,7 @@ impl Agents {
             Resumption {
                 ack_bound: RESUME_ACK_BOUND,
                 conversation: None,
+                fork: false,
                 prompt: None,
                 publication: RailPublication::Immediate,
                 mode,
@@ -149,6 +152,7 @@ impl Agents {
             Resumption {
                 ack_bound,
                 conversation: None,
+                fork: false,
                 prompt: None,
                 publication: RailPublication::Immediate,
                 mode: None,
@@ -205,6 +209,7 @@ impl Agents {
     fn reserve_resume(&self, id: &str, resumption: &Resumption<'_>) -> Result<Reserved, RpcError> {
         let Resumption {
             conversation,
+            fork,
             prompt,
             mode,
             ..
@@ -237,6 +242,7 @@ impl Agents {
                 since: (self.shared.clock)(),
                 old,
                 conversation_id: conversation_id.clone(),
+                fork: *fork,
                 cwd: saved_cwd.clone(),
                 prompt: prompt.clone(),
                 starred: false,
@@ -247,6 +253,7 @@ impl Agents {
         );
         Ok(Reserved {
             attempt,
+            fork: *fork,
             conversation_id,
             saved_cwd,
             done_rx,
@@ -409,6 +416,7 @@ impl Agents {
         let Resumption {
             ack_bound,
             conversation: _,
+            fork: _,
             prompt: _,
             publication: _,
             mode,
@@ -486,7 +494,11 @@ impl Agents {
             id,
             attempt: &reserved.attempt,
             cwd: &effective_cwd,
-            origin: Origin::Resume(&reserved.conversation_id),
+            origin: if reserved.fork {
+                Origin::Offshoot(&reserved.conversation_id)
+            } else {
+                Origin::Resume(&reserved.conversation_id)
+            },
             attach: Attach::AfterAck,
             permission: if mode == Some(contracts::agent::ResumeMode::Yolo) {
                 Permission::Bypass
@@ -548,6 +560,7 @@ fn at_step(id: &str, step: &str, err: RpcError) -> RpcError {
 /// A reserved Attempt: its slot is `Slot::Resuming`, with the conversation it continues.
 struct Reserved {
     attempt: Ordinal,
+    fork: bool,
     conversation_id: String,
     saved_cwd: String,
     done_rx: oneshot::Receiver<Result<(), RpcError>>,
@@ -687,7 +700,15 @@ impl Shared {
         .await;
         let result = {
             let mut runs = shared.runs();
-            match cleanup {
+            // U7191d: a core that closed or is missing took its programs with it, so the
+            // Terminal is gone and the slot frees like a confirmed cleanup.
+            match cleanup.or_else(|cleanup| {
+                if core_lost(&cleanup) {
+                    Ok(())
+                } else {
+                    Err(cleanup)
+                }
+            }) {
                 Ok(()) => {
                     if let Some(Slot::ResumeCleanup { old: Some(old), .. }) = runs.take(&id) {
                         runs.put(&id, Slot::Running(*old));
@@ -715,10 +736,66 @@ impl Shared {
     }
 }
 
+/// U7191d: whether `error` says the herdr-core connection closed or the core is missing.
+fn core_lost(error: &RpcError) -> bool {
+    ["core_closed", "core_missing"]
+        .iter()
+        .any(|code| error.message.contains(code))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::tests::*;
+
+    #[tokio::test]
+    async fn u7191d_resume_cleanup_frees_after_a_failure() {
+        for (failure, freed) in [
+            ("core_closed: the core closed", true),
+            ("core_silent: no answer", false),
+        ] {
+            let (dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+            let id = running_agent(&shared, None);
+            let agents = owner_agents(shared, dir.path())
+                .with_resume_effect(move |_, _| Err(RpcError::internal(failure)));
+            let shared = agents.shared.clone();
+            {
+                let mut runs = shared.runs();
+                let Some(Slot::Running(old)) = runs.take(&id) else {
+                    panic!("running_agent leaves a Running slot");
+                };
+                runs.put(
+                    &id,
+                    Slot::ResumeCleanup {
+                        old: Some(Box::new(old)),
+                        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                        terminal_id: "1".into(),
+                        pending: true,
+                        error: RpcError::internal("failed"),
+                    },
+                );
+            }
+            let (done, result) = oneshot::channel();
+            Shared::finish_cleanup(
+                shared.clone(),
+                id.clone(),
+                "1".into(),
+                RpcError::internal("resume failed"),
+                done,
+            )
+            .await;
+            assert!(result.await.unwrap().is_err());
+            let runs = shared.runs();
+            if freed {
+                assert!(matches!(runs.slot(&id), Some(Slot::Running(_))));
+            } else {
+                assert!(matches!(
+                    runs.slot(&id),
+                    Some(Slot::ResumeCleanup { pending: false, .. })
+                ));
+            }
+        }
+    }
 
     fn ctx(bus: Bus) -> Ctx {
         Ctx {

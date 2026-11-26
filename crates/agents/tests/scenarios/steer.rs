@@ -499,11 +499,12 @@ async fn h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to
     }
     // H11's prompt and A7498a's one Enter for a first prompt (both in `steer.rs`), H13's
     // Interrupt, B6's explicit Terminal path (user input and original-prompt guarded bytes) and
-    // A7's exit keys. A lost Signal must never add a fallback caller.
+    // A7's exit keys, and U7889c's click on a command the Agent printed. A lost Signal must never add a fallback caller.
     assert_eq!(
         callers,
         [
             "agents/src/ending.rs: 1",
+            "agents/src/printed_run.rs: 1",
             "agents/src/reach.rs: 1",
             "agents/src/steer.rs: 3"
         ]

@@ -190,3 +190,99 @@ async fn x15_other_shells_and_spawned_programs_get_no_injection() {
         "{printed:?}"
     );
 }
+
+/// What `agent.runPrinted` does for one click: claim a free shell of `owner` or open one, then type the line.
+/// Returns the Terminal the line went to and, when it opened one, that shell's output.
+async fn click(
+    terminals: &terminal::Terminals,
+    dir: &Path,
+    shell: &str,
+    line: &str,
+) -> (String, Option<terminal::Spawned>) {
+    let (id, opened) = match terminals.claim_free_shell("agent") {
+        Some(free) => (free, None),
+        None => {
+            let opened = terminals
+                .spawn_shell_owned(&dir.to_string_lossy(), shell, "agent", home(dir), (80, 24))
+                .await
+                .unwrap();
+            (opened.id.clone(), Some(opened))
+        }
+    };
+    terminals
+        .write(&id, format!("{line}\r").as_bytes())
+        .await
+        .unwrap();
+    (id, opened)
+}
+
+async fn owned_by_agent(terminals: &terminal::Terminals) -> usize {
+    terminals
+        .list()
+        .await
+        .iter()
+        .filter(|info| info.owner.as_deref() == Some("agent"))
+        .count()
+}
+
+#[tokio::test]
+async fn u7889c_twenty_quick_clicks_leave_one_shell() {
+    let Some(shell) = shell_path("bash") else {
+        println!("skipped: bash not installed");
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let (first, opened) = click(&terminals, dir.path(), &shell, "true").await;
+    let mut spawned = opened.expect("the first click opens the shell");
+    let mut out = Output {
+        stream: &mut spawned.output,
+        printed: String::new(),
+        seen: 0,
+    };
+
+    for _ in 0..19 {
+        out.until("\x1b]133;D;0\x07").await;
+        out.until("\x1b]133;B\x07").await;
+        let (id, opened) = click(&terminals, dir.path(), &shell, "true").await;
+        assert!(opened.is_none(), "a free shell is reused");
+        assert_eq!(id, first);
+    }
+    assert_eq!(owned_by_agent(&terminals).await, 1);
+}
+
+#[tokio::test]
+async fn u7889c_click_while_sleep_runs_opens_a_second_then_reuses_a_free_one() {
+    let Some(shell) = shell_path("bash") else {
+        println!("skipped: bash not installed");
+        return;
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let (first, opened) = click(&terminals, dir.path(), &shell, "sleep 1").await;
+    let mut spawned = opened.expect("the first click opens the shell");
+    let mut out = Output {
+        stream: &mut spawned.output,
+        printed: String::new(),
+        seen: 0,
+    };
+
+    out.until("\x1b]133;C").await;
+    let (second, opened) = click(&terminals, dir.path(), &shell, "true").await;
+    let mut second_shell = opened.expect("every shell is busy, so one more opens");
+    assert_ne!(second, first);
+    assert_eq!(owned_by_agent(&terminals).await, 2);
+
+    out.until("\x1b]133;D;0\x07").await;
+    out.until("\x1b]133;B\x07").await;
+    let mut second_out = Output {
+        stream: &mut second_shell.output,
+        printed: String::new(),
+        seen: 0,
+    };
+    second_out.until("\x1b]133;D;0\x07").await;
+    let (third, opened) = click(&terminals, dir.path(), &shell, "true").await;
+    assert!(opened.is_none(), "a shell is free again");
+    assert_eq!(third, first, "the oldest free shell is reused");
+    assert_eq!(owned_by_agent(&terminals).await, 2);
+}

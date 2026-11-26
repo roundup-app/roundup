@@ -97,7 +97,8 @@ it("u7693c_the_chip_draws_each_state_in_plain_words", async () => {
   read.resolve({ kind: "moved" });
   await screen.findByText(copy.remoteMoved);
   fireEvent.click(screen.getByRole("button", { name: copy.fetch }));
-  expect(await screen.findByRole("button", { name: copy.fetching })).toHaveProperty("disabled", true);
+  await screen.findByText(copy.fetching);
+  expect(screen.queryByRole("button", { name: copy.fetch })).toBeNull();
   fetch.resolve({ commits: 2 });
   await screen.findByText(copy.fetched(2));
   expect(screen.queryByRole("button", { name: copy.fetch })).toBeNull();

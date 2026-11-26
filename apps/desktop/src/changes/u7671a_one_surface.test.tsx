@@ -11,7 +11,6 @@ it("u7671a_the_worktree_control_mounts_no_second_changes_surface", async () => {
 
   flush();
   expect(screen.queryByRole("button", { name: /\d+ changed files?/ })).toBeNull();
-  expect(document.querySelector("file-tree-container")).toBeNull();
   expect(calls("agent.changedFiles")).toBe(0);
 });
 

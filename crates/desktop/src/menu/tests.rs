@@ -582,3 +582,16 @@ fn u7210a_the_application_menu_holds_send_feedback_and_emits_open_feedback() {
     select_project_menu(app.handle().clone(), None, None).unwrap();
     assert!(!feedback.is_enabled().unwrap());
 }
+
+#[test]
+fn u7887d_the_project_menu_holds_the_ten_actions_and_no_settings_id() {
+    // The ten actions are `u5919a_native_project_menu_has_two_groups`'s; `project-settings` is no Project command.
+    assert!(matches!(
+        MenuCommand::parse("project-settings"),
+        MenuCommand::Choice
+    ));
+    assert!(matches!(
+        MenuCommand::parse("import-work"),
+        MenuCommand::Project("import-work")
+    ));
+}
