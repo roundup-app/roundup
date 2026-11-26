@@ -1,0 +1,1 @@
+const [a, setA] = createSignal(0); createEffect(() => { push(b()); setA(0); });

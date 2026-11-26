@@ -539,9 +539,27 @@ impl Agents {
         &self,
         id: &str,
         to: CompareTarget,
+        skill: Option<&str>,
     ) -> Result<Readback, RpcError> {
         let worktree = self.readback_worktree(id)?;
         let key = key(id, to);
+        let lens = match skill {
+            None => None,
+            Some(name) => match self.shared.rail_view.launcher.skill_body(
+                &worktree.path,
+                self.project_dir(),
+                name,
+            ) {
+                Some(body) => Some(body),
+                None => {
+                    // RS3: no run starts, and the kept result stays as it was.
+                    return Ok(state(&failed(
+                        "call",
+                        format!("the Skill \"{name}\" is not one of this Agent's Skills"),
+                    )));
+                }
+            },
+        };
         {
             let mut runs = self
                 .shared
@@ -605,7 +623,7 @@ impl Agents {
             .unwrap_or_default();
         let shared = Arc::clone(&self.shared);
         tokio::spawn(async move {
-            let entry = run(&call, input, flows, last_message).await;
+            let entry = run(&call, input, flows, last_message, lens.as_deref()).await;
             shared.readbacks.set(key, entry);
         });
         Ok(Readback::Reading)
@@ -619,6 +637,7 @@ async fn run(
     input: DiffInput,
     flows: Vec<CodeFlow>,
     last_message: Option<String>,
+    lens: Option<&str>,
 ) -> Entry {
     let hunks: Vec<_> = input
         .hunks
@@ -626,7 +645,7 @@ async fn run(
         .map(|hunk| json!({"id": hunk.id, "path": hunk.path, "text": hunk.text}))
         .collect();
     let stdin = json!({"hunks": hunks, "flows": flows}).to_string();
-    let text = match call.read(ACCOUNT_SYSTEM, stdin.as_bytes()).await {
+    let text = match call.read(ACCOUNT_SYSTEM, lens, stdin.as_bytes()).await {
         Ok(text) => text,
         Err(cause) => return failed("call", cause),
     };
@@ -637,7 +656,7 @@ async fn run(
     if let Some(said) = last_message.filter(|said| !said.trim().is_empty()) {
         let stdin = json!({"account": &account, "hunks": hunks, "last_message": said}).to_string();
         account.gaps = match call
-            .read(GAPS_SYSTEM, stdin.as_bytes())
+            .read(GAPS_SYSTEM, None, stdin.as_bytes())
             .await
             .and_then(|text| gaps(&text, &input.hunks))
         {

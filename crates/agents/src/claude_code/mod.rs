@@ -50,7 +50,7 @@ pub use models::{LaunchFacts, Lean, Permission, efforts, engines, models};
 pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
-pub use skills::{BANNED, skills};
+pub use skills::{BANNED, skill_body, skills};
 use status_label::hook_status;
 pub use status_label::transient_cause;
 pub use vendor_list::{Listed, Listing, Live};

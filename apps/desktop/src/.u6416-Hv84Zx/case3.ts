@@ -1,0 +1,1 @@
+setAll(all => [...all, 1]);

@@ -31,7 +31,7 @@ export const CONTRACT = {
     "agent.printedCommands": "4f47166592fea733",
     "agent.prompt": "827059ae7d416823",
     "agent.readback": "aafebd1602afbfd1",
-    "agent.readbackStart": "3b2b64a17a17b22f",
+    "agent.readbackStart": "2f07d0ec59af97c7",
     "agent.remoteMain": "40a59bdbb251c315",
     "agent.repeatScan": "b4464fafcdfb80de",
     "agent.restartMode": "3fb7f13656fa7b80",
