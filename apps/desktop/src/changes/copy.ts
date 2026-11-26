@@ -242,9 +242,9 @@ export const copy = {
   checkingMoves: "Checking for moves",
   movesFailed: "Couldn't check moves",
   movedWord: "moved",
-  moveReaderStopped: "The move reader did not start",
-  noGrammar: (language: string) => `No grammar for ${language}`,
-  grammarFailed: (language: string, status: number) => `Grammar for ${language} failed: ${status}`,
+  moveReaderStopped: "The move reader did not start.",
+  noGrammar: (language: string) => `The move reader has no grammar for ${language}.`,
+  grammarFailed: (language: string, status: number) => `Grammar for ${language} failed: ${status}.`,
   renamedWord: "renamed",
   /** U7688a to U7688f: the readback the Overview carries, its states, the gaps and the diagram. */
   readback: "Readback",
