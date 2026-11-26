@@ -36,7 +36,7 @@ const label = v.picklist(LABELS);
 
 export type Label = v.InferOutput<typeof label>;
 
-const noteSchema = v.strictObject({
+const lineSchema = v.strictObject({
   id: line, revision: v.string(), comparison, side: v.picklist(["old", "new"]),
   start: line, end: line, source: v.string(), text: v.string(), selection: v.optional(caret),
   // U7677e: when the Agent accepted the note (ms); a note without it is unsent.
@@ -45,11 +45,22 @@ const noteSchema = v.strictObject({
   label: v.optional(label), replacement: v.optional(v.string()),
 });
 
-const formSchema = v.strictObject({
+/** U7691: the item a note names, a file, module or flow of the Changes list, by the item's `name`; `blobs` holds each file's `blob` when the note was made, `title` the words it was made under. */
+const itemSchema = v.strictObject({ kind: v.picklist(["file", "module", "flow"]), name: v.string(), title: v.string(), blobs: v.record(v.string(), v.nullable(v.string())) });
+
+const itemNoteSchema = v.strictObject({ id: line, revision: v.string(), item: itemSchema, text: v.string(), sent: v.optional(offset), label: v.optional(label) });
+
+const noteSchema = v.union([lineSchema, itemNoteSchema]);
+
+const lineFormSchema = v.strictObject({
   revision: v.string(), comparison, replacing: v.nullable(line),
   side: v.picklist(["old", "new"]), start: v.string(), end: v.string(), text: v.string(),
   selection: caret, label: v.optional(label), replacement: v.optional(v.string()),
 });
+
+const itemFormSchema = v.strictObject({ revision: v.string(), item: itemSchema, replacing: v.nullable(line), text: v.string(), selection: caret, label: v.optional(label) });
+
+const formSchema = v.union([lineFormSchema, itemFormSchema]);
 
 const submissionSchema = v.strictObject({
   revision: v.string(), notes: v.array(noteSchema), body: v.string(), previous: v.nullable(v.array(offset)),
@@ -60,9 +71,31 @@ const savedRecipientSchema = v.strictObject({ version: v.literal(1), notes: v.ar
 
 const recipientSchema = v.strictObject({ ...savedRecipientSchema.entries, recovered: v.array(v.strictObject({ revision: v.string(), data: savedRecipientSchema })) });
 
-export type Note = v.InferOutput<typeof noteSchema>;
+export type LineNote = v.InferOutput<typeof lineSchema>;
 
-export type NoteFormDraft = v.InferOutput<typeof formSchema>;
+export type ItemNote = v.InferOutput<typeof itemNoteSchema>;
+
+export type Item = v.InferOutput<typeof itemSchema>;
+
+export type Note = LineNote | ItemNote;
+
+export type NoteFormDraft = v.InferOutput<typeof lineFormSchema>;
+
+export type ItemFormDraft = v.InferOutput<typeof itemFormSchema>;
+
+export type Form = NoteFormDraft | ItemFormDraft;
+
+/** U7691: a note or an unfinished form on an item, not on lines. */
+export const isItem = <T extends object>(value: T): value is Extract<T, { item: Item }> => "item" in value;
+
+/** U7691: a note or an unfinished form on lines. */
+export const isLine = <T extends object>(value: T): value is Exclude<T, { item: Item }> => !("item" in value);
+
+/** What a note or form names first: an item's title, a line note's path. */
+export const titleOf = (note: Note | Form) => isItem(note) ? note.item.title : note.comparison.newPath;
+
+/** The files of an item, in the order it recorded them. */
+export const filesOf = (item: Item) => Object.keys(item.blobs);
 
 type Submission = v.InferOutput<typeof submissionSchema>;
 
@@ -124,8 +157,13 @@ export const reply = async <T>(call: () => Promise<T>): Promise<{ kind: "ok"; va
   } finally { clearTimeout(timer); }
 };
 
+/** U7691b: an item note's entry: its `Group:` in place of `Lines:`, and the `blob` of each file it recorded. */
+const itemEntryOf = (note: ItemNote) => ({ "Group:": { kind: note.item.kind, name: note.item.title, files: filesOf(note.item) }, "Content revisions:": note.item.blobs, "User comment:": note.text });
+
 /** One note's entry in the Message body: `Label:` and `Replacement:` only when set (U7690a, U7690b). */
 const entryOf = (note: Note) => {
+  if (isItem(note)) return note.label === undefined ? itemEntryOf(note) : { ...itemEntryOf(note), "Label:": note.label };
+
   const entry = { "File:": { old: note.comparison.oldPath, new: note.comparison.newPath }, "Base:": note.comparison.base, "Content revisions:": { old: note.comparison.old.revision, new: note.comparison.new.revision }, "Lines:": `${note.side} ${note.start}-${note.end}`, "Selected source:": note.source, "User comment:": note.text };
   const labelled = note.label === undefined ? entry : { ...entry, "Label:": note.label };
 
@@ -135,12 +173,16 @@ const entryOf = (note: Note) => {
 const bodyOf = (notes: readonly Note[]) => JSON.stringify({ description: copy.notesDescription, notes: notes.map(entryOf) }, null, 2);
 
 /** A form that repeats another: native selection events can repeat after restoring the same caret, and a no-op must not rebuild the editor. */
-const sameCaret = (left: NoteFormDraft, right: NoteFormDraft) => left.selection?.start === right.selection?.start && left.selection?.end === right.selection?.end && left.selection?.direction === right.selection?.direction;
+const sameCaret = (left: Pick<Form, "selection">, right: Pick<Form, "selection">) => left.selection?.start === right.selection?.start && left.selection?.end === right.selection?.end && left.selection?.direction === right.selection?.direction;
 
-const sameForm = (left: NoteFormDraft, right: NoteFormDraft) => left.comparison === right.comparison && left.replacing === right.replacing && left.side === right.side && left.start === right.start && left.end === right.end && left.text === right.text && left.label === right.label && left.replacement === right.replacement && sameCaret(left, right);
+const sameLineForm = (left: NoteFormDraft, right: NoteFormDraft) => left.comparison === right.comparison && left.replacing === right.replacing && left.side === right.side && left.start === right.start && left.end === right.end && left.text === right.text && left.label === right.label && left.replacement === right.replacement && sameCaret(left, right);
+
+const sameItemForm = (left: ItemFormDraft, right: ItemFormDraft) => left.item.kind === right.item.kind && left.item.name === right.item.name && left.replacing === right.replacing && left.text === right.text && left.label === right.label && sameCaret(left, right);
+
+const sameForm = (left: Form, right: Form) => isItem(left) ? isItem(right) && sameItemForm(left, right) : !isItem(right) && sameLineForm(left, right);
 
 /** The rows a record that would not load still holds: copy preserves even records without readable note fields. */
-const previewOf = (data: string): (Note | NoteFormDraft)[] => {
+const previewOf = (data: string): (Note | Form)[] => {
   try {
     const row = v.nullable(v.union([noteSchema, formSchema]));
     const rows = v.fallback(v.array(v.fallback(row, null)), []);
@@ -313,9 +355,9 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       if (!invalid.size) for (const [id, value] of recipients()) await retain(id, value);
     },
     /** U7676c: the forms holding typed text, each Esc or file switch having kept it as unfinished work. */
-    unfinished: (id: string): readonly NoteFormDraft[] => recipient(id).forms.filter(form => form.text.trim() !== ""),
-    form: (id: string, comparison: FileComparison, replacing?: number) => recipient(id).forms.find(form => form.replacing === (replacing ?? null) && form.comparison.newPath === comparison.newPath),
-    editForm: (id: string, form: NoteFormDraft) => {
+    unfinished: (id: string): readonly NoteFormDraft[] => recipient(id).forms.filter(isLine).filter(form => form.text.trim() !== ""),
+    form: (id: string, comparison: FileComparison, replacing?: number) => recipient(id).forms.find((form): form is NoteFormDraft => !isItem(form) && form.replacing === (replacing ?? null) && form.comparison.newPath === comparison.newPath),
+    editForm: (id: string, form: Form) => {
       const current = recipient(id);
       const previous = current.forms.find(value => value.revision === form.revision);
 
@@ -349,7 +391,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       for (const note of selected?.notes ?? []) if (!list(id).some(value => value.id === note.id)) clearItem(id, note.id);
     },
-    save: async (id: string, note: Omit<Note, "id" | "revision">, replacing?: number, form?: string) => {
+    save: async (id: string, note: Omit<LineNote, "id" | "revision"> | Omit<ItemNote, "id" | "revision">, replacing?: number, form?: string) => {
       const current = recipient(id);
       const values = current.notes;
 
@@ -425,3 +467,11 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 };
 
 export type Notes = ReturnType<typeof notesFor>;
+
+const formsOf = (notes: Notes, id: string): readonly Form[] => notes.entries().find(([key]) => key === id)?.[1].forms ?? [];
+
+/** U7691a: the unfinished forms on items. */
+export const unfinishedItems = (notes: Notes, id: string) => formsOf(notes, id).filter(isItem).filter(form => form.text.trim() !== "");
+
+/** U7691a: the form kept on an item, the one that replaces note `replacing` when given. */
+export const itemFormOf = (notes: Notes, id: string, item: Pick<Item, "kind" | "name">, replacing?: number) => formsOf(notes, id).find((form): form is ItemFormDraft => isItem(form) && form.item.kind === item.kind && form.item.name === item.name && form.replacing === (replacing ?? null));
