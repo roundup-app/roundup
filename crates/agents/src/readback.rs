@@ -18,8 +18,9 @@ const MAX_HUNKS: usize = 400;
 const ACCOUNT_SYSTEM: &str = "You read a code change and write a readback of it. Your input is \
 JSON: `hunks` (each {id, path, text}) and `flows` (call paths already read from the code, each \
 {id, entry, hunks}: hunk ids in call order). Reply with one JSON object and nothing else: \
-{\"overview\": two or three sentences, \"diagram\": a small text diagram of the parts and calls \
-(before and after where the shape changed), \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
+{\"overview\": two or three sentences, \"diagram\": a small text diagram, one call per line as \
+`A -> B` (a chain `A -> B -> C` is allowed), with a line `Before` or `After` starting each panel \
+where the shape changed, \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
 \"hunks\": [hunk ids]}]}], \"modules\": [{\"module\", \"account\"}]}. Keep each given flow under \
 its id with exactly its hunks in its order; you may add flows under new ids. Use only hunk ids \
 from the input.";
