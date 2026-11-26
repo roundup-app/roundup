@@ -28,7 +28,7 @@ Decisions this specification takes (the Issue's "My reading" points, each kept a
 **U7700a only the user starts a pass.** Given the Changes view on the Tree target with the fake App, then:
 - **Not asked.** Opening the view, a turn that wrote, a Fetch, `R` (the readback), selecting lines and a second of waiting call `agent.findDefects` zero times. Asserted in `u7700a_only_the_user_starts_the_pass_and_a_comparison_without_a_tree_offers_none`.
 - **Ask.** The Overview's icon button named "Find defects" (no visible text; its tooltip the same words) calls `agent.findDefects` once with the Agent's `id` and the open `to`; a click while the pass runs calls nothing more. Asserted in the same test.
-- **Not offered.** On the Changes target (no Worktree: RB2) the button does not show. Asserted in the same test.
+- **Changes.** On the Changes target the button shows and the call sends the open group as `group` (U7955a). Asserted in `u7955a_changes_reads_send_the_open_group_and_flows_traces`.
 
 **U7700b every state of the pass is drawn.** Given the Overview, then:
 - **Not run.** A quiet line says no pass has run, beside the button. Asserted in `u7700b_every_state_is_drawn_and_the_view_stays_usable`.

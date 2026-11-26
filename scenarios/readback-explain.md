@@ -26,7 +26,7 @@ Decisions this specification takes (the Issue's "My reading" points, each kept a
 **U7698a only the user's action asks.** Given the Changes view on the Tree target with the fake App, then:
 - **Not asked.** Opening the view, a turn that wrote, a Fetch, selecting lines (a click, a Shift-click, a drag or J and K) and a second of waiting call `agent.explain` zero times. Asserted in `u7698a_only_the_user_asks_and_a_comparison_without_a_tree_offers_none`.
 - **Ask.** The two icon buttons of a file's header, named "Explain in words" and "Explain as diagram" (no visible text; their tooltips the same words), and W and D, each call `agent.explain` once with the Agent's `id`, the open `to`, the file's `path` and the selection's `side`, `start` and `end` and the form; an ask while that range reads calls nothing more. The ? list names W and D. Asserted in the same test and `u7698a_the_keys_list_names_w_and_d`.
-- **Not offered.** On the Changes target (no Worktree: RB2) no button shows and W and D call nothing. Asserted in the same test as "Not asked".
+- **Changes.** On the Changes target the buttons show and W and D send the open group as `group` (U7955a). Asserted in `u7955a_changes_reads_send_the_open_group_and_flows_traces`.
 
 **U7698b every state is drawn under the lines.** Given an ask, then under the last line of the range:
 - **Asking.** "Reading back…" with role status, and the view stays usable: J, K, the lens and the tree answer as without it. Asserted in `u7698b_asking_keeps_the_view_usable_and_the_answer_shows_under_the_lines`.
