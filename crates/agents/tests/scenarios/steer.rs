@@ -10,7 +10,7 @@ use contracts::{Actor, ActorKind, Kind};
 use rpc::{Ctx, Module, RpcError, code};
 use serde_json::{Value, json};
 
-use crate::common::{Fixture, GATED, star, status_of, until_file};
+use crate::common::{Fixture, GATED, PATIENCE, star, status_of, until_file};
 
 const RECORD: &str = GATED;
 const BOUND: Duration = Duration::from_millis(400);
@@ -496,6 +496,41 @@ async fn first_delivery(f: &Fixture, id: &str) -> (String, Option<String>) {
     )
 }
 
+/// The first delivery of `id`, once its state is `state`.
+async fn until_delivery(f: &Fixture, id: &str, state: &str) -> Option<String> {
+    tokio::time::timeout(PATIENCE, async {
+        loop {
+            let (now, cause) = first_delivery(f, id).await;
+            if now == state {
+                return cause;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("the first delivery never became {state}"))
+}
+
+/// A spawn with a first prompt whose delivery has passed its bound: `uncertain`, nothing written.
+async fn past_the_bound() -> (Fixture, String) {
+    let mut f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
+    f.agents = f.agents.with_first_prompt_bound(Duration::from_millis(100));
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    until_delivery(&f, &node.id, "uncertain").await;
+    assert!(f.inbox().is_empty());
+    let id = node.id.clone();
+    (f, id)
+}
+
+/// `SessionStart` arrives after the bound: the prompt reaches the inbox, and the delivery is `submitted`.
+async fn start_late(f: &Fixture, id: &str) {
+    signal(f, id, "SessionStart").await;
+    let inbox = f.until_inbox(1).await;
+    assert!(inbox[0].1.contains("build it"), "{:?}", inbox[0].1);
+    assert_eq!(until_delivery(f, id, "submitted").await, None);
+}
+
 #[tokio::test]
 async fn u7946a_a_delivery_past_its_bound_leaves_prepared() {
     let mut f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
@@ -503,74 +538,22 @@ async fn u7946a_a_delivery_past_its_bound_leaves_prepared() {
     let node = f.spawn(None, Some("build it")).await.unwrap();
     until_file(&f.dir.path().join("ready")).await;
     assert_eq!(first_delivery(&f, &node.id).await.0, "prepared");
-    tokio::time::timeout(Duration::from_secs(10), async {
-        while first_delivery(&f, &node.id).await.0 == "prepared" {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("the bound moves the delivery off prepared");
-    let (state, cause) = first_delivery(&f, &node.id).await;
-    assert_eq!(state, "uncertain");
+    let cause = until_delivery(&f, &node.id, "uncertain").await;
     assert!(cause.is_some_and(|cause| !cause.is_empty()));
 }
 
 #[tokio::test]
 async fn u7946a_a_late_session_start_still_delivers_the_prompt_once() {
-    let mut f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
-    f.agents = f.agents.with_first_prompt_bound(Duration::from_millis(100));
-    let node = f.spawn(None, Some("build it")).await.unwrap();
-    until_file(&f.dir.path().join("ready")).await;
-    tokio::time::timeout(Duration::from_secs(10), async {
-        while first_delivery(&f, &node.id).await.0 == "prepared" {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("the bound passes first");
-    assert!(f.inbox().is_empty());
-
-    signal(&f, &node.id, "SessionStart").await;
-    let inbox = f.until_inbox(1).await;
-    assert!(inbox[0].1.contains("build it"), "{:?}", inbox[0].1);
-    tokio::time::timeout(Duration::from_secs(10), async {
-        while first_delivery(&f, &node.id).await.0 != "submitted" {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("the late write becomes submitted");
-    assert_eq!(first_delivery(&f, &node.id).await.1, None);
+    let (f, id) = past_the_bound().await;
+    start_late(&f, &id).await;
 }
 
 #[tokio::test]
 async fn u7946c_a_delivery_past_its_bound_is_never_written_twice() {
-    let mut f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
-    f.agents = f.agents.with_first_prompt_bound(Duration::from_millis(100));
-    let node = f.spawn(None, Some("build it")).await.unwrap();
-    until_file(&f.dir.path().join("ready")).await;
-    tokio::time::timeout(Duration::from_secs(10), async {
-        while first_delivery(&f, &node.id).await.0 == "prepared" {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("the bound passes first");
-    assert!(f.inbox().is_empty());
-
-    signal(&f, &node.id, "SessionStart").await;
-    let inbox = f.until_inbox(1).await;
-    assert!(inbox[0].1.contains("build it"), "{:?}", inbox[0].1);
-    tokio::time::timeout(Duration::from_secs(10), async {
-        while first_delivery(&f, &node.id).await.0 != "submitted" {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .expect("the late write becomes submitted");
-    assert_eq!(first_delivery(&f, &node.id).await.1, None);
-    signal(&f, &node.id, "Stop").await;
-    signal(&f, &node.id, "SessionStart").await;
+    let (f, id) = past_the_bound().await;
+    start_late(&f, &id).await;
+    signal(&f, &id, "Stop").await;
+    signal(&f, &id, "SessionStart").await;
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(f.inbox().len(), 1);
     assert_eq!(read(&typed(&f)), "");
