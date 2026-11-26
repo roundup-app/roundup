@@ -18,7 +18,7 @@ import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Takes } from "./modules";
 import type { Note, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
-import { annotate, drawDiff, gatheredNotes, lineAnnotations } from "./diffDraw";
+import { annotate, drawDiff, gatheredNotes, lineAnnotations, renderedApart } from "./diffDraw";
 import { outdated } from "./diffDraw";
 import type { Annotated, Composer, Noted, Shared } from "./diffDraw";
 import { LineMark } from "./LineMark";
@@ -299,7 +299,9 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
       setSelection(place.selection);
 
       if (!shared) virtualizer.setup(mount);
-      view.render({ fileContainer: container, fileDiff });
+
+      if (!await renderedApart(drawn, shared, () => current)) return;
+
       setRenderer(view);
 
       view.setSelectedLines({ side: sideName(selection().side), start: selection().start, end: selection().end });
