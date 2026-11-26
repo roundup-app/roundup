@@ -286,7 +286,7 @@
 .note-field .note-input { font-family: var(--font-mono); }
 
 .risk-mark { flex: none; align-self: center; inline-size: var(--space-2); block-size: var(--space-2); border-radius: var(--radius-round); background: var(--text); }
-.risk-mark[data-risk="medium"] { background: var(--grey); }
+.risk-mark[data-risk="medium"] { inline-size: var(--space-1); block-size: var(--space-1); }
 .risk-mark[data-stale="true"] { opacity: 0.6; }
 .diff-rank { margin: 0; color: var(--grey); }
 .risk-reason, .risk-credit { display: block; }
