@@ -44,10 +44,12 @@ export const ReadbackBlock = (props: { readback: ReadbackState } & Linking) => {
       <Switch>
         <Match when={state().state === "notRead"}>
           <p>{copy.readbackQuiet}</p>
-          <Show when={props.readback.skills().length > 0}>
-            <Select label={copy.readbackSkill} choices={[{ value: "", label: copy.noSkill }, ...props.readback.skills().map(name => ({ value: name, label: name }))]} value={props.readback.skill() ?? ""} onValueChange={name => props.readback.pick(name === "" ? null : name)} />
-          </Show>
-          <ReadbackAction name={copy.readBack} icon="read" run={start} />
+          <div class="readback-start">
+            <Show when={props.readback.skills().length > 0}>
+              <Select label={copy.readbackSkill} choices={[{ value: "", label: copy.noSkill }, ...props.readback.skills().map(name => ({ value: name, label: name }))]} value={props.readback.skill() ?? ""} onValueChange={name => props.readback.pick(name === "" ? null : name)} />
+            </Show>
+            <ReadbackAction name={copy.readBack} icon="read" run={start} />
+          </div>
         </Match>
         <Match when={state().state === "reading"}><p role="status">{copy.readingBack}</p></Match>
         <Match when={failureCause(state())}>{cause => <p>{copy.readbackFailed} <ReadbackAction name={copy.retry} icon="rotate-cw" run={start} /> <span class="flow-cause">{cause()}</span></p>}</Match>
