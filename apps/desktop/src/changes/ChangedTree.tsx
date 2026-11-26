@@ -79,7 +79,7 @@ const focusedValue = (): string | undefined => {
 };
 
 /** U7678a, U7678b, U7679c: the Overview row, then the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, the Overview row gone. */
-export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; /** U7691a: the names of the modules and flows holding an unfinished note, and U7691d: the item notes each row counts. */ held: ReadonlySet<string>; itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
+export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; /** U7691a: the names of the modules and flows holding an unfinished note, and U7691d: the item notes each row counts. */ unfinishedItems: ReadonlySet<string>; itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
   const open = (value: string) => props.finding || expanded().includes(value);
@@ -90,7 +90,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   /** U7688e: the gaps an item holds, by its row's key. */
   const gapsOf = (key: string) => props.gaps?.get(key.slice(2)) ?? 0;
 
-  const marked = (files: readonly ChangedFile[], item?: ModuleGroup) => files.some(file => props.unfinished.has(file.path)) || (item !== undefined && props.held.has(item.name));
+  const marked = (files: readonly ChangedFile[], item?: ModuleGroup) => files.some(file => props.unfinished.has(file.path)) || (item !== undefined && props.unfinishedItems.has(item.name));
 
   const notesOf = (item: ModuleGroup) => countFor(props.itemNotes, item);
 
