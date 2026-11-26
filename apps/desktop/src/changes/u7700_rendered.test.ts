@@ -9,7 +9,7 @@ import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import type { Findings } from "@contracts/agent/Findings";
+import type { DefectFindings } from "@contracts/agent/DefectFindings";
 import { copy } from "./copy";
 
 const exec = promisify(execFile);
@@ -29,7 +29,7 @@ const COMPARISON: FileComparison = { base: "base", oldPath: "", newPath: "", sta
 
 const PATH = "crates/module-01/src/lib.rs";
 
-const FOUND: Findings = {
+const FOUND: DefectFindings = {
   state: "found",
   findings: [
     { path: PATH, start: 6, end: 6, source: line(5, " + 1"), text: "The cache lookup ignores a missing entry and returns a stale value.", label: "issue" },
@@ -37,7 +37,7 @@ const FOUND: Findings = {
   ],
 };
 
-const FAILED: Findings = { state: "failed", kind: "badAnswer", cause: "the answer is not findings: expected an object with a findings list" };
+const FAILED: DefectFindings = { state: "failed", kind: "badAnswer", cause: "the answer is not findings: expected an object with a findings list" };
 
 const present = (expression: string) => "!!document.querySelector(" + JSON.stringify(expression) + ")";
 
@@ -65,7 +65,7 @@ it("u7700g_the_findings_are_captured_for_the_critic", async () => {
   const until = (expression: string) => browser("wait", "--fn", expression);
 
   /** The Daemon lists the file and answers `agent.findDefects` with `answer`. */
-  const serve = (answer: Findings) => {
+  const serve = (answer: DefectFindings) => {
     const files = [file(PATH, "one")];
     const groups = [{ repo: "/p/transform-education", branch: "main", base: "main", files }];
 
@@ -98,7 +98,7 @@ it("u7700g_the_findings_are_captured_for_the_critic", async () => {
   const press = (name: string) => read(`document.querySelector('button[aria-label="${name}"]')?.click() ?? false`);
 
   /** The Changes view over the Tree target, the pass asked on its Overview. */
-  const asked = async (answer: Findings) => {
+  const asked = async (answer: DefectFindings) => {
     await serve(answer);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
@@ -115,7 +115,7 @@ it("u7700g_the_findings_are_captured_for_the_critic", async () => {
     await until("document.querySelectorAll('.finding').length > 0");
   };
 
-  const states: { name: string; answer: Findings; run: () => Promise<void> }[] = [
+  const states: { name: string; answer: DefectFindings; run: () => Promise<void> }[] = [
     { name: "pending", answer: FOUND, run: async () => { await drawn(); await shot("pending", "document.querySelectorAll('.finding').length === 2"); } },
     { name: "kept", answer: FOUND, run: async () => { await drawn(); await press(copy.keepFinding); await shot("kept", "document.querySelectorAll('.finding').length === 1"); } },
     { name: "dropped", answer: FOUND, run: async () => { await drawn(); await press(copy.dropFinding); await shot("dropped", "document.querySelectorAll('.finding').length === 1"); } },

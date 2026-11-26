@@ -3,7 +3,7 @@ import { createRoot } from "solid-js";
 import { expect, it } from "vitest";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Finding } from "@contracts/agent/Finding";
-import type { Findings } from "@contracts/agent/Findings";
+import type { DefectFindings } from "@contracts/agent/DefectFindings";
 import { copy } from "./copy";
 import { createFindings, createFound } from "./findings";
 import { mountControl } from "./harness";
@@ -65,7 +65,7 @@ const WIRING: Finding = {
   label: "nit",
 };
 
-const found = (...findings: Finding[]): Findings => ({
+const found = (...findings: Finding[]): DefectFindings => ({
   state: "found",
   findings,
 });
@@ -74,7 +74,7 @@ type Daemon = {
   blob: string;
   gone: boolean;
   edit: (line: number) => string;
-  answer: () => Findings | Promise<Findings>;
+  answer: () => DefectFindings | Promise<DefectFindings>;
 };
 
 const daemon = (over: Partial<Daemon> = {}): Daemon => ({
@@ -152,12 +152,12 @@ const relist = async () => {
 };
 
 it("u7700a_only_the_user_starts_the_pass_and_a_comparison_without_a_tree_offers_none", async () => {
-  let release: (value: Findings) => void = () => {};
+  let release: (value: DefectFindings) => void = () => {};
 
   const { app } = await treeOpen(
     daemon({
       answer: () =>
-        new Promise<Findings>((resolve) => {
+        new Promise<DefectFindings>((resolve) => {
           release = resolve;
         }),
     }),
@@ -192,11 +192,11 @@ it("u7700a_only_the_user_starts_the_pass_and_a_comparison_without_a_tree_offers_
 });
 
 it("u7700b_every_state_is_drawn_and_the_view_stays_usable", async () => {
-  let release: (value: Findings) => void = () => {};
+  let release: (value: DefectFindings) => void = () => {};
 
   const now = daemon({
     answer: () =>
-      new Promise<Findings>((resolve) => {
+      new Promise<DefectFindings>((resolve) => {
         release = resolve;
       }),
   });

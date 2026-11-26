@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::readback::{json_in, over_cap, placed};
-use contracts::agent::{ChangedFilesParams, Finding, FindingLabel, Findings};
+use contracts::agent::{ChangedFilesParams, DefectFindings, Finding, FindingLabel};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -33,8 +33,8 @@ struct RawFinding {
     text: String,
 }
 
-fn failed(kind: &str, cause: String) -> Findings {
-    Findings::Failed {
+fn failed(kind: &str, cause: String) -> DefectFindings {
+    DefectFindings::Failed {
         kind: kind.into(),
         cause,
     }
@@ -67,7 +67,10 @@ fn findings(raw: Vec<RawFinding>, hunks: &[crate::worktree::Hunk]) -> Vec<Findin
 
 impl Agents {
     /// RB18 to RB20: one call, started by the user's, answered with its result.
-    pub(super) async fn find_defects(&self, p: ChangedFilesParams) -> Result<Findings, RpcError> {
+    pub(super) async fn find_defects(
+        &self,
+        p: ChangedFilesParams,
+    ) -> Result<DefectFindings, RpcError> {
         let worktree = self.readback_worktree(&p.id)?;
         let input = self.readback_diff(worktree, p.to).await?;
         if let Some(cause) = over_cap(&input.hunks) {
@@ -88,7 +91,7 @@ impl Agents {
                 Err(cause) => failed("call", cause),
                 Ok(text) => match json_in::<Raw>(&text) {
                     Err(err) => failed("badAnswer", format!("the answer is not findings: {err}")),
-                    Ok(raw) => Findings::Found {
+                    Ok(raw) => DefectFindings::Found {
                         findings: findings(raw.findings, &input.hunks),
                     },
                 },

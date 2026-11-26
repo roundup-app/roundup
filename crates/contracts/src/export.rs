@@ -87,7 +87,7 @@ pub fn types() -> specta::Types {
         .register::<crate::agent::Explanation>()
         .register::<crate::agent::Finding>()
         .register::<crate::agent::FindingLabel>()
-        .register::<crate::agent::Findings>()
+        .register::<crate::agent::DefectFindings>()
         .register::<crate::agent::CompareTarget>()
         .register::<crate::agent::CompareFileParams>()
         .register::<crate::agent::RemoteMain>()

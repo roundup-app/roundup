@@ -196,7 +196,7 @@ impl Agents {
         &self,
         ctx: &Ctx,
         p: contracts::agent::ChangedFilesParams,
-    ) -> Result<contracts::agent::Findings, RpcError> {
+    ) -> Result<contracts::agent::DefectFindings, RpcError> {
         if ctx.actor.kind == contracts::ActorKind::Agent {
             return Err(RpcError::forbidden("only the user asks for defects"));
         }

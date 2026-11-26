@@ -1,7 +1,7 @@
 import { createMemo, createSignal } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Finding } from "@contracts/agent/Finding";
-import type { Findings } from "@contracts/agent/Findings";
+import type { DefectFindings } from "@contracts/agent/DefectFindings";
 import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
 import { changedFrom } from "./explain";
@@ -12,7 +12,7 @@ import type { Notes } from "./notes";
 import { placeCounts } from "./repeats";
 
 /** U7700b: one pass of the user's: the comparison and the listing's signature it was asked on (U7700b's stale), and its answer or the wait for one. Its findings are the ones not yet kept or dropped. */
-type Run = { to: "tree" | "branch"; signature: string; answer: Findings | { state: "running" } };
+type Run = { to: "tree" | "branch"; signature: string; answer: DefectFindings | { state: "running" } };
 
 /** U7700f: an Agent's pass, kept in the connection's memory for its session (U7675f): closing the view loses none, and a restart drops it. */
 export const createFound = () => createSignal<Run | undefined>(undefined);
@@ -54,7 +54,7 @@ export const createFindings = (input: { app: AppSeam; id: string; to: () => "tre
     const asked: Run = { to, signature: input.signature(), answer: { state: "running" } };
 
     setKept(asked);
-    let landed: Findings | undefined;
+    let landed: DefectFindings | undefined;
 
     void failureOf(async () => { landed = await input.app.rpc("agent.findDefects", { id: input.id, to }); })
       .then(failure => setKept(held => held === asked ? { ...asked, answer: failure !== null || !landed ? { state: "failed", kind: "call", cause: failure ?? "no_answer" } : landed } : held));

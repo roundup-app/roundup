@@ -212,11 +212,11 @@ pub struct Finding {
     pub label: FindingLabel,
 }
 
-/// RB19, RB20: the Findings of `agent.findDefects`, none when the reader found no defect; `failed`
+/// RB19, RB20: the DefectFindings of `agent.findDefects`, none when the reader found no defect; `failed`
 /// says why in `cause`, and `kind` is `tooLarge`, `badAnswer` or `call`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "state", rename_all = "camelCase")]
-pub enum Findings {
+pub enum DefectFindings {
     Found { findings: Vec<Finding> },
     Failed { kind: String, cause: String },
 }
