@@ -11,8 +11,8 @@ afterEach(cleanup);
 const NOT_FOUND = -32001;
 
 const OWNED: OwnedChanges = { groups: [
-  { repo: "/p", branch: "main", base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 }, blob: null }] },
-  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "other.ts", status: "added", line: 1, counts: { added: 2, removed: 0 }, blob: null }] },
+  { repo: "/p", checkout: "/p", branch: "main", base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 }, blob: null }] },
+  { repo: "/q", checkout: "/q", branch: "own/x", base: "main", files: [{ path: "other.ts", status: "added", line: 1, counts: { added: 2, removed: 0 }, blob: null }] },
 ] };
 
 const reads = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter(call => call.method === "agent.compareFile").map(call => call.params);

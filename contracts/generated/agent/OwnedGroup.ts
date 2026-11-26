@@ -7,6 +7,11 @@ import type * as agent$ChangedFile from "./ChangedFile";
  */
 export type OwnedGroup = {
 	repo: string,
+	/**
+	 *  The top of the checkout the `files` paths are relative to (U7952a): a linked worktree's
+	 *  when the recorded writes sit in one, else `repo`.
+	 */
+	checkout: string,
 	branch: string,
 	base: string,
 	files: agent$ChangedFile.ChangedFile[],

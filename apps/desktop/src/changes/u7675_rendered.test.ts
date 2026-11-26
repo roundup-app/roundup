@@ -74,7 +74,7 @@ it("u7675g_the_states_are_captured_for_the_critic", async () => {
   const owns = (files: ChangedFile[]) => read(`(() => {
     const files = ${JSON.stringify(files)};
 
-    window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: files.length === 0 ? [] : [{ repo: ${JSON.stringify(AGENT)}, branch: "roundup/agent-1", base: "main", files }] });
+    window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: files.length === 0 ? [] : [{ repo: ${JSON.stringify(AGENT)}, checkout: ${JSON.stringify(AGENT)}, branch: "roundup/agent-1", base: "main", files }] });
     window.__fake.setStatus("agent-1", "idle", "ready");
 
     return window.__worktrees.refresh("agent-1").then(() => true);

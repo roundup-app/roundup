@@ -103,7 +103,7 @@ it("u7689g_the_flows_lens_after_a_readback_is_captured_for_the_critic", async ()
   /** The Daemon answers with the listing of the Tree target, each file's comparison, the TypeScript trace and the readback. */
   const serve = (answer: Readback) => {
     const files = [...FOURTEEN, ...FLOW_FILES];
-    const groups = [{ repo: "/p/transform-education", branch: "main", base: "main", files }];
+    const groups = [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files }];
 
     return read(`(() => {
       const handlers = window.__fake.app.handlers;

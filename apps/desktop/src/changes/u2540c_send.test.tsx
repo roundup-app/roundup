@@ -155,7 +155,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
     const files = [{ path: "src/a.ts", status: "modified" as const, line: 1, counts: null, blob: null }];
 
     daemon.handlers["agent.changedFiles"] = () => ({ files });
-    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: WORKTREE.path, branch: WORKTREE.branch, base: WORKTREE.base, files }] });
+    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: WORKTREE.path, checkout: WORKTREE.path, branch: WORKTREE.branch, base: WORKTREE.base, files }] });
     daemon.handlers["agent.compareFile"] = () => COMPARISON;
   }
 
