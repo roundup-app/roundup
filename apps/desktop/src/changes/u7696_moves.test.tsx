@@ -5,7 +5,7 @@ import type { ChangedSymbol } from "@contracts/agent/ChangedSymbol";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
 import { answers, ALIAS, flowComparison, FLOW_FILES, LOAD, OTHER, RUN, TYPESCRIPT } from "./flowFixture";
-import { standInWorker, worker } from "./moveHarness";
+import { standInReader, reads } from "./moveHarness";
 import type { Moved } from "./moves";
 import { take } from "./noteHarness";
 import { chooseLens, comparison, drawnIn, landed, moduleRow, region, setUpView, text, there } from "./viewHarness";
@@ -36,8 +36,8 @@ class Eager {
 
 beforeEach(() => {
   vi.stubGlobal("IntersectionObserver", Eager);
-  standInWorker();
-  worker.answer = ({ path }) => MARKS.get(path) ?? [];
+  standInReader();
+  reads.answer = ({ path }) => MARKS.get(path) ?? [];
 });
 
 type Mounted = Awaited<ReturnType<typeof landed>>;
@@ -89,7 +89,7 @@ it("u7696b_the_row_counts_its_moves_and_none_says_nothing", async () => {
 });
 
 it("u7696c_a_failed_read_says_its_cause_and_retry_asks_again_and_a_slow_one_says_so", async () => {
-  worker.answer = () => { throw new Error("grammar rust: 404"); };
+  reads.answer = () => { throw new Error("grammar rust: 404"); };
 
   await logicOpen();
 
@@ -97,7 +97,7 @@ it("u7696c_a_failed_read_says_its_cause_and_retry_asks_again_and_a_slow_one_says
 
   states.getByText(copy.movesFailed);
   states.getByText("grammar rust: 404");
-  worker.answer = ({ path }) => MARKS.get(path) ?? [];
+  reads.answer = ({ path }) => MARKS.get(path) ?? [];
   fireEvent.click(states.getByRole("button", { name: copy.retry }));
   await waitFor(() => expect(stamped(RUN_PATH)).toEqual([19, 20, 21]));
   expect(screen.queryByRole("region", { name: copy.movedCode })).toBeNull();
@@ -106,7 +106,7 @@ it("u7696c_a_failed_read_says_its_cause_and_retry_asks_again_and_a_slow_one_says
 it("u7696c_a_slow_read_says_so_after_a_pause_and_none_before", async () => {
   let release: (moved: Moved[]) => void = () => undefined;
 
-  worker.answer = () => new Promise<Moved[]>(resolve => { release = resolve; });
+  reads.answer = () => new Promise<Moved[]>(resolve => { release = resolve; });
   await logicOpen();
   expect(screen.queryByText(copy.checkingMoves)).toBeNull();
   await tick(200);
