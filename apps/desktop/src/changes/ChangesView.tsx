@@ -30,6 +30,7 @@ import { createCallPaths } from "./callPaths";
 import { flowName, groupFlows, type Done, type Read } from "./flows";
 import { FlowStates } from "./FlowStates";
 import { createReadback, spanOf } from "./readback";
+import { fileRanks, rankWord, withRisks } from "./rank";
 import { ItemAccount } from "./ReadbackBlock";
 import { createRepeatScan, placeCounts } from "./repeats";
 import { RepeatStates } from "./RepeatStates";
@@ -270,10 +271,11 @@ const createLensed = (files: () => readonly ChangedFile[], traced: () => readonl
   const all = files();
   const done = traced();
   const readback = read();
+  const ranks = fileRanks(readback?.account);
   const made = new Map<Lens, Grouped>();
 
   return (each: Lens): Grouped => {
-    const hit = made.get(each) ?? (each === "flows" ? groupFlows(all, done, readback) : groupLens(all, each));
+    const hit = made.get(each) ?? (each === "flows" ? groupFlows(all, done, readback) : withRisks(groupLens(all, each, ranks), readback?.account, readback?.stale ?? false));
 
     made.set(each, hit);
 
@@ -325,6 +327,17 @@ const Surface = (props: { id: string; name: string }) => {
   const { panes, ready } = createPanes(opened, lens, () => `${target()}|${active()}`);
 
   const itemOf = (key: string, each: Lens) => lensed()(each).modules.find(module => moduleKey(module.name) === key);
+
+  // U7697a: the rank word of each file the readback ranked, drawn only where the rank order is in force.
+  const rankWords = (listed: readonly ChangedFile[]) => {
+    const ranks = fileRanks(readback.account());
+
+    return new Map(listed.flatMap(file => {
+      const word = rankWord(ranks, file.path);
+
+      return word ? [[file.path, word] as const] : [];
+    }));
+  };
 
   const openFiles = (key: string, each: Lens): readonly ChangedFile[] => key.startsWith("m:") ? itemOf(key, each)?.files ?? [] : files().filter(file => noiseKey(file.path) === key);
 
@@ -495,7 +508,7 @@ const Surface = (props: { id: string; name: string }) => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} />}</Show>} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} /></Loading>}>
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} />}</Show>} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} ranks={lensOf(pane) === "flows" ? undefined : rankWords(files())} /></Loading>}>
             <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;

@@ -31,7 +31,7 @@ const OTHER_FLOW: ReadFlow = { id: "code-2", name: "Other loads it too", source:
 
 const ADDED: ReadFlow = { id: "added-1", name: "Shout is checked", source: "readback", steps: [step("Shout upcases its input.", `${LIB_RS}#1`)] };
 
-const account = (over: Partial<Account> = {}): Account => ({ overview: "Adds a loader.", diagram: "", flows: [RUN_FLOW, OTHER_FLOW, ADDED], modules: [], unplaced: [`${TYPES_TS}#1`, `${README}#1`], gaps: [], ...over });
+const account = (over: Partial<Account> = {}): Account => ({ overview: "Adds a loader.", diagram: "", flows: [RUN_FLOW, OTHER_FLOW, ADDED], modules: [], unplaced: [`${TYPES_TS}#1`, `${README}#1`], ranks: [], risks: [], gaps: [], ...over });
 
 const result = (state: "read" | "stale", over: Partial<Account> = {}): Readback => ({ state, ...account(over) });
 
