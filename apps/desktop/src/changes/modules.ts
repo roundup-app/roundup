@@ -1,4 +1,7 @@
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import type { ChangedSymbol } from "@contracts/agent/ChangedSymbol";
+import type { FlowNode } from "@contracts/agent/FlowNode";
+import type { FunctionCalls } from "@contracts/agent/FunctionCalls";
 import { copy } from "./copy";
 
 /** U7678b: the name of the module a file with no directory left belongs to. */
@@ -48,17 +51,39 @@ export const noiseOf = (path: string): NoiseKind | undefined => {
   return undefined;
 };
 
-export type ModuleGroup = { name: string; files: ChangedFile[]; added: number; removed: number; counted: boolean };
+/** U7683d: whether the changed line `line` (1-based) of a diff side belongs to a section. */
+export type Takes = (side: "old" | "new", line: number) => boolean;
 
-export type Grouped = { modules: ModuleGroup[]; noise: { kind: NoiseKind; files: ChangedFile[] }[] };
+/** U7683d: one part of an item's scroll: a file whole, or only the hunks `pick` takes. `id` names it in the scroll; `label` is the function a flow's section reads. */
+export type Section = { id: string; file: ChangedFile; label?: string; pick?: Takes };
+
+/** U7683e: what a flow's call tree draws: the flow's tree, the symbols and calls of its answer, and each function's section. */
+export type FlowDetail = { tree: FlowNode; symbols: ReadonlyMap<string, ChangedSymbol>; calls: ReadonlyMap<string, FunctionCalls>; sections: ReadonlyMap<string, string> };
+
+/** `total` is the files the row counts; a find (U7679d) narrows `files` and leaves it. A flow (U7683c) is a group whose `name` is its key, `label` its words, `sections` its scroll and `flow` its call tree; a readback (U7689) gives it `read`, and a flow it names keeps its function in `function`. `untraced` is Not traced. */
+export type ModuleGroup = { name: string; files: ChangedFile[]; total: number; added: number; removed: number; counted: boolean; label?: string; sections?: readonly Section[]; flow?: FlowDetail; read?: ReadMark; untraced?: true; function?: string; risk?: RiskMark };
+
+/** U7697c: a risk worth a mark (high or medium; low draws nothing), its reason, and whether the diff moved on since. */
+export type RiskMark = { level: "high" | "medium"; reason: string; stale: boolean };
+
+/** U7697a: how early a file reads in its kind: 0 core, 1 forced, 2 glue; a file with no rank is absent. */
+export type FileRanks = ReadonlyMap<string, number>;
+
+/** U7689: what the readback gave an item: the notes of its explanation, whether it added the flow, and whether the diff moved under it. */
+export type ReadMark = { notes: readonly string[]; added: boolean; stale: boolean };
+
+export type Grouped = { modules: ModuleGroup[]; noise: { kind: NoiseKind; files: ChangedFile[]; total: number }[] };
 
 const byPath = (a: ChangedFile, b: ChangedFile) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: "base" });
 
-/** U7678a, U7678c: files in the order a module's scroll reads them: logic in path order, then tests in path order. */
-export const scrollOrder = (files: readonly ChangedFile[]): ChangedFile[] => [...files.filter(file => !isTest(file.path)).sort(byPath), ...files.filter(file => isTest(file.path)).sort(byPath)];
+/** U7697a: the readback's rank first when there is one, an unranked file after the ranked, then path order. */
+const byRank = (ranks: FileRanks | undefined) => (a: ChangedFile, b: ChangedFile) => (ranks?.get(a.path) ?? 3) - (ranks?.get(b.path) ?? 3) || byPath(a, b);
+
+/** U7678a, U7678c, U7697a: files in the order a module's scroll reads them: logic then tests, each in path order, or in rank order and then path order with a readback. */
+export const scrollOrder = (files: readonly ChangedFile[], ranks?: FileRanks): ChangedFile[] => [...files.filter(file => !isTest(file.path)).sort(byRank(ranks)), ...files.filter(file => isTest(file.path)).sort(byRank(ranks))];
 
 /** U7678a, U7678b: the list's modules in path order with summed counts, and a noise row for each kind the change holds. */
-export const groupModules = (files: readonly ChangedFile[]): Grouped => {
+export const groupModules = (files: readonly ChangedFile[], ranks?: FileRanks): Grouped => {
   const modules = new Map<string, ChangedFile[]>();
   const noise = new Map<NoiseKind, ChangedFile[]>();
 
@@ -73,12 +98,13 @@ export const groupModules = (files: readonly ChangedFile[]): Grouped => {
   return {
     modules: [...modules].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })).map(([name, list]) => ({
       name,
-      files: scrollOrder(list),
+      files: scrollOrder(list, ranks),
+      total: list.length,
       added: list.reduce((sum, file) => sum + (file.counts?.added ?? 0), 0),
       removed: list.reduce((sum, file) => sum + (file.counts?.removed ?? 0), 0),
       counted: list.some(file => file.counts !== null),
     })),
-    noise: (["generated", "lockfile"] as const).flatMap(kind => noise.has(kind) ? [{ kind, files: [...noise.get(kind) ?? []].sort(byPath) }] : []),
+    noise: (["generated", "lockfile"] as const).flatMap(kind => noise.has(kind) ? [{ kind, files: [...noise.get(kind) ?? []].sort(byPath), total: noise.get(kind)?.length ?? 0 }] : []),
   };
 };
 

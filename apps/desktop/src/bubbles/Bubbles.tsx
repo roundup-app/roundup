@@ -82,7 +82,7 @@ export const Bubbles = (props: {
   let recoveryPanel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => recoveryPanel, active: recovering, modal: true }, []);
 
-  const model = createBubblesModel(store, () => connected.daemonExit() === null);
+  const model = createBubblesModel(store, () => connected.daemonExit() === null, rail);
   const { places, commitPlaces, wanted, setWanted, reserved } = model;
 
   const refreshPlaces = (event: StorageEvent) => {

@@ -491,3 +491,59 @@ async fn u7191c_a_failed_restart_names_the_cause() {
     assert_eq!(after.terminal_id(), node.terminal_id());
     assert!(after.has_conversation());
 }
+
+/// U7191i: an offshoot resumes the stopped Agent's conversation as a new session in a new row
+/// placed right after it; the stopped Agent keeps its row and its conversation.
+#[tokio::test]
+async fn u7191i_an_offshoot_resumes_the_conversation_as_a_new_session_after_its_source() {
+    let f = Arc::new(Fixture::running("echo \"$@\" > argv.txt; sleep 30"));
+    let source = exited_with_conversation(&f, CONVERSATION).await;
+    let next = f.spawn(None, None).await.unwrap();
+    let offshooting = {
+        let f = Arc::clone(&f);
+        let id = source.id.clone();
+        tokio::spawn(async move { f.call("agent.offshoot", json!({"id": id})).await })
+    };
+    let argv = until_resumed(&f).await;
+    assert!(argv.contains("--fork-session"), "{argv}");
+    let new_id = f
+        .tree()
+        .await
+        .into_iter()
+        .map(|n| n.id.clone())
+        .find(|id| *id != source.id && *id != next.id)
+        .expect("the offshoot's row");
+    f.session_start(&new_id, OTHER_CONVERSATION, "fork")
+        .await
+        .unwrap();
+    let offshoot: RailNode = serde_json::from_value(offshooting.await.unwrap().unwrap()).unwrap();
+    assert_eq!(offshoot.id, new_id);
+    let tree = f.tree().await;
+    let order: Vec<&str> = tree.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(
+        order,
+        [source.id.as_str(), new_id.as_str(), next.id.as_str()]
+    );
+    let after = tree.iter().find(|n| n.id == source.id).unwrap();
+    assert!(after.can_resume() && after.has_conversation());
+    assert!(!tree.iter().find(|n| n.id == new_id).unwrap().can_resume());
+}
+
+/// U7191i: only the user forks, only a stopped Agent, only one holding a conversation.
+#[tokio::test]
+async fn u7191i_an_offshoot_needs_a_stopped_agent_with_a_conversation() {
+    let f = Fixture::running("sleep 30");
+    let fresh = f.spawn(None, None).await.unwrap();
+    let running = f.spawn(None, None).await.unwrap();
+    f.session_start(&running.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    for id in [&fresh.id, &running.id] {
+        let err = f
+            .call("agent.offshoot", json!({"id": id}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::CONFLICT, "{}", err.message);
+    }
+    assert_eq!(f.tree().await.len(), 2);
+}

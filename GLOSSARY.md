@@ -47,6 +47,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Original Terminal program (`TerminalInfo.program_pid`, `Terminals::program_pid`) | none | — |
 | Terminal incarnation (`TerminalInfo.incarnation`) | same | — |
 | Shell mark | same | shell integration (as a name; it is the means) |
+| Printed command (`PrintedCommands`, `agent.printedCommands`, `agent.runPrinted`, `Terminals::claim_free_shell`: a line of a `sh`, `bash`, `zsh` or `shell` block an Agent printed, read from its conversation record; a click runs one in a shell the Agent owns whose prompt is free) | command | — |
 | Turn | command | — |
 | FloatingLine (`ink/FloatingLine.tsx`) | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
@@ -115,7 +116,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Worktree state | same | — |
 | Changed file (`ChangedFile`, `ChangedFile.counts`, `ChangedFile.blob`, `LineCounts`) | same | — |
 | Owned changes (`agent.ownedChanges`) | same | — |
+| Owned group key (`OwnedGroupKey`, the `group` of `agent.compareFile`) | same | — |
+| Item note (`ItemNote`, `Item`, `ItemTarget`; the Message entry's `Group:` key names the item) | Note on module, flow or file | — |
 | Scan hit (`agent.repeatScan`, `ScanHits`, `ScanHit`, `ScanPlace`) | same | — |
+| Moved code (`Moved`, the Changes view's moved and renamed lines; never "Mark", which is a report mark) | Moved from, Renamed | — |
 | Compare target (`CompareTarget`, the `to` of `agent.changedFiles` and `agent.compareFile`) | same | — |
 | File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | same | — |
 | Remote main (`agent.remoteMain`, `RemoteMain`) | Remote main | — |
@@ -201,6 +205,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Program status (`ProgramStatus`, `terminal.status`) | status | — |
 | Call path (`CallPaths`, `agent.callPaths`) | Flow | — |
 | Language server | — | — |
+| Mark done (`markDone`) | — | — |
+
+**Mark done.** The owner clears a `needs-you` Status from the attention lists by choice (`scenarios/mark-done.md`): the same dismissal as U5151c, keyed by Agent id, Attempt and Status revision, so the Agent's next `needs-you` shows again. It sends nothing to the Agent.
 
 **Program status.** What a program in a Terminal reports about itself with OSC 7501 (`scenarios/terminal-program-status.md`): records of a state, a message and a title that the Daemon folds into the Terminal's Status. `blocked` in a report is Kind `needs-you`; Kind `blocked` stays the Daemon's.
 
@@ -240,6 +247,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Context | same | — |
 | Channel | same | — |
 | Session restart (`ModeRestartParams`, `SessionRestart`, `agent.restartMode`, `Agents::mode_prompt`, `session_restart`, `set_session_restart`) | Restart session | — |
+| Offshoot (`agent.offshoot`, `Agents::offshoot`, `Origin::Offshoot`, `Rail::place_after`, `Launcher::forking`: a new Agent that continues a stopped Agent's saved conversation under a new session id, placed right after it) | Fork | — |
 | Mode first prompt (`ModePromptParams`, `RailNode.mode_prompt`, `agent.setModePrompt`) | First prompt | — |
 | Claude inbox (`CoordinationSink`, `with_coordination`, `coordinate`) | same | — |
 | Mcp | same | — |
@@ -251,10 +259,13 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Model | same | — |
 | Effort | same | — |
 | Role (`Role::ALL`: `door`, `subagent`, `readback`; the kind of Agent roundup starts, which a Project's Model and Effort are set for) | same | — |
-| Readback (`ReadbackCall`, `Launcher::readback_call`: one run of a fresh model that reads only what it is handed, with no tools, no session, no Terminal and no Rail row; `agent.readbackStart` starts one on the user's call, `agent.readback` reads its state) | same | — |
+| Readback (`ReadbackCall`, `Launcher::readback_call`: one run of a fresh model that reads only what it is handed, with no tools, no session, no Terminal and no Rail row; `agent.readbackStart` starts one on the user's call, `agent.readback` reads its state; may be briefed by one Skill, `ReadbackStartParams::skill`, whose body the Adapter adds as a review lens) | same | — |
+| Explanation (`Explanation`: what `agent.explain` answers when the user asks the Readback's reader to explain selected lines of the diff, in words or as a small diagram; the Daemon keeps none, the App keeps it for the session and never sends it to the Agent) | same | — |
 | Hunk id (`Hunk::id`: `<path>#<n>`, `n` counting that path's hunks from 1 in diff order, as the changes view names them) | same | — |
 | Gap (`Gap`: where the diff disagrees with the Agent's last message, with `path`, `quote` and the new-side `line`) | same | — |
 | Unplaced (`Account::unplaced`: the hunk ids no flow of a Readback holds, computed by the Daemon) | Unplaced | — |
+| Rank (`Rank`, `Account::ranks`: `core`, `forced` or `glue`, one per hunk id, in the model's answer) | Core, Forced, Glue | — |
+| Risk (`Risk`, `Account::risks`: `high`, `medium` or `low` with a one-sentence reason, one per flow and per module) | High risk, Medium risk | — |
 | Usage | same | — |
 | Evaluator | same | — |
 
@@ -272,6 +283,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
 | Module (`changes/modules.ts`: a changed file's directory without trailing source and test segments, read from its path) | Modules | — |
+| Lens (`changes/lens.ts`, `Lens`: what the Changes list shows: the flows, every module, the modules' logic only or their tests only) | Flows, Modules, Logic, Tests | — |
+| Changes overview (`changes/Overview.tsx`, `OVERVIEW`: the first row and pane of every lens, the lens's modules with their counts; not the Rail's `ConversationOverview`) | Overview | — |
+| Viewed mark (`changes/viewed.ts`, `Seen`: the blob a file had when the user marked it viewed, kept for the connection's session and for one comparison; a module is viewed when every file it lists holds its mark) | Viewed | — |
 | Reason (`InboxRepeat`: equal to the last entry in the receiving inbox session) | same | — |
 | Card | same | popup |
 | Markdown | same | — |
