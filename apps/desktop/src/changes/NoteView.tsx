@@ -17,7 +17,15 @@ export const acceptedAs = (note: Pick<Note, "message" | "landed">): "waiting" | 
 
 export const statusOf = (notes: Notes, id: string, note: Note, outdated: () => boolean): NoteStatus => note.sent === undefined ? notes.noteState(id, note) : outdated() ? "outdated" : acceptedAs(note);
 
-export const words = (status: NoteStatus, note: Pick<Note, "sent" | "landed">) => status === "sent" ? copy.sentAt(note.landed ?? note.sent) : status === "waiting" ? copy.waiting : status === "outdated" ? copy.outdated : status === "sending" ? copy.sending : status === "unknown" ? copy.sendUnknown : status === "failed" ? copy.couldntSend : copy.notSent;
+const statusWords: Record<Exclude<NoteStatus, "sent">, string> = {
+  waiting: copy.waiting,
+  outdated: copy.outdated,
+  sending: copy.sending,
+  unknown: copy.sendUnknown,
+  failed: copy.couldntSend,
+};
+
+export const words = (status: NoteStatus, note: Pick<Note, "sent" | "landed">) => status === "sent" ? copy.sentAt(note.landed ?? note.sent) : statusWords[status] ?? copy.notSent;
 
 export const range = (note: LineNote) => note.start === note.end ? (note.side === "old" ? copy.oldLine(note.start) : copy.newLine(note.start)) : note.side === "old" ? copy.oldLines(note.start, note.end) : copy.newLines(note.start, note.end);
 

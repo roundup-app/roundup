@@ -208,6 +208,36 @@ const highestId = (value: Recipient) => {
   return highest;
 };
 
+/** U7956a: a note the Agent accepted carries its Message; it is Sent once that Message lands. */
+const stamped = (note: Note, message: Message): Note => {
+  const marked = { ...note, sent: Date.now(), message: message.id };
+
+  if (message.status === "delivered") marked.landed = Date.now();
+
+  return marked;
+};
+
+/** U7956a: a Message landing turns the notes it carried Sent; one folded into a later delivery (`merged`) lands with the next delivery to its Agent. */
+const createLanding = <R extends { notes: Note[] }>() => {
+  const merged = new Map<number, string>();
+  const waiting = (note: Note, ids: Set<number>) => note.message !== undefined && note.landed === undefined && ids.has(note.message);
+
+  return {
+    follow: (message: Message, recipients: ReadonlyMap<string, R>): [string, R][] => {
+      if (message.status === "dropped" && message.reason === "merged") merged.set(message.id, message.to);
+
+      if (message.status !== "delivered") return [];
+
+      const folded = [...merged].flatMap(([id, to]) => to === message.to && id < message.id ? [id] : []);
+      const ids = new Set([message.id, ...folded]);
+
+      for (const id of folded) merged.delete(id);
+
+      return [...recipients].flatMap(([key, value]): [string, R][] => value.notes.some(note => waiting(note, ids)) ? [[key, { ...value, notes: value.notes.map(note => waiting(note, ids) ? { ...note, landed: Date.now() } : note) }]] : []);
+    },
+  };
+};
+
 const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typeof draftStorage>) => {
   let app = firstApp;
   const records = () => storage.list().filter(draft => draft.destination.surface === "changes" && draft.policy === "ordinary");
@@ -256,7 +286,6 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 
-
   const clearItem = (id: string, note: number) => {
     const failed = sent().get(id);
 
@@ -286,15 +315,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     const revisions = new Set(submission.notes.map(note => note.revision));
     const current = recipient(id);
 
-    const stamp = (note: Note): Note => {
-      const marked = { ...note, sent: Date.now(), message: message.id };
-
-      if (message.status === "delivered") marked.landed = Date.now();
-
-      return marked;
-    };
-
-    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? stamp(note) : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
+    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? stamped(note, message) : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
     putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 
@@ -306,26 +327,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     if (status === "failed") putState(id, { kind: "failed", text, submission: submission.revision, notes: item ? submission.notes.map(note => note.id) : null });
   };
 
-  /** U7956a: a Message landing turns the notes it carried Sent; one folded into a later delivery (`merged`) lands with the next delivery to its Agent. */
-  const merged = new Map<number, string>();
-
-  const land = (message: Message) => {
-    const folded = [...merged].flatMap(([id, to]) => to === message.to && id < message.id ? [id] : []);
-    const ids = new Set([message.id, ...folded]);
-
-    for (const id of folded) merged.delete(id);
-
-    for (const [key, value] of recipients()) {
-      if (!value.notes.some(note => note.message !== undefined && note.landed === undefined && ids.has(note.message))) continue;
-      retain(key, { ...value, notes: value.notes.map(note => note.message !== undefined && note.landed === undefined && ids.has(note.message) ? { ...note, landed: Date.now() } : note) });
-    }
-  };
-
-  const follow = (message: Message) => {
-    if (message.status === "delivered") land(message);
-    else if (message.status === "dropped" && message.reason === "merged") merged.set(message.id, message.to);
-  };
-
+  const landing = createLanding<Recipient>();
   const history = (connection: AppSeam, id: string) => reply(() => connection.rpc("message.list", { to: id, status: null }));
 
   const notes = {
@@ -341,8 +343,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
     removed: (id: string) => gone(id).length > 0,
     undo,
-    /** U7956a: the App's Events carry each Message's status; replayed ones turn a note that waited through a restart. */
-    follow: (events: Events) => events.subscribe(event => { if (event.name === "message.delivered" || event.name === "message.dropped") follow(event.data); }, { replay: true }),
+    follow: (events: Events) => events.subscribe(event => { if (event.name === "message.delivered" || event.name === "message.dropped") for (const [key, value] of landing.follow(event.data, recipients())) retain(key, value); }, { replay: true }),
     noteState: (id: string, note: Note) => noteStateOf(recipient(id).submissions, sent().get(id), note),
     project,
     entries: () => [...recipients().entries()],
