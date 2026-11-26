@@ -60,8 +60,11 @@ export type Section = { id: string; file: ChangedFile; label?: string; pick?: Ta
 /** U7683e: what a flow's call tree draws: the flow's tree, the symbols and calls of its answer, and each function's section. */
 export type FlowDetail = { tree: FlowNode; symbols: ReadonlyMap<string, ChangedSymbol>; calls: ReadonlyMap<string, FunctionCalls>; sections: ReadonlyMap<string, string> };
 
-/** `total` is the files the row counts; a find (U7679d) narrows `files` and leaves it. A flow (U7683c) is a group whose `name` is its key, `label` its words, `sections` its scroll and `flow` its call tree. */
-export type ModuleGroup = { name: string; files: ChangedFile[]; total: number; added: number; removed: number; counted: boolean; label?: string; sections?: readonly Section[]; flow?: FlowDetail };
+/** `total` is the files the row counts; a find (U7679d) narrows `files` and leaves it. A flow (U7683c) is a group whose `name` is its key, `label` its words, `sections` its scroll and `flow` its call tree; a readback (U7689) gives it `read`, and a flow it names keeps its function in `function`. `untraced` is Not traced. */
+export type ModuleGroup = { name: string; files: ChangedFile[]; total: number; added: number; removed: number; counted: boolean; label?: string; sections?: readonly Section[]; flow?: FlowDetail; read?: ReadMark; untraced?: true; function?: string };
+
+/** U7689: what the readback gave an item: the notes of its explanation, whether it added the flow, and whether the diff moved under it. */
+export type ReadMark = { notes: readonly string[]; added: boolean; stale: boolean };
 
 export type Grouped = { modules: ModuleGroup[]; noise: { kind: NoiseKind; files: ChangedFile[]; total: number }[] };
 

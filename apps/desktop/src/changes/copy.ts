@@ -236,6 +236,10 @@ export const copy = {
   /** @prose */
   readbackCredit: "Read back from the diff",
   changedSinceReadback: "Changed since readback",
+  /** U7689b: a flow the readback added. */
+  fromReadback: "From the readback",
+  /** @prose U7689c: the Not traced row's way in. */
+  readToSee: "Read back to see them",
   /** @prose */
   readbackFailed: "Couldn't read back these changes",
   /** @prose */
