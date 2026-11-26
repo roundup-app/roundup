@@ -1,6 +1,6 @@
 import { For, onSettled, Show } from "solid-js";
 import type { Gap } from "@contracts/agent/Gap";
-import { Counts, moduleKey, Name } from "./ChangedTree";
+import { Counts, ItemName, moduleKey } from "./ChangedTree";
 import { copy } from "./copy";
 import type { Lens } from "./lens";
 import type { Grouped } from "./modules";
@@ -25,7 +25,7 @@ export const Overview = (props: { lens: Lens; grouped: Grouped; readback: Readba
       <ul>
         <For each={props.grouped.modules}>{module => <li>
           <button type="button" class="changes-row row-wash" data-entry={moduleKey(module.name)} onClick={() => props.choose(moduleKey(module.name))}>
-            <Name text={module.label ?? module.name} />
+            <ItemName item={module} />
             <span class="changes-row-files">{copy.filesCount(module.total)}</span>
             <Show when={module.counted}><Counts added={module.added} removed={module.removed} /></Show>
           </button>

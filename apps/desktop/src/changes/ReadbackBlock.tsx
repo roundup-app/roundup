@@ -4,13 +4,16 @@ import type { Gap } from "@contracts/agent/Gap";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
+import { FlowTree } from "./FlowTree";
+import type { Lens } from "./lens";
+import type { ModuleGroup } from "./modules";
 import { failureCause, gapsFailure, gapsOf, type ReadbackState } from "./readback";
 import { ReadbackDiagram } from "./ReadbackDiagram";
 
 type Linking = { agent: string; listed: (path: string) => boolean; go: (gap: Gap) => void };
 
 /** U7688a, U7688b: the readback's one kind of action is an icon: its name and tooltip carry the words. */
-const ReadbackAction = (props: { name: string; icon: "read" | "rotate-cw"; run: () => void }) => <IconButton aria-label={props.name} onClick={props.run}><Icon name={props.icon} /></IconButton>;
+export const ReadbackAction = (props: { name: string; icon: "read" | "rotate-cw"; run: () => void }) => <IconButton aria-label={props.name} onClick={props.run}><Icon name={props.icon} /></IconButton>;
 
 /** U7688e: each gap with the link to its line, or without one when its file is gone from the listing. */
 const GapList = (props: { gaps: readonly Gap[] } & Linking) => <ul class="readback-gaps" aria-label={copy.gaps}>
@@ -58,3 +61,22 @@ export const ModuleAccount = (props: { readback: ReadbackState; names: readonly 
 
   return <p class="module-account">{note()?.account ?? copy.noModuleAccount}</p>;
 }}</Show>;
+
+/** U7689a: a flow's explanation from the readback: the credit, and its steps' notes in call order; dimmed when the diff has moved on. */
+const FlowAccount = (props: { read: NonNullable<ModuleGroup["read"]> }) => <section class="readback-account flow-account" data-stale={props.read.stale ? "true" : "false"}>
+  <Show when={props.read.stale}><p>{copy.changedSinceReadback}</p></Show>
+  <div class="readback-text">
+    <p class="readback-credit">{copy.readbackCredit}</p>
+    <ol class="readback-words"><For each={props.read.notes}>{note => <li>{note}</li>}</For></ol>
+  </div>
+</section>;
+
+/** U7683e, U7688d, U7689: what sits above an item's scroll: a flow's explanation and its call tree, a module's own account, and on Not traced the way to a readback. */
+export const ItemAccount = (props: { item: ModuleGroup; lens: Lens; readback: ReadbackState; open: (section: string) => void }) => <>
+  <Show when={props.item.read}>{read => <Show when={read().notes.length > 0}><FlowAccount read={read()} /></Show>}</Show>
+  <Show when={props.item.flow}>{flow => <FlowTree flow={flow()} open={props.open} />}</Show>
+  <Show when={props.item.untraced && props.readback.offered()}>
+    <section class="readback"><p>{copy.readToSee}</p><ReadbackAction name={copy.readBack} icon="read" run={() => props.readback.start()} /></section>
+  </Show>
+  <Show when={props.lens !== "flows"}><ModuleAccount readback={props.readback} names={[props.item.name, props.item.label ?? props.item.name]} /></Show>
+</>;
