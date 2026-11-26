@@ -26,9 +26,9 @@ import { compareParams, firstLine, hiddenKind, noticeFor, revisionOf, sameRead }
 import { annotate, drawDiff, gatheredNotes, lineAnnotations, renderedApart } from "./diffDraw";
 import { outdated } from "./diffDraw";
 import { isMark } from "./diffDraw";
-import type { Annotated, Composer, Explaining, Noted, Shared, Stamped } from "./diffDraw";
+import type { Annotated, Composer, Noted, Shared, Stamped } from "./diffDraw";
 import { LineMark } from "./LineMark";
-import { ExplainedLines } from "./ExplainedLines";
+import { createExplaining } from "./explain";
 import type { Explanations } from "./explain";
 import type { ExplainForm } from "@contracts/agent/ExplainForm";
 import { createGapped, createMoving, createRepeated } from "./repeats";
@@ -241,10 +241,9 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const gapped = createGapped(() => props.gaps, () => props.only);
 
-  const explaining = createMemo((): readonly Explaining[] => (props.explain?.of(props.path) ?? []).map(asked => ({ explaining: true as const, side: asked.side, start: asked.start, end: asked.end, asked })), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.asked === b[at]?.asked) });
+  const explaining = createExplaining({ explain: () => props.explain, path: () => props.path, blob: () => props.blob, selection });
 
-  // U7698a: the user's ask of the selected lines, or of a range an answer is asked again for; the blob id is the file's now.
-  const ask = (form: ExplainForm, at: LineSelection = selection()) => props.explain?.ask({ path: props.path, side: at.side, start: at.start, end: at.end, form, blob: props.blob ?? null });
+  // U7698a: the user asks the selected lines; an answer asks again for its own range.
 
   onCleanup(() => sweep(undefined));
 
@@ -253,9 +252,8 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     const draft = untrack(form);
 
     const content = () => {
-      if ("explaining" in metadata) return <ExplainedLines asked={metadata.asked} stale={(props.blob ?? null) !== metadata.asked.blob} again={() => ask(metadata.asked.form, metadata.asked)} />;
 
-      if ("unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} />;
+      if (isMark(metadata)) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} explained={explaining} />;
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
 
@@ -269,7 +267,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let stamp = (_stamped: Partial<Stamped>) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving(), explaining()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving(), explaining.marks()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));
@@ -388,7 +386,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   createEffect(() => props.keys, keys => keys?.({
     at: () => ({ path: props.path, side: selection().side, line: selection().start }), outdated: note => outdated(note, read()), read: () => read(),
-    focus: () => focusHost(), reload: () => reload(), reveal: () => revealNearest(), note: () => openNote(selection()), explain: form => ask(form), edit: () => edit(noteOnLine()),
+    focus: () => focusHost(), reload: () => reload(), reveal: () => revealNearest(), note: () => openNote(selection()), explain: form => explaining.ask(form), edit: () => edit(noteOnLine()),
     remove: () => { const note = noteOnLine();
 
       if (note) void props.notes.remove(props.id, note.id);
@@ -424,7 +422,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <DiffIdentity read={read()} path={props.path} rank={props.rank} />
-      <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show><Show when={props.explain?.offered() && drawableOf(read(), hidden())}><IconButton aria-label={copy.explainWords} onClick={() => ask("words")}><Icon name="talk" /></IconButton><IconButton aria-label={copy.explainDiagram} onClick={() => ask("diagram")}><Icon name="workflow" /></IconButton></Show><Show when={props.onNote}>{note => <IconButton aria-label={copy.noteOn.file} onClick={event => note()(event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
+      <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show><Show when={props.explain?.offered() && drawableOf(read(), hidden())}><IconButton aria-label={copy.explainWords} onClick={() => explaining.ask("words")}><Icon name="talk" /></IconButton><IconButton aria-label={copy.explainDiagram} onClick={() => explaining.ask("diagram")}><Icon name="workflow" /></IconButton></Show><Show when={props.onNote}>{note => <IconButton aria-label={copy.noteOn.file} onClick={event => note()(event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
     </header>{props.under}
     <BlockedFailure message={failure() && `${copy.fileReadFailed(props.path)}: ${failure()}`} content={copy.fileReadFailed(props.path)} recover={loading() ? undefined : { run: retry }} />
     <StatusNote text={failure() ? null : notice()} />

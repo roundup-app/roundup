@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createMemo, createSignal } from "solid-js";
 import type { ExplainForm } from "@contracts/agent/ExplainForm";
 import type { Explanation } from "@contracts/agent/Explanation";
 import { failureOf } from "../app/failureOf";
@@ -54,3 +54,22 @@ export const createExplanations = (input: { app: AppSeam; id: string; to: () => 
 };
 
 export type Explanations = ReturnType<typeof createExplanations>;
+
+/** U7698b: the explanation under the last line of the range a user asked about. */
+export type Explaining = { explaining: true; side: "old" | "new"; start: number; end: number; asked: Asked };
+
+/**
+ * U7698a, U7698c: one file's asks as marks Pierre keys by identity, the user's ask of lines, and whether the file changed since an ask (the blob id it has now).
+ * An answer asks again for its own range.
+ */
+export const createExplaining = (input: { explain: () => Explanations | undefined; path: () => string; blob: () => string | null | undefined; selection: () => LineSelection }) => {
+  const marks = createMemo((): readonly Explaining[] => (input.explain()?.of(input.path()) ?? []).map(asked => ({ explaining: true as const, side: asked.side, start: asked.start, end: asked.end, asked })), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.asked === b[at]?.asked) });
+
+  return {
+    marks,
+    ask: (form: ExplainForm, at: LineSelection = input.selection()) => input.explain()?.ask({ path: input.path(), side: at.side, start: at.start, end: at.end, form, blob: input.blob() ?? null }),
+    stale: (asked: Asked) => (input.blob() ?? null) !== asked.blob,
+  };
+};
+
+export type FileExplaining = ReturnType<typeof createExplaining>;

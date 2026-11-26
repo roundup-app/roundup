@@ -3,7 +3,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Gap } from "@contracts/agent/Gap";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { copy } from "./copy";
-import type { Asked } from "./explain";
+import type { Explaining } from "./explain";
 import type { Moved } from "./moves";
 import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
@@ -26,9 +26,6 @@ export type Gapped = { gapped: true; side: "new"; start: number; end: number; ga
 
 /** U7696a: the mark under the last line of a move's first range: where the code stood, or its old and new name. */
 export type Movement = { moving: true; side: "new"; start: number; end: number; moved: Moved };
-
-/** U7698b: the explanation under the last line of the range a user asked about. */
-export type Explaining = { explaining: true; side: "old" | "new"; start: number; end: number; asked: Asked };
 
 export type Annotated = LineNote | Mark | Composer | Repeated | Gapped | Movement | Explaining;
 
