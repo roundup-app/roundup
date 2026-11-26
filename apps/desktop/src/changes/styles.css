@@ -220,7 +220,11 @@
 .changes-tree .changes-row[data-level="2"] { padding-inline-start: var(--space-5); }
 .changes-tree .changes-noise { color: var(--grey); }
 .changes-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.changes-row-files, .changes-row-counts, .changes-row-status, .changes-row-repeats { flex: none; color: var(--grey); }
+.changes-row-name[data-stale="true"], .flow-account[data-stale="true"] .readback-text { opacity: 0.6; }
+.changes-row-function { flex: none; max-inline-size: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--grey); font: var(--text-small) var(--font-ui); }
+.flow-account { padding: var(--space-3); font: var(--text-small) var(--font-ui); }
+.flow-account p { margin: 0; }
+.changes-row-files, .changes-row-counts, .changes-row-status, .changes-row-repeats, .changes-row-notes { flex: none; color: var(--grey); }
 /* U7680a, U7680d: a module row's state is a glyph beside its counts; the row's accessible name says it in words. */
 .changes-row-state { flex: none; align-self: center; width: var(--space-3); height: var(--space-3); color: var(--grey); }
 .changes-row-state[data-state="changed"] { color: var(--text); }
@@ -235,6 +239,11 @@
 .flow-states { display: flex; flex-direction: column; gap: var(--space-1); padding-inline: var(--space-4); }
 .flow-states p { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 .flow-cause { flex-basis: 100%; }
+
+/* U7695a: an entry's name is a quiet button; its kind and status follow it in words. */
+.changed-symbols-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(var(--space-6) * 8); overflow-y: auto; overscroll-behavior: contain; }
+.changed-symbols-list .changed-symbol-name { color: var(--text); }
+.changed-symbols-list li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 
 /* U7685a, U7685b: the mark under a repeat's last line, and the other place it shows: sunken, in the diff's own type. */
 .repeat-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }

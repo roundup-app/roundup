@@ -39,6 +39,8 @@ export const copy = {
   traceFailed: (language: string | undefined) => language === undefined ? "Couldn't trace calls" : `Couldn't trace ${language} calls`,
   /** @prose */
   changedSinceTraced: "Changed since traced",
+  /** U7695a: an item's changed functions and types: the disclosure's label and the list's name. */
+  functionsAndTypes: "Functions and types",
   /** @prose */
   flowsNeedWorktree: "Choose Tree or Branch to trace calls",
   languageName: (language: string) => language === "typescript" ? sharedCopy.typescript : `${language.slice(0, 1).toUpperCase()}${language.slice(1)}`,
@@ -142,6 +144,8 @@ export const copy = {
     /** @prose */
     "N adds a note at the focused line or selected range.",
     /** @prose */
+    "In the list, N notes the module, flow or file.",
+    /** @prose */
     "E edits and Delete removes the note on the focused line.",
     /** @prose */
     "G lists every note and jumps to the one you choose.",
@@ -179,6 +183,9 @@ export const copy = {
   removeNote: (number: number) => `Remove note ${number}`,
   sendNotesTo: (name: string) => `Send notes: ${name}`,
   lineNote: "Line note",
+  /** U7691a: the icon and the form's name by the item's kind, and the meta line's kind with its file count. */
+  noteOn: { module: "Note on module", flow: "Note on flow", file: "Note on file" },
+  itemMeta: (kind: "module" | "flow" | "file", count: number) => kind === "file" ? "File" : sharedCopy.dotted(kind === "module" ? "Module" : "Flow", filesOf(count)),
   /** U7690a: the label's words, by data value; the group, the replacement button and field (U7690b). */
   label: "Label",
   labels: { question: "Question", nit: "Nit", issue: "Issue" },
@@ -236,6 +243,10 @@ export const copy = {
   /** @prose */
   readbackCredit: "Read back from the diff",
   changedSinceReadback: "Changed since readback",
+  /** U7689b: a flow the readback added. */
+  fromReadback: "From the readback",
+  /** @prose U7689c: the Not traced row's way in. */
+  readToSee: "Read back to see them",
   /** @prose */
   readbackFailed: "Couldn't read back these changes",
   /** @prose */

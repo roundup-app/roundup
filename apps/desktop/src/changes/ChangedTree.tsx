@@ -6,8 +6,10 @@ import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { AppTree } from "../ui/TreeView";
 import { copy } from "./copy";
 import { OVERVIEW, type Lens } from "./lens";
-import type { Grouped, NoiseKind } from "./modules";
+import type { Grouped, ModuleGroup, NoiseKind } from "./modules";
 import { isNew, statusText } from "./paths";
+import { countFor, groupTarget } from "./itemNotes";
+import type { ItemNote } from "./notes";
 
 /** U7678a: a row's key in the open view: a module by its name, a noise file by its path. */
 export const moduleKey = (name: string) => `m:${name}`;
@@ -18,7 +20,20 @@ const noiseName: Record<NoiseKind, string> = { generated: copy.generated, lockfi
 
 export const Counts = (props: { added: number; removed: number }) => <span class="changes-row-counts">{copy.addedLines(props.added)} {copy.removedLines(props.removed)}</span>;
 
-export const Name = (props: { text: string }) => <span class="changes-row-name">{props.text}</span>;
+export const Name = (props: { text: string; stale?: boolean | undefined }) => <span class="changes-row-name" data-stale={props.stale ? "true" : undefined}>{props.text}</span>;
+
+/** U7689a, U7689b: an item's name: the readback's, with the function quiet beside it, and the mark of a flow the readback added. */
+export const ItemName = (props: { item: ModuleGroup }) => <>
+  <Name text={props.item.label ?? props.item.name} stale={props.item.read?.stale} />
+  <Show when={props.item.function}>{name => <span class="changes-row-function">{name()}</span>}</Show>
+  <Show when={props.item.read?.added}><span class="changes-row-status">{copy.fromReadback}</span></Show>
+</>;
+
+/** U7689a: a row's words aloud: its name, and the function a readback's name stands for. */
+const titleOf = (item: ModuleGroup) => item.function ? copy.rowLabel(item.label ?? item.name, item.function) : item.label ?? item.name;
+
+/** U7689b, U7689c, U7689d: the words a readback adds to an item's row: where it came from, that the diff moved on, and the way to a readback. */
+const readWords = (item: ModuleGroup | undefined, offered: boolean | undefined) => [item?.read?.added ? copy.fromReadback : "", item?.read?.stale ? copy.changedSinceReadback : "", item?.untraced && offered ? copy.readToSee : ""];
 
 /** A file row's tree value: its path under the item that holds it; a file two flows hold is two rows. */
 export const fileValue = (owner: string, path: string) => `f:${owner}\0${path}`;
@@ -31,6 +46,30 @@ const treeItems = (grouped: Grouped, overview: boolean): TreeItemData[] => [
   ...grouped.noise.map(noise => ({ value: kindValue(noise.kind), label: noiseName[noise.kind], children: noise.files.map(file => ({ value: noiseKey(file.path), label: file.path })) })),
 ];
 
+/** U7691a: the item a list row's N notes and the key of the scroll that holds it; none for the Overview, Unplaced, Not traced and a noise kind. */
+const rowItem = (value: string | undefined, modules: readonly ModuleGroup[]) => {
+  if (value === undefined) return undefined;
+
+  if (value.startsWith("n:")) return { item: { kind: "file" as const, name: value.slice(2) }, pane: value };
+
+  if (value.startsWith("f:")) {
+    const [owner = "", path = ""] = value.slice(2).split("\0");
+
+    return { item: { kind: "file" as const, name: path }, pane: owner };
+  }
+
+  const target = modules.map(groupTarget).find(each => each !== undefined && moduleKey(each.name) === value);
+
+  return target && { item: { kind: target.kind, name: target.name }, pane: value };
+};
+
+/** U7691a: N on a list row asks the scroll it opened to take a note on that row's item. */
+export const noteOnRow = (value: string | undefined, modules: readonly ModuleGroup[], opened: string | undefined, keys: { noteItem: (item: { kind: "module" | "flow" | "file"; name: string }) => void } | undefined) => {
+  const row = rowItem(value, modules);
+
+  if (row !== undefined && row.pane === opened) keys?.noteItem(row.item);
+};
+
 /** The tree value of the row that holds focus, if one does. */
 const focusedValue = (): string | undefined => {
   const row = document.activeElement instanceof Element ? document.activeElement.closest<HTMLElement>(".changes-tree [data-row]") : null;
@@ -40,7 +79,7 @@ const focusedValue = (): string | undefined => {
 };
 
 /** U7678a, U7678b, U7679c: the Overview row, then the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, the Overview row gone. */
-export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
+export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; /** U7691a: the names of the modules and flows holding an unfinished note, and U7691d: the item notes each row counts. */ unfinishedItems: ReadonlySet<string>; itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
   const open = (value: string) => props.finding || expanded().includes(value);
@@ -51,10 +90,12 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   /** U7688e: the gaps an item holds, by its row's key. */
   const gapsOf = (key: string) => props.gaps?.get(key.slice(2)) ?? 0;
 
-  const marked = (files: readonly ChangedFile[]) => files.some(file => props.unfinished.has(file.path));
+  const marked = (files: readonly ChangedFile[], item?: ModuleGroup) => files.some(file => props.unfinished.has(file.path)) || (item !== undefined && props.unfinishedItems.has(item.name));
+
+  const notesOf = (item: ModuleGroup) => countFor(props.itemNotes, item);
 
   /** U7680a, U7680d: a module row's name adds the words it shows: unfinished work, Viewed, and Changed since you viewed it. */
-  const label = (text: string, files: readonly ChangedFile[], key?: string) => [marked(files) ? copy.unfinishedWork : "", key !== undefined && repeatsOf(key) > 0 ? copy.repeatsCount(repeatsOf(key)) : "", key !== undefined && gapsOf(key) > 0 ? copy.gapsCount(gapsOf(key)) : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : ""].filter(Boolean).reduce(copy.rowLabel, text);
+  const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [marked(files, item) ? copy.unfinishedWork : "", item !== undefined && notesOf(item) > 0 ? copy.noteCount(notesOf(item)) : "", key !== undefined && repeatsOf(key) > 0 ? copy.repeatsCount(repeatsOf(key)) : "", key !== undefined && gapsOf(key) > 0 ? copy.gapsCount(gapsOf(key)) : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", ...readWords(item, props.readHint)].filter(Boolean).reduce(copy.rowLabel, text);
 
   /** Each file row's module key and path, by the file's tree value. */
   const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(moduleKey(module.name), file.path), { owner: moduleKey(module.name), path: file.path }] as const))));
@@ -91,12 +132,14 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
       </TreeItem>
     </Show>
     <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
-      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} data-dim={props.dimmed?.has(moduleKey(module().name)) ? "true" : undefined} aria-label={label(copy.rowLabel(module().label ?? module().name, copy.filesCount(module().total)), module().files, moduleKey(module().name))}>
-        <Name text={module().label ?? module().name} />
+      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} data-dim={props.dimmed?.has(moduleKey(module().name)) ? "true" : undefined} aria-label={label(copy.rowLabel(titleOf(module()), copy.filesCount(module().total)), module().files, moduleKey(module().name), module())}>
+        <ItemName item={module()} />
         <span class="changes-row-files">{copy.filesCount(module().total)}</span>
         <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
+        <Show when={notesOf(module()) > 0}><span class="changes-row-notes">{copy.noteCount(notesOf(module()))}</span></Show>
         <Show when={repeatsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.repeatsCount(repeatsOf(moduleKey(module().name)))}</span></Show>
         <Show when={gapsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.gapsCount(gapsOf(moduleKey(module().name)))}</span></Show>
+        <Show when={module().untraced && props.readHint}><span class="changes-row-status">{copy.readToSee}</span></Show>
         <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
         <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>
       </TreeItem>

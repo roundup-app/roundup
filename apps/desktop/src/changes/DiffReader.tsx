@@ -1,9 +1,13 @@
+import { Icon } from "../ink/Icon";
+import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, runWithOwner, Show, untrack } from "solid-js";
 import { render } from "@solidjs/web";
+import type { JSX } from "@solidjs/web";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Gap } from "@contracts/agent/Gap";
+import type { LineSpan } from "@contracts/agent/LineSpan";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
@@ -16,7 +20,8 @@ import { isNew, statusText } from "./paths";
 import { changeAt, changeStarts, placeOf, revealerOf, sideName } from "./lines";
 import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Takes } from "./modules";
-import type { Note, Notes } from "./notes";
+import { isLine } from "./notes";
+import type { LineNote, Notes } from "./notes";
 import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
 import { annotate, drawDiff, gatheredNotes, lineAnnotations, renderedApart } from "./diffDraw";
 import { outdated } from "./diffDraw";
@@ -27,7 +32,7 @@ import type { ScanHit } from "@contracts/agent/ScanHit";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteView } from "./NoteView";
-import { NoteBatch } from "./NoteBatch";
+import { NoteBatch, type DiffTarget } from "./NoteBatch";
 import { ImagePane } from "./ImagePane";
 import { drawsLines, imageHidden, imageSides } from "./images";
 
@@ -45,7 +50,7 @@ const compareParams = (id: string, path: string, to: CompareTarget, group: Owned
 /** U7678d: what `enter` did: moved to a change, found none in the file, or the file is not drawn yet. */
 export type Entered = "moved" | "none" | "wait";
 
-export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean; /** U7678d: the file's current read, for a batch shared by a module's files. */ read: () => FileComparison | undefined };
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: LineNote) => boolean; /** U7678d: the file's current read, for a batch shared by a module's files. */ read: () => FileComparison | undefined };
 
 type Slot = { element: HTMLElement; metadata: Annotated; dispose: () => void };
 
@@ -61,7 +66,7 @@ const createSlots = () => {
 };
 
 /** U7676c: the notes whose lines this file no longer shows, listed under it. */
-const GatheredNotes = (props: { id: string; notes: Notes; gathered: readonly Note[]; read: FileComparison | undefined }) => <Show when={props.gathered.length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
+const GatheredNotes = (props: { id: string; notes: Notes; gathered: readonly LineNote[]; read: FileComparison | undefined }) => <Show when={props.gathered.length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
   <For each={props.gathered}>{note => <li><Show when={outdated(note, props.read)} fallback={<><p>{copy.selectedLines(note.side, copy.lineSpan(note.start, note.end), note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
 </ul></Show>;
 
@@ -83,6 +88,8 @@ const createChangeCursor = () => {
 
       return next;
     },
+    /** U7695c: the first change that begins in `span` on `side`, where `]` would stop on it. */
+    within: (side: "old" | "new", span: LineSpan) => starts.find(each => span.start <= each.at[side] && each.at[side] <= span.end),
     enter: (direction: 1 | -1) => {
       at = direction === 1 ? 0 : starts.length - 1;
 
@@ -91,14 +98,14 @@ const createChangeCursor = () => {
   };
 };
 
-type Draft = { comparison: FileComparison; selection: LineSelection; editing?: Note };
+type Draft = { comparison: FileComparison; selection: LineSelection; editing?: LineNote };
 
 /** U7676a, U7677e: the field a note is written in: opened from a line, a range or an edit, and closed back to the reader. */
-const createNoteField = (props: { editing?: Note | undefined; onEdited: () => void }, read: () => FileComparison | undefined, refocus: () => void) => {
+const createNoteField = (props: { editing?: LineNote | undefined; onEdited: () => void }, read: () => FileComparison | undefined, refocus: () => void) => {
   const [form, setForm] = createSignal<Draft>();
 
   // U7677e: a Sent note is read only; Remove is all it offers.
-  const edit = (note: Note | undefined) => { if (note && note.sent === undefined) setForm({ comparison: note.comparison, selection: note, editing: note }); };
+  const edit = (note: LineNote | undefined) => { if (note && note.sent === undefined) setForm({ comparison: note.comparison, selection: note, editing: note }); };
 
   createEffect(() => props.editing, edit);
 
@@ -118,9 +125,6 @@ const createNoteField = (props: { editing?: Note | undefined; onEdited: () => vo
 
   return { form, edit, open, composer, close: () => { setForm(undefined); props.onEdited(); refocus(); } };
 };
-
-/** U7690c: a line the jump list chose, for the file that draws it. */
-export type DiffTarget = { path: string; side: "old" | "new"; line: number };
 
 /** U7854d: the word a diff header carries: New for a created file, Deleted for a removed one, none for the rest. */
 const statusWord = (status: ChangedStatus | null) => status !== null && (isNew(status) || status === "deleted") ? statusText[status] : null;
@@ -195,7 +199,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
@@ -219,7 +223,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   const notice = createMemo(() => noticeFor({ value: read(), hidden: hidden(), loading: loading(), slow: slow(), failed: failure() !== null, coarse: coarse(), path: props.path }));
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
-  const notes = createMemo(() => props.notes.all(props.id));
+  const notes = createMemo(() => props.notes.all(props.id).filter(isLine));
 
   const { slots, sweep } = createSlots();
 
@@ -361,8 +365,10 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   // U7690c: the line a note's jump chose takes the focus once its file is drawn.
   createEffect(() => ({ view: renderer(), target: props.target }), ({ view, target }) => {
     if (!view || !target || rendered?.path !== target.path) return;
-    moveTo(target.side, target.line);
-    focusHost();
+    const change = target.span && changes.within(target.side, target.span);
+
+    // The annotations of a file drawn by this very jump read the selection as it was before this write: the line lands once they have run.
+    queueMicrotask(() => { moveTo(change?.side ?? target.side, change ? change.at[change.side] : target.line); focusHost(); });
     props.arrived?.();
   });
 
@@ -404,15 +410,15 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <DiffIdentity read={read()} path={props.path} />
-      <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show>
-    </header>
+      <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show><Show when={props.onNote}>{note => <IconButton aria-label={copy.noteOn.file} onClick={event => note()(event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
+    </header>{props.under}
     <BlockedFailure message={failure() && `${copy.fileReadFailed(props.path)}: ${failure()}`} content={copy.fileReadFailed(props.path)} recover={loading() ? undefined : { run: retry }} />
     <StatusNote text={failure() ? null : notice()} />
-    <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <button type="button" data-button="quiet" onClick={reload}>{copy.reload}</button></div></Show>
-    <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><button type="button" data-button="quiet" onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}>{hidden() === "large" ? copy.showAnyway : copy.showWhitespace}</button></div></Show>
+    <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <IconButton aria-label={copy.reload} onClick={reload}><Icon name="rotate-cw" /></IconButton></div></Show>
+    <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><IconButton aria-label={hidden() === "large" ? copy.showAnyway : copy.showWhitespace} onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}><Icon name="down" /></IconButton></div></Show>
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <GatheredNotes id={props.id} notes={props.notes} gathered={gathered()} read={read()} />
-    <Show when={props.batch !== false}><NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={edit} /></Show>
+    <Show when={props.batch !== false}><NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => { if (isLine(note)) edit(note); }} /></Show>
   </section>;
 };

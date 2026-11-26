@@ -29,7 +29,7 @@ const FOCUS_DIFF =
   "(() => { document.querySelector('.diff-content').focus(); return true; })()";
 
 const SEND =
-  "(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.textContent.startsWith('Send notes')).click(); return true; })()";
+  "(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.getAttribute('aria-label').startsWith('Send notes')).click(); return true; })()";
 
 const REWRITE =
   "(() => { const app = window.__fake.app; const read = app.handlers['agent.compareFile']; app.handlers['agent.compareFile'] = () => ({ ...read(), new: { kind: 'text', revision: 'rewritten', text: 'const first = 99;\\nconst second = 4;\\n' } }); return window.__worktrees.refresh('agent-1').then(() => true); })()";

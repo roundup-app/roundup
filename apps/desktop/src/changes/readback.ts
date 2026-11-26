@@ -5,6 +5,7 @@ import type { Readback } from "@contracts/agent/Readback";
 import type { Events } from "../app/events";
 import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
+import type { Read } from "./flows";
 import { watchTurns } from "./owned";
 import type { Span } from "./repeats";
 
@@ -77,12 +78,22 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
   const account = createMemo(() => accountOf(state()));
   const placed = createMemo(() => state().state === "read" ? gapsOf(account()) : NONE);
 
+  // U7689: the readback the lists are drawn from, and whether the diff has moved on since.
+  const read = createMemo((): Read | undefined => {
+    const each = account();
+
+    return each && { account: each, stale: state().state === "stale" };
+  });
+
   return {
     state,
     account,
+    read,
     /** The gaps a diff may draw: only a result that still matches the diff. */
     placed,
     available: () => input.to() !== null,
+    /** U7689c: the user may start one: a comparison with a Worktree and no run yet. */
+    offered: () => input.to() !== null && state().state === "notRead",
     /** The user asked: one run at a time, however many ask. */
     start: () => {
       if (!input.to() || state().state === "reading") return;
