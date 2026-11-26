@@ -173,6 +173,7 @@ async fn n20_current_store_opens() {
     }];
     let sources = messages::digest::Sources {
         completed: std::collections::HashMap::new(),
+        undelivered: std::collections::HashMap::new(),
         project_key: "",
         touches: vec![contracts::Touch {
             actor: Actor {

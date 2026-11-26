@@ -265,6 +265,20 @@ impl Rail {
         )? == 1)
     }
 
+    /// U7946b: Rail id to the cause of its first prompt's delivery, for each one that did not land.
+    pub(super) fn undelivered_prompts(&self) -> Result<Vec<(String, String)>, StoreError> {
+        let mut query = self.db.prepare(
+            "SELECT r.agent,d.cause FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision
+             WHERE d.first=1 AND d.state IN ('refused','uncertain') AND d.cause IS NOT NULL ORDER BY d.id",
+        )?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
     pub(super) fn instruction_state(
         &mut self,
         delivery: &str,

@@ -129,6 +129,10 @@ impl Reader {
             pads,
             touches,
             completed,
+            undelivered: self
+                .agents
+                .as_ref()
+                .map_or_else(HashMap::new, |agents| agents.undelivered_prompts()),
             stalled: self
                 .agents
                 .as_ref()
@@ -150,6 +154,7 @@ pub struct World {
     compactions: HashMap<String, u64>,
     stalled: std::collections::HashSet<String>,
     completed: HashMap<String, (String, i64, i64, String)>,
+    undelivered: HashMap<String, String>,
     nodes: Vec<contracts::agent::RailNode>,
     todos: Vec<contracts::todo::Todo>,
     pads: Vec<contracts::pad::Pad>,
@@ -171,6 +176,10 @@ impl World {
         &self.compactions
     }
 
+    pub(crate) fn undelivered(&self) -> &HashMap<String, String> {
+        &self.undelivered
+    }
+
     pub(crate) fn stalled(&self) -> &std::collections::HashSet<String> {
         &self.stalled
     }
@@ -182,6 +191,7 @@ impl World {
     pub fn sources(&self) -> messages::digest::Sources<'_> {
         messages::digest::Sources {
             completed: self.completed.clone(),
+            undelivered: self.undelivered.clone(),
             nodes: &self.nodes,
             todos: &self.todos,
             pads: &self.pads,
