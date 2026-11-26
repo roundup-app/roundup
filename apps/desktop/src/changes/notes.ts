@@ -218,24 +218,24 @@ const stamped = (note: Note, message: Message): Note => {
 };
 
 /** U7956a: a Message landing turns the notes it carried Sent; one folded into a later delivery (`merged`) lands with the next delivery to its Agent. */
-const createLanding = <R extends { notes: Note[] }>() => {
+const createLanding = <R extends { notes: Note[] }>(recipients: () => ReadonlyMap<string, R>, retain: (key: string, value: R) => unknown) => {
   const merged = new Map<number, string>();
   const waiting = (note: Note, ids: Set<number>) => note.message !== undefined && note.landed === undefined && ids.has(note.message);
 
-  return {
-    follow: (message: Message, recipients: ReadonlyMap<string, R>): [string, R][] => {
-      if (message.status === "dropped" && message.reason === "merged") merged.set(message.id, message.to);
+  const land = (message: Message): [string, R][] => {
+    if (message.status === "dropped" && message.reason === "merged") merged.set(message.id, message.to);
 
-      if (message.status !== "delivered") return [];
+    if (message.status !== "delivered") return [];
 
-      const folded = [...merged].flatMap(([id, to]) => to === message.to && id < message.id ? [id] : []);
-      const ids = new Set([message.id, ...folded]);
+    const folded = [...merged].flatMap(([id, to]) => to === message.to && id < message.id ? [id] : []);
+    const ids = new Set([message.id, ...folded]);
 
-      for (const id of folded) merged.delete(id);
+    for (const id of folded) merged.delete(id);
 
-      return [...recipients].flatMap(([key, value]): [string, R][] => value.notes.some(note => waiting(note, ids)) ? [[key, { ...value, notes: value.notes.map(note => waiting(note, ids) ? { ...note, landed: Date.now() } : note) }]] : []);
-    },
+    return [...recipients()].flatMap(([key, value]): [string, R][] => value.notes.some(note => waiting(note, ids)) ? [[key, { ...value, notes: value.notes.map(note => waiting(note, ids) ? { ...note, landed: Date.now() } : note) }]] : []);
   };
+
+  return (events: Events) => events.subscribe(event => { if (event.name === "message.delivered" || event.name === "message.dropped") for (const [key, value] of land(event.data)) retain(key, value); }, { replay: true });
 };
 
 const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typeof draftStorage>) => {
@@ -281,11 +281,9 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
-
   const { kept, unkeep, gone, undo, removedNote } = createNoteMemory<Note>(new Map([...restored].map(([id, value]) => [id, { notes: value.notes.filter(note => note.sent === undefined) }])), (id, note) => retain(id, { ...recipient(id), notes: [...recipient(id).notes, note].sort((left, right) => left.id - right.id) }));
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
-
   const clearItem = (id: string, note: number) => {
     const failed = sent().get(id);
 
@@ -327,7 +325,6 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     if (status === "failed") putState(id, { kind: "failed", text, submission: submission.revision, notes: item ? submission.notes.map(note => note.id) : null });
   };
 
-  const landing = createLanding<Recipient>();
   const history = (connection: AppSeam, id: string) => reply(() => connection.rpc("message.list", { to: id, status: null }));
 
   const notes = {
@@ -343,7 +340,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
     removed: (id: string) => gone(id).length > 0,
     undo,
-    follow: (events: Events) => events.subscribe(event => { if (event.name === "message.delivered" || event.name === "message.dropped") for (const [key, value] of landing.follow(event.data, recipients())) retain(key, value); }, { replay: true }),
+    follow: createLanding(recipients, retain),
     noteState: (id: string, note: Note) => noteStateOf(recipient(id).submissions, sent().get(id), note),
     project,
     entries: () => [...recipients().entries()],

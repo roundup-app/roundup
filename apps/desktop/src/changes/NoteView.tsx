@@ -17,7 +17,7 @@ export const acceptedAs = (note: Pick<Note, "message" | "landed">): "waiting" | 
 
 export const statusOf = (notes: Notes, id: string, note: Note, outdated: () => boolean): NoteStatus => note.sent === undefined ? notes.noteState(id, note) : outdated() ? "outdated" : acceptedAs(note);
 
-const statusWords: Record<Exclude<NoteStatus, "sent">, string> = {
+const statusWords: Partial<Record<NoteStatus, string>> = {
   waiting: copy.waiting,
   outdated: copy.outdated,
   sending: copy.sending,
