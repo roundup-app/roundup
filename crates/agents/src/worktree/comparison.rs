@@ -171,7 +171,7 @@ impl Git {
     }
 
     /// U7673c: the id of one working-tree path, `None` when git cannot read it.
-    fn hash_path(&self, dir: &Path, path: &str) -> Option<String> {
+    pub(super) fn hash_path(&self, dir: &Path, path: &str) -> Option<String> {
         let out = self
             .output(
                 dir,

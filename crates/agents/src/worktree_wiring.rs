@@ -132,7 +132,7 @@ impl Agents {
     pub(super) async fn repeat_scan(
         &self,
         id: &str,
-    ) -> Result<contracts::agent::ScanHits, RpcError> {
+    ) -> Result<contracts::agent::ScanSpots, RpcError> {
         struct Stop(std::sync::Arc<std::sync::atomic::AtomicBool>);
         impl Drop for Stop {
             fn drop(&mut self) {

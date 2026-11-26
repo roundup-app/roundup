@@ -139,6 +139,7 @@ impl Agents {
                     .unwrap_or_else(|| "/bin/sh".into()),
                 mcp_env: std::env::var_os("ROUNDUP_MCP"),
                 readbacks: Default::default(),
+                posted: Default::default(),
                 rail_view: rail_view::State {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
@@ -597,6 +598,7 @@ pub(super) mod tests {
             shell: "/bin/sh".into(),
             mcp_env: None,
             readbacks: Default::default(),
+            posted: Default::default(),
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -660,6 +662,7 @@ pub(super) mod tests {
             shell: "/bin/sh".into(),
             mcp_env: None,
             readbacks: Default::default(),
+            posted: Default::default(),
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -757,6 +760,7 @@ pub(super) mod tests {
             shell: "/bin/sh".into(),
             mcp_env: None,
             readbacks: Default::default(),
+            posted: Default::default(),
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),

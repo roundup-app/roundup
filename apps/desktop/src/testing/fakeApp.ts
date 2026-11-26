@@ -22,15 +22,24 @@ export type Handlers = {
 
 /** C7684e: `agent.repeatScan` answers by Agent id: `repeat-hits`, `repeat-partial`, `repeat-failure`, else none. */
 function repeatScanFixture(id: string): RpcMethods["agent.repeatScan"]["result"] {
-  const hit = { path: "new.ts", start: 3, end: 22, other: { path: "owned.ts", start: 12, end: 31 } };
+  const hit = { source: { kind: "repeats" as const }, path: "new.ts", start: 3, end: 22, other: { path: "owned.ts", start: 12, end: 31 }, stale: false };
 
-  if (id === "repeat-hits") return { hits: [hit], complete: true };
+  if (id === "repeat-hits") return { spots: [hit], complete: true };
 
-  if (id === "repeat-partial") return { hits: [hit], complete: false };
+  if (id === "repeat-partial") return { spots: [hit], complete: false };
 
   if (id === "repeat-failure") throw new RpcError(-32603, "failed: the scan could not read the Worktree");
 
-  return { hits: [], complete: true };
+  return { spots: [], complete: true };
+}
+
+/** C7704b: `agent.spots` answers by Agent id: `spots-tool` (oxlint's on lines 3-5 and an outdated one of tests on lines 7-8 of new.ts), `spots-failure`, else none. */
+function spotsFixture(id: string): RpcMethods["agent.spots"]["result"] {
+  if (id === "spots-tool") return { spots: [{ source: { kind: "tool", name: "oxlint" }, path: "new.ts", start: 3, end: 5, message: "unused variable", stale: false }, { source: { kind: "tool", name: "tests" }, path: "new.ts", start: 7, end: 8, message: "fails here", stale: true }] };
+
+  if (id === "spots-failure") throw new RpcError(-32603, "failed: the spots could not be read");
+
+  return { spots: [] };
 }
 
 /** Reads the regions make once a Project is open answer empty; any other method fails with METHOD_NOT_FOUND until a test installs a handler. */
@@ -44,6 +53,7 @@ const emptyReads: Handlers = {
   "agent.ownedChanges": () => ({ groups: [] }),
   "agent.remoteMain": () => ({ kind: "none" }),
   "agent.repeatScan": ({ id }) => repeatScanFixture(id),
+  "agent.spots": ({ id }) => spotsFixture(id),
   "agent.callPaths": ({ language }) => (language ? { state: "noServer", cause: { kind: "notInstalled", detail: `no language server is known for ${language}` } } : { languages: [] }),
   "agent.readback": () => ({ state: "notRead" }),
   "agent.readbackStart": () => ({ state: "reading" }),

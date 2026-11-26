@@ -27,6 +27,30 @@ impl Git {
         groups
     }
 
+    /// The canonical checkout roots the absolute `edits` sit in.
+    pub fn written_tops(&self, edits: &[String]) -> Vec<PathBuf> {
+        self.sites(edits).into_keys().map(|(_, top)| top).collect()
+    }
+
+    /// The checkout the Agent's `edits` sit in that `group` names, as `compare_group_file` finds it.
+    pub fn group_root(&self, edits: &[String], group: &OwnedGroupKey) -> Result<PathBuf, RpcError> {
+        self.sites(edits)
+            .into_keys()
+            .find(|(repo, top)| {
+                repo == Path::new(&group.repo)
+                    && self
+                        .run(top, &["rev-parse", "--abbrev-ref", "HEAD"])
+                        .is_ok_and(|branch| branch == group.branch)
+            })
+            .map(|(_, top)| top)
+            .ok_or_else(|| {
+                invalid(
+                    "unsafe_path",
+                    "not a repository and branch the Agent wrote in",
+                )
+            })
+    }
+
     /// U7853a: `path` as `agent.compareFile` reads it for an Agent with no Worktree: in the checkout
     /// of the group `group` names, as Changes lists it, so `to` is never `Branch`. A group the
     /// `edits` do not sit in is refused whatever the caller names; no path of the caller is opened.

@@ -173,7 +173,6 @@ async fn a40_an_agent_cannot_call_the_ask_methods() {
     );
     let shim = spawn_shim(&socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
-
     for name in ["ask_send", "ask_list", "ask_pick"] {
         assert!(!tools.iter().any(|tool| tool.name == name), "{name}");
         let error = tokio::time::timeout(
@@ -767,6 +766,7 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             "agent.interrupt" => (json!({"id":"t1"}), "accepted agent interrupt"),
             "agent.prompt" => (json!({"id":"t1"}), "accepted agent prompt"),
             "agent.stop" => (json!({"id":"t1"}), "accepted agent stop"),
+            "agent.postSpots" => (json!({"id":"t1"}), "accepted agent postSpots"),
             "terminal.kill" => (json!({"id":"t1"}), "accepted terminal kill"),
             "terminal.resize" => (json!({"id":"t1"}), "accepted terminal resize"),
             "terminal.write" => (json!({"id":"t1"}), "accepted terminal write"),

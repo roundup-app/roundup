@@ -228,6 +228,7 @@ struct Shared {
     events: events::State,
     rail_view: rail_view::State,
     readbacks: readback::Readbacks,
+    posted: spots::Posted,
     ending: ending::State,
     resume_effect: Option<ResumeEffect>,
 }
@@ -406,6 +407,7 @@ mod printed_run;
 mod remote_wiring;
 mod resume;
 mod spawn;
+mod spots;
 mod steer;
 mod store;
 mod wiring;
