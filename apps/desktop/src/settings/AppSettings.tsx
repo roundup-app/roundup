@@ -1,4 +1,3 @@
-import fuzzysort from "fuzzysort";
 import { createEffect, createSignal, createMemo, For, onCleanup, refresh, Show, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { App, AppSettingsPage } from "../app/seam";
@@ -25,9 +24,13 @@ import { chooseIconNames } from "../ui/Tip";
 import { ResetWarnings } from "./ResetWarnings";
 import { MachinesSettings } from "./MachinesSettings";
 import { settingsEntries } from "./entries";
-import { markControls, registerSettingsPlace } from "./place";
+import { markControls } from "./place";
 import { UpdateRow, updateFailure } from "./UpdateRow";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
+import { type ConnectedProject } from "../state/connectedProject";
+import { ProjectContent, ProjectTab } from "./ProjectPage";
+import { createSettingsSearch } from "./search";
+import { createViewedProject } from "./viewedProject";
 
 /** The segment control loads with the first page that shows one, not with the App. */
 const SegmentGroup = <V extends string>(props: Parameters<typeof import("../ui/SegmentGroup").SegmentGroup<V>>[0]) =>
@@ -39,11 +42,12 @@ const IconNames = (props: { onFailure: (failure: string | null) => void }) => (
 );
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
+export const AppSettings = (props: { app: App; project: () => string | null; connectionOf?: (path: string) => ConnectedProject | undefined; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
   const view = props.view ?? createSettingsView();
   const updates = useUpdates();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const { viewed, connection: viewedConnection, setNamed } = createViewedProject(props, () => { if (section() === copy.settingsProject) setSection(copy.settingsAgents); });
   const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});
   const drafts = draftStorage("app-settings");
   const offeredLine = dismissable(() => offered()?.failure);
@@ -329,13 +333,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   for (const program of ["roundup", "core", "check"] as const) createMessageToast({ get message() { return program === "check" ? (updates.checkFailed() ? copy.updateCheckFailed : null) : updateFailure(updates, program); }, dismiss: () => program === "check" ? updates.dismissCheck() : updates.dismiss(program) });
 
-  const entries = () => settingsEntries({ project: props.project, updates, numericFields });
-
-  // U5243a: `fuzzysort` ranks the live entries by label, description, page and group.
-  const [query, setQuery] = createSignal("");
-  const searching = () => query().trim() !== "";
-  const results = createMemo(() => searching() ? fuzzysort.go(query().trim(), entries(), { keys: ["label", "description", "page", "group"] }).map(result => result.obj) : []);
-  onCleanup(registerSettingsPlace({ entries, setQuery, setSection, show: () => show() }));
+  const entries = (path: string | null = viewed()) => settingsEntries({ project: props.project, viewed: () => path, updates, numericFields });
+  const { query, setQuery, searching, results } = createSettingsSearch(entries, { setProject: setNamed, setSection, show: () => show() });
 
   return <>
     <Show when={view.open()}>
@@ -366,6 +365,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Tabs.List aria-label={copy.settings}>
           <div class="settings-category" aria-hidden="true">{copy.settingsAgents}</div>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
+          <ProjectTab viewed={viewed()} />
           <div class="settings-category" aria-hidden="true">{copy.settingsTerminal}</div>
           <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsEditor}</div>
@@ -390,6 +390,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Show>
         {controls.naming()}
       </SettingsGroup></Tabs.Content>
+      <Tabs.Content value={copy.settingsProject}><ProjectContent connection={viewedConnection()} /></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
         {controls.fontWeight()}

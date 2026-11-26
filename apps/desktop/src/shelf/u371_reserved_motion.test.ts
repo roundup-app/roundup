@@ -29,7 +29,7 @@ for (const overlay of [false,true]) it(overlay ? "u371_overlay_sends_no_terminal
     await toggle();
     const calls = await evaluate<{method:string;params:unknown}[]>("window.__fake.app.calls");
     // Resource polling and remounting the Pad reader do not resize the Terminal.
-    expect(calls.filter(c => !["project.resources", "pad.list"].includes(c.method)).map(c=>c.method), JSON.stringify(calls)).toEqual(overlay ? [] : Array(n+1).fill("terminal.resize"));
+    expect(calls.filter(c => !["project.resources", "pad.list", "agent.printedCommands"].includes(c.method)).map(c=>c.method), JSON.stringify(calls)).toEqual(overlay ? [] : Array(n+1).fill("terminal.resize"));
   }
 }, 90_000);
 

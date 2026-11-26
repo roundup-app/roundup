@@ -468,8 +468,10 @@ it.skipIf(!groundOutput)("u4456c_changes_tree_and_diff", async () => {
     await browser("open", url('/src/changes/u2540.html?dense', base));
     await wait("!!window.__fake && !!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await wait("!!document.querySelector('.changes-side file-tree-container')?.shadowRoot?.querySelector('[data-item-path]')");
+    await wait("!!document.querySelector('.changes-side .changes-tree [data-row]')");
     await groundCapture(base, "changes-fixture", "system", "changes-tree");
+    // The view opens on the Overview and reads no file (U7679c): choose the first module for its diff.
+    await browser("click", '.changes-side [data-row="module"]');
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await groundCapture(base, "changes-fixture", "system", "diff");
   }

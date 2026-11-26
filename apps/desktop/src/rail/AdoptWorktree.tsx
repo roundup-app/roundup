@@ -24,6 +24,7 @@ export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: stri
     if (busy() || row.refusal !== null || branch === null) return;
     setBusy(true);
     setFailure(null);
+    const added = rail.adding();
     let id: string | undefined;
     const failed = await failureOf(async () => { id = (await app.rpc("agent.adopt", { path: row.path, branch, parent: null })).id; });
 
@@ -36,7 +37,7 @@ export const AdoptWorktree = (props: { onClose: () => void; onAdopted: (id: stri
     }
 
     await rail.refresh();
-    rail.select(id);
+    added(id);
     props.onAdopted(id);
   };
 

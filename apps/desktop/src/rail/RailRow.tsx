@@ -90,6 +90,14 @@ const FoldControl = (props: { class: string; collapsed: boolean; onToggle: () =>
   <IconButton icon="expand" class={props.class} aria-label={props.collapsed ? copy.expand : copy.collapse} aria-expanded={props.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.collapsed ? "right" : "down"} /></IconButton>
 );
 
+const StateDot = (props: { kind: Kind; text: string; markable: boolean; onMark: (event: MouseEvent) => void; onFocusHandlers: (focus: Pick<TriggerProps, "onFocusIn" | "onFocusOut">) => void }) => (
+  <Tip kind="changing" text={props.markable ? copy.markDone : props.text}>{(trigger, focus) => {
+    props.onFocusHandlers(focus);
+
+    return <span {...trigger(props.markable ? { onClick: props.onMark } : undefined)} class={["row-state", { "row-mark": props.markable }]}><KindGlyph kind={props.kind} label={props.text} /></span>;
+  }}</Tip>
+);
+
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
   topology: RailTopology; todos: { done: number; total: number }; selected: boolean;
@@ -225,7 +233,6 @@ export const RailRowView = (props: {
     title: !props.editing ? cutName.title() : undefined,
     "data-multiple": multiple() ? "true" : undefined,
     "data-mode": isMode(props.row.node) ? "true" : undefined,
-    "data-worktree": worktree() ? "true" : undefined,
     "data-finished": finished() ? "true" : undefined,
     "data-editing": String(props.editing), "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": String(props.lifted),
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
@@ -249,6 +256,10 @@ export const RailRowView = (props: {
     <NameField node={props.row.node} onCommit={props.onRename} onFailure={props.onFailure} onCancel={closeName} />
   </Show>;
 
+  // U7915a: a dot with no fold arrow and a `needs-you` not yet marked done clears that mark on one click, and nothing else.
+  const markable = () => !folds() && !isGroup() && doorStatus()?.kind === "needs-you" && !connected.rail.dismissed(props.row.node);
+  const markDone = (event: MouseEvent) => { event.stopPropagation(); connected.rail.dismiss(props.row.node); };
+
   const choose = (event: MouseEvent) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || props.lifted) return;
 
@@ -264,17 +275,12 @@ export const RailRowView = (props: {
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={folds()}><FoldControl class="rail-chevron row-control" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
-      <Tip kind="changing" text={glyphText()}>{(trigger, focus) => {
-        glyphFocus = focus;
-
-        return <span {...trigger()} class="row-state"><KindGlyph kind={kind() ?? "idle"} label={glyphText()} /></span>;
-      }}</Tip>
-      {name()}
+      <StateDot kind={kind() ?? "idle"} text={glyphText()} markable={markable()} onMark={markDone} onFocusHandlers={focus => { glyphFocus = focus; }} />
+      <span class="name-group">{name()}<Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show></span>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
-      <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
       <Show when={!isGroup()}><MachineIcon node={props.row.node} /></Show>
       <Show when={unreachable()}>{reached => <BusyButton kind="quiet" class="rail-unreachable" busyLabel={retry() ? copy.retrying : copy.opening} aria-label={`${reachLabel()} ${reached().name}`} onClick={reachAct}>{reachLabel()}</BusyButton>}</Show>
       <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><BusyButton kind="quiet" class="rail-resume" busyLabel={copy.resuming} aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</BusyButton></Show>

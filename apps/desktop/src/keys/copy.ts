@@ -86,6 +86,7 @@ export const copy = {
   terminalLargerText: "Larger Terminal text",
   terminalSmallerText: "Smaller Terminal text",
   terminalResetText: "Reset text size",
+  terminalPlayMarks: "Run printed command",
   triageEnter: "Triage Todos",
   moveTo: sharedCopy.moveTo,
   collapseExpand: "Collapse / expand",

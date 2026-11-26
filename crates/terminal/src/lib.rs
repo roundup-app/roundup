@@ -630,6 +630,22 @@ impl Terminals {
         table.get(&number).and_then(|entry| entry.pid)
     }
 
+    /// U7889c: the oldest running Terminal of `owner` whose shell waits at its prompt by X15's
+    /// marks, claimed in one step so two callers never get the same one; `None` when every
+    /// shell of the owner is busy or has printed no mark.
+    pub fn claim_free_shell(&self, owner: &str) -> Option<String> {
+        let table = self.shared.table().ok()?;
+        let mut owned: Vec<_> = table
+            .iter()
+            .filter(|(_, entry)| entry.info.running && entry.info.owner.as_deref() == Some(owner))
+            .collect();
+        owned.sort_by_key(|(number, _)| **number);
+        owned.into_iter().find_map(|(number, entry)| {
+            let mut state = entry.screen.locked("terminal screen lock").ok()?;
+            state.status.claim_prompt().then(|| number.to_string())
+        })
+    }
+
     fn running(&self, id: &str) -> Result<Arc<Handle>, Error> {
         let number = parse_terminal_number(id)?;
         self.shared
