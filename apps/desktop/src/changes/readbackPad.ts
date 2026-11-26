@@ -1,6 +1,7 @@
 import { createEffect, createSignal } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
-import { failureOf } from "../app/failureOf";
+import { unknownOutcomeLine } from "../app/failureOf";
+import { type Applied, applying } from "../app/pending";
 import { RpcError, type AppSeam } from "../app/seam";
 import { useConnectedProject } from "../state/connectedProject";
 import { resolvedWorkstream } from "../state/railTopology";
@@ -22,7 +23,7 @@ const flowchart = (calls: readonly Call[]) => {
   const parts = partsOf(calls);
   const node = (part: string) => `n${parts.indexOf(part)}[${quoted(part)}]`;
 
-  return ["```mermaid", "flowchart LR", ...calls.map(([from, to]) => `  ${node(from)} --> ${node(to)}`), "```"].join("\n");
+  return ["```mermaid", copy.padFlowchart, ...calls.map(([from, to]) => `  ${node(from)} --> ${node(to)}`), "```"].join("\n");
 };
 
 /** U7702d: the day a Pad's name and text carry, as `YYYY-MM-DD` in the user's time zone. */
@@ -49,7 +50,7 @@ export const readbackText = (input: { agent: string; day: string; from: string; 
 
   return [
     `# ${nameOf(agent, input.day)}`,
-    [[copy.padAgent, agent], [copy.padDate, input.day], [copy.compareFrom, input.from], [copy.compareTo, input.to]].map(([label, value]) => `- ${label}: ${value}`).join("\n"),
+    [[copy.padDate, input.day], [copy.compareFrom, input.from], [copy.compareTo, input.to]].map(([label, value]) => `- ${label}: ${value}`).join("\n"),
     ...input.stale ? [`> ${copy.changedSinceReadback}`] : [],
     ...heading(copy.overview, [account.overview]),
     ...heading(copy.diagram, diagram),
@@ -59,23 +60,19 @@ export const readbackText = (input: { agent: string; day: string; from: string; 
   ].join("\n\n") + "\n";
 };
 
-/** U7702d: creates the Pad under `name`, or under it with " 2", " 3" and on while the Daemon says the name is taken; answers the name it made. */
-const create = async (app: AppSeam, name: string, text: string) => {
+/** U7702d: creates the Pad under `name`, or under it with " 2", " 3" and on while the Daemon says the name is taken; answers how it ended and, when it applied, the name it made. */
+const create = async (app: AppSeam, name: string, text: string): Promise<Applied<string>> => {
   for (let at = 1; ; at += 1) {
     const tried = at === 1 ? name : `${name} ${at}`;
+    const made = await applying(() => app.rpc("pad.create", { name: tried, text }));
+    const taken = made.kind === "refused" && made.thrown instanceof RpcError && made.thrown.code === CONFLICT;
 
-    try {
-      await app.rpc("pad.create", { name: tried, text });
-
-      return tried;
-    } catch (failure) {
-      if (!(failure instanceof RpcError && failure.code === CONFLICT) || at === TRIES) throw failure;
-    }
+    if (!taken || at === TRIES) return made.kind === "applied" ? { kind: "applied", value: tried } : made;
   }
 };
 
-/** U7702b, U7702c: where one save stands: saving, saved, saved but left at the Project root with the move's cause, or not saved with the cause. */
-export type PadSave = { kind: "saving" } | { kind: "saved"; name: string } | { kind: "notMoved"; name: string; cause: string } | { kind: "failed"; cause: string };
+/** U7702b, U7702c: where one save stands: saving, saved, saved but left at the Project root with the move's cause, not saved with the cause, or sent with no answer (U5172a). */
+export type PadSave = { kind: "saving" } | { kind: "saved"; name: string } | { kind: "notMoved"; name: string; cause: string } | { kind: "failed"; cause: string } | { kind: "unknown"; cause: string };
 
 /**
  * U7702: the user's save of the shown readback as a Pad: `pad.create`, then `pad.move` to the Agent's nearest Workstream (`CreateParams` has no home, P12), none for an Agent under no Workstream.
@@ -107,17 +104,18 @@ export const createReadbackPad = (input: { id: string; agent: () => string; read
 
       const settle = (next: PadSave) => { if (mine === generation) setStatus(next); };
 
-      let name = "";
-
       setStatus({ kind: "saving" });
 
-      const failure = await failureOf(async () => { name = await create(app, nameOf(agent, day), readbackText({ agent, day, from: copy.remoteMain, to: to === "tree" ? copy.targetTree : copy.targetBranch, account: read.account, stale: read.stale })); });
+      const made = await create(app, nameOf(agent, day), readbackText({ agent, day, from: copy.remoteMain, to: to === "tree" ? copy.targetTree : copy.targetBranch, account: read.account, stale: read.stale }));
 
-      if (failure !== null) return settle({ kind: "failed", cause: failure });
+      if (made.kind !== "applied") return settle(made.kind === "refused" ? { kind: "failed", cause: made.error.message } : { kind: "unknown", cause: unknownOutcomeLine(made.error) });
 
-      const refused = home === null ? null : await failureOf(() => app.rpc("pad.move", { name, home }));
+      const name = made.value;
+      const moved = home === null ? null : await applying(() => app.rpc("pad.move", { name, home }));
 
-      settle(refused === null ? { kind: "saved", name } : { kind: "notMoved", name, cause: refused });
+      if (moved === null || moved.kind === "applied") return settle({ kind: "saved", name });
+
+      settle(moved.kind === "refused" ? { kind: "notMoved", name, cause: moved.error.message } : { kind: "unknown", cause: unknownOutcomeLine(moved.error) });
     },
   };
 };

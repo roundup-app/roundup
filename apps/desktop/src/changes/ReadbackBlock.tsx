@@ -41,6 +41,7 @@ const PadStatus = (props: { status: PadSave }) => <p role="status">
     <Match when={props.status.kind === "saving"}>{copy.saving}</Match>
     <Match when={props.status.kind === "saved" ? props.status : undefined}>{saved => copy.padSaved(saved().name)}</Match>
     <Match when={props.status.kind === "notMoved" ? props.status : undefined}>{moved => <>{copy.padNotMoved(moved().name)} <span class="flow-cause">{moved().cause}</span></>}</Match>
+    <Match when={props.status.kind === "unknown" ? props.status : undefined}>{unknown => unknown().cause}</Match>
     <Match when={props.status.kind === "failed" ? props.status : undefined}>{failed => <>{copy.padNotSaved} <span class="flow-cause">{failed().cause}</span></>}</Match>
   </Switch>
 </p>;

@@ -268,7 +268,7 @@ export const copy = {
   /** @prose */
   padNotSaved: "Couldn't save the readback",
   readbackPadName: (agent: string, date: string) => `Readback: ${agent} ${date}`,
-  padAgent: sharedCopy.agent,
+  padFlowchart: "flowchart LR",
   padDate: "Date",
   /** U7698: a selection's explanation: its icon buttons, its section and its failure; the credit is the readback's. */
   explainWords: "Explain in words",

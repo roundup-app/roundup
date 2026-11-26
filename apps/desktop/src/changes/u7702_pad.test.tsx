@@ -3,6 +3,7 @@ import { expect, it } from "vitest";
 import type { Account } from "@contracts/agent/Account";
 import type { Readback } from "@contracts/agent/Readback";
 import type { Pad } from "@contracts/pad/Pad";
+import { unknownOutcomeLine } from "../app/failureOf";
 import { RpcError } from "../app/seam";
 import { agent, event, workstream } from "../testing/nodes";
 import { copy } from "./copy";
@@ -172,6 +173,16 @@ it("u7702c_a_failed_create_saves_nothing_and_says_so", async () => {
   await save();
   expect(await screen.findByText(copy.padNotSaved)).toBeTruthy();
   expect(screen.getByText(copy.padNotSaved).querySelector(".flow-cause")?.textContent).toBeTruthy();
+  expect(padCalls(app).map(call => call.method)).toEqual(["pad.create"]);
+});
+
+it("u7702c_a_create_with_no_answer_says_so_and_repeats_nothing", async () => {
+  const { app } = await treeOpen({ state: result("read") });
+
+  app.handlers["pad.create"] = () => { throw new Error("no reply within 8s"); };
+
+  await save();
+  expect(await screen.findByText(unknownOutcomeLine(new Error("no answer")))).toBeTruthy();
   expect(padCalls(app).map(call => call.method)).toEqual(["pad.create"]);
 });
 

@@ -13,7 +13,7 @@ No new Daemon method, Message or contract change: the App calls `pad.create`, th
 - **Unasked.** Opening the view, a turn that wrote, a Fetch and a second of waiting call `pad.create` and `pad.move` zero times. Asserted in `u7702a_the_save_action_shows_with_a_read_or_stale_result_and_nothing_saves_unasked`.
 
 **U7702b one click saves a copy as a Pad in the Workstream.** Given a read result, then a click calls `pad.create` once and then `pad.move` once, and calls no other method that sends or saves:
-- **Text.** The Pad is a copy made at that moment. My reading, kept: its markdown names the Agent, the date, and the From and To the readback read (remote main to Tree or Branch), then holds the overview, the diagram (U7702e), each module's account, each flow with its steps' notes in call order, and each gap as "<Agent> said: … The diff: …" with its file and line; a part with nothing to show is left out, never an empty heading.
+- **Text.** The Pad is a copy made at that moment. My reading, kept: its markdown opens with the name (the Agent and the date) and the date, From and To the readback read (remote main to Tree or Branch), then holds the overview, the diagram (U7702e), each module's account, each flow with its steps' notes in call order, and each gap as "<Agent> said: … The diff: …" with its file and line; a part with nothing to show is left out, never an empty heading.
 - **Home.** `pad.move` names the Agent's nearest Workstream (`resolvedWorkstream`, `apps/desktop/src/state/railTopology.ts`); an Agent under no Workstream saves at the Project root and calls no `pad.move`. A status line says "Saved as <name>" and the click does nothing more while it saves.
 - **Drawer.** My reading, narrowed: the Drawer does not open on the new Pad. The user is reading a diff in the centre (P16); the status line names the Pad, and the Pads tab lists it under the Workstream. Policy.
 - Asserted in `u7702b_one_click_creates_the_pad_then_moves_it_to_the_workstream` and `u7702b_an_agent_under_no_workstream_saves_at_the_project_root`.
@@ -21,7 +21,8 @@ No new Daemon method, Message or contract change: the App calls `pad.create`, th
 **U7702c a failure says why in words.** Given a read result, then:
 - **Move failed.** My reading, kept: when `pad.move` fails, the Pad stays at the Project root and the status line says "Saved <name>, but it stays at the Project root" with the cause.
 - **Create failed.** When `pad.create` fails, nothing is saved, the status line says "Couldn't save the readback" with the cause, and no `pad.move` is called.
-- Neither retries by itself; a second click starts a new save. Asserted in `u7702c_a_failed_move_leaves_the_pad_at_the_root_and_says_so` and `u7702c_a_failed_create_saves_nothing_and_says_so`.
+- **No answer.** A `pad.create` or `pad.move` with no answer is unconfirmed, never a failure (U5172a): the status line says so (`unknownOutcomeLine`) and no call repeats.
+- Neither retries by itself; a second click starts a new save. Asserted in `u7702c_a_failed_move_leaves_the_pad_at_the_root_and_says_so`, `u7702c_a_failed_create_saves_nothing_and_says_so` and `u7702c_a_create_with_no_answer_says_so_and_repeats_nothing`.
 
 **U7702d each save makes a Pad, named readably.** Given a read or stale result, then:
 - **Name.** My reading, kept: the name is "Readback: <Agent> <date>" (the date as `YYYY-MM-DD`, the Agent's name without `/`, `\` or `..`, which Pad names refuse, P8). The user renames it as any Pad.
