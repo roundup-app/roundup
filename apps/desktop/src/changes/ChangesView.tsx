@@ -37,6 +37,9 @@ import { ItemAccount } from "./ReadbackBlock";
 import { ChangedSymbols } from "./ChangedSymbols";
 import { createRepeatScan, placeCounts } from "./repeats";
 import { RepeatStates } from "./RepeatStates";
+import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
+import { createMoves } from "./moveStore";
+import { MoveStates } from "./MoveStates";
 import type { DiffKeys } from "./DiffReader";
 import { createJump } from "./NoteBatch";
 import "./styles.css";
@@ -220,7 +223,7 @@ const createOwnedGroup = (id: () => string) => {
   return { groups, active, setActive, group, groupKey };
 };
 
-type Analyses = { app: AppSeam; events: Events; id: string; own: () => "tree" | "branch" | null; files: () => readonly ChangedFile[]; ready: () => boolean; lens: () => Lens };
+type Analyses = { app: AppSeam; events: Events; id: string; own: () => "tree" | "branch" | null; files: () => readonly ChangedFile[]; ready: () => boolean; lens: () => Lens; group: () => OwnedGroupKey | undefined };
 
 /** U7683b, U7685c, U7685d: what the Daemon reads out of the listing once it is ready: the call paths, which a new `to` asks again; and the repeat scan, which compares the working tree, so only the Tree target asks, after a frame has painted. Each item's repeats come from the lens's own listing, never as a find narrows it. */
 const createAnalyses = (input: Analyses) => {
@@ -228,10 +231,13 @@ const createAnalyses = (input: Analyses) => {
   const readback = createReadback({ app: input.app, events: input.events, id: input.id, to: input.own, ready: input.ready });
   const lensed = createLensed(input.files, calls.done, readback.read);
   const repeats = createRepeatScan({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "tree", ready: input.ready });
-  const repeatTotals = createMemo(() => placeCounts(lensed()(input.lens()), repeats.hits()));
   const gapTotals = createMemo(() => placeCounts(lensed()(input.lens()), readback.placed().map(spanOf)));
+  // U7696a: the Logic lens's moves; a repeat whose lines moved is not also counted a repeat (U7696e).
+  const moves = createMoves({ app: input.app, id: input.id, to: () => input.own() ?? "tree", group: input.group, on: () => input.lens() === "logic" && input.files().length > 0, symbols: () => calls.done().flatMap(answer => answer.symbols) });
+  const repeatTotals = createMemo(() => placeCounts(lensed()(input.lens()), repeats.hits().filter(hit => !moves.covers(hit))));
+  const moveTotals = createMemo(() => placeCounts(lensed()(input.lens()), moves.placed()));
 
-  return { calls, lensed, repeats, repeatTotals, readback, gapTotals, again: () => { calls.reset(); repeats.again(); readback.again(); } };
+  return { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, gapTotals, again: () => { calls.reset(); repeats.again(); readback.again(); } };
 };
 
 /** U7675a: the comparison's own answer, whichever read made it: the Daemon's changes for a Tree or Branch target, else the Agent's owned changes. */
@@ -324,7 +330,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
-  const { calls, lensed, repeats, repeatTotals, readback, gapTotals, again } = createAnalyses({ app, events, id: untrack(() => props.id), own, files, ready: () => !pending() && failure() === null && files().length > 0, lens });
+  const { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, gapTotals, again } = createAnalyses({ app, events, id: untrack(() => props.id), own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey() });
 
   const dimmed = createMemo(() => new Set(calls.dim().flatMap(answer => answer.flows.map(flow => moduleKey(flowName(flow.entry))))));
 
@@ -504,18 +510,17 @@ const Surface = (props: { id: string; name: string }) => {
           <SegmentGroup label={copy.lens} segments={lensSegments} value={lens()} onValueChange={switchLens} />
           <Show when={lens() === "flows"}><FlowStates calls={calls} readback={readback} worktree={own() !== null} /></Show>
           <RepeatStates scan={repeats} notAsked={worktree() !== null && own() !== "tree"} />
+          <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set([...notes.unfinished(props.id).map(form => form.comparison.newPath), ...unfinishedItems(notes, props.id).filter(form => form.item.kind === "file").map(form => form.item.name)])} unfinishedItems={new Set(unfinishedItems(notes, props.id).filter(form => form.item.kind !== "file").map(form => form.item.name))} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} gaps={gapTotals()} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
-          <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}>
-            <p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p>
-          </Show>
+          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set([...notes.unfinished(props.id).map(form => form.comparison.newPath), ...unfinishedItems(notes, props.id).filter(form => form.item.kind === "file").map(form => form.item.name)])} unfinishedItems={new Set(unfinishedItems(notes, props.id).filter(form => form.item.kind !== "file").map(form => form.item.name))} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} gaps={gapTotals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
       </div>
       <For each={panes()}>{pane => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} /></Loading>}>
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
             <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;

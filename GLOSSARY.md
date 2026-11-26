@@ -119,6 +119,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Owned group key (`OwnedGroupKey`, the `group` of `agent.compareFile`) | same | — |
 | Item note (`ItemNote`, `Item`, `ItemTarget`; the Message entry's `Group:` key names the item) | Note on module, flow or file | — |
 | Scan hit (`agent.repeatScan`, `ScanHits`, `ScanHit`, `ScanPlace`) | same | — |
+| Moved code (`Moved`, the Changes view's moved and renamed lines; never "Mark", which is a report mark) | Moved from, Renamed | — |
 | Compare target (`CompareTarget`, the `to` of `agent.changedFiles` and `agent.compareFile`) | same | — |
 | File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | same | — |
 | Remote main (`agent.remoteMain`, `RemoteMain`) | Remote main | — |

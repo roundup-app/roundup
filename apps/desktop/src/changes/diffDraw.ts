@@ -3,6 +3,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Gap } from "@contracts/agent/Gap";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { copy } from "./copy";
+import type { Moved } from "./moves";
 import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
 import { hunkFunction, type Takes } from "./modules";
@@ -22,7 +23,10 @@ export type Repeated = { repeating: true; side: "new"; start: number; end: numbe
 /** U7688e: the mark under the line a gap names: what the Agent said and what the diff holds. */
 export type Gapped = { gapped: true; side: "new"; start: number; end: number; gap: Gap };
 
-export type Annotated = LineNote | Mark | Composer | Repeated | Gapped;
+/** U7696a: the mark under the last line of a move's first range: where the code stood, or its old and new name. */
+export type Movement = { moving: true; side: "new"; start: number; end: number; moved: Moved };
+
+export type Annotated = LineNote | Mark | Composer | Repeated | Gapped | Movement;
 
 /** U7677a: the lines a note covers on one side, and whether its field holds focus. */
 export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
@@ -46,10 +50,11 @@ export const outdated = (note: LineNote, value: FileComparison | undefined) => n
 const shown = (note: LineNote, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
 /** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line; each unfinished field as a mark. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = []): DiffLineAnnotation<Annotated>[] => [
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = [], moves: readonly Movement[] = []): DiffLineAnnotation<Annotated>[] => [
   ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
   ...repeats.map((repeat): DiffLineAnnotation<Repeated> => ({ side: sideName(repeat.side), lineNumber: repeat.end, metadata: repeat })),
   ...gaps.map((gap): DiffLineAnnotation<Gapped> => ({ side: sideName(gap.side), lineNumber: gap.end, metadata: gap })),
+  ...moves.map((move): DiffLineAnnotation<Movement> => ({ side: sideName(move.side), lineNumber: move.end, metadata: move })),
   ...notes.flatMap((note): DiffLineAnnotation<LineNote>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
     ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
@@ -210,7 +215,12 @@ type Hooks = {
 const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; end: number }): LineSelection => ({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
-export type Drawn = { mark: (ranges: readonly Noted[]) => void; /** U7685a: the new-side lines a repeat marks. */ repeat: (spans: readonly { start: number; end: number }[]) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
+/** U7677a, U7685a, U7696a: the lines a note marks, the new-side lines a repeat marks and those a move marks. */
+export type Stamped = { noted: readonly Noted[]; repeat: readonly Span[]; move: readonly Span[] };
+
+type Span = { start: number; end: number };
+
+export type Drawn = { stamp: (stamped: Partial<Stamped>) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
 /** U7678c: the module scroll's one Virtualizer, made on the first file drawn; undefined outside a shared scroll. */
 const sharedVirtualizer = (shared: Shared | undefined, Virtualizer: typeof import("@pierre/diffs").Virtualizer) => {
@@ -255,22 +265,22 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   mount.append(container);
   const virtualizer = sharedVirtualizer(hooks.shared, Virtualizer) ?? new Virtualizer();
 
-  let noted: readonly Noted[] = [];
-  let repeated: readonly { start: number; end: number }[] = [];
+  let stamped: Stamped = { noted: [], repeat: [], move: [] };
 
   let functions: readonly (string | undefined)[] = [];
 
-  const stamp = (node: HTMLElement) => {
+  const restamp = (node: HTMLElement) => {
     nameHunks(node, functions);
 
     for (const line of node.shadowRoot?.querySelectorAll<HTMLElement>("[data-line]") ?? []) {
       const side = line.getAttribute("data-line-type") === "change-deletion" ? "old" : "new";
       const number = Number(line.getAttribute("data-line"));
-      const hit = noted.filter(range => range.side === side && range.start <= number && number <= range.end);
+      const hit = stamped.noted.filter(range => range.side === side && range.start <= number && number <= range.end);
 
       line.toggleAttribute("data-noted", hit.length > 0);
       line.toggleAttribute("data-focused", hit.some(range => range.focused));
-      line.toggleAttribute("data-repeat", side === "new" && repeated.some(span => span.start <= number && number <= span.end));
+      line.toggleAttribute("data-repeat", side === "new" && stamped.repeat.some(span => span.start <= number && number <= span.end));
+      line.toggleAttribute("data-moved", side === "new" && stamped.move.some(span => span.start <= number && number <= span.end));
     }
   };
 
@@ -304,7 +314,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
     },
     renderAnnotation: ({ metadata }) => hooks.annotation(metadata),
     // U7677a: Pierre has no line decoration API, so each noted line carries the attribute the stylesheet keys on, again after each render.
-    onPostRender: node => stamp(node),
+    onPostRender: node => restamp(node),
     theme: DIFF_THEME, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true, unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
   // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
@@ -328,5 +338,5 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   // U7610c: the reader's first render of the view is a task of its own.
   await yielded();
 
-  return hooks.current() ? { mark: ranges => { noted = ranges; stamp(container); }, repeat: spans => { repeated = spans; stamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
+  return hooks.current() ? { stamp: spans => { stamped = { ...stamped, ...spans }; restamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
 };

@@ -6,13 +6,14 @@ import type { CallPathsState } from "./callPaths";
 import { TraceLine } from "./FlowStates";
 import type { ModuleGroup } from "./modules";
 import type { DiffTarget } from "./NoteBatch";
+import type { Moves } from "./moveStore";
 import { entriesOf, kindWords } from "./symbols";
 
 /** U7695a: an added or removed symbol says so; a changed one says nothing, as in a flow's tree. */
 const statusWord = (status: ChangedSymbol["status"]) => status === "added" || status === "removed" ? copy.callStatus[status] : undefined;
 
-/** U7695a, U7695b, U7695c: what an item of Logic says about its functions and types: the trace lines of the languages not yet finished, when the item holds a file no finished trace names; "Changed since traced" over a list a write dimmed; and the list, which a name in aims the scroll at. */
-export const ChangedSymbols = (props: { item: ModuleGroup; calls: CallPathsState; aim: (target: DiffTarget) => void }) => {
+/** U7695a, U7695b, U7695c, U7696f: what an item of Logic says about its functions and types (a moved or renamed one adds its word): the trace lines of the languages not yet finished, when the item holds a file no finished trace names; "Changed since traced" over a list a write dimmed; and the list, which a name in aims the scroll at. */
+export const ChangedSymbols = (props: { item: ModuleGroup; calls: CallPathsState; moves: Moves; aim: (target: DiffTarget) => void }) => {
   const entries = createMemo(() => entriesOf(props.calls.done(), props.item.files));
   const named = createMemo(() => new Set(props.calls.done().flatMap(answer => answer.symbols.map(symbol => symbol.path))));
   const unfinished = createMemo(() => props.item.files.some(file => !named().has(file.path)) ? props.calls.lines().filter(line => line.state !== "noServer" && line.state !== "dim") : []);
@@ -29,6 +30,7 @@ export const ChangedSymbols = (props: { item: ModuleGroup; calls: CallPathsState
               <button type="button" class="changed-symbol-name" data-button="quiet" onClick={() => props.aim({ path: entry.path, side: entry.side, line: entry.span.start, span: entry.span })}>{entry.name}</button>
               {" "}<span>{kindWords(entry.kind)}</span>
               <Show when={statusWord(entry.status)}>{word => <>{" "}<span>{word()}</span></>}</Show>
+              <Show when={props.moves.label(entry)}>{kind => <>{" "}<span>{kind() === "moved" ? copy.movedWord : copy.renamedWord}</span></>}</Show>
             </li>}</For>
           </ul>
         </Disclosure>

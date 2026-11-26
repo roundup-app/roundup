@@ -6,9 +6,11 @@ import type { ScanHits } from "@contracts/agent/ScanHits";
 import type { Events } from "../app/events";
 import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
-import type { Gapped, Repeated } from "./diffDraw";
+import type { Gapped, Movement, Repeated } from "./diffDraw";
 import { createLate } from "./late";
 import type { Grouped, ModuleGroup, Takes } from "./modules";
+import { labelLine } from "./moves";
+import type { Moved } from "./moves";
 import { watchTurns } from "./owned";
 
 const NONE: readonly ScanHit[] = [];
@@ -40,6 +42,13 @@ export const createGapped = (gaps: () => readonly Gap[] | undefined, only: () =>
 
   return span ? [{ gapped: true as const, side: "new" as const, ...span, gap }] : [];
 }), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.gap === b[at]?.gap) });
+
+/** U7696a: a move marks the lines a file shows of its first range, to the line that names its other place; the objects stay while the moves do, so a mark is not drawn again; nothing here reads a file, the Worker does. */
+export const createMoving = (moves: () => readonly Moved[] | undefined, only: () => Takes | undefined) => createMemo((): readonly Movement[] => (moves() ?? []).flatMap(moved => {
+  const span = moved.lines[0] && shownSpan(moved.lines[0], only());
+
+  return span ? [{ moving: true as const, side: "new" as const, start: span.start, end: Math.max(span.start, Math.min(span.end, labelLine(moved))), moved }] : [];
+}), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.moved === b[at]?.moved) });
 
 const itemHolds = (item: ModuleGroup, span: Span) => item.sections
   ? item.sections.some(section => section.file.path === span.path && shownSpan(span, section.pick) !== undefined)
