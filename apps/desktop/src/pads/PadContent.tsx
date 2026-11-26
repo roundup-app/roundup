@@ -83,6 +83,21 @@ const sameContent = (left: Pad, right: Pad) =>
   left.revision === right.revision &&
   left.text === right.text;
 
+/** PW11: only the editor mounted at open restores a draft, a selection or a heading; the editor loads lazily, so text adopted before it was ready must still reach it. */
+const adoptEditor = (
+  ready: PadEditorHandle,
+  from: { first: boolean; heading: string | undefined; editing: boolean; text: string; draft: { document?: string | undefined; editorCaret?: boolean | undefined } | undefined; recovered: { selection?: Parameters<PadEditorHandle["restoreSelection"]>[0] | null | undefined } | undefined | false },
+  invalid: () => void,
+) => {
+  queueMicrotask(() => { if (from.heading !== undefined) ready.scrollToHeading(from.heading); });
+
+  if (!from.editing) ready.setText(from.text);
+
+  if (from.first && from.draft?.document !== undefined && !ready.restoreDocument(from.draft.document, from.draft.editorCaret ?? false)) invalid();
+
+  if (from.first && from.recovered && from.recovered.selection) ready.restoreSelection(from.recovered.selection);
+};
+
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
@@ -521,18 +536,10 @@ const PadBody = (props: {
           onSelection={() => { capture(); setSelected(editor?.selectedText() ?? ""); }}
           onReady={(ready) => {
             editor = ready;
-            const heading = mount.first ? props.heading : undefined;
-            queueMicrotask(() => { if (heading !== undefined) ready.scrollToHeading(heading); });
-
-            // The editor loads lazily; text adopted before it was ready must still reach it.
-            if (!editing()) ready.setText(origin());
-
-            if (mount.first && draft?.document !== undefined && !ready.restoreDocument(draft.document, draft.editorCaret ?? false)) {
+            adoptEditor(ready, { first: mount.first, heading: mount.first ? props.heading : undefined, editing: editing(), text: origin(), draft, recovered }, () => {
               setInvalid(true);
               actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
-            }
-
-            if (mount.first && recovered?.selection) ready.restoreSelection(recovered.selection);
+            });
           }}
         />
       </Loading></Show></PadChangesView>
