@@ -4,6 +4,7 @@ import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
 import { visualizer } from "rollup-plugin-visualizer";
+import { compression } from "vite-plugin-compression2";
 import { configDefaults, defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import { captureTests } from "./src/testing/captures.ts";
@@ -76,7 +77,9 @@ export default defineConfig({
   // ui-sdk: the App and @ui-sdk/solid share one copy of the core in development.
   optimizeDeps: { exclude: ["@ui-sdk/core"] },
   build: { manifest: true, rolldownOptions: { output: { codeSplitting: { groups: [{ name: "solid", test: /\/node_modules\/(?:solid-js|@solidjs\/web)\// }] } } } },
-  plugins: [solid(), buildModules(), visualizer({ filename: "../../target/release-modules.json", template: "raw-data" }), ...(served ? [realDaemon(served)] : []), {
+  plugins: [solid(), buildModules(),
+    // U7696b: the move reader's grammars are 1 MB or more each; shipped gzipped they keep the desktop dist under C9c's cap. The reader inflates them in its Worker. Its runtime stays plain: it loads by URL.
+    compression({ include: /\.wasm$/, exclude: /web-tree-sitter/, algorithms: ["gzip"], deleteOriginalAssets: true }), visualizer({ filename: "../../target/release-modules.json", template: "raw-data" }), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",
     apply: "serve",
     configureServer(server) {
