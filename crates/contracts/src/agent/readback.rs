@@ -110,6 +110,13 @@ pub struct LineExplanation {
     pub text: String,
 }
 
+/// RB21: a part of the diagram and the sentence that says what happens there.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct DiagramStop {
+    pub part: String,
+    pub text: String,
+}
+
 /// A read Readback (RB3). `ranks` holds one rank per hunk id of the input (RB10) and `risks` one
 /// risk per flow and module (RB11). `unplaced` is computed by the Daemon: the hunk ids no flow holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -122,6 +129,7 @@ pub struct Account {
     pub ranks: Vec<HunkRank>,
     pub risks: Vec<Risk>,
     pub explanations: Vec<LineExplanation>,
+    pub stops: Vec<DiagramStop>,
     pub gaps: Gaps,
 }
 

@@ -38,7 +38,7 @@ const ACCOUNT = {
   unplaced: [],
   ranks: [],
   risks: [],
-  explanations: [],
+  explanations: [], stops: [],
   gaps: [GAP],
 };
 
@@ -71,7 +71,7 @@ it("u7688h_the_readback_is_captured_for_the_critic", async () => {
 
   /** The Daemon answers with the listing of the Tree target, each file's comparison and the readback. */
   const serve = (answer: Readback) => {
-    const groups = [{ repo: "/p/transform-education", branch: "main", base: "main", files: FILES }];
+    const groups = [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files: FILES }];
 
     return read(`(() => {
       const handlers = window.__fake.app.handlers;

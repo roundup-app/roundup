@@ -9,7 +9,7 @@ import { copy } from "./copy";
 import { FlowTree } from "./FlowTree";
 import type { Lens } from "./lens";
 import type { ModuleGroup } from "./modules";
-import { failureCause, gapsFailure, gapsOf, type ReadbackState } from "./readback";
+import { failureCause, gapsFailure, gapsOf, type ReadbackState, type Stepper } from "./readback";
 import type { PadSave, ReadbackPad } from "./readbackPad";
 import { ReadbackDiagram } from "./ReadbackDiagram";
 
@@ -27,10 +27,10 @@ const GapList = (props: { gaps: readonly Gap[] } & Linking) => <ul class="readba
   </li>}</For>
 </ul>;
 
-const AccountText = (props: { account: Account } & Linking) => <>
+const AccountText = (props: { account: Account; stepper: Stepper } & Linking) => <>
   <p class="readback-credit">{copy.readbackCredit}</p>
   <p class="readback-overview">{props.account.overview}</p>
-  <ReadbackDiagram text={props.account.diagram} />
+  <ReadbackDiagram text={props.account.diagram} stepper={props.stepper} />
   <Show when={gapsFailure(props.account)}>{cause => <p class="flow-cause">{copy.gapsNotCompared(props.agent)} {cause()}</p>}</Show>
   <Show when={gapsOf(props.account).length > 0}><GapList gaps={gapsOf(props.account)} agent={props.agent} listed={props.listed} go={props.go} /></Show>
 </>;
@@ -68,7 +68,7 @@ export const ReadbackBlock = (props: { readback: ReadbackState; pad: ReadbackPad
         <Match when={props.readback.account()}>{account => <div class="readback-account" data-stale={state().state === "stale" ? "true" : "false"}>
           <Show when={state().state === "stale"}><p>{copy.changedSinceReadback} <ReadbackAction name={copy.readBackAgain} icon="rotate-cw" run={start} /></p></Show>
           <div class="readback-start"><ReadbackAction name={copy.savePad} icon="file-plus" run={() => void props.pad.save()} /><Show when={props.pad.status()}>{status => <PadStatus status={status()} />}</Show></div>
-          <div class="readback-text"><AccountText account={account()} agent={props.agent} listed={props.listed} go={props.go} /></div>
+          <div class="readback-text"><AccountText account={account()} stepper={props.readback.stepper} agent={props.agent} listed={props.listed} go={props.go} /></div>
         </div>}</Match>
       </Switch>
     </Show>

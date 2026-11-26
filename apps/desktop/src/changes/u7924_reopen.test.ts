@@ -57,7 +57,7 @@ const found = (language: string, files: number) => ({ language, files, server: {
 
 const LOOKUP = { languages: [found("typescript", 4), found("rust", 14), { language: "python", files: 2, server: { found: false, cause: { kind: "notInstalled", detail: "none" } } }] };
 
-type Group = { repo: string; branch: string; base: string; files: ChangedFile[] };
+type Group = { repo: string; checkout: string; branch: string; base: string; files: ChangedFile[] };
 
 const LENS = (lens: string, checked = "") => `!!document.querySelector('.changes-side .app-segment[aria-label="${lens}"]${checked}')`;
 
@@ -83,7 +83,7 @@ const reopen = async (mode: "done" | "slow") => {
   const until = (expression: string) => browser("wait", "--fn", expression);
 
   const files = [...FOURTEEN, ...FLOW_FILES];
-  const groups: Group[] = [{ repo: "/p/transform-education", branch: "main", base: "main", files }];
+  const groups: Group[] = [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files }];
 
   try {
     await browser("open", new URL("/src/changes/u2540.html", server.resolvedUrls.local[0] ?? "").href);

@@ -45,6 +45,7 @@ export const copy = {
   you: "You",
   dotted: (first: string, second: string) => `${first} · ${second}`,
   named: (name: string, detail: string) => `${name}, ${detail}`,
+  ofTotal: (position: number, total: number) => `${position} of ${total}`,
   plus: (count: number) => `+${count}`,
   dottedAfter: (value: string) => ` · ${value}`,
   move: "Move",

@@ -9,6 +9,8 @@ const fileNoun = (count: number) => count === 1 ? "file" : "files";
 const filesOf = (count: number) => `${count} ${fileNoun(count)}`;
 
 export const copy = {
+  /** U7952a: a failed open names the file and the checkout; a missing file says it is not there, never the raw `not found: <path>`. */
+  openFailure: (name: string, checkout: string, error: string) => /^not found\b/i.test(error) ? `Could not open ${name} in ${checkout}: it is not there.` : `Could not open ${name} in ${checkout}; the reason is ${error}.`,
   checking: sharedCopy.checking,
   sending: sharedCopy.sending,
   saving: sharedCopy.saving,
@@ -133,6 +135,8 @@ export const copy = {
     "R reads back these changes from the diff.",
     /** @prose */
     "W explains the selected lines in words, D as a diagram.",
+    /** @prose */
+    "Left and Right move between a focused diagram's stops.",
     /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
@@ -320,6 +324,11 @@ export const copy = {
   diagramCalls: (from: string, to: string) => `${from} calls ${to}`,
   /** @prose */
   diagramFailed: "Couldn't draw the diagram",
+  /** U7703: the diagram's stepper: its group, its two icon buttons and the stop count. */
+  stepDiagram: "Step through diagram",
+  previousStop: "Previous stop",
+  nextStop: "Next stop",
+  stopCount: sharedCopy.ofTotal,
   /** U7690c: the jump list. */
   jumpToNote: "Jump to note",
   jumpPlaceholder: "Find a note",

@@ -263,6 +263,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Explanation (`Explanation`: what `agent.explain` answers when the user asks the Readback's reader to explain selected lines of the diff, in words or as a small diagram; the Daemon keeps none, the App keeps it for the session and never sends it to the Agent) | same | — |
 | Finding (`Finding`: a defect `agent.findDefects` has the Readback's reader name at new-side lines of the diff, labelled `issue` or `nit`; the user keeps it as a note or drops it, the Daemon keeps none and the App never sends it to the Agent) | same | — |
 | Line explanation (`LineExplanation`, `Account::explanations`: one or two sentences of a Readback about new-side lines of one file, with the `source` text they were written against so the App greys them when the file stops reading so; at most twelve, dropped when the diff does not hold them) | Explanation under a line | — |
+| Diagram stop (`DiagramStop`, `Account::stops`: the name of a part the Readback's diagram draws and one sentence about it, in the order to walk them; at most twelve, kept as given; the App steps them and drops one that names no drawn part) | Stop | — |
 | Hunk id (`Hunk::id`: `<path>#<n>`, `n` counting that path's hunks from 1 in diff order, as the changes view names them) | same | — |
 | Gap (`Gap`: where the diff disagrees with the Agent's last message, with `path`, `quote` and the new-side `line`) | same | — |
 | Unplaced (`Account::unplaced`: the hunk ids no flow of a Readback holds, computed by the Daemon) | Unplaced | — |
@@ -327,6 +328,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Link set (`links::LinkSet`, `LinkEntry`, `LinkKind`, `LinksEvent`, `agent.links`, the `agent.links` event, `LinksModel`, `claude_code::links`) | links (an Agent's header) | — |
 | Links header (`LinksHeader`, `links/catalogue`, the fixed catalogue of icons `@json-render/core`'s spec names: `Editor`, `Terminal` and each `LinkKind`) | links (an Agent's header) | — |
 | Made list (`links::MadeItem`, `MadeKind`, `MAX_MADE`, `agent.made`, the `agent.made` event, `Pad.creator`, `rupd::made`) | links (an Agent's header) | — |
+| Agent folder (`agent.folder`, `AgentFolder`) | folder | — |
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |
 | open_in_editor | none | — |

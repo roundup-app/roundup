@@ -1,3 +1,5 @@
+import type { Account } from "@contracts/agent/Account";
+import type { DiagramStop } from "@contracts/agent/DiagramStop";
 import { copy } from "./copy";
 
 /** U7688c: one call of the diagram, from a part to a part it calls. */
@@ -32,6 +34,13 @@ export const parseDiagram = (text: string): Panel[] => {
   }
 
   return panels;
+};
+
+/** U7703a: the stops of an account that name a part its diagram draws, in order, each named as `parseDiagram` names the part; a stop that names no drawn part is dropped, so the stops are only places the figure and its words can light. */
+export const stopsOf = (account: Pick<Account, "diagram" | "stops">): DiagramStop[] => {
+  const drawn = new Set(parseDiagram(account.diagram).flatMap(panel => partsOf(panel.calls)));
+
+  return account.stops.flatMap(({ part, text }) => drawn.has(bare(part)) ? [{ part: bare(part), text }] : []);
 };
 
 /** U7688c, U7702e: the word a panel's label shows, none for a diagram with no "Before" or "After". */
