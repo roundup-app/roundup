@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { expect } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { editSteps } from "../pads/editWalkBrowser";
 
 // Every observer of these selection clauses measures in this viewport.
 export const setViewport = async () => { await browser("set", "viewport", "1512", "950"); };
@@ -142,7 +143,7 @@ export const editor = async (kind: typeof editorKinds[number] | "pad-source" | "
       ["eval", "document.querySelector('[data-pad=pad-3] .pad-name').focus()"],
       ["wait", "--fn", "document.activeElement?.matches('.pad-name')"],
       ["press", "Enter"],
-      ["wait", "--fn", "!!document.querySelector('.ProseMirror[contenteditable=true]')"]
+      ...editSteps
     );
     selector = ".ProseMirror";
 
