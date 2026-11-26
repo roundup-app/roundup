@@ -33,6 +33,7 @@ import { flowName, groupFlows, type Done, type Read } from "./flows";
 import { FlowStates } from "./FlowStates";
 import { createReadback, spanOf } from "./readback";
 import { ItemAccount } from "./ReadbackBlock";
+import { ChangedSymbols } from "./ChangedSymbols";
 import { createRepeatScan, placeCounts } from "./repeats";
 import { RepeatStates } from "./RepeatStates";
 import type { DiffKeys } from "./DiffReader";
@@ -501,7 +502,7 @@ const Surface = (props: { id: string; name: string }) => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} />}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} /></Loading>}>
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} /></Loading>}>
             <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;
