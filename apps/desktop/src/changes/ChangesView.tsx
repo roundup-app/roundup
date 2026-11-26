@@ -1,3 +1,5 @@
+import { Icon } from "../ink/Icon";
+import { IconButton } from "../ui/IconButton";
 import { createEffect, createMemo, createSignal, flush, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { Events } from "../app/events";
@@ -460,7 +462,7 @@ const Surface = (props: { id: string; name: string }) => {
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
       <Show when={viewed.progress().total > 0}><span class="changes-progress">{copy.viewedProgress(viewed.progress().viewed, viewed.progress().total)}</span></Show>
-      <button type="button" data-button="quiet" onClick={close}>{copy.closeChanges}</button>
+      <IconButton aria-label={copy.closeChanges} onClick={close}><Icon name="x" /></IconButton>
     </header>
     <Show when={remote.chip()}>{chip => <Show when={causeOf(chip()) !== ""}><p class="changes-remote-cause">{causeOf(chip())}</p></Show>}</Show>
     <Show when={failure() !== null}>

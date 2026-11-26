@@ -23,7 +23,7 @@ describe("u5215 one map names each kind's icon", () => {
 
   it("u5215_no_component_names_a_kinds_icon_directly", () => {
     // Status marks and other uses of these names that are not one of the three kinds.
-    const allowed = new Set(["todos/TodoMeta.tsx"]); // the Todo owner chip: an Agent as owner, not a created kind (Icon name="bot")
+    const allowed = new Set(["todos/TodoMeta.tsx", "changes/NoteBatch.tsx"]); // TodoMeta: the Todo owner chip, an Agent as owner (Icon name="bot"); NoteBatch: the check-message-history action, not a created kind
 
     const files = (dir: string): string[] => readdirSync(dir).flatMap(name => {
       const path = join(dir, name);
