@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
-import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch, leaveNote } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, beginNote, nextNote, openBatch, leaveNote } from "./noteHarness";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -237,7 +237,7 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   const older = "older connection revision A";
   const newer = "new connection revision B 🐝";
   const first = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: older } });
   fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
   await openBatch();
@@ -276,7 +276,7 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
   fireEvent.click(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }));
   await screen.findByText("recipient refused; edit or retry notes");
   await saveNote("  unrelated 🐝\n exact  ");
-  startNote();
+  await beginNote();
   const field = screen.getByLabelText("Note", { selector: "textarea" });
   fireEvent.input(field, { target: { value: "  unfinished e\u0301\n🐝  " } });
 
@@ -295,7 +295,7 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
       fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
     }
 
-    startNote();
+    await nextNote();
   }
 
   await waitFor(() => expect(Boolean(notesFor(app, "/p").failure("a"))).toBe(action.startsWith("other") || action === "cancel edit"));
@@ -335,7 +335,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
   fireEvent.click(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }));
   await screen.findByText("recipient refused; retry");
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk refused"); });
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: "  in memory e\u0301\n🐝  " } });
 
   await openBatch();
@@ -348,7 +348,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
     fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
     fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: "  cannot retain save 🐝  " } });
     fireEvent.click(within(screen.getByLabelText("Line note", { selector: "form" })).getByRole("button", { name: "Save" }));
-    startNote();
+    await nextNote();
   }
 
   await waitFor(() => expect(notesFor(app, "/p").problem()).not.toBeNull());
@@ -371,7 +371,7 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
 
   fireEvent.click(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:|Retry/ }));
   await screen.findByText("current refusal; retry");
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByLabelText("Note", { selector: "textarea" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
   fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
@@ -380,7 +380,7 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
 
   if (selected === "same") await waitFor(() => expect(notesFor(app, "/p").failure("a")).toBeNull());
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
-  startNote();
+  await beginNote();
   expect(screen.queryByText("current refusal; retry") !== null).toBe(selected === "older");
   expect(screen.getByLabelText("Note", { selector: "textarea" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
   expect(app.calls.filter(call => call.method === "message.send").map(call => call.params)).toEqual([expect.objectContaining({ to: "a" }), expect.objectContaining({ to: "a" })]);

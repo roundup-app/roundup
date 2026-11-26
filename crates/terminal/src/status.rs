@@ -25,6 +25,8 @@ pub const RECORDS_MAX: usize = 256;
 
 const REPORT: &[u8] = b"7501;";
 const PROMPT: &[u8] = b"133;A";
+/// X15's other marks: `B` ends the prompt, `C` starts the command, `D` ends it.
+const MARKS: &[u8] = b"133;";
 const QUERY: &[u8] = b"7501;?";
 const REPLY: &[u8] =
     b"\x1b]7501;?:states=idle,working,done,blocked,error,clear:kinds=permission,question,auth";
@@ -109,6 +111,8 @@ pub(crate) struct Mirror {
     ignore: bool,
     /// Oldest update first.
     records: Vec<Arc<Record>>,
+    /// U7889c: X15's marks say the shell waits at its prompt: `B` seen, and no `C` since.
+    prompt_free: bool,
 }
 
 impl Mirror {
@@ -180,7 +184,11 @@ impl Mirror {
         self.payload.push(byte);
         let wanted =
             |known: &[u8]| known.starts_with(&self.payload) || self.payload.starts_with(known);
-        if self.payload.len() <= REPORT.len() && !wanted(REPORT) && !wanted(PROMPT) {
+        if self.payload.len() <= REPORT.len()
+            && !wanted(REPORT)
+            && !wanted(PROMPT)
+            && !wanted(MARKS)
+        {
             self.ignore = true;
             self.payload.clear();
         }
@@ -192,6 +200,11 @@ impl Mirror {
             return;
         }
         let payload = std::mem::take(&mut self.payload);
+        match payload.strip_prefix(MARKS).and_then(|mark| mark.first()) {
+            Some(b'B') => self.prompt_free = true,
+            Some(b'A' | b'C' | b'D') => self.prompt_free = false,
+            _ => {}
+        }
         if payload == QUERY {
             out.reply.extend_from_slice(REPLY);
             out.reply.extend_from_slice(terminator.bytes());
@@ -204,6 +217,12 @@ impl Mirror {
         }
         self.payload = payload;
         self.payload.clear();
+    }
+
+    /// U7889c: takes the prompt when the shell waits at it, so the next claim sees it busy before
+    /// the shell's own `C` mark arrives.
+    pub fn claim_prompt(&mut self) -> bool {
+        std::mem::take(&mut self.prompt_free)
     }
 
     /// PS4: the program exited, so what it was doing or waiting on is over.

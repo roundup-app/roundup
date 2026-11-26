@@ -8,6 +8,6 @@ const track = <T>(load: Promise<T>): Promise<T> => {
   return load;
 };
 
-export const loadReader = () => track(import("./DiffReader"));
+export const loadReader = () => track(import("./ModuleScroll"));
 
 export const settled = async (): Promise<void> => { await Promise.allSettled(pending); };

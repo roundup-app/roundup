@@ -40,7 +40,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 
 | App emits (Tauri event) | Payload | Result |
 |---|---|---|
-| `open-project-page` | `{path, command: "import-work" or "project-settings"}` | Native Project menu activation captures its synchronized selected Project; only that Project opens its center page (U3813/U3814). No selection emits nothing. |
+| `open-project-page` | `{path, command: "import-work"}` | Native Project menu activation captures its synchronized selected Project; only that Project opens its center page (U3813/U3814). No selection emits nothing. |
 | `menu-bar-action` | `{kind: "agent", path, agent}`, `{kind: "terminal", path, terminal}`, `{kind: "open"}` or `{kind: "failure", message}` | An enabled current menu-bar or Dock row/command requests opening. A Dock refresh failure instead displays its cause without opening or activating anything. The App applies selection and acknowledgement policy before restoring, showing and focusing the window through Tauri’s window API. Agent actions retain their original Project and Agent; a Terminal action (U7189) shows that Terminal's Bubble in its Project and marks its status seen; Open chooses and acknowledges nothing (U5502). |
 | `state-alert-clicked` | `{agent}` | The owner clicked a State alert's banner: the window is in front and the webview opens that Agent (U5232e). |
 | `open-fork-sheet` | none | The application menu's `Fork for development…` (enabled while a Project is open) asks the webview to open the Fork sheet (FS5979a). |

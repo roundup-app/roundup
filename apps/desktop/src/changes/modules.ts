@@ -1,4 +1,7 @@
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import type { ChangedSymbol } from "@contracts/agent/ChangedSymbol";
+import type { FlowNode } from "@contracts/agent/FlowNode";
+import type { FunctionCalls } from "@contracts/agent/FunctionCalls";
 import { copy } from "./copy";
 
 /** U7678b: the name of the module a file with no directory left belongs to. */
@@ -48,9 +51,22 @@ export const noiseOf = (path: string): NoiseKind | undefined => {
   return undefined;
 };
 
-export type ModuleGroup = { name: string; files: ChangedFile[]; added: number; removed: number; counted: boolean };
+/** U7683d: whether the changed line `line` (1-based) of a diff side belongs to a section. */
+export type Takes = (side: "old" | "new", line: number) => boolean;
 
-export type Grouped = { modules: ModuleGroup[]; noise: { kind: NoiseKind; files: ChangedFile[] }[] };
+/** U7683d: one part of an item's scroll: a file whole, or only the hunks `pick` takes. `id` names it in the scroll; `label` is the function a flow's section reads. */
+export type Section = { id: string; file: ChangedFile; label?: string; pick?: Takes };
+
+/** U7683e: what a flow's call tree draws: the flow's tree, the symbols and calls of its answer, and each function's section. */
+export type FlowDetail = { tree: FlowNode; symbols: ReadonlyMap<string, ChangedSymbol>; calls: ReadonlyMap<string, FunctionCalls>; sections: ReadonlyMap<string, string> };
+
+/** `total` is the files the row counts; a find (U7679d) narrows `files` and leaves it. A flow (U7683c) is a group whose `name` is its key, `label` its words, `sections` its scroll and `flow` its call tree; a readback (U7689) gives it `read`, and a flow it names keeps its function in `function`. `untraced` is Not traced. */
+export type ModuleGroup = { name: string; files: ChangedFile[]; total: number; added: number; removed: number; counted: boolean; label?: string; sections?: readonly Section[]; flow?: FlowDetail; read?: ReadMark; untraced?: true; function?: string };
+
+/** U7689: what the readback gave an item: the notes of its explanation, whether it added the flow, and whether the diff moved under it. */
+export type ReadMark = { notes: readonly string[]; added: boolean; stale: boolean };
+
+export type Grouped = { modules: ModuleGroup[]; noise: { kind: NoiseKind; files: ChangedFile[]; total: number }[] };
 
 const byPath = (a: ChangedFile, b: ChangedFile) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: "base" });
 
@@ -74,11 +90,12 @@ export const groupModules = (files: readonly ChangedFile[]): Grouped => {
     modules: [...modules].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })).map(([name, list]) => ({
       name,
       files: scrollOrder(list),
+      total: list.length,
       added: list.reduce((sum, file) => sum + (file.counts?.added ?? 0), 0),
       removed: list.reduce((sum, file) => sum + (file.counts?.removed ?? 0), 0),
       counted: list.some(file => file.counts !== null),
     })),
-    noise: (["generated", "lockfile"] as const).flatMap(kind => noise.has(kind) ? [{ kind, files: [...noise.get(kind) ?? []].sort(byPath) }] : []),
+    noise: (["generated", "lockfile"] as const).flatMap(kind => noise.has(kind) ? [{ kind, files: [...noise.get(kind) ?? []].sort(byPath), total: noise.get(kind)?.length ?? 0 }] : []),
   };
 };
 

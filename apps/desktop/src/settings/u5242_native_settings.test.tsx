@@ -82,7 +82,7 @@ it("u5242c_forward_reopens_settings_after_back_and_clears_on_other_navigation", 
   await screen.findByRole("region", { name: "Settings" });
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
   await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
-  window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: "/other", command: "project-settings" } }));
+  window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: "/other", command: "import-work" } }));
   flush();
   fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
   await new Promise(resolve => setTimeout(resolve, 0));

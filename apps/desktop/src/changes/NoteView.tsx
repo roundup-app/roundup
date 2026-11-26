@@ -29,7 +29,7 @@ export const NoteView = (props: { note: Note; status: NoteStatus; edit: () => vo
   return <article class="note-view" data-surface="diff" data-state={props.status} data-focused={focused() || undefined} tabindex="0" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusIn={() => setFocused(true)} onFocusOut={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
     <p class="note-body" onClick={() => { if (editable()) props.edit(); }}>{(folded() ? lines().slice(0, limit()) : lines()).join("\n")}</p>
     <Show when={props.note.replacement !== undefined && !folded()}><pre class="note-replacement">{props.note.replacement}</pre></Show>
-    <p class="note-meta">{range(props.note)}{props.note.label === undefined ? "" : copy.dottedAfter(copy.labels[props.note.label])}{copy.dottedAfter(words(props.status, props.note))}<Show when={folded()}>{copy.dottedAfter("")}<button type="button" data-button="quiet" onClick={() => setOpen(true)}>{copy.showAll}</button></Show></p>
+    <p class="note-meta">{range(props.note)}{props.note.label === undefined ? "" : copy.dottedAfter(copy.labels[props.note.label])}{copy.dottedAfter(words(props.status, props.note))}<Show when={folded()}>{copy.dottedAfter("")}<IconButton aria-label={copy.showAll} onClick={() => setOpen(true)}><Icon name="down" /></IconButton></Show></p>
     <Show when={hovered() || focused()}><div class="note-actions">
       <Show when={editable()}><IconButton aria-label={copy.editTip} onClick={props.edit}><Icon name="edit" /></IconButton></Show>
       <Show when={removable()}><IconButton aria-label={copy.removeTip} onClick={props.remove}><Icon name="trash" /></IconButton></Show>
