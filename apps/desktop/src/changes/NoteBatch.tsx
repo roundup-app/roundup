@@ -12,7 +12,7 @@ import { BusyButton } from "../ui/BusyButton";
 import { createWritableMemo } from "@solid-primitives/memo";
 import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@ui-sdk/solid/command";
-import { range, words } from "./NoteView";
+import { statusOf, where, words } from "./NoteView";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { NoteStatus } from "./NoteView";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -22,10 +22,22 @@ import { createMessageToast } from "../ink/messageToast";
 import { modalOutside } from "../keys/registry";
 import { Dialog } from "../ui/Dialog";
 import { useConnectedProject } from "../state/connectedProject";
-import { reply } from "./notes";
+import { filesOf, isItem, isLine, reply, titleOf } from "./notes";
 import { NoteForm } from "./NoteForm";
-import type { NoteFormDraft } from "./notes";
-import type { Note, Notes } from "./notes";
+import type { Form, ItemNote, LineNote, Note, NoteFormDraft, Notes } from "./notes";
+
+/** The lines of a line note or an unfinished form, as the batch words them. */
+const spanOf = (row: { side: "old" | "new"; start: number | string; end: number | string }) => {
+  const start = Number(row.start);
+  const end = Number(row.end);
+
+  return copy.selectedLines(row.side, start === end ? `${start}` : `${start}–${end}`, start === end);
+};
+
+/** What a stored row names: an item's title and kind, or a file and its lines (U7691b). */
+const target = (row: Note | Form, older?: (comparison: FileComparison) => string | null) => isItem(row)
+  ? <><p class="note-path">{row.item.title}</p><p>{copy.itemMeta(row.item.kind, filesOf(row.item).length)}</p></>
+  : <><p class="note-path">{row.comparison.newPath}{older?.(row.comparison)}</p><p>{spanOf(row)}</p></>;
 
 const olderComparison = (current: FileComparison | undefined, original: FileComparison) => current && current.newPath === original.newPath && (current.oldPath !== original.oldPath || current.base !== original.base || current.old.revision !== original.old.revision || current.new.revision !== original.new.revision);
 
@@ -72,7 +84,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   const uncertain = () => state().kind === "unknown";
   const busy = () => state().kind === "pending" || uncertain();
 
-  const older = (note: Note) => olderComparison(props.readOf ? props.readOf(note.comparison.newPath) : props.comparison, note.comparison);
+  const older = (note: Note) => !isItem(note) && olderComparison(props.readOf ? props.readOf(note.comparison.newPath) : props.comparison, note.comparison);
 
   // U7610b: a batch already long when the view opens mounts a slice of notes per task, so the view never waits on every note; a batch that starts short shows each note at once.
   const list = () => props.notes.list(props.id);
@@ -101,8 +113,8 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
       <Show when={uncertain()}><BusyButton kind="icon" aria-label={copy.checkMessageHistory} busyLabel={copy.checking} onClick={() => props.notes.reconcile(props.id)}><Icon name="messages" /></BusyButton></Show>
       <Show when={list().length && open()}>
         <ul aria-label={copy.notes}><For each={list().slice(0, mounted())}>{(note, index) => <li>
-          <NotePath path={note.comparison.newPath} />
-          <p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}<InlineStatus text={older(note) ? copy.originalContext : null} />{copy.dottedAfter(noteWords[props.notes.noteState(props.id, note)])}</p>
+          <NotePath path={titleOf(note)} />
+          <p>{isItem(note) ? copy.itemMeta(note.item.kind, filesOf(note.item).length) : spanOf(note)}<InlineStatus text={older(note) ? copy.originalContext : null} />{copy.dottedAfter(noteWords[props.notes.noteState(props.id, note)])}</p>
           <p class="note-text">{note.text}</p>
           <Show when={props.notes.noteState(props.id, note) === "unsent" || props.notes.noteState(props.id, note) === "failed"}><div class="diff-actions">
             <IconButton aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}><Icon name="edit" /></IconButton>
@@ -150,7 +162,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 
     // The files compared are those of the notes kept, and the Agents still in the Rail, when the panel opens.
     for (const [id, value] of untrack(() => props.notes.entries().filter(([id]) => props.available(id) || rail.nodes.some(node => node.id === id)))) {
-      const paths = new Set([...value.forms, ...value.notes, ...value.submissions.flatMap(submission => submission.notes), ...value.recovered.flatMap(record => [...record.data.forms, ...record.data.notes])].map(note => note.comparison.newPath));
+      const paths = new Set([...value.forms, ...value.notes, ...value.submissions.flatMap(submission => submission.notes), ...value.recovered.flatMap(record => [...record.data.forms, ...record.data.notes])].flatMap(note => isLine(note) ? [note.comparison.newPath] : []));
 
       // U7873a: a file is read through the group that lists it, so an Agent with no Worktree reads as one with its own.
       const groups = reply(() => app.rpc("agent.ownedChanges", { id }));
@@ -220,11 +232,11 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
         <h3>{copy.noteDraftStatus(props.name(id), value.submissions[0]?.status ?? copy.noteDraft)}</h3>
         <StatusNote text={!props.available(id) ? copy.originalRecipientUnavailable : null} />
         <For each={value.forms}>{form => <div class="note-recovered-batch">
-          <p class="note-path">{form.comparison.newPath}{older(id, form.comparison)}</p><p>{copy.selectedLines(form.side, Number(form.start) === Number(form.end) ? `${Number(form.start)}` : `${Number(form.start)}–${Number(form.end)}`, Number(form.start) === Number(form.end))}</p><p class="note-text">{form.text}</p>
-          <div class="diff-actions"><CopyButton data-button="icon" aria-label={copy.copy} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, form }, null, 2)} identity={form.revision} onSuccess={() => clear(form.revision)} onFailure={error => failures.fail(form.revision, clipboardFailure("copy", error))}><Icon name="copy" /></CopyButton><Show when={props.available(id)}><IconButton data-note-action="resume" aria-label={copy.resumeNote} onClick={() => setEditing({ id, form })}><Icon name="play" /></IconButton></Show><IconButton aria-label={copy.discardDraft} onClick={() => { props.notes.discardForm(id, form.revision); setEditing(undefined); }}><Icon name="trash" /></IconButton></div>
+          {target(form, comparison => older(id, comparison))}<p class="note-text">{form.text}</p>
+          <div class="diff-actions"><CopyButton data-button="icon" aria-label={copy.copy} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, form }, null, 2)} identity={form.revision} onSuccess={() => clear(form.revision)} onFailure={error => failures.fail(form.revision, clipboardFailure("copy", error))}><Icon name="copy" /></CopyButton><Show when={isLine(form) && props.available(id)}><IconButton data-note-action="resume" aria-label={copy.resumeNote} onClick={() => { if (isLine(form)) setEditing({ id, form }); }}><Icon name="play" /></IconButton></Show><IconButton aria-label={copy.discardDraft} onClick={() => { props.notes.discardForm(id, form.revision); setEditing(undefined); }}><Icon name="trash" /></IconButton></div>
         </div>}</For>
         <For each={unsent(value.notes)}>{note => <div class="note-recovered-batch">
-          <p class="note-path">{note.comparison.newPath}{older(id, note.comparison)}</p><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}</p><p class="note-text">{note.text}</p>
+          {target(note, comparison => older(id, comparison))}<p class="note-text">{note.text}</p>
           <div class="diff-actions"><CopyButton data-button="icon" aria-label={copy.copy} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, note }, null, 2)} identity={note.revision} onSuccess={() => clear(note.revision)} onFailure={error => failures.fail(note.revision, clipboardFailure("copy", error))}><Icon name="copy" /></CopyButton><IconButton aria-label={copy.discardDraft} onClick={() => props.notes.remove(id, note.id)}><Icon name="trash" /></IconButton></div>
         </div>}</For>
         <For each={value.recovered}>{recovered => <div class="note-recovered-batch"><RecordPreview older={comparison => older(id, comparison)} rows={[...recovered.data.forms, ...recovered.data.notes, ...recovered.data.submissions.flatMap(submission => submission.notes)]} /><div class="diff-actions"><CopyButton data-button="icon" aria-label={copy.copy} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, ...recovered }, null, 2)} identity={recovered.revision} onSuccess={() => clear(recovered.revision)} onFailure={error => failures.fail(recovered.revision, clipboardFailure("copy", error))}><Icon name="copy" /></CopyButton><IconButton aria-label={copy.discardDraft} onClick={() => props.notes.discardRecovered(id, recovered.revision)}><Icon name="trash" /></IconButton></div></div>}</For>
@@ -239,20 +251,25 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 };
 
 /** Recovery uses the same path, range and text presentation as live notes. */
-const RecordPreview = (props: { rows: readonly (Note | NoteFormDraft)[]; older?: (comparison: FileComparison) => string | null }) => <For each={props.rows} fallback={<p>{copy.unreadableNoteDraft}</p>}>{note => <div class="note-recovered-batch"><p class="note-path">{note.comparison.newPath}{props.older?.(note.comparison)}</p><p>{copy.selectedLines(note.side, Number(note.start) === Number(note.end) ? `${Number(note.start)}` : `${Number(note.start)}–${Number(note.end)}`, Number(note.start) === Number(note.end))}</p><p class="note-text">{note.text}</p></div>}</For>;
+const RecordPreview = (props: { rows: readonly (Note | Form)[]; older?: (comparison: FileComparison) => string | null }) => <For each={props.rows} fallback={<p>{copy.unreadableNoteDraft}</p>}>{note => <div class="note-recovered-batch">{target(note, props.older)}<p class="note-text">{note.text}</p></div>}</For>;
 
 
 /** U7690c: a note in the jump list: its state, and whether its file is still in the change. */
 export type JumpRow = { note: Note; status: NoteStatus; listed: boolean };
 
-/** U7690c: the notes of one Agent in file order: the files in path order, then line, the old side before the new. */
-export const jumpOrder = (notes: readonly Note[]) => [...notes].sort((left, right) => (left.comparison.newPath < right.comparison.newPath ? -1 : left.comparison.newPath > right.comparison.newPath ? 1 : 0) || left.start - right.start || Number(left.side === "new") - Number(right.side === "new") || left.id - right.id);
+/** A note's file in file order: an item note's first file (U7691d). */
+const pathOf = (note: Note) => isItem(note) ? filesOf(note.item)[0] ?? "" : note.comparison.newPath;
+
+const rank = (note: Note) => isItem(note) ? { line: 0, start: 0, side: 0 } : { line: 1, start: note.start, side: Number(note.side === "new") };
+
+/** U7690c, U7691d: the notes of one Agent in file order: the files in path order, an item note before the line notes of its first file, then line, the old side before the new. */
+export const jumpOrder = (notes: readonly Note[]) => [...notes].sort((left, right) => (pathOf(left) < pathOf(right) ? -1 : pathOf(left) > pathOf(right) ? 1 : 0) || rank(left).line - rank(right).line || rank(left).start - rank(right).start || rank(left).side - rank(right).side || left.id - right.id);
 
 /** U7690c: every note of the Agent in one list; ui-sdk's Command owns the highlight, Up, Down and Enter, and the query only narrows it. */
 export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number; choose: (note: Note) => void; close: () => void }) => {
   const [query, setQuery] = createSignal("");
   const [value, setValue] = createSignal<string | null>(null);
-  const text = (row: JumpRow) => `${row.note.comparison.newPath} ${range(row.note)} ${row.note.label ?? ""} ${row.note.text}`.toLowerCase();
+  const text = (row: JumpRow) => `${titleOf(row.note)} ${where(row.note)} ${row.note.label ?? ""} ${row.note.text}`.toLowerCase();
   const shown = () => props.rows.filter(row => text(row).includes(query().trim().toLowerCase()));
   const key = (row: JumpRow) => String(row.note.id);
   let input: HTMLInputElement | undefined;
@@ -274,9 +291,9 @@ export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number;
       <CommandInput class="app-combobox-input" aria-label={copy.jumpToNote} placeholder={copy.jumpPlaceholder} spellcheck="false" autocorrect="off" autocapitalize="off" ref={element => { input = element; }} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.close(); } }} />
       <CommandEmpty class="app-combobox-empty">{copy.noNotesFound}</CommandEmpty>
       <CommandList class="app-combobox-list" aria-label={copy.notes}>
-        <For each={shown()}>{row => <CommandItem class="app-combobox-item" value={key(row)} label={`${row.note.comparison.newPath} ${range(row.note)}`}>
-          <span class="note-jump-path">{row.note.comparison.newPath}</span>
-          <span class="note-jump-meta">{range(row.note)}{row.note.label === undefined ? "" : copy.dottedAfter(copy.labels[row.note.label])}{copy.dottedAfter(words(row.status, row.note))}{row.listed ? "" : copy.dottedAfter(copy.noLongerChanged)}</span>
+        <For each={shown()}>{row => <CommandItem class="app-combobox-item" value={key(row)} label={`${titleOf(row.note)} ${where(row.note)}`}>
+          <span class="note-jump-path">{titleOf(row.note)}</span>
+          <span class="note-jump-meta">{where(row.note)}{row.note.label === undefined ? "" : copy.dottedAfter(copy.labels[row.note.label])}{copy.dottedAfter(words(row.status, row.note))}{row.listed ? "" : copy.dottedAfter(copy.noLongerChanged)}</span>
           <span class="note-jump-text">{row.note.text.split("\n")[0]}</span>
         </CommandItem>}</For>
       </CommandList>
@@ -285,19 +302,23 @@ export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number;
 };
 
 /** U7690c: G opens the list; a choice opens its file (`open`) and aims the reader at its line until `arrived`. */
-export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: Note) => boolean } | undefined; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
+export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: LineNote) => boolean } | undefined; itemOutdated: (note: ItemNote) => boolean; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
   const [jumping, setJumping] = createSignal(false);
   const [aim, setAim] = createSignal<{ path: string; side: "old" | "new"; line: number }>();
   let origin: Element | null = null;
 
-  const status = (note: Note): NoteStatus => note.sent === undefined ? deps.notes.noteState(deps.id, note) : deps.keys()?.outdated(note) ? "outdated" : "sent";
+  const status = (note: Note): NoteStatus => statusOf(deps.notes, deps.id, note, () => isItem(note) ? deps.itemOutdated(note) : deps.keys()?.outdated(note) ?? false);
 
-  const rows = () => jumpOrder(deps.notes.all(deps.id)).map(note => ({ note, status: status(note), listed: deps.files().some(file => file.path === note.comparison.newPath) }));
+  const listed = (path: string) => deps.files().some(file => file.path === path);
+
+  const filesOfNote = (note: Note) => isItem(note) ? filesOf(note.item) : [note.comparison.newPath];
+
+  const rows = () => jumpOrder(deps.notes.all(deps.id)).map(note => ({ note, status: status(note), listed: filesOfNote(note).some(listed) }));
 
   // The first note after the focused line in file order, else the first.
   const start = (list: readonly JumpRow[]) => {
     const at = deps.keys()?.at();
-    const after = at === undefined ? -1 : list.findIndex(({ note }) => note.comparison.newPath > at.path || (note.comparison.newPath === at.path && (note.start > at.line || (note.start === at.line && note.side === "new" && at.side === "old"))));
+    const after = at === undefined ? -1 : list.findIndex(({ note }) => pathOf(note) > at.path || (pathOf(note) === at.path && !isItem(note) && (note.start > at.line || (note.start === at.line && note.side === "new" && at.side === "old"))));
 
     return Math.max(after, 0);
   };
@@ -310,14 +331,24 @@ export const createJump = (deps: { id: string; notes: Notes; files: () => readon
     setJumping(false);
   };
 
+  // An item note opens its first file the change still lists; a line note aims the reader at its line.
   const choose = (note: Note) => {
     setJumping(false);
+
+    if (isItem(note)) {
+      const first = filesOf(note.item).find(listed);
+
+      if (first !== undefined) deps.open(first);
+
+      return;
+    }
+
     deps.open(note.comparison.newPath);
     setAim({ path: note.comparison.newPath, side: note.side, line: note.start });
   };
 
   return {
-    aim, arrived: () => setAim(undefined),
+    aim, arrived: () => setAim(undefined), itemOutdated: deps.itemOutdated,
     open: () => {
       if (deps.notes.all(deps.id).length === 0) return;
       origin = document.activeElement;
