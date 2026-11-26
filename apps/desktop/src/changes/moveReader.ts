@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import type { MoveReply } from "./moveWorker";
 import type { Moved, MoveRequest } from "./moves";
 
@@ -22,7 +23,7 @@ const start = () => {
 
   // A Worker that failed to start answers nothing: every read waiting on it fails, and the next read starts a new one.
   made.onerror = event => {
-    for (const reply of waiting.values()) reply.reject(new Error(event.message || "the move reader did not start"));
+    for (const reply of waiting.values()) reply.reject(new Error(event.message || copy.moveReaderStopped));
     waiting.clear();
     made.terminate();
 

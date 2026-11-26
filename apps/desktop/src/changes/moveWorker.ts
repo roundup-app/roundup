@@ -1,5 +1,6 @@
 import { configure } from "@plannotator/sem-jiff";
 import type { LanguageId } from "@plannotator/sem-jiff";
+import { copy } from "./copy";
 import { movedIn } from "./moveFile";
 import type { Moved, MoveRequest } from "./moves";
 
@@ -18,13 +19,13 @@ const GRAMMARS: Partial<Record<LanguageId, () => Promise<{ default: string }>>> 
 const grammar = async (language: LanguageId) => {
   const load = GRAMMARS[language];
 
-  if (!load) throw new Error(`no grammar for ${language}`);
+  if (!load) throw new Error(copy.noGrammar(language));
   const { default: url } = await load();
 
   if (!import.meta.env.PROD) return url;
   const response = await fetch(`${url}.gz`);
 
-  if (!response.ok) throw new Error(`grammar ${language}: ${response.status}`);
+  if (!response.ok) throw new Error(copy.grammarFailed(language, response.status));
   const bytes = new Uint8Array(await response.arrayBuffer());
 
   // A server that sets Content-Encoding has inflated the file already.
