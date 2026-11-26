@@ -254,6 +254,10 @@
 .gap-mark p { margin: 0; overflow-wrap: anywhere; }
 .explained { margin: 0; padding: var(--space-2); background: none; color: var(--diff-text); font: var(--text-small) var(--font-ui); }
 .explained p { margin: 0; overflow-wrap: anywhere; }
+.finding { margin: 0; padding: var(--space-2); background: none; color: var(--diff-text); font: var(--text-small) var(--font-ui); }
+.finding p { margin: 0; overflow-wrap: anywhere; }
+.finding[data-changed="true"] { opacity: 0.6; }
+.finding-actions { display: flex; gap: var(--space-2); }
 /* U7696a: the mark under a move's first range: the diff's own ground shows through (D3 reads --diff-ground as saturated) under the diff's own ink. */
 .moved-mark { margin: 0; padding: var(--space-2); color: var(--diff-text); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 /* U7688b, U7688c: the readback above the Overview's modules; a stale one is dimmed, and a narrow pane shows the diagram's words alone. */

@@ -30,6 +30,7 @@ import type { Annotated, Composer, Noted, Shared, Stamped } from "./diffDraw";
 import { LineMark } from "./LineMark";
 import { createExplaining } from "./explain";
 import type { Explanations } from "./explain";
+import { createFinding, type FindingsState } from "./findings";
 import type { ExplainForm } from "@contracts/agent/ExplainForm";
 import { createGapped, createMoving, createRepeated } from "./repeats";
 import { apart } from "./moves";
@@ -207,7 +208,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; /** U7696a: the moves and renames in this file's new lines, and the Logic lens's ask for a file once it is drawn. */ moves?: readonly Moved[] | undefined; onRead?: ((value: FileComparison) => void) | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element; /** U7697a: the word of this file's rank. */ rank?: string | undefined; /** U7698: the explanations of the Agent's diff, asked from this file's header and keys. */ explain?: Explanations | undefined }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; /** U7696a: the moves and renames in this file's new lines, and the Logic lens's ask for a file once it is drawn. */ moves?: readonly Moved[] | undefined; onRead?: ((value: FileComparison) => void) | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element; /** U7697a: the word of this file's rank. */ rank?: string | undefined; /** U7698: the explanations of the Agent's diff, asked from this file's header and keys. */ explain?: Explanations | undefined; /** U7700c: the defect pass's findings, each drawn by the file that holds its lines. */ findings?: FindingsState | undefined }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
@@ -222,9 +223,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   let rendered: { path: string; revision: string } | undefined;
   let focusHost = () => {};
 
-  let revealNearest = () => {};
-
-  let moveTo = (_side: "old" | "new", _line: number) => {};
+  let revealNearest = () => {}, moveTo = (_side: "old" | "new", _line: number) => {};
 
   const hidden = createMemo(() => hiddenKind(read(), shown()?.path === props.path ? shown()?.kind : undefined));
 
@@ -241,9 +240,9 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const gapped = createGapped(() => props.gaps, () => props.only);
 
-  const explaining = createExplaining({ explain: () => props.explain, path: () => props.path, blob: () => props.blob, value: read, selection });
+  const finding = createFinding({ findings: () => props.findings, path: () => props.path, value: read });
 
-  // U7698a: the user asks the selected lines; an answer asks again for its own range.
+  const explaining = createExplaining({ explain: () => props.explain, path: () => props.path, blob: () => props.blob, value: read, selection });
 
   onCleanup(() => sweep(undefined));
 
@@ -253,7 +252,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
     const content = () => {
 
-      if (isMark(metadata)) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} explained={explaining} />;
+      if (isMark(metadata)) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} explained={explaining} found={finding} />;
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
 
@@ -267,7 +266,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let stamp = (_stamped: Partial<Stamped>) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving(), explaining.marks()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving(), explaining.marks(), finding.marks()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));

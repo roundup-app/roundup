@@ -260,11 +260,36 @@ export const copy = {
   /** @prose */
   readbackCredit: "Read back from the diff",
   changedSinceReadback: "Changed since readback",
+  /** U7702: the readback saved as a Pad: the action, its status lines, the Pad's name and the facts it opens with. */
+  savePad: "Save as Pad",
+  padSaved: (name: string) => `Saved as ${name}`,
+  /** @prose */
+  padNotMoved: (name: string) => `Saved ${name}, but it stays at the Project root`,
+  /** @prose */
+  padNotSaved: "Couldn't save the readback",
+  readbackPadName: (agent: string, date: string) => `Readback: ${agent} ${date}`,
+  padFlowchart: "flowchart LR",
+  padDate: "Date",
   /** U7698: a selection's explanation: its icon buttons, its section and its failure; the credit is the readback's. */
   explainWords: "Explain in words",
   explainDiagram: "Explain as diagram",
   explanation: "Explanation",
   askAgain: "Ask again",
+  /** U7700: the defect pass: its icon buttons, its states, a finding's label and its row count. */
+  findDefects: "Find defects",
+  findAgain: "Find again",
+  keepFinding: "Keep as note",
+  dropFinding: "Drop finding",
+  finding: "Finding",
+  findings: "Findings",
+  /** @prose */
+  findingsQuiet: "No defect pass has run.",
+  lookingForDefects: "Looking for defects…",
+  /** @prose */
+  findingsFailed: "Couldn't look for defects",
+  /** @prose */
+  noFindings: "The pass found no defects.",
+  findingsCount: (count: number) => `${count} ${count === 1 ? "finding" : "findings"}`,
   /** @prose */
   explainFailed: "Couldn't explain these lines",
   /** U7697: a risk mark's accessible name, and the words of a file's rank. */

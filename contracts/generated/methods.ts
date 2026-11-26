@@ -13,6 +13,7 @@ import type { CompareFileParams as agent_CompareFileParams } from "./agent/Compa
 import type { Context as agent_Context } from "./agent/Context";
 import type { CreateModeParams as agent_CreateModeParams } from "./agent/CreateModeParams";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
+import type { DefectFindings as agent_DefectFindings } from "./agent/DefectFindings";
 import type { DeletionParams as agent_DeletionParams } from "./agent/DeletionParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
 import type { ExplainParams as agent_ExplainParams } from "./agent/ExplainParams";
@@ -226,6 +227,7 @@ export type RpcMethods = {
   "agent.callPaths": { params: agent_CallPathsParams; result: agent_CallPaths };
   "agent.readbackStart": { params: agent_ReadbackStartParams; result: agent_Readback };
   "agent.explain": { params: agent_ExplainParams; result: agent_Explanation };
+  "agent.findDefects": { params: agent_ChangedFilesParams; result: agent_DefectFindings };
   "agent.readback": { params: agent_ChangedFilesParams; result: agent_Readback };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
