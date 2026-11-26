@@ -33,7 +33,8 @@ it("u3787f_deep_link_preserves_identity_and_authority_same_named_pad_in_another_
   await waitFor(() => expect(receive).toBeDefined());
   const url = `roundup://pad/${encodeURIComponent(name)}?project=second-0000000000000000#Details`;
   receive?.({ kind: "link", url });
-  const body = await screen.findByRole("textbox", { name: "Pad body" });
+  // PW11: the Pad opens as its walk.
+  const body = await waitFor(() => document.querySelector<HTMLElement>(".walk-body") ?? Promise.reject(new Error("no walk")));
   await waitFor(() => expect(body.textContent).toContain(secondText.split("\n")[1]));
   expect(body.textContent).not.toContain(firstPad.text);
   expect(a.calls.filter(call => call.method === "link.read")).toEqual([{ method: "link.read", params: { url } }]);

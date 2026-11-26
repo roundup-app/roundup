@@ -34,3 +34,12 @@ export const walkSteps = (text: string, name: string): WalkStep[] => {
 
   return [...overview, ...steps.map(step => ({ title: step.title, text: step.raw.trim() }))];
 };
+
+const plain = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
+
+/** PW11, PW12: the index of the first step that holds a heading reading `heading` (case and whitespace as P15 reads it), or -1. */
+export const stepOfHeading = (steps: readonly WalkStep[], heading: string): number => {
+  const wanted = plain(heading);
+
+  return steps.findIndex(step => plain(step.title) === wanted || lexer(step.text).some(token => token.type === "heading" && plain(token.text) === wanted));
+};

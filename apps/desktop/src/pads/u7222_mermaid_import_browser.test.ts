@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { editWalk } from "./editWalkBrowser";
 
 const drawing = '```excalidraw\n{"type":"excalidraw","version":2,"elements":[]}\n```\n';
 
@@ -15,6 +16,7 @@ it("u7222_a_mermaid_flowchart_imports_into_the_drawing", async () => {
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
   await wait("document.activeElement?.matches('.pad-name')");
   await browser("press", "Enter");
+  await editWalk(browser);
   await wait("Boolean(document.querySelector('.visual-drawing .excalidraw'))");
   // Real pointer events: the Drawing saves only a scene the user's own gesture changed.
   await browser("click", ".visual-drawing-edit");
