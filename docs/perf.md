@@ -617,3 +617,16 @@ Dispositions, against the 20% rule:
 | Limit | Rust 120 s | Kept: two never-traced commits take about 79 s + 130 s with `main`'s settings (over 120 s; the rule's 2 x 130 s = 260 s would apply there), and 24.7 s lean (measured through the Daemon, both sides cold), so it holds with lean on, which is `Git`'s default now (#7824) |
 
 Trigger: Rust traces only when the user clicks Trace (#7683, decision 7), so these costs land on a click, never on opening the view.
+
+## Opening Changes: `agent.changedFiles` and the first `agent.compareFile` (U7960c, #7960)
+
+The open budget: list plus first file diff take at most half of the time `main` took on the same change on the same machine. Measured by the ignored test `u7960c_measure_open` (`cargo nextest run -p agents u7960c --run-ignored all --no-capture`) on a change of 30 files (modified, deleted, renamed, added, untracked), median of 5 runs, the Daemon's own `Git` calls.
+
+| Machine | Reading | `changedFiles` | first `compareFile` | Sum |
+|---|---|---|---|---|
+| Linux CI runner | before (`main`, 3 diffs, base per call) | 11.7 ms | 8.1 ms | 19.8 ms |
+| Linux CI runner | after (1 diff, cached base) | 7.2 ms | 6.9 ms | 14.1 ms |
+| Owner's Mac, 31 files | before, measured by the owner | 340–450 ms | 270–400 ms | 610–850 ms |
+| Owner's Mac, 31 files | after | not yet measured | not yet measured | budget: at most 305–425 ms |
+
+The Linux runner spawns a process in about 1 ms, so the cut there (29%) understates the Mac's, where each `git` run costs 40–90 ms: the list drops from 8 runs to 6 (the two ref reads, the one diff, `ls-files`, `hash-object`) and a repeat `compareFile` from 8 to 6 and no `merge-base`. The Mac reading is the owner's to take on this branch with the same test.
