@@ -2,7 +2,7 @@ import { For, Show } from "solid-js";
 import { copy } from "./copy";
 import { LABELS } from "./notes";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import type { Label, Note, NoteFormDraft } from "./notes";
+import type { Label, LineNote, NoteFormDraft } from "./notes";
 
 /** U7690a, U7690b: a note's label and replacement while it is written: null while unset. */
 export type Extras = { label: Label | null; replacement: string | null };
@@ -23,7 +23,7 @@ export const sourceOf = (comparison: FileComparison, range: Range) => {
 
 /** What a draft or a saved note holds of them, only when set. */
 export const optionalOf = (extras: Extras) => {
-  const picked: Pick<Note, "label" | "replacement"> = {};
+  const picked: Pick<LineNote, "label" | "replacement"> = {};
 
   if (extras.label !== null) picked.label = extras.label;
 
@@ -32,7 +32,7 @@ export const optionalOf = (extras: Extras) => {
   return picked;
 };
 
-export const extrasOf = (...from: (Pick<Note, "label" | "replacement"> | undefined)[]): Extras => ({ label: from.find(each => each?.label !== undefined)?.label ?? null, replacement: from.find(each => each?.replacement !== undefined)?.replacement ?? null });
+export const extrasOf = (...from: (Pick<LineNote, "label" | "replacement"> | undefined)[]): Extras => ({ label: from.find(each => each?.label !== undefined)?.label ?? null, replacement: from.find(each => each?.replacement !== undefined)?.replacement ?? null });
 
 const MOVES = ["side", "start", "end"];
 
@@ -52,11 +52,14 @@ export const suggestionOf = (comparison: FileComparison, fields: Range & Extras)
 
 export const sameExtras = (left: Extras, right: Extras) => left.label === right.label && left.replacement === right.replacement;
 
+/** U7690a, U7691a: the label group, one toggle per label, for a line note and an item note alike. */
+export const LabelGroup = (props: { label: Label | null; edit: (change: Pick<Extras, "label">) => void }) => <div role="group" aria-label={copy.label} class="note-label">
+  <For each={LABELS}>{each => <button type="button" data-button="quiet" aria-pressed={props.label === each ? "true" : "false"} onClick={() => props.edit({ label: props.label === each ? null : each })}>{copy.labels[each]}</button>}</For>
+</div>;
+
 /** U7690a: the label group, then U7690b's button; the field it opens sits under the note's text. */
 export const LabelRow = (props: { fields: Range & Extras; comparison: FileComparison; edit: (change: Partial<Extras>) => void }) => <>
-  <div role="group" aria-label={copy.label} class="note-label">
-    <For each={LABELS}>{each => <button type="button" data-button="quiet" aria-pressed={props.fields.label === each ? "true" : "false"} onClick={() => props.edit({ label: props.fields.label === each ? null : each })}>{copy.labels[each]}</button>}</For>
-  </div>
+  <LabelGroup label={props.fields.label} edit={props.edit} />
   <Show when={props.fields.side === "new"}><button type="button" data-button="quiet" aria-pressed={props.fields.replacement !== null ? "true" : "false"} onClick={() => props.edit({ replacement: props.fields.replacement === null ? sourceOf(props.comparison, props.fields) : null })}>{copy.suggestChange}</button></Show>
 </>;
 

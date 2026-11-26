@@ -7,7 +7,7 @@ import { sameRevisions } from "./fileState";
 import { sideName } from "./lines";
 import { hunkFunction, type Takes } from "./modules";
 import type { LineSelection } from "./lines";
-import type { Note, NoteFormDraft } from "./notes";
+import type { LineNote, NoteFormDraft } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
 
 /** U7676c: the mark a line draws for a field kept as unfinished work. */
@@ -22,13 +22,13 @@ export type Repeated = { repeating: true; side: "new"; start: number; end: numbe
 /** U7688e: the mark under the line a gap names: what the Agent said and what the diff holds. */
 export type Gapped = { gapped: true; side: "new"; start: number; end: number; gap: Gap };
 
-export type Annotated = Note | Mark | Composer | Repeated | Gapped;
+export type Annotated = LineNote | Mark | Composer | Repeated | Gapped;
 
 /** U7677a: the lines a note covers on one side, and whether its field holds focus. */
 export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
 
 /** U7677e: the source a comparison holds at a note's lines, as the note retained it. */
-const sourceAt = (value: FileComparison, note: Pick<Note, "side" | "start" | "end">) => {
+const sourceAt = (value: FileComparison, note: Pick<LineNote, "side" | "start" | "end">) => {
   const content = value[note.side];
 
   if (content.kind !== "text") return undefined;
@@ -40,17 +40,17 @@ const sourceAt = (value: FileComparison, note: Pick<Note, "side" | "start" | "en
 };
 
 /** U7677e: a Sent note whose retained source no longer matches the lines now shown (U2540b's older-context rule). */
-export const outdated = (note: Note, value: FileComparison | undefined) => note.sent !== undefined && value !== undefined && !sameRevisions(note.comparison, value) && sourceAt(value, note) !== note.source;
+export const outdated = (note: LineNote, value: FileComparison | undefined) => note.sent !== undefined && value !== undefined && !sameRevisions(note.comparison, value) && sourceAt(value, note) !== note.source;
 
 /** U7677a: a note draws under its lines while its comparison is the open one, and a Sent note while its lines still read the same. */
-const shown = (note: Note, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
+const shown = (note: LineNote, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
 /** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line; each unfinished field as a mark. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = []): DiffLineAnnotation<Annotated>[] => [
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = []): DiffLineAnnotation<Annotated>[] => [
   ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
   ...repeats.map((repeat): DiffLineAnnotation<Repeated> => ({ side: sideName(repeat.side), lineNumber: repeat.end, metadata: repeat })),
   ...gaps.map((gap): DiffLineAnnotation<Gapped> => ({ side: sideName(gap.side), lineNumber: gap.end, metadata: gap })),
-  ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
+  ...notes.flatMap((note): DiffLineAnnotation<LineNote>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
     ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
     : []),
@@ -72,7 +72,7 @@ export const annotate = (view: VirtualizedFileDiff<Annotated>, lines: readonly D
 };
 
 /** U7676c: the notes whose comparison is not the open one; they stay in the batch and gather after the file's last line. */
-export const gatheredNotes = (value: FileComparison | undefined, notes: readonly Note[]) => value ? notes.filter(note => note.comparison.newPath === value.newPath && !shown(note, value)) : [];
+export const gatheredNotes = (value: FileComparison | undefined, notes: readonly LineNote[]) => value ? notes.filter(note => note.comparison.newPath === value.newPath && !shown(note, value)) : [];
 
 /** U7674d: the diff is light in both App modes. */
 const DIFF_THEME = "github-light";
