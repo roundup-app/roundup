@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { expect } from "vitest";
 import { shelfBrowser } from "../shelf/u371Browser";
+import { editWalk } from "./editWalk";
 import { realBrowserTest } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { captureDir } from "../testing/captures";
@@ -47,6 +48,7 @@ realBrowserTest("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async
       await browser("wait", "--fn", `(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); return !!document.querySelector('.pads-tab [data-pad="Colour round trip"] .pad-name'); })()`);
       await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Colour round trip"] .pad-name').focus(); return true; })()`);
       await browser("press", "Enter");
+      await editWalk(browser);
       await browser("wait", ".drawer .pad-syntax-keyword");
     };
 

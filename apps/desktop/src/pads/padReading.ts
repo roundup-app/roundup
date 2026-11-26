@@ -11,8 +11,9 @@ type Reading = {
   origin: () => string;
   initialFocus: ReturnType<typeof captureFocus>;
   editor: () => PadEditorHandle | undefined;
-  /** Saves what the editor holds and reports whether it is saved with no failure showing. */
-  save: () => Promise<boolean>;
+  save: () => Promise<void>;
+  /** Whether what the editor holds is saved with no failure showing. */
+  saved: () => boolean;
   act: (work: () => Promise<void>) => Promise<void>;
   /** The editor unmounts: the handle it gave is stale. */
   release: () => void;
@@ -34,7 +35,9 @@ export const createPadReading = (o: Reading) => {
   };
 
   const done = () => o.act(async () => {
-    if (!await o.save()) return;
+    await o.save();
+
+    if (!o.saved()) return;
 
     const heading = o.editor()?.caretHeading();
     const at = heading ? stepOfHeading(walkSteps(o.origin(), o.name), heading) : -1;

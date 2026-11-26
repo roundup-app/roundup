@@ -187,7 +187,7 @@ const PadBody = (props: {
   let pendingActor: Actor | null = null;
   let closed = false;
   let finalDraft: string | null | undefined;
-  const saveAfterPause = debounce(() => flush(), SAVE_PAUSE_MS);
+  const saveAfterPause = debounce(() => void save(), SAVE_PAUSE_MS);
 
   /** `typing`: the user is editing, which a change handler knows before `editing` shows it. */
   const capture = (typing = editing()) => {
@@ -275,7 +275,7 @@ const PadBody = (props: {
     capture();
     finalDraft = currentDraft();
     closed = true;
-    flush();
+    void save();
     const message = actionFailure.message();
 
     if (!deleted() && message) props.onLateFailure(message);
@@ -375,21 +375,16 @@ const PadBody = (props: {
       void write();
     });
 
+  const save = async () => {
+    saveAfterPause.clear();
+    await write(false, cycle.send({ kind: "due", due: "autosave" }));
+  };
+
   // PW11, PW13: a Pad with text and no kept draft opens as its walk; a new, empty or kept-draft Pad opens in Edit. PW12: Done shows the walk only once the editor's text is saved.
   const { reading, walkAt, edit, done, finish, editFocus, mount } = createPadReading({
     kept: () => Boolean(recovered) || invalid(), text: opened.text, name, origin, initialFocus: props.initialFocus, editor: () => editor, act,
-    save: async () => {
-      saveAfterPause.clear(); await write(false, cycle.send({ kind: "due", due: "autosave" }));
-
-      return cycle.save().kind === "clean" && actionFailure.message() === null;
-    },
-    release: () => { editor = undefined; },
+    save, saved: () => cycle.save().kind === "clean" && actionFailure.message() === null, release: () => { editor = undefined; },
   });
-
-  const flush = () => {
-    saveAfterPause.clear();
-    void write(false, cycle.send({ kind: "due", due: "autosave" }));
-  };
 
   const exportToFile = () => act(() => exportPad(connected.app, name));
 
@@ -438,7 +433,7 @@ const PadBody = (props: {
   const onEditorBlur = (next: EventTarget | null) => {
     if (next instanceof Element && next.closest(".pad-rich-editor, [data-dismiss-failure]")) return;
 
-    flush();
+    void save();
   };
 
   const keepMine = () => {
@@ -474,7 +469,7 @@ const PadBody = (props: {
 
     field.save();
     cycle.send({ kind: "resume" });
-    flush();
+    void save();
   });
 
   const useTheirs = () => {

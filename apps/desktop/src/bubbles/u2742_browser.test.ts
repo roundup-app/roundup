@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
 import type { AppServer } from "../testing/appServer";
+import { editWalk } from "../pads/editWalk";
 
 const exec = promisify(execFile);
 
@@ -161,7 +162,7 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await read(`[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === "pad-3").focus()`);
   await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
   await browser("press", "Enter");
-  await wait(`!!document.querySelector('.ProseMirror[contenteditable=true]')`);
+  await editWalk(browser);
   await browser("focus", ".ProseMirror");
   await key();
   expect(await read(`!!document.activeElement?.closest('.ProseMirror')`)).toBe(true);

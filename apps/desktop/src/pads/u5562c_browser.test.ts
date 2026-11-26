@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
+import { editWalk } from "./editWalk";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
@@ -51,7 +52,7 @@ it("u5562a_insert_each_callout", { retry: 0, timeout: 180000 }, async () => {
     await browser("wait", ".pad-name");
     await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(name) + '] .pad-name')}).focus(); return true; })()`);
     await browser("press", "Enter");
-    await browser("wait", ".ProseMirror[contenteditable=true]");
+    await editWalk(browser);
     await browser("focus", ".ProseMirror");
     await browser("press", "Control+End");
     await browser("press", "Enter");
@@ -80,7 +81,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   await browser("wait", ".pad-name");
   await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Selection colours"] .pad-name').focus(); return true; })()`);
   await browser("press", "Enter");
-  await browser("wait", ".ProseMirror[contenteditable=true]");
+  await editWalk(browser);
   await browser("focus", ".drawer .ProseMirror");
   await browser("press", "Control+Home");
 

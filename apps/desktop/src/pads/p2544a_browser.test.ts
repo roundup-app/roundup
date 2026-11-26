@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
 import type { AppServer } from "../testing/appServer";
+import { editWalk } from "./editWalk";
 
 const execute = promisify(execFile);
 
@@ -49,6 +50,8 @@ const open = async (readonly = false, text?: string) => {
   await browser("eval", `[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === "${readonly ? "pad-2" : "pad-3"}").focus()`);
   await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
   await browser("press", "Enter");
+
+  if (!readonly) await editWalk(browser);
   await browser("wait", ".ProseMirror");
 };
 

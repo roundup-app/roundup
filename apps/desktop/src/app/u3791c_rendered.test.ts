@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
+import { editWalk } from "../pads/editWalk";
 
 // ui-sdk keeps one empty `role=alert` live region for announcements; only the App's own failure surfaces count here.
 it("u3791c_enter_intervene_review_failure_journey", async () => {
@@ -92,6 +93,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     await browser("click", ".pad-name");
     await until("document.activeElement?.matches('.pad-name')");
     await browser("press", "Enter");
+    await editWalk(browser);
     await until("!!document.querySelector('.drawer[data-open=true][data-settling=false] [contenteditable=true]')");
     await capture("U3791c", "review-recovered");
   } finally {
