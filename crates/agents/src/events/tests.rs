@@ -44,6 +44,7 @@ async fn a2703a_errors_use_rail_names() {
                         since: 0,
                         old: None,
                         conversation_id: "conversation".into(),
+                        fork: false,
                         cwd: "/".into(),
                         prompt: None,
                         starred: false,

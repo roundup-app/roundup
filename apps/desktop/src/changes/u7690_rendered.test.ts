@@ -29,7 +29,7 @@ const FOCUS_DIFF =
   "(() => { document.querySelector('.diff-content').focus(); return true; })()";
 
 const SEND =
-  "(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.textContent.startsWith('Send notes')).click(); return true; })()";
+  "(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.getAttribute('aria-label').startsWith('Send notes')).click(); return true; })()";
 
 const REWRITE =
   "(() => { const app = window.__fake.app; const read = app.handlers['agent.compareFile']; app.handlers['agent.compareFile'] = () => ({ ...read(), new: { kind: 'text', revision: 'rewritten', text: 'const first = 99;\\nconst second = 4;\\n' } }); return window.__worktrees.refresh('agent-1').then(() => true); })()";
@@ -103,6 +103,9 @@ it("u7690d_the_notes_are_captured_for_the_critic", async () => {
     );
     await until("!!window.__fake && !!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
+    // U7679c: the view opens on the Overview and reads no file; this step chooses the first module, as a user does.
+    await until("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+    await browser("click", '.changes-side [data-row="module"]');
     await until(READY);
   };
 

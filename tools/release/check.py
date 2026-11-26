@@ -60,6 +60,13 @@ def check_modules(report, inventory, dist):
     metas, parts = data["nodeMetas"], data["nodeParts"]
     if data["version"] != 2 or not metas or not parts:
         raise ValueError("missing/incomplete visualizer metadata")
+    # A Worker is built apart from the App: its report sits beside this one as `<name>-<worker>.json`.
+    for extra in sorted(report.parent.glob(f"{report.stem}-*.json")):
+        more = json.loads(extra.read_text())
+        if more["version"] != 2:
+            raise ValueError(f"missing/incomplete visualizer metadata: {extra.name}")
+        metas.update(more["nodeMetas"])
+        parts.update(more["nodeParts"])
     chunks, linked = set(), set()
     css_only = {}
     failures = []

@@ -68,6 +68,9 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await browser("open", new URL(`/src/changes/u2540.html${query}`, server.resolvedUrls.local[0] ?? "").href);
     await until("!!window.__fake && !!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
+    // U7679c: the view opens on the Overview and reads no file; this step chooses the first module, as a user does.
+    await until("!!document.querySelector('.changes-side [data-row=\"module\"]')");
+    await browser("click", '.changes-side [data-row="module"]');
     await until(READY);
   };
 
@@ -87,7 +90,7 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await until(said(copy.noteCount(count)));
   };
 
-  const send = () => read("(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.textContent.startsWith('Send notes')).click(); return true; })()");
+  const send = () => read("(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.getAttribute('aria-label').startsWith('Send notes')).click(); return true; })()");
 
   try {
     await browser("--profile", profile, "open", "about:blank");
@@ -116,7 +119,7 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await opened("?submit-failure");
     await saved("Rename this once the callers agree", 1);
     await send();
-    await shot("note-send-failed", said(copy.retry));
+    await shot("note-send-failed", `!!document.querySelector(".note-batch [aria-label="${copy.retry}"]")`);
 
     await opened();
     await saved("First note", 1);
@@ -128,8 +131,9 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await opened();
     await startNote();
     await write("Half a thought");
-    await read("(() => { const row = document.querySelector('.changes-side file-tree-container').shadowRoot.querySelector('[data-item-path=\"src/file-0.ts\"]'); row.focus(); row.click(); return true; })()");
-    await shot("note-unfinished-kept", `document.querySelector('.changes-side file-tree-container')?.shadowRoot?.querySelector('[data-item-path="src/example.ts"]')?.getAttribute('aria-label')?.includes(${JSON.stringify(copy.unfinishedWork)})`);
+    // U7678a: Esc keeps the text as unfinished work, and the list marks the module that holds it.
+    await browser("press", "Escape");
+    await shot("note-unfinished-kept", `[...document.querySelectorAll('.changes-side [data-row="module"]')].some(row => row.getAttribute('aria-label')?.includes(${JSON.stringify(copy.unfinishedWork)}))`);
 
     // The dense fixture: 100 notes over a 10,000-line diff, the batch list open; the view never scrolls sideways.
     await opened("?dense");

@@ -65,6 +65,8 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
       selection: () => real?.selection() ?? "",
       turns: () => real?.turns() ?? [],
       selectTurn: (index, extend) => run(emulator => emulator.selectTurn(index, extend)),
+      playLines: printed => real?.playLines?.(printed) ?? [],
+      onFrame: listener => run(emulator => emulator.onFrame?.(listener)),
       paste: (text) => run(emulator => emulator.paste(text)),
       show: (host, focus) => {
         shownHost = host;

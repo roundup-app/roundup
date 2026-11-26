@@ -23,7 +23,19 @@ struct Answer {
 impl Call {
     /// Read `input` under `system` and return what the model wrote. The Agent's conversation is
     /// never an input: the caller hands over only what is to be read.
-    pub async fn read(&self, system: &str, input: &[u8]) -> Result<String, String> {
+    ///
+    /// RS1: a `lens` follows the fixed `system` text under "Review lens"; it adds to the prompt and
+    /// never replaces it.
+    pub async fn read(
+        &self,
+        system: &str,
+        lens: Option<&str>,
+        input: &[u8],
+    ) -> Result<String, String> {
+        let system = match lens {
+            Some(lens) => format!("{system}\n\nReview lens:\n{lens}"),
+            None => system.to_owned(),
+        };
         let schema = json!({
             "type": "object",
             "properties": {"text": {"type": "string"}},
@@ -34,7 +46,7 @@ impl Call {
         run_on::<Answer>(
             &self.launcher,
             None,
-            system,
+            &system,
             &schema,
             input,
             BOUND,

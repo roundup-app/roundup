@@ -31,6 +31,7 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
     if (busy() || !name().trim()) return;
     setBusy(true);
 
+    const added = rail.adding();
     const params = { id: props.id, name: name().trim() };
     const outcome = await applying(() => app.rpc("agent.saveAsMode", params));
 
@@ -38,6 +39,7 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
       try {
         await rail.refresh();
         rail.setSectionOpen("modes", true);
+        added(outcome.value.id);
         close();
       } finally { setBusy(false); }
 

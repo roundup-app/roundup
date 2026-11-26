@@ -1,4 +1,5 @@
 import { createElement } from "react";
+import { loadLayout } from "../ui/graphLayout";
 import type { CanvasApi } from "./drawingBlock";
 import { mountDrawing } from "./drawingBlock";
 import type { MermaidApi } from "./mermaidBlock";
@@ -16,8 +17,7 @@ export type Renderers = {
 
 export const bundledRenderers: Renderers = {
   statechart: async () => {
-    const [{ createMachine, createActor }, { default: ELK }] = await Promise.all([import("xstate"), import("elkjs/lib/elk.bundled.js")]);
-    const elk = new ELK();
+    const [{ createMachine, createActor }, layout] = await Promise.all([import("xstate"), loadLayout()]);
 
     return {
       createMachine: (config) => {
@@ -26,36 +26,7 @@ export const bundledRenderers: Renderers = {
 
         return () => createActor(machine);
       },
-      layout: async (boxes, moves) => {
-        const graph = await elk.layout({
-          id: "root",
-          layoutOptions: { "elk.algorithm": "layered", "elk.direction": "DOWN", "elk.edgeRouting": "POLYLINE", "elk.edgeLabels.inline": "true" },
-          children: boxes.map(([id, size]) => ({ id, ...size })),
-          edges: moves.map(([id, from, to, label]) => ({ id, sources: [from], targets: [to], labels: [{ text: id, ...label }] })),
-        });
-
-        const point = (at: { x: number; y: number }) => ({ x: at.x, y: at.y });
-
-        const labelAt = (edge: { labels?: { x?: number; y?: number; width?: number; height?: number }[] }) => {
-          const label = edge.labels?.[0];
-
-          return { x: (label?.x ?? 0) + (label?.width ?? 0) / 2, y: (label?.y ?? 0) + (label?.height ?? 0) / 2 };
-        };
-
-        return {
-          width: (graph.width ?? 0) + 1,
-          height: (graph.height ?? 0) + 1,
-          boxes: Object.fromEntries((graph.children ?? []).map((child) => [child.id, { x: child.x ?? 0, y: child.y ?? 0 }])),
-          labels: Object.fromEntries((graph.edges ?? []).map((edge) => [edge.id, labelAt(edge)])),
-          routes: Object.fromEntries(
-            (graph.edges ?? []).map((edge) => {
-              const section = edge.sections?.[0];
-
-              return [edge.id, section ? [point(section.startPoint), ...(section.bendPoints ?? []).map(point), point(section.endPoint)] : []];
-            }),
-          ),
-        };
-      },
+      layout,
     };
   },
   mermaid: async () => {

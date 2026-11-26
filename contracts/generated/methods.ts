@@ -13,8 +13,11 @@ import type { CompareFileParams as agent_CompareFileParams } from "./agent/Compa
 import type { Context as agent_Context } from "./agent/Context";
 import type { CreateModeParams as agent_CreateModeParams } from "./agent/CreateModeParams";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
+import type { DefectFindings as agent_DefectFindings } from "./agent/DefectFindings";
 import type { DeletionParams as agent_DeletionParams } from "./agent/DeletionParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
+import type { ExplainParams as agent_ExplainParams } from "./agent/ExplainParams";
+import type { Explanation as agent_Explanation } from "./agent/Explanation";
 import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { FetchedMain as agent_FetchedMain } from "./agent/FetchedMain";
@@ -28,9 +31,11 @@ import type { ModeRestartParams as agent_ModeRestartParams } from "./agent/ModeR
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
 import type { OwnedChanges as agent_OwnedChanges } from "./agent/OwnedChanges";
+import type { PrintedCommands as agent_PrintedCommands } from "./agent/PrintedCommands";
 import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
 import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { Readback as agent_Readback } from "./agent/Readback";
+import type { ReadbackStartParams as agent_ReadbackStartParams } from "./agent/ReadbackStartParams";
 import type { RedoParams as agent_RedoParams } from "./agent/RedoParams";
 import type { RemoteMain as agent_RemoteMain } from "./agent/RemoteMain";
 import type { Removal as agent_Removal } from "./agent/Removal";
@@ -39,6 +44,7 @@ import type { RemoveSelectionParams as agent_RemoveSelectionParams } from "./age
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { ResumeParams as agent_ResumeParams } from "./agent/ResumeParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
+import type { RunPrintedParams as agent_RunPrintedParams } from "./agent/RunPrintedParams";
 import type { SaveAsModeParams as agent_SaveAsModeParams } from "./agent/SaveAsModeParams";
 import type { ScanHits as agent_ScanHits } from "./agent/ScanHits";
 import type { SetAlertLevelParams as agent_SetAlertLevelParams } from "./agent/SetAlertLevelParams";
@@ -219,7 +225,9 @@ export type RpcMethods = {
   "agent.changedFiles": { params: agent_ChangedFilesParams; result: agent_ChangedFiles };
   "agent.repeatScan": { params: agent_ChangedFilesParams; result: agent_ScanHits };
   "agent.callPaths": { params: agent_CallPathsParams; result: agent_CallPaths };
-  "agent.readbackStart": { params: agent_ChangedFilesParams; result: agent_Readback };
+  "agent.readbackStart": { params: agent_ReadbackStartParams; result: agent_Readback };
+  "agent.explain": { params: agent_ExplainParams; result: agent_Explanation };
+  "agent.findDefects": { params: agent_ChangedFilesParams; result: agent_DefectFindings };
   "agent.readback": { params: agent_ChangedFilesParams; result: agent_Readback };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
@@ -227,6 +235,7 @@ export type RpcMethods = {
   "agent.fetchRemoteMain": { params: agent_NodeId; result: agent_FetchedMain };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.adoptable": { params: null; result: agent_Adoptable[] };
+  "agent.offshoot": { params: agent_NodeId; result: agent_RailNode };
   "agent.adopt": { params: agent_AdoptParams; result: agent_RailNode };
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.links": { params: agent_NodeId; result: links_LinkSet };
@@ -243,6 +252,8 @@ export type RpcMethods = {
   "rail.move": { params: agent_MoveParams; result: null };
   "rail.rename": { params: agent_RenameParams; result: agent_RailNode };
   "rail.startDoor": { params: agent_StartDoorParams; result: agent_RailNode };
+  "agent.printedCommands": { params: agent_NodeId; result: agent_PrintedCommands };
+  "agent.runPrinted": { params: agent_RunPrintedParams; result: terminal_Opened };
   "agent.run": { params: agent_RunParams; result: terminal_Opened };
   "project.setWorktrees": { params: project_Worktrees; result: null };
   "project.setMachine": { params: project_SetMachine; result: null };
