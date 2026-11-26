@@ -221,6 +221,7 @@ struct Shared {
     steer_bound: Duration,
     /// A7498a: how long a first prompt waits for its receipt after its one Enter.
     receipt_bound: Duration,
+    first_prompt_bound: Duration,
     /// A7498a: how long a Mode waits to take its first prompt before anything is typed.
     ready_bound: Duration,
     steer: SteerSettings,
@@ -282,6 +283,10 @@ pub const STEER_BOUND: Duration = Duration::from_secs(10);
 /// A7498a: how long a first prompt waits for its receipt after its one extra Enter, following
 /// `STEER_BOUND` without one; apart from `STEER_BOUND` and `START_DOOR_ACK_BOUND`.
 pub const RECEIPT_BOUND: Duration = Duration::from_secs(60);
+
+/// U7946a: how long a spawn's first prompt may stay `prepared` before it leaves for `uncertain`
+/// with a cause; apart from `STEER_BOUND`.
+pub const FIRST_PROMPT_BOUND: Duration = Duration::from_secs(60);
 
 /// A7498a: how long a Mode waits to be idle after `SessionStart`, before anything is typed.
 pub const MODE_READY_BOUND: Duration = Duration::from_secs(15);

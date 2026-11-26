@@ -617,6 +617,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     let mut todos = Vec::new();
     seen.baseline(&digest::Sources {
         completed: std::collections::HashMap::new(),
+        undelivered: std::collections::HashMap::new(),
         project_key: "",
         touches: Vec::new(),
         nodes: &nodes,
@@ -643,6 +644,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
         });
         let changes = seen.changed(&digest::Sources {
             completed: std::collections::HashMap::new(),
+            undelivered: std::collections::HashMap::new(),
             project_key: "",
             touches: Vec::new(),
             nodes: &nodes,

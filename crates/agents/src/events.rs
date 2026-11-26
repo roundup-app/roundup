@@ -827,6 +827,16 @@ impl Agents {
             .collect()
     }
 
+    /// U7946b: Rail id to the cause its first prompt was not delivered, while it was not.
+    pub fn undelivered_prompts(&self) -> HashMap<String, String> {
+        self.shared
+            .rail()
+            .undelivered_prompts()
+            .unwrap_or_default()
+            .into_iter()
+            .collect()
+    }
+
     /// A5482c: live Rail id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text).
     /// The Adapter supplies the text; this reads no Terminal and parses no vendor records.
     pub fn completed_text(&self) -> HashMap<String, (String, i64, i64, String)> {
