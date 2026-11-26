@@ -24,6 +24,7 @@ import Ellipsis from "@lucide/solid/icons/ellipsis";
 import Eraser from "@lucide/solid/icons/eraser";
 import FileDown from "@lucide/solid/icons/file-down";
 import StickyNote from "@lucide/solid/icons/sticky-note";
+import FilePlus from "@lucide/solid/icons/file-plus";
 import FileText from "@lucide/solid/icons/file-text";
 import HardDrive from "@lucide/solid/icons/hard-drive";
 import MemoryStick from "@lucide/solid/icons/memory-stick";
@@ -47,7 +48,7 @@ import Unlink from "@lucide/solid/icons/unlink";
 import BookOpenText from "@lucide/solid/icons/book-open-text";
 import "./styles.css";
 
-const icons = { bug: Bug, bot: Bot, workflow: Workflow, "layout-dashboard": LayoutDashboard, play: Play, "rotate-cw": RotateCw, check: Check, down: ChevronDown, left: ChevronLeft, "panel-left-close": PanelLeftClose, "panel-left-open": PanelLeftOpen, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, "note-plus": MessageSquarePlus, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, "sticky-note": StickyNote, messages: MessagesSquare, folder: FolderOpen, editor: Code, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil, branch: GitBranch, server: Server, copy: Copy, reply: Reply, send: Send, unlink: Unlink, read: BookOpenText, "arrow-down": ArrowDown, equal: Equal, "arrow-up": ArrowUp, "chevrons-up": ChevronsUp };
+const icons = { bug: Bug, bot: Bot, workflow: Workflow, "layout-dashboard": LayoutDashboard, play: Play, "rotate-cw": RotateCw, check: Check, down: ChevronDown, left: ChevronLeft, "panel-left-close": PanelLeftClose, "panel-left-open": PanelLeftOpen, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, "note-plus": MessageSquarePlus, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, "file-plus": FilePlus, "sticky-note": StickyNote, messages: MessagesSquare, folder: FolderOpen, editor: Code, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil, branch: GitBranch, server: Server, copy: Copy, reply: Reply, send: Send, unlink: Unlink, read: BookOpenText, "arrow-down": ArrowDown, equal: Equal, "arrow-up": ArrowUp, "chevrons-up": ChevronsUp };
 
 export type IconName = keyof typeof icons;
 

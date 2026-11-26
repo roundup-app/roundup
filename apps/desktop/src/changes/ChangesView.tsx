@@ -32,6 +32,7 @@ import { createCallPaths } from "./callPaths";
 import { flowName, groupFlows, type Done, type Read } from "./flows";
 import { FlowStates } from "./FlowStates";
 import { createReadback, spanOf } from "./readback";
+import { createReadbackPad } from "./readbackPad";
 import { createExplanations } from "./explain";
 import { createFindings } from "./findings";
 import { fileRanks, rankWord, withRisks } from "./rank";
@@ -227,12 +228,13 @@ const createOwnedGroup = (id: () => string) => {
   return { groups, active, setActive, group, groupKey };
 };
 
-type Analyses = { app: AppSeam; events: Events; id: string; own: () => "tree" | "branch" | null; files: () => readonly ChangedFile[]; ready: () => boolean; lens: () => Lens; group: () => OwnedGroupKey | undefined; kept: Parameters<typeof createFindings>[0]["kept"]; notes: Notes };
+type Analyses = { app: AppSeam; events: Events; id: string; agent: () => string; own: () => "tree" | "branch" | null; files: () => readonly ChangedFile[]; ready: () => boolean; lens: () => Lens; group: () => OwnedGroupKey | undefined; kept: Parameters<typeof createFindings>[0]["kept"]; notes: Notes };
 
 /** U7683b, U7685c, U7685d: what the Daemon reads out of the listing once it is ready: the call paths, which a new `to` asks again; and the repeat scan, which compares the working tree, so only the Tree target asks, after a frame has painted. Each item's repeats come from the lens's own listing, never as a find narrows it. */
 const createAnalyses = (input: Analyses) => {
   const calls = createCallPaths({ app: input.app, events: input.events, id: input.id, to: input.own, ready: input.ready });
   const readback = createReadback({ app: input.app, events: input.events, id: input.id, to: input.own, ready: input.ready });
+  const pad = createReadbackPad({ id: input.id, agent: input.agent, readback, to: input.own });
   const lensed = createLensed(input.files, calls.done, readback.read);
   const repeats = createRepeatScan({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "tree", ready: input.ready });
   const gapTotals = createMemo(() => placeCounts(lensed()(input.lens()), readback.placed().map(spanOf)));
@@ -243,7 +245,7 @@ const createAnalyses = (input: Analyses) => {
   // U7700a: the defect pass is asked only by the user; its signature is the listing's files and their blob ids (U7700b).
   const findings = createFindings({ app: input.app, id: input.id, to: input.own, grouped: () => lensed()(input.lens()), signature: () => input.files().map(file => `${file.path}:${file.blob}`).sort().join("\n"), kept: input.kept, notes: input.notes });
 
-  return { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, gapTotals, findings, again: () => { calls.reset(); repeats.again(); readback.again(); } };
+  return { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again: () => { calls.reset(); repeats.again(); readback.again(); } };
 };
 
 /** U7675a: the comparison's own answer, whichever read made it: the Daemon's changes for a Tree or Branch target, else the Agent's owned changes. */
@@ -336,7 +338,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
-  const { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, gapTotals, findings, again } = createAnalyses({ app, events, id: untrack(() => props.id), own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey(), kept: memory.found, notes });
+  const { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again } = createAnalyses({ app, events, id: untrack(() => props.id), agent: () => props.name, own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey(), kept: memory.found, notes });
 
   const explain = createExplanations({ app, id: untrack(() => props.id), to: own, kept: memory.explained, read: () => readback.account()?.explanations ?? [] });
 
@@ -529,7 +531,7 @@ const Surface = (props: { id: string; name: string }) => {
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
           <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
-            <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
+            <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} pad={pad} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;
       }}</For>

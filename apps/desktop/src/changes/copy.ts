@@ -260,6 +260,16 @@ export const copy = {
   /** @prose */
   readbackCredit: "Read back from the diff",
   changedSinceReadback: "Changed since readback",
+  /** U7702: the readback saved as a Pad: the action, its status lines, the Pad's name and the facts it opens with. */
+  savePad: "Save as Pad",
+  padSaved: (name: string) => `Saved as ${name}`,
+  /** @prose */
+  padNotMoved: (name: string) => `Saved ${name}, but it stays at the Project root`,
+  /** @prose */
+  padNotSaved: "Couldn't save the readback",
+  readbackPadName: (agent: string, date: string) => `Readback: ${agent} ${date}`,
+  padAgent: sharedCopy.agent,
+  padDate: "Date",
   /** U7698: a selection's explanation: its icon buttons, its section and its failure; the credit is the readback's. */
   explainWords: "Explain in words",
   explainDiagram: "Explain as diagram",

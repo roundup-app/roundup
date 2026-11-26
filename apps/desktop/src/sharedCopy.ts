@@ -36,6 +36,7 @@ export const copy = {
   ageSeconds: (value: number) => `${value}s`,
   surfaceLoading: (label: string) => `Loading ${label}…`,
   workstream: word.workstream,
+  agent: word.agent,
   defaultChoice: "Default",
   newWord: "New",
   padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,

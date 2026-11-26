@@ -35,7 +35,7 @@ Module: `apps/desktop/src/changes/` (the Overview's readback, its states, the ga
 - **List.** The Overview lists each gap with a link that opens its file at its line. A gap whose file the listing no longer holds stays in the list without a link; it is never dropped. Asserted in the same test and `u7688e_a_gap_marks_its_line_counts_in_its_row_and_links_from_the_overview`.
 - **Stale.** My reading, kept: a stale readback keeps its gaps in the dimmed list and draws none under a line or in a row, since its line numbers describe a diff that changed. Asserted in `u7688e_a_stale_result_draws_no_gap_and_counts_none`.
 
-**U7688f a readback is a personal aid.** The view sends no Message and saves no note or Pad from a readback, edits none of its text, and gates no Landing or Viewed mark on it. Policy: nothing here carries the readback's words anywhere but the screen.
+**U7688f a readback is a personal aid.** The view sends no Message and saves no note or Pad from a readback unless the user clicks Save as Pad (U7702b), edits none of its text, and gates no Landing or Viewed mark on it. Policy: nothing here carries the readback's words anywhere but the screen, except a Pad the user saves.
 
 **U7688g reuse.** The diagram's layout is `elkjs`, which Pads already load for a statechart (#7578): one layout library for both, loaded only when a diagram draws (rule 7). The PR's `Reuse:` section weighs it against `dagre` and the prototype's own layout. Policy.
 

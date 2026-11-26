@@ -2,7 +2,7 @@ import { createEffect, createSignal, createUniqueId, For, Show } from "solid-js"
 import { failureOf } from "../app/failureOf";
 import { loadLayout, type Layout, type LayoutGraph } from "../ui/graphLayout";
 import { copy } from "./copy";
-import { parseDiagram, partsOf, type Call, type Panel } from "./diagram";
+import { panelLabel, parseDiagram, partsOf, type Call } from "./diagram";
 
 const BOX = { height: 32, pad: 14, char: 7, label: { width: 0, height: 0 } };
 
@@ -53,12 +53,10 @@ const Figure = (props: { calls: readonly Call[] }) => {
   </>;
 };
 
-const labelOf = (panel: Panel) => panel.label === "before" ? copy.diagramBefore : panel.label === "after" ? copy.diagramAfter : undefined;
-
 /** U7688c: the account's diagram: a figure for each panel's calls, and always its words, a row for each call, which a pane too narrow for the figure shows alone. */
 export const ReadbackDiagram = (props: { text: string }) => <figure class="readback-diagram" aria-label={copy.diagram}>
   <For each={parseDiagram(props.text)}>{panel => <div class="readback-panel">
-    <Show when={labelOf(panel)}>{label => <p class="readback-panel-label">{label()}</p>}</Show>
+    <Show when={panelLabel(panel)}>{label => <p class="readback-panel-label">{label()}</p>}</Show>
     <Show when={panel.calls.length > 0}><Figure calls={panel.calls} /></Show>
     <ul class="readback-words">
       <For each={panel.calls}>{([from, to]) => <li>{copy.diagramCalls(from, to)}</li>}</For>
