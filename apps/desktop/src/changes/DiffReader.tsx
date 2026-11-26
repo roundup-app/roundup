@@ -38,7 +38,7 @@ import type { Moved } from "./moves";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
-import { NoteView } from "./NoteView";
+import { NoteView, acceptedAs } from "./NoteView";
 import { NoteBatch, type DiffTarget } from "./NoteBatch";
 import { ImagePane } from "./ImagePane";
 import { drawsLines, imageHidden, imageSides } from "./images";
@@ -256,7 +256,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
 
-      return <NoteView note={metadata} status={metadata.sent !== undefined ? "sent" : props.notes.noteState(props.id, metadata)} edit={() => edit(metadata)} remove={() => void props.notes.remove(props.id, metadata.id)} />;
+      return <NoteView note={metadata} status={metadata.sent !== undefined ? acceptedAs(metadata) : props.notes.noteState(props.id, metadata)} edit={() => edit(metadata)} remove={() => void props.notes.remove(props.id, metadata.id)} />;
     };
 
     slots.add({ element, metadata, dispose: runWithOwner(owner, () => render(content, element, undefined, { owner })) ?? (() => {}) });

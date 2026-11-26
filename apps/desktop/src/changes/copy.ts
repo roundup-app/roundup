@@ -220,6 +220,7 @@ export const copy = {
   newLines: (start: number, end: number) => `Lines ${copy.lineSpan(start, end)}`,
   oldLine: (line: number) => `Old line ${line}`,
   oldLines: (start: number, end: number) => `Old lines ${copy.lineSpan(start, end)}`,
+  waiting: "Waiting",
   sentAt: (at: number | undefined) => `Sent ${clockTime.format(at)}`,
   /** A line range under a path: "51" or "51–53". */
   lineSpan: (start: number, end: number) => start === end ? `${start}` : `${start}-${end}`,
