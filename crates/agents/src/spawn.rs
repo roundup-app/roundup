@@ -606,6 +606,7 @@ impl Agents {
                 return Err(err);
             }
         };
+        self.shared.bound_first_prompt(id, attempt);
         for prompt in prompts {
             self.shared.steer_first_prompt(id, attempt, prompt);
         }

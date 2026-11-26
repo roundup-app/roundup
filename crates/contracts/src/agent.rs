@@ -797,6 +797,9 @@ pub struct InstructionDelivery {
     pub attempt: String,
     pub text: String,
     pub state: InstructionState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub cause: Option<String>,
 }
 
 /// Read-only instruction history. Home follows placement; attribution never follows names.

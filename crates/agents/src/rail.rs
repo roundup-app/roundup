@@ -230,6 +230,41 @@ impl Rail {
         ).optional()?)
     }
 
+    /// U7946c: the one write of a first prompt. `prepared` becomes `uncertain` once, so a late
+    /// `SessionStart` after the bound, or a second one, finds nothing to write.
+    /// `None`: no delivery was prepared (nothing to gate); `Some(false)`: it already left `prepared`.
+    pub(super) fn claim_first_instruction(
+        &mut self,
+        agent: AgentId,
+        attempt: &str,
+    ) -> Result<Option<(String, bool)>, StoreError> {
+        let Some(delivery) = self.first_instruction(agent, attempt)? else {
+            return Ok(None);
+        };
+        let claimed = self.db.execute(
+            "UPDATE instruction_deliveries SET state='uncertain' WHERE id=? AND state='prepared'",
+            [&delivery],
+        )?;
+        Ok(Some((delivery, claimed == 1)))
+    }
+
+    /// U7946a: past `FIRST_PROMPT_BOUND` a first delivery still `prepared` was never written, so
+    /// it is `refused` with `cause`. Returns whether it changed.
+    pub(super) fn expire_first_instruction(
+        &mut self,
+        agent: AgentId,
+        attempt: &str,
+        cause: &str,
+    ) -> Result<bool, StoreError> {
+        let Some(delivery) = self.first_instruction(agent, attempt)? else {
+            return Ok(false);
+        };
+        Ok(self.db.execute(
+            "UPDATE instruction_deliveries SET state='refused', cause=? WHERE id=? AND state='prepared'",
+            params![cause, delivery],
+        )? == 1)
+    }
+
     pub(super) fn instruction_state(
         &mut self,
         delivery: &str,
@@ -284,18 +319,19 @@ impl Rail {
                 instruction,
             });
         }
-        let rows = tx.prepare("SELECT d.id,d.revision,d.attempt,d.text,d.state FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision WHERE r.agent=? ORDER BY d.id")?
-            .query_map([id.to_string()], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?)))
+        let rows = tx.prepare("SELECT d.id,d.revision,d.attempt,d.text,d.state,d.cause FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision WHERE r.agent=? ORDER BY d.id")?
+            .query_map([id.to_string()], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?,row.get::<_,Option<String>>(5)?)))
             ?.collect::<Result<Vec<_>,_>>()?;
         let deliveries = rows
             .into_iter()
-            .map(|(id, revision, attempt, text, state)| {
+            .map(|(id, revision, attempt, text, state, cause)| {
                 Ok(InstructionDelivery {
                     id: id.to_string(),
                     revision: revision.to_string(),
                     attempt,
                     text,
                     state: serde_json::from_value(serde_json::Value::String(state))?,
+                    cause,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;

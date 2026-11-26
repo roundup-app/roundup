@@ -395,3 +395,90 @@ fn mc13_an_agent_records_its_machine_across_a_reopen() {
     );
     assert_eq!(rail.node(id(&local.id)).unwrap().machine(), None);
 }
+
+fn first_delivery(rail: &mut Rail) -> (crate::rail::AgentId, String) {
+    let agent = crate::rail::agent_id("1").unwrap();
+    rail.db
+        .execute(
+            "INSERT INTO instruction_revisions(agent,work) VALUES('1','{\"kind\":\"clarification\",\"question\":\"q\"}')",
+            [],
+        )
+        .unwrap();
+    let revision: String = rail
+        .db
+        .query_row(
+            "SELECT CAST(max(revision) AS TEXT) FROM instruction_revisions",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    rail.prepare_instruction(&revision, "a1", "go", true)
+        .unwrap();
+    (agent, "a1".to_owned())
+}
+
+fn delivery_row(rail: &Rail) -> (String, Option<String>) {
+    rail.db
+        .query_row("SELECT state,cause FROM instruction_deliveries", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap()
+}
+
+#[test]
+fn u7946a_a_delivery_past_its_bound_leaves_prepared() {
+    let (_dir, mut rail) = rail();
+    let (agent, attempt) = first_delivery(&mut rail);
+    assert!(
+        rail.expire_first_instruction(agent, &attempt, "no SessionStart")
+            .unwrap()
+    );
+    assert_eq!(
+        delivery_row(&rail),
+        ("refused".into(), Some("no SessionStart".into()))
+    );
+    assert!(
+        !rail
+            .expire_first_instruction(agent, &attempt, "again")
+            .unwrap()
+    );
+}
+
+#[test]
+fn u7946c_a_delivery_past_its_bound_is_never_written_twice() {
+    let (_dir, mut early) = rail();
+    let (agent, attempt) = first_delivery(&mut early);
+    // A claim wins once; the bound then finds it written and leaves it.
+    assert!(
+        early
+            .claim_first_instruction(agent, &attempt)
+            .unwrap()
+            .unwrap()
+            .1
+    );
+    assert!(
+        !early
+            .claim_first_instruction(agent, &attempt)
+            .unwrap()
+            .unwrap()
+            .1
+    );
+    assert!(
+        !early
+            .expire_first_instruction(agent, &attempt, "late")
+            .unwrap()
+    );
+    assert_eq!(delivery_row(&early).0, "uncertain");
+    // After the bound a late SessionStart finds nothing to write.
+    let (_dir2, mut late) = rail();
+    let (agent, attempt) = first_delivery(&mut late);
+    late.expire_first_instruction(agent, &attempt, "late")
+        .unwrap();
+    assert!(
+        !late
+            .claim_first_instruction(agent, &attempt)
+            .unwrap()
+            .unwrap()
+            .1
+    );
+}

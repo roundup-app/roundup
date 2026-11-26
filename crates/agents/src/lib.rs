@@ -282,6 +282,10 @@ pub const STEER_BOUND: Duration = Duration::from_secs(10);
 /// `STEER_BOUND` without one; apart from `STEER_BOUND` and `START_DOOR_ACK_BOUND`.
 pub const RECEIPT_BOUND: Duration = Duration::from_secs(60);
 
+/// U7946a: how long a spawn's first prompt may stay `prepared` before it leaves for `refused`
+/// with a cause; apart from `STEER_BOUND`.
+pub const FIRST_PROMPT_BOUND: Duration = Duration::from_secs(60);
+
 /// A7498a: how long a Mode waits to be idle after `SessionStart`, before anything is typed.
 pub const MODE_READY_BOUND: Duration = Duration::from_secs(15);
 
