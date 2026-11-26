@@ -328,6 +328,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Link set (`links::LinkSet`, `LinkEntry`, `LinkKind`, `LinksEvent`, `agent.links`, the `agent.links` event, `LinksModel`, `claude_code::links`) | links (an Agent's header) | — |
 | Links header (`LinksHeader`, `links/catalogue`, the fixed catalogue of icons `@json-render/core`'s spec names: `Editor`, `Terminal` and each `LinkKind`) | links (an Agent's header) | — |
 | Made list (`links::MadeItem`, `MadeKind`, `MAX_MADE`, `agent.made`, the `agent.made` event, `Pad.creator`, `rupd::made`) | links (an Agent's header) | — |
+| Agent folder (`agent.folder`, `AgentFolder`) | folder | — |
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |
 | open_in_editor | none | — |
