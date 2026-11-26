@@ -1,3 +1,5 @@
+import { Icon } from "../ink/Icon";
+import { IconButton } from "../ui/IconButton";
 import { Show } from "solid-js";
 import { copy } from "./copy";
 import type { RepeatScan } from "./repeats";
@@ -7,7 +9,7 @@ export const RepeatStates = (props: { scan: RepeatScan; /** The Agent has a Work
   <section class="flow-states" aria-label={copy.repeats}>
     <Show when={props.notAsked}><p>{copy.repeatsNeedTree}</p></Show>
     <Show when={props.scan.scanning()}><p>{copy.checkingRepeats}</p></Show>
-    <Show when={props.scan.failed()}>{cause => <p>{copy.repeatsFailed} <button type="button" data-button="quiet" onClick={() => props.scan.again()}>{copy.retry}</button> <span class="flow-cause">{cause()}</span></p>}</Show>
+    <Show when={props.scan.failed()}>{cause => <p>{copy.repeatsFailed} <IconButton aria-label={copy.retry} onClick={() => props.scan.again()}><Icon name="rotate-cw" /></IconButton> <span class="flow-cause">{cause()}</span></p>}</Show>
     <Show when={props.scan.partial()}><p>{copy.repeatsPartial}</p></Show>
   </section>
 </Show>;

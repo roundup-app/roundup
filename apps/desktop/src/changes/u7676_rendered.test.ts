@@ -90,7 +90,7 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await until(said(copy.noteCount(count)));
   };
 
-  const send = () => read("(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.textContent.startsWith('Send notes')).click(); return true; })()");
+  const send = () => read("(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.getAttribute('aria-label').startsWith('Send notes')).click(); return true; })()");
 
   try {
     await browser("--profile", profile, "open", "about:blank");
@@ -119,7 +119,7 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await opened("?submit-failure");
     await saved("Rename this once the callers agree", 1);
     await send();
-    await shot("note-send-failed", said(copy.retry));
+    await shot("note-send-failed", `!!document.querySelector(".note-batch [aria-label="${copy.retry}"]")`);
 
     await opened();
     await saved("First note", 1);
