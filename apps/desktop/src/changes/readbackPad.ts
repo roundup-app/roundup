@@ -1,3 +1,4 @@
+import type { Reach } from "./owned";
 import { createEffect, createSignal } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
 import { unknownOutcomeLine } from "../app/failureOf";
@@ -78,7 +79,7 @@ export type PadSave = { kind: "saving" } | { kind: "saved"; name: string } | { k
  * U7702: the user's save of the shown readback as a Pad: `pad.create`, then `pad.move` to the Agent's nearest Workstream (`CreateParams` has no home, P12), none for an Agent under no Workstream.
  * Only `save` calls the Daemon, and only the user's click calls `save`. A new run of the readback ends what the last save said.
  */
-export const createReadbackPad = (input: { id: string; agent: () => string; readback: ReadbackState; to: () => "tree" | "branch" | null }) => {
+export const createReadbackPad = (input: { id: string; agent: () => string; readback: ReadbackState; at: () => Reach | null }) => {
   const { app, rail, now } = useConnectedProject();
   const [status, setStatus] = createSignal<PadSave>();
   let generation = 0;
@@ -93,9 +94,9 @@ export const createReadbackPad = (input: { id: string; agent: () => string; read
     status,
     save: async () => {
       const read = input.readback.read();
-      const to = input.to();
+      const at = input.at();
 
-      if (!read || !to || status()?.kind === "saving") return;
+      if (!read || !at || status()?.kind === "saving") return;
 
       const mine = generation;
       const day = dayOf(now());
@@ -106,7 +107,7 @@ export const createReadbackPad = (input: { id: string; agent: () => string; read
 
       setStatus({ kind: "saving" });
 
-      const made = await create(app, nameOf(agent, day), readbackText({ agent, day, from: copy.remoteMain, to: to === "tree" ? copy.targetTree : copy.targetBranch, account: read.account, stale: read.stale }));
+      const made = await create(app, nameOf(agent, day), readbackText({ agent, day, from: copy.remoteMain, to: !("to" in at) ? copy.changes : at.to === "tree" ? copy.targetTree : copy.targetBranch, account: read.account, stale: read.stale }));
 
       if (made.kind !== "applied") return settle(made.kind === "refused" ? { kind: "failed", cause: made.error.message } : { kind: "unknown", cause: unknownOutcomeLine(made.error) });
 

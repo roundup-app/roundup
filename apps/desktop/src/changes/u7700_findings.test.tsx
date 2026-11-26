@@ -324,7 +324,7 @@ it("u7700d_a_full_batch_leaves_the_finding", async () => {
     createFindings({
       app: { rpc: async () => found(LOADER) } as never,
       id: "a",
-      to: () => "tree",
+      at: () => ({ to: "tree" }),
       grouped: () => ({ modules: [], noise: [] }),
       signature: () => "",
       kept: createFound(),

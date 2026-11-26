@@ -11,7 +11,7 @@ import { createLate } from "./late";
 import type { Grouped, ModuleGroup, Takes } from "./modules";
 import { labelLine } from "./moves";
 import type { Moved } from "./moves";
-import { watchTurns } from "./owned";
+import { reachKey, watchTurns, type Reach } from "./owned";
 
 const NONE: readonly ScanHit[] = [];
 
@@ -61,10 +61,10 @@ export const placeCounts = (grouped: Grouped, spans: readonly Span[]): ReadonlyM
     return count > 0 ? [[item.name, count] as const] : []; }));
 
 /**
- * U7685d, U7685e, U7685f: the repeat scan of the Tree comparison. `agent.repeatScan` is asked once `on` and `ready` hold and a frame has painted, again when `again` is called and when a turn that wrote ends, and one at a time: a call made while one runs waits for it.
+ * U7685d, U7685e, U7685f: the repeat scan of the working tree: the Tree target or the open Changes group. `agent.repeatScan` is asked once `on` and `ready` hold and a frame has painted, again when `again` is called and when a turn that wrote ends, and one at a time: a call made while one runs waits for it.
  * The answer before stays until the next lands. Leaving `on` drops the answer and what is running.
  */
-export const createRepeatScan = (input: { app: AppSeam; events: Events; id: string; on: () => boolean; ready: () => boolean }) => {
+export const createRepeatScan = (input: { app: AppSeam; events: Events; id: string; on: () => Reach | null; ready: () => boolean }) => {
   const [answer, setAnswer] = createSignal<ScanHits>();
   const [failed, setFailed] = createSignal<string | null>(null);
   const [running, setRunning] = createSignal(false);
@@ -83,7 +83,11 @@ export const createRepeatScan = (input: { app: AppSeam; events: Events; id: stri
     setRunning(true);
     await afterPaint();
 
-    const failure = await failureOf(async () => { reply.hits = await input.app.rpc("agent.repeatScan", { id: input.id, to: "tree" }); });
+    const at = input.on();
+
+    if (!at) return void setRunning(false);
+
+    const failure = await failureOf(async () => { reply.hits = await input.app.rpc("agent.repeatScan", { id: input.id, ...at }); });
 
     if (mine === generation) {
       setAnswer(failure === null ? reply.hits : undefined);
@@ -96,7 +100,7 @@ export const createRepeatScan = (input: { app: AppSeam; events: Events; id: stri
   /** One scan runs at a time and one waits behind it, however many ask meanwhile. */
   const run = () => { if (queue.size === 0) void queue.add(scan); };
 
-  createEffect(() => ({ on: input.on(), ready: input.ready() }), ({ on, ready }) => {
+  createEffect(() => ({ on: reachKey(input.on()), ready: input.ready() }), ({ on, ready }) => {
     if (!on) {
       generation += 1;
       begun = false;

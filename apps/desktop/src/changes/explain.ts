@@ -5,16 +5,17 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { LineExplanation } from "@contracts/agent/LineExplanation";
 import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
+import { reachKey, type Reach } from "./owned";
 import { sourceAt, type LineSelection } from "./lines";
 
 /** U7698b: one ask of the user's: the lines of a file and the form, the comparison and the blob id the file had when it was asked (U7698c's stale), and its answer or the wait for one. U7699: an explanation of the readback is one, answered, with the lines' `source` it was written against in place of a blob id. */
-export type Asked = LineSelection & { path: string; form: ExplainForm; to: "tree" | "branch"; blob: string | null; source?: string; answer: Explanation | { state: "asking" } };
+export type Asked = LineSelection & { path: string; form: ExplainForm; at: string; blob: string | null; source?: string; answer: Explanation | { state: "asking" } };
 
-type Ask = Omit<Asked, "answer" | "to">;
+type Ask = Omit<Asked, "answer" | "at">;
 
 type Place = Omit<Asked, "answer" | "blob">;
 
-const sameAsk = (a: Place, b: Place) => a.to === b.to && a.path === b.path && a.side === b.side && a.start === b.start && a.end === b.end && a.form === b.form;
+const sameAsk = (a: Place, b: Place) => a.at === b.at && a.path === b.path && a.side === b.side && a.start === b.start && a.end === b.end && a.form === b.form;
 
 /** U7698e: an Agent's explanations, kept in the connection's memory for its session (U7675f): closing the view loses none, and a restart drops them. */
 export const createExplained = () => createSignal<readonly Asked[]>([]);
@@ -34,36 +35,36 @@ export const explainedText = (answer: Asked["answer"]): string | undefined => an
  * U7698a: `agent.explain` is asked only by `ask`, the user's action (P9), and never while the same ask waits. A comparison with no Worktree (`to` null) offers none.
  * The Daemon keeps nothing of an answer: each lives in `kept` until the connection ends.
  */
-export const createExplanations = (input: { app: AppSeam; id: string; to: () => "tree" | "branch" | null; kept: Kept; read: () => readonly LineExplanation[] }) => {
+export const createExplanations = (input: { app: AppSeam; id: string; at: () => Reach | null; kept: Kept; read: () => readonly LineExplanation[] }) => {
   const [list, setList] = input.kept;
 
   // U7699a: the readback's explanations as answered asks of the open comparison; the Daemon's result is the only memory they have.
   const remarks = createMemo((): readonly Asked[] => {
-    const to = input.to();
+    const at = reachKey(input.at());
 
-    return to ? input.read().map(each => ({ path: each.path, side: "new" as const, start: each.start, end: each.end, form: "words" as const, to, blob: null, source: each.source, answer: { state: "explained" as const, form: "words" as const, text: each.text } })) : [];
+    return at ? input.read().map(each => ({ path: each.path, side: "new" as const, start: each.start, end: each.end, form: "words" as const, at, blob: null, source: each.source, answer: { state: "explained" as const, form: "words" as const, text: each.text } })) : [];
   });
 
   const put = (next: Asked) => setList(all => [...all.filter(each => !sameAsk(each, next)), next]);
 
   return {
-    offered: () => input.to() !== null,
+    offered: () => input.at() !== null,
     /** The asks of `path` in the open comparison; an ask of the same lines replaces the readback's explanation of them (U7699b). */
     of: (path: string) => {
-      const asked = list().filter(each => each.path === path && each.to === input.to());
+      const asked = list().filter(each => each.path === path && each.at === reachKey(input.at()));
 
       return [...asked, ...remarks().filter(each => each.path === path && !asked.some(kept => sameAsk(kept, each)))];
     },
     ask: (range: Ask) => {
-      const to = input.to();
-      const asked = to && { ...range, to };
+      const reach = input.at();
+      const asked = reach && { ...range, at: reachKey(reach) ?? "" };
 
-      if (!asked || list().some(each => sameAsk(each, asked) && each.answer.state === "asking")) return;
+      if (!reach || !asked || list().some(each => sameAsk(each, asked) && each.answer.state === "asking")) return;
 
       put({ ...asked, answer: { state: "asking" } });
       let answer: Explanation | undefined;
 
-      void failureOf(async () => { answer = await input.app.rpc("agent.explain", { id: input.id, to: asked.to, path: range.path, side: range.side, start: range.start, end: range.end, form: range.form }); })
+      void failureOf(async () => { answer = await input.app.rpc("agent.explain", { id: input.id, ...reach, path: range.path, side: range.side, start: range.start, end: range.end, form: range.form }); })
         .then(failure => put({ ...asked, answer: failure !== null || !answer ? { state: "failed", kind: "call", cause: failure ?? "no_answer" } : answer }));
     },
   };

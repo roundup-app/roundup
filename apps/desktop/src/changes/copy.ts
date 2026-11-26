@@ -42,7 +42,6 @@ export const copy = {
   /** U7695a: an item's changed functions and types: the disclosure's label and the list's name. */
   functionsAndTypes: "Functions and types",
   /** @prose */
-  flowsNeedWorktree: "Choose Tree or Branch to trace calls",
   languageName: (language: string) => language === "typescript" ? sharedCopy.typescript : `${language.slice(0, 1).toUpperCase()}${language.slice(1)}`,
   overview: sharedCopy.overview,
   /** U7680a: the button and the row's word, the header's count and U7680d's words. */
