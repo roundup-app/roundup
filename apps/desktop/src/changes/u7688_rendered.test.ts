@@ -107,7 +107,7 @@ it("u7688h_the_readback_is_captured_for_the_critic", async () => {
   const GAPPED = "!!document.querySelector('.gap-mark')";
 
   const states: { name: string; width: number; answer: Readback; run: () => Promise<void> }[] = [
-    { name: "quiet", width: SIZE.wide, answer: { state: "notRead" }, run: () => shot("quiet", said("Read back changes")) },
+    { name: "quiet", width: SIZE.wide, answer: { state: "notRead" }, run: () => shot("quiet", said("A model that never saw the conversation")) },
     { name: "reading", width: SIZE.wide, answer: { state: "reading" }, run: () => shot("reading", said("Reading back")) },
     { name: "read", width: SIZE.wide, answer: READ, run: () => shot("read", said("Read back from the diff") + " && !!document.querySelector('.readback-figure')") },
     { name: "stale", width: SIZE.wide, answer: { ...READ, state: "stale" }, run: () => shot("stale", said("The diff has changed since the readback")) },

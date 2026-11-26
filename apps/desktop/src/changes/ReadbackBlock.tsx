@@ -1,11 +1,16 @@
 import { For, Match, Show, Switch } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
 import type { Gap } from "@contracts/agent/Gap";
+import { Icon } from "../ink/Icon";
+import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 import { failureCause, gapsFailure, gapsOf, type ReadbackState } from "./readback";
 import { ReadbackDiagram } from "./ReadbackDiagram";
 
 type Linking = { agent: string; listed: (path: string) => boolean; go: (gap: Gap) => void };
+
+/** U7688a, U7688b: the readback's one kind of action is an icon: its name and tooltip carry the words. */
+const ReadbackAction = (props: { name: string; icon: "read" | "rotate-cw"; run: () => void }) => <IconButton aria-label={props.name} onClick={props.run}><Icon name={props.icon} /></IconButton>;
 
 /** U7688e: each gap with the link to its line, or without one when its file is gone from the listing. */
 const GapList = (props: { gaps: readonly Gap[] } & Linking) => <ul class="readback-gaps" aria-label={copy.gaps}>
@@ -34,12 +39,12 @@ export const ReadbackBlock = (props: { readback: ReadbackState } & Linking) => {
       <Switch>
         <Match when={state().state === "notRead"}>
           <p>{copy.readbackQuiet}</p>
-          <button type="button" data-button="quiet" onClick={start}>{copy.readBack}</button>
+          <ReadbackAction name={copy.readBack} icon="read" run={start} />
         </Match>
         <Match when={state().state === "reading"}><p role="status">{copy.readingBack}</p></Match>
-        <Match when={failureCause(state())}>{cause => <p>{copy.readbackFailed} <button type="button" data-button="quiet" onClick={start}>{copy.retry}</button> <span class="flow-cause">{cause()}</span></p>}</Match>
+        <Match when={failureCause(state())}>{cause => <p>{copy.readbackFailed} <ReadbackAction name={copy.retry} icon="rotate-cw" run={start} /> <span class="flow-cause">{cause()}</span></p>}</Match>
         <Match when={props.readback.account()}>{account => <div class="readback-account" data-stale={state().state === "stale" ? "true" : "false"}>
-          <Show when={state().state === "stale"}><p>{copy.changedSinceReadback} <button type="button" data-button="quiet" onClick={start}>{copy.readBackAgain}</button></p></Show>
+          <Show when={state().state === "stale"}><p>{copy.changedSinceReadback} <ReadbackAction name={copy.readBackAgain} icon="rotate-cw" run={start} /></p></Show>
           <div class="readback-text"><AccountText account={account()} agent={props.agent} listed={props.listed} go={props.go} /></div>
         </div>}</Match>
       </Switch>

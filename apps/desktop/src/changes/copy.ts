@@ -230,7 +230,6 @@ export const copy = {
   readback: "Readback",
   /** @prose */
   readbackQuiet: "A model that never saw the conversation reads only the diff. It says what it changes.",
-  /** @prose */
   readBack: "Read back changes",
   readBackAgain: "Read back again",
   readingBack: "Reading back…",
