@@ -13,7 +13,7 @@ const state = () => document.querySelector(".note-view")?.getAttribute("data-sta
 
 const meta = () => document.querySelector(".note-view .note-meta")?.textContent;
 
-/** A note sent while the Agent works: rupd answers the send with a pending Message. */
+/** A note sent while the Agent works: the Daemon answers the send with a pending Message. */
 const sendWaiting = async () => {
   const mounted = await openDiff();
 
