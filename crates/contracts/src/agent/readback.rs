@@ -99,6 +99,17 @@ pub struct Risk {
     pub reason: String,
 }
 
+/// RB16: one or two sentences about new-side lines `start` to `end` of `path`, with the lines as the
+/// run read them in `source` (joined by newlines), so the App can tell when the file stops reading so.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct LineExplanation {
+    pub path: String,
+    pub start: u32,
+    pub end: u32,
+    pub source: String,
+    pub text: String,
+}
+
 /// A read Readback (RB3). `ranks` holds one rank per hunk id of the input (RB10) and `risks` one
 /// risk per flow and module (RB11). `unplaced` is computed by the Daemon: the hunk ids no flow holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -110,6 +121,7 @@ pub struct Account {
     pub unplaced: Vec<String>,
     pub ranks: Vec<HunkRank>,
     pub risks: Vec<Risk>,
+    pub explanations: Vec<LineExplanation>,
     pub gaps: Gaps,
 }
 

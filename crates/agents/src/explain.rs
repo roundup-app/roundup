@@ -40,7 +40,13 @@ fn failed(kind: &str, cause: String) -> Explanation {
 
 /// RB13: the lines `start` to `end` of `side` that a hunk of `path` holds, one per line without
 /// its `+`, `-` or space, read from each hunk's `@@` header and body.
-fn selected(hunks: &[Hunk], path: &str, side: DiffSide, start: u32, end: u32) -> Vec<String> {
+pub(crate) fn selected(
+    hunks: &[Hunk],
+    path: &str,
+    side: DiffSide,
+    start: u32,
+    end: u32,
+) -> Vec<String> {
     let mut found = Vec::new();
     for hunk in hunks.iter().filter(|hunk| hunk.path == path) {
         let mut lines = hunk.text.lines();

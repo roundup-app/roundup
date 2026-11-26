@@ -3,13 +3,18 @@
 //! cancels nothing. RB13 to RB15: `agent.explain` has the same reader explain selected lines.
 
 use super::*;
+use crate::explain::selected;
 use crate::worktree::{DiffInput, Hunk};
 use contracts::agent::{
-    Account, CallPathsAnswer, CompareTarget, FlowSource, Gap, Gaps, HunkRank, ModuleNote, Rank,
-    ReadFlow, ReadFlowStep, Readback, Risk, RiskLevel, RiskTarget,
+    Account, CallPathsAnswer, CompareTarget, DiffSide, FlowSource, Gap, Gaps, HunkRank,
+    LineExplanation, ModuleNote, Rank, ReadFlow, ReadFlowStep, Readback, Risk, RiskLevel,
+    RiskTarget,
 };
 use serde::Deserialize;
 use serde_json::json;
+
+/// RB16: the most explanations a result keeps: an explanation of every line is not wanted.
+const MAX_EXPLANATIONS: usize = 12;
 
 /// RB8: a diff over either figure fails and says so.
 const MAX_BYTES: usize = 256 * 1024;
@@ -48,8 +53,10 @@ JSON: `hunks` (each {id, path, text}) and `flows` (call paths already read from 
 (the change itself), \"forced\" (what it forces elsewhere: a caller, a type, a migration) or \
 \"glue\" (wiring, plumbing, re-exports, renames)}] with one entry for every hunk id, \"risks\": \
 [{\"target\": \"flow\" or \"module\", \"id\": the flow id or the module name, \"level\": \"high\", \
-\"medium\" or \"low\", \"reason\": one sentence}] with one entry for every flow and every module}. \
-Judge rank and risk from what the change does, never from a file name or size. Keep each given flow under \
+\"medium\" or \"low\", \"reason\": one sentence}] with one entry for every flow and every module, \
+\"explanations\": [{\"hunk\": hunk id, \"start\", \"end\": line numbers of the new side inside \
+that hunk, \"text\": one or two sentences}] for the few places a reviewer most needs a reason, at \
+most twelve, never one for every line}. Judge rank and risk from what the change does, never from a file name or size. Keep each given flow under \
 its id with exactly its hunks in its order; you may add flows under new ids. Use only hunk ids \
 from the input."
 );
@@ -66,7 +73,7 @@ enum Entry {
     Reading,
     Done {
         signature: Signature,
-        account: Account,
+        account: Box<Account>,
     },
     Failed {
         kind: &'static str,
@@ -250,6 +257,8 @@ struct RawAccount {
     modules: Vec<ModuleNote>,
     ranks: Vec<RawRank>,
     risks: Vec<RawRisk>,
+    #[serde(default)]
+    explanations: Vec<RawExplanation>,
 }
 
 #[derive(Deserialize)]
@@ -264,6 +273,14 @@ struct RawRisk {
     id: String,
     level: String,
     reason: String,
+}
+
+#[derive(Deserialize)]
+struct RawExplanation {
+    hunk: String,
+    start: u32,
+    end: u32,
+    text: String,
 }
 
 #[derive(Deserialize)]
@@ -396,6 +413,34 @@ fn risks(
     Ok(out)
 }
 
+/// RB16: the explanations the diff holds, at most twelve: the hunk exists, the lines lie wholly in
+/// that hunk's new side and the text is not empty; the others are dropped.
+fn explanations(raw: Vec<RawExplanation>, hunks: &[Hunk]) -> Vec<LineExplanation> {
+    raw.into_iter()
+        .filter_map(|given| {
+            let hunk = hunks.iter().find(|hunk| hunk.id == given.hunk)?;
+            let want = u64::from(given.end).checked_sub(u64::from(given.start))? + 1;
+            let lines = selected(
+                std::slice::from_ref(hunk),
+                &hunk.path,
+                DiffSide::New,
+                given.start,
+                given.end,
+            );
+            (u64::try_from(lines.len()) == Ok(want) && !given.text.trim().is_empty()).then(|| {
+                LineExplanation {
+                    path: hunk.path.clone(),
+                    start: given.start,
+                    end: given.end,
+                    source: lines.join("\n"),
+                    text: given.text.trim().to_owned(),
+                }
+            })
+        })
+        .take(MAX_EXPLANATIONS)
+        .collect()
+}
+
 /// RB3: the answer in the fixed shape, with `unplaced` computed here; refused with a cause when
 /// it names a hunk the input lacks, or drops, moves or reorders a code flow's hunks.
 fn account(text: &str, hunks: &[Hunk], code: &[CodeFlow]) -> Result<Account, String> {
@@ -449,6 +494,7 @@ fn account(text: &str, hunks: &[Hunk], code: &[CodeFlow]) -> Result<Account, Str
         modules: raw.modules,
         ranks,
         risks,
+        explanations: explanations(raw.explanations, hunks),
         unplaced: hunks
             .iter()
             .filter(|h| !placed.contains(&h.id))
@@ -511,7 +557,7 @@ fn state(entry: &Entry) -> Readback {
             kind: (*kind).into(),
             cause: cause.clone(),
         },
-        Entry::Done { account, .. } => Readback::Read(account.clone()),
+        Entry::Done { account, .. } => Readback::Read(Account::clone(account)),
     }
 }
 
@@ -559,7 +605,9 @@ impl Agents {
                 .unwrap_or_else(|e| e.into_inner());
             match runs.get(&key) {
                 None => return Ok(Readback::NotRead),
-                Some(Entry::Done { signature, account }) => (signature.clone(), account.clone()),
+                Some(Entry::Done { signature, account }) => {
+                    (signature.clone(), Account::clone(account))
+                }
                 Some(other) => return Ok(state(other)),
             }
         };
@@ -694,7 +742,7 @@ async fn run(
     }
     Entry::Done {
         signature: input.signature,
-        account,
+        account: Box::new(account),
     }
 }
 

@@ -2,6 +2,7 @@
 
 import type * as agent$Gaps from "./Gaps";
 import type * as agent$HunkRank from "./HunkRank";
+import type * as agent$LineExplanation from "./LineExplanation";
 import type * as agent$ModuleNote from "./ModuleNote";
 import type * as agent$ReadFlow from "./ReadFlow";
 import type * as agent$Risk from "./Risk";
@@ -17,5 +18,6 @@ export type Account = {
 	unplaced: string[],
 	ranks: agent$HunkRank.HunkRank[],
 	risks: agent$Risk.Risk[],
+	explanations: agent$LineExplanation.LineExplanation[],
 	gaps: agent$Gaps.Gaps,
 };
