@@ -122,6 +122,9 @@ export const editor = async (kind: typeof editorKinds[number] | "pad-source" | "
       ["wait", "--fn", "!!document.querySelector('.changes-icon')"],
       ["click", ".changes-icon"],
       ["wait", "--fn", "!!document.querySelector('.changes-view .changes-body')"],
+      // The view opens on the Overview and reads no file (U7679c): choose the first module for its diff.
+      ["wait", "--fn", "!!document.querySelector('.changes-side [data-row=\"module\"]')"],
+      ["click", ".changes-side [data-row=\"module\"]"],
       ["wait", "--fn", "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')"]
     );
     selector = ".diff-content";

@@ -33,7 +33,7 @@ impl Git {
         to: CompareTarget,
     ) -> Result<DiffInput, RpcError> {
         let files = self.changed_files(worktree, to)?.files;
-        let base = self.comparison_base(worktree)?;
+        let base = self.comparison_base(&worktree.path)?;
         let end = (to == CompareTarget::Branch).then_some("HEAD");
         let ends: Vec<&str> = std::iter::once(base.as_str()).chain(end).collect();
         let patch = self

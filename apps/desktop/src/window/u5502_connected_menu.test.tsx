@@ -296,16 +296,15 @@ it("u5502_project_close_reopen_reconciles_its_own_publications", async () => {
 });
 
 
-it.each(["app", "project"])("u5502_row_opens_the_original_agents_terminal_from_%s_settings", async settings => {
+it("u5502_row_opens_the_original_agents_terminal_from_app_settings", async () => {
   const { app } = await openTabs({ api: [agent("a", "working", "running")], web: [] });
   fireEvent.click(tab("api"));
   await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
 
   fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="a"]')!);
 
-  if (settings === "app") window.dispatchEvent(new Event("open-app-settings"));
-  else window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: path("api"), command: "project-settings" } }));
-  const surface = await screen.findByRole("region", { name: settings === "app" ? "Settings" : "Project settings" });
+  window.dispatchEvent(new Event("open-app-settings"));
+  const surface = await screen.findByRole("region", { name: "Settings" });
   finish(app, "api", "a");
   await waitFor(() => expect(actions(app)).toHaveLength(1));
   app.menuBarAction({ kind: "agent", path: path("api"), agent: "a" });

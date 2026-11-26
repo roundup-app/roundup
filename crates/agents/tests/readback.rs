@@ -82,7 +82,7 @@ async fn a7686_the_call_runs_on_the_roles_pair() {
     let text = fake
         .launcher()
         .readback_call(Some("opus".into()), Some("high".into()))
-        .read("Read it.", b"the diff")
+        .read("Read it.", None, b"the diff")
         .await
         .unwrap();
 
@@ -102,7 +102,7 @@ async fn a7686_unset_pair_passes_neither_flag_nor_variable() {
 
     fake.launcher()
         .readback_call(None, None)
-        .read("Read it.", b"the diff")
+        .read("Read it.", None, b"the diff")
         .await
         .unwrap();
 
@@ -119,7 +119,7 @@ async fn a7686_the_call_has_no_tools_no_session_and_only_its_input() {
 
     fake.launcher()
         .readback_call(None, None)
-        .read("Read it.", b"the diff")
+        .read("Read it.", None, b"the diff")
         .await
         .unwrap();
 
@@ -139,7 +139,7 @@ async fn a7686_readback_is_no_agent_node() {
     let text = fake
         .launcher()
         .readback_call(Some("opus".into()), None)
-        .read("Read it.", b"the diff")
+        .read("Read it.", None, b"the diff")
         .await
         .unwrap();
 

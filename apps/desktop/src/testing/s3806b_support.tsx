@@ -515,9 +515,12 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
     }
 
     await Promise.resolve();
-    expect(connected.rail.selected()).toBe(row.owner === "App" ? "ops" : "keep");
 
-    if (row.owner === "App") expect(document.querySelector('[data-id="created"]')).toBeNull();
+    // U7916: a plain New Agent is selected once the tree shows it, whichever way the Switcher closed; a prompt whose newer draft waits selects nothing.
+    if (row.owner === "App" && row.label === "New Agent") await waitFor(() => expect(connected.rail.selected()).toBe("created"));
+    else expect(connected.rail.selected()).toBe(row.owner === "App" ? "ops" : "keep");
+
+    if (row.owner === "App" && row.label !== "New Agent") expect(document.querySelector('[data-id="created"]')).toBeNull();
 
     if (submitted) {
       await waitFor(() => expect(connected.drafts.list().some(entry => entry.revision === submitted.revision)).toBe(false));

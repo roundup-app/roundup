@@ -36,6 +36,8 @@ pub(crate) enum Slot {
         old: Option<Box<Run>>,
         /// The saved conversation id the ack must name.
         conversation_id: String,
+        /// U7191i: the launch carries `--fork-session`, so the ack names a new conversation id.
+        fork: bool,
         /// The directory the new Attempt runs in, saved alongside the conversation id (A21)
         /// once the ack confirms it.
         cwd: String,
