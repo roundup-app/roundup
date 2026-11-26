@@ -235,8 +235,7 @@ export const copy = {
   readingBack: "Reading back…",
   /** @prose */
   readbackCredit: "Read back from the diff",
-  /** @prose */
-  changedSinceReadback: "The diff has changed since the readback",
+  changedSinceReadback: "Changed since readback",
   /** @prose */
   readbackFailed: "Couldn't read back these changes",
   /** @prose */

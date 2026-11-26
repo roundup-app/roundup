@@ -244,19 +244,20 @@
 .gap-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
 .gap-mark p { margin: 0; overflow-wrap: anywhere; }
 /* U7688b, U7688c: the readback above the Overview's modules; a stale one is dimmed, and a narrow pane shows the diagram's words alone. */
-.readback { display: grid; gap: var(--space-3); padding: var(--space-3); font: var(--text-small) var(--font-ui); }
+.readback { display: grid; grid-template-columns: minmax(0, 1fr); min-inline-size: 0; container: readback / inline-size; gap: var(--space-3); padding: var(--space-3); font: var(--text-small) var(--font-ui); }
+.readback-diagram { margin: 0; }
 .readback p, .readback ul { margin: 0; }
 .readback-credit { color: var(--grey); }
 .readback-account[data-stale="true"] .readback-text { opacity: 0.6; }
 .readback-gaps, .readback-words { padding-inline-start: var(--space-4); }
-.readback-gap { text-align: start; overflow-wrap: anywhere; }
+.readback-gap { text-align: start; white-space: normal; overflow-wrap: anywhere; }
 .readback-panel-label { color: var(--grey); }
 .readback-figure { max-inline-size: 100%; block-size: auto; stroke: var(--text); fill: none; }
 .readback-figure rect { fill: var(--sunken); }
 .readback-figure text { fill: var(--text); stroke: none; font: var(--text-small) var(--font-ui); }
 .readback-arrow { fill: var(--text); stroke: none; }
 .module-account { margin: 0; padding: var(--space-3); font: var(--text-small) var(--font-ui); }
-@container changes (width < env(--query-readback-figure)) { .readback-figure { display: none; } }
+@container readback (width < env(--query-readback-figure)) { .readback-figure { display: none; } }
 /* U7679c: the Overview pane lists the lens's modules, one entry for each, with the numbers of its row. */
 .changes-overview { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .changes-overview ul { margin: 0; padding: 0; list-style: none; }

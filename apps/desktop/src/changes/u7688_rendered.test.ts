@@ -110,7 +110,7 @@ it("u7688h_the_readback_is_captured_for_the_critic", async () => {
     { name: "quiet", width: SIZE.wide, answer: { state: "notRead" }, run: () => shot("quiet", said("A model that never saw the conversation")) },
     { name: "reading", width: SIZE.wide, answer: { state: "reading" }, run: () => shot("reading", said("Reading back")) },
     { name: "read", width: SIZE.wide, answer: READ, run: () => shot("read", said("Read back from the diff") + " && !!document.querySelector('.readback-figure')") },
-    { name: "stale", width: SIZE.wide, answer: { ...READ, state: "stale" }, run: () => shot("stale", said("The diff has changed since the readback")) },
+    { name: "stale", width: SIZE.wide, answer: { ...READ, state: "stale" }, run: () => shot("stale", said("Changed since readback")) },
     { name: "failed", width: SIZE.wide, answer: { state: "failed", kind: "badAnswer", cause: "the model answered in prose" }, run: () => shot("failed", said("Couldn't read back these changes")) },
     { name: "module", width: SIZE.wide, answer: READ, run: async () => { await browser("click", '.changes-side [data-row="module"]'); await shot("module", GAPPED + " && " + said("Loads data through a cache.")); } },
     { name: "narrow", width: SIZE.narrow, answer: READ, run: () => shot("narrow", said("Read back from the diff")) },
