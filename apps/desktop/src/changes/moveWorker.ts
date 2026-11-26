@@ -1,6 +1,6 @@
-import { configure, languageForPath, semanticDiffFile } from "@plannotator/sem-jiff";
+import { configure } from "@plannotator/sem-jiff";
 import type { LanguageId } from "@plannotator/sem-jiff";
-import { movedOf, readable } from "./moves";
+import { movedIn } from "./moveFile";
 import type { Moved, MoveRequest } from "./moves";
 
 /** U7696b: each grammar loads only when a file of its language is read. */
@@ -40,13 +40,7 @@ addEventListener("message", async ({ data }: MessageEvent<{ id: number } & MoveR
   const { id, ...request } = data;
 
   try {
-    const language = languageForPath(request.path);
-
-    if (!readable(language, request.old, request.new)) return postMessage({ id, moved: [] } satisfies MoveReply);
-
-    const { semanticOperations } = await semanticDiffFile(language, request.old, request.new, request.path);
-
-    return postMessage({ id, moved: movedOf(semanticOperations, language, request) } satisfies MoveReply);
+    return postMessage({ id, moved: await movedIn(request) } satisfies MoveReply);
   } catch (error) {
     return postMessage({ id, cause: error instanceof Error ? error.message : String(error) } satisfies MoveReply);
   }

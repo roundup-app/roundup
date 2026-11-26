@@ -79,7 +79,7 @@ const focusedValue = (): string | undefined => {
 };
 
 /** U7678a, U7678b, U7679c: the Overview row, then the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, the Overview row gone. */
-export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; /** U7691a: the names of the modules and flows holding an unfinished note, and U7691d: the item notes each row counts. */ unfinishedItems: ReadonlySet<string>; itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
+export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; /** U7691a: the names of the modules and flows holding an unfinished note, and U7691d: the item notes each row counts. */ unfinishedItems: ReadonlySet<string>; itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7696c: each item's moved and renamed code, by its name. */ moved?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
   const open = (value: string) => props.finding || expanded().includes(value);
@@ -90,12 +90,15 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   /** U7688e: the gaps an item holds, by its row's key. */
   const gapsOf = (key: string) => props.gaps?.get(key.slice(2)) ?? 0;
 
+  /** U7696c: the moves an item holds, by its row's key. */
+  const movedOf = (key: string) => props.moved?.get(key.slice(2)) ?? 0;
+
   const marked = (files: readonly ChangedFile[], item?: ModuleGroup) => files.some(file => props.unfinished.has(file.path)) || (item !== undefined && props.unfinishedItems.has(item.name));
 
   const notesOf = (item: ModuleGroup) => countFor(props.itemNotes, item);
 
   /** U7680a, U7680d: a module row's name adds the words it shows: unfinished work, Viewed, and Changed since you viewed it. */
-  const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [marked(files, item) ? copy.unfinishedWork : "", item !== undefined && notesOf(item) > 0 ? copy.noteCount(notesOf(item)) : "", key !== undefined && repeatsOf(key) > 0 ? copy.repeatsCount(repeatsOf(key)) : "", key !== undefined && gapsOf(key) > 0 ? copy.gapsCount(gapsOf(key)) : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", ...readWords(item, props.readHint)].filter(Boolean).reduce(copy.rowLabel, text);
+  const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [marked(files, item) ? copy.unfinishedWork : "", item !== undefined && notesOf(item) > 0 ? copy.noteCount(notesOf(item)) : "", key !== undefined && repeatsOf(key) > 0 ? copy.repeatsCount(repeatsOf(key)) : "", key !== undefined && gapsOf(key) > 0 ? copy.gapsCount(gapsOf(key)) : "", key !== undefined && movedOf(key) > 0 ? copy.movedCount(movedOf(key)) : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", ...readWords(item, props.readHint)].filter(Boolean).reduce(copy.rowLabel, text);
 
   /** Each file row's module key and path, by the file's tree value. */
   const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(moduleKey(module.name), file.path), { owner: moduleKey(module.name), path: file.path }] as const))));
@@ -139,6 +142,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
         <Show when={notesOf(module()) > 0}><span class="changes-row-notes">{copy.noteCount(notesOf(module()))}</span></Show>
         <Show when={repeatsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.repeatsCount(repeatsOf(moduleKey(module().name)))}</span></Show>
         <Show when={gapsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.gapsCount(gapsOf(moduleKey(module().name)))}</span></Show>
+        <Show when={movedOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.movedCount(movedOf(moduleKey(module().name)))}</span></Show>
         <Show when={module().untraced && props.readHint}><span class="changes-row-status">{copy.readToSee}</span></Show>
         <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
         <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>

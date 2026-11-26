@@ -22,12 +22,14 @@ import type { ChangeStart, LineSelection, Places } from "./lines";
 import type { Takes } from "./modules";
 import { isLine } from "./notes";
 import type { LineNote, Notes } from "./notes";
-import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
+import { compareParams, firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
 import { annotate, drawDiff, gatheredNotes, lineAnnotations, renderedApart } from "./diffDraw";
 import { outdated } from "./diffDraw";
-import type { Annotated, Composer, Noted, Shared } from "./diffDraw";
+import type { Annotated, Composer, Movement, Noted, Shared } from "./diffDraw";
 import { LineMark } from "./LineMark";
-import { createGapped, createRepeated } from "./repeats";
+import { createGapped, createRepeated, shownSpan } from "./repeats";
+import { apart, labelLine } from "./moves";
+import type { Moved } from "./moves";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
@@ -42,9 +44,6 @@ const scrollTo = (mount: HTMLElement, top: number) => {
 
   if (scroller) scroller.scrollTop = mount.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop + top; else mount.scrollTop = top;
 };
-
-/** U7853a: a Changes read names the open group; Tree and Branch name the Worktree's `to`. */
-const compareParams = (id: string, path: string, to: CompareTarget, group: OwnedGroupKey | undefined): CompareFileParams => group ? { id, path, group } : { id, path, to };
 
 /** U7675e: what the pane lets the view do from a key. */
 /** U7678d: what `enter` did: moved to a change, found none in the file, or the file is not drawn yet. */
@@ -199,7 +198,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; /** U7696a: the moves and renames in this file's new lines, and the Logic lens's ask for a file once it is drawn. */ moves?: readonly Moved[] | undefined; onRead?: ((value: FileComparison) => void) | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
@@ -227,7 +226,13 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const { slots, sweep } = createSlots();
 
-  const repeated = createRepeated(() => props.repeats, () => props.only);
+  const repeated = createRepeated(() => props.repeats, () => apart(props.only, props.moves ?? []));
+
+  const moving = createMemo((): readonly Movement[] => (props.moves ?? []).flatMap(moved => {
+    const span = moved.lines[0] && shownSpan(moved.lines[0], props.only);
+
+    return span ? [{ moving: true as const, side: "new" as const, start: span.start, end: Math.max(span.start, Math.min(span.end, labelLine(moved))), moved }] : [];
+  }), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.moved === b[at]?.moved) });
 
   const gapped = createGapped(() => props.gaps, () => props.only);
 
@@ -238,7 +243,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     const draft = untrack(form);
 
     const content = () => {
-      if ("unfinished" in metadata || "repeating" in metadata || "gapped" in metadata) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} />;
+      if ("unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} />;
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
 
@@ -254,15 +259,22 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let repeat = (_spans: readonly { start: number; end: number }[]) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  let move = (_spans: readonly { start: number; end: number }[]) => {};
+
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));
-    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata || "repeating" in metadata || "gapped" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
+    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
   });
 
   // U7685a: the lines of a repeat carry the stamp the style keys on, again after each render.
   createEffect(() => ({ view: renderer(), spans: repeated().map(({ start, end }) => ({ start, end })) }), ({ view, spans }) => { if (view) repeat(spans); });
+
+  // U7696a: the lines of a move carry the stamp the style keys on, again after each render; and the Logic lens learns of each file this one reads.
+  createEffect(() => ({ view: renderer(), spans: (props.moves ?? []).flatMap(moved => moved.lines) }), ({ view, spans }) => { if (view) move(spans); });
+
+  createEffect(() => props.onRead ? read() : undefined, value => { if (value) props.onRead?.(value); });
 
   // U7678d: a file with nothing to draw is settled once its read is.
   createEffect(() => !loading() && !drawableOf(read(), hidden()), settled => { if (settled) props.onDrawn?.(); });
@@ -288,6 +300,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
       mark = drawn.mark;
       repeat = drawn.repeat;
+      move = drawn.move;
 
       setCoarse(coarse);
 

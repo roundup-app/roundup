@@ -16,6 +16,10 @@
 [data-line][data-repeat] { --repeat-bar-layer: linear-gradient(var(--grey), var(--grey)); background-image: var(--repeat-bar-layer); background-size: var(--note-bar-width) 100%; background-position: right top; background-repeat: no-repeat; }
 [data-line][data-repeat][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer), var(--repeat-bar-layer); background-size: var(--note-bar-width) 100%, auto, var(--note-bar-width) 100%; background-position: left top, left top, right top; }
 [data-line][data-repeat][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer), var(--repeat-bar-layer); }
+/* U7696a: a moved line keeps the same bar, on its left edge in the grey of the counts, from the marker the reader stamps; a noted line keeps its own bar over it. */
+[data-line][data-moved] { background-image: linear-gradient(var(--grey), var(--grey)); background-size: var(--note-bar-width) 100%; background-position: left top; background-repeat: no-repeat; }
+[data-line][data-moved][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer); background-size: var(--note-bar-width) 100%, auto; }
+[data-line][data-moved][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer); }
 :focus { outline: none; }
 
 /* U7678c: a hunk's function sits beside its fold's count, in the count's ink, and gives way before the count does. */

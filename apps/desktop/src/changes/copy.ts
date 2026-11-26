@@ -233,6 +233,16 @@ export const copy = {
   repeatsPartial: "Repeats partly checked",
   repeatsFailed: "Couldn't check repeats",
   repeatsNeedTree: "Repeats need Tree",
+  /** U7696a to U7696f: the mark of moved and renamed code, its other place, its row count, its states and the word it adds to the list. */
+  movedCode: "Moved code",
+  movedFrom: (place: string) => `Moved from ${place}`,
+  /** @prose */
+  renamedTo: (was: string, now: string) => `${was} was renamed to ${now}`,
+  movedCount: (count: number) => `${count} moved`,
+  checkingMoves: "Checking for moves",
+  movesFailed: "Couldn't check moves",
+  movedWord: "moved",
+  renamedWord: "renamed",
   /** U7688a to U7688f: the readback the Overview carries, its states, the gaps and the diagram. */
   readback: "Readback",
   /** @prose */
