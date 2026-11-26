@@ -5,12 +5,15 @@ import { copy } from "./copy";
 
 /** The word on a file's row for its status. */
 export const statusText: Record<ChangedStatus, string> = {
-  added: copy.statusAdded,
+  added: copy.statusNew,
   modified: copy.statusModified,
   renamed: copy.statusRenamed,
   deleted: copy.statusDeleted,
-  untracked: copy.statusUntracked,
+  untracked: copy.statusNew,
 };
+
+/** A file the Agent created: git lists a staged one as added and one it never staged as untracked. */
+export const isNew = (status: ChangedStatus | null): boolean => status === "added" || status === "untracked";
 
 /** The absolute path of a changed file in the Worktree at `root`. */
 export const changedPath = (root: string, file: ChangedFile): string => `${root.replace(/\/+$/, "")}/${file.path}`;

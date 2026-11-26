@@ -339,6 +339,15 @@ pub struct OwnedGroup {
     pub files: Vec<ChangedFile>,
 }
 
+/// The `repo` and `branch` of one `OwnedGroup` (U7853a): the Owned group key that
+/// `agent.compareFile` reads a file of, through the Agent's recorded writes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OwnedGroupKey {
+    pub repo: String,
+    pub branch: String,
+}
+
 /// What `agent.ownedChanges` returns (U7186a), sorted by `repo` then `branch`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct OwnedChanges {
@@ -365,7 +374,9 @@ pub struct ChangedFilesParams {
     pub to: CompareTarget,
 }
 
-/// Select one relative path in an Agent's Worktree (U2540a) and the `to` it is compared as.
+/// Select one relative path in an Agent's Worktree (U2540a) and the `to` it is compared as. With
+/// `group` the path is read in that group's checkout instead, as Changes lists it (U7853a); an
+/// Agent with no Worktree is read only this way, and `to` stays `tree`.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CompareFileParams {
@@ -374,6 +385,9 @@ pub struct CompareFileParams {
     #[serde(default)]
     #[specta(optional, type = CompareTarget)]
     pub to: CompareTarget,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = OwnedGroupKey)]
+    pub group: Option<OwnedGroupKey>,
 }
 
 /// What `agent.land` returns (G4): the commit the Base points at after Landing.
@@ -719,6 +733,19 @@ pub struct RunParams {
     pub cwd: Option<String>,
 }
 
+/// U7889a: the shell commands an Agent printed, in the order it printed them, each once.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct PrintedCommands {
+    pub commands: Vec<String>,
+}
+
+/// U7889c: run one of `id`'s printed commands in a shell the Agent owns.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RunPrintedParams {
+    pub id: String,
+    pub command: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct NodeId {
     pub id: String,
@@ -770,6 +797,9 @@ pub struct InstructionDelivery {
     pub attempt: String,
     pub text: String,
     pub state: InstructionState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub cause: Option<String>,
 }
 
 /// Read-only instruction history. Home follows placement; attribution never follows names.

@@ -77,6 +77,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
   const { startRealDaemon } = await import("./realDaemonFixture");
   const { createServedApp } = await import("./realSeam");
   const { agentBrowserExecutable } = await import("./chromePage");
+  const { editWalk } = await import("../pads/editWalkBrowser");
   const report = await mkdtemp(join(tmpdir(), "p2544e-tool-"));
 
   const profile = join(report, "browser");
@@ -140,6 +141,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await browser("wait", "--fn", "(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); return !!document.querySelector('[data-shelf-row] .pad-name'); })()");
       await browser("click", "[data-shelf-row] .pad-name");
       await browser("press", "Enter");
+      await editWalk(browser);
       await browser("wait", ".ProseMirror[role=textbox]");
       // DrawerHost and styles.css's Shelf transitions finish independently before the next pointer input.
       // Readiness comes after the lazy editor mounts, so its layout participates in the settled frame.

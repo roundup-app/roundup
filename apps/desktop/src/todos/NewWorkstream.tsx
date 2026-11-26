@@ -91,6 +91,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       if (!ready()) return;
 
       const focus = captureFocus();
+      const added = connected.rail.adding();
       setPending(true);
       setFailure(null);
 
@@ -104,6 +105,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
 
       if (outcome.kind === "refused") return setFailure(outcome.error.message);
 
+      added(outcome.value.id);
       props.done(id(), outcome.value, focus);
     };
 

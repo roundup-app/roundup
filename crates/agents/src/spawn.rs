@@ -11,6 +11,8 @@ pub(super) enum Origin<'a> {
     Fresh,
     /// A22: the saved conversation id, added to argv as `--resume <id>`.
     Resume(&'a str),
+    /// U7191i: the saved conversation continued as a new session, `--resume <id> --fork-session`.
+    Offshoot(&'a str),
 }
 
 /// When a launch's Terminal is recorded in the Rail.
@@ -604,6 +606,7 @@ impl Agents {
                 return Err(err);
             }
         };
+        self.shared.bound_first_prompt(id, attempt);
         for prompt in prompts {
             self.shared.steer_first_prompt(id, attempt, prompt);
         }
@@ -628,9 +631,15 @@ impl Agents {
             permission,
             size,
         } = launch;
-        let resume = match origin {
-            Origin::Fresh => None,
-            Origin::Resume(conversation) => Some(conversation),
+        let (resume, forking) = match origin {
+            Origin::Fresh => (None, false),
+            Origin::Resume(conversation) => (Some(conversation), false),
+            Origin::Offshoot(conversation) => (Some(conversation), true),
+        };
+        let launcher = if forking {
+            self.launcher.forking()
+        } else {
+            self.launcher.clone()
         };
         let node = self.shared.rail().node(crate::rail::agent_id(id)?)?;
         let role = match node.kind() {
@@ -654,8 +663,7 @@ impl Agents {
             .worktree()
             .filter(|worktree| worktree.adopted)
             .map(|worktree| PathBuf::from(worktree.path));
-        let (argv, env, unset) = self
-            .launcher
+        let (argv, env, unset) = launcher
             .launch_on(&claude_code::Request {
                 folders: claude_code::Folders {
                     project: self.project_dir(),
@@ -921,6 +929,7 @@ mod idle_tests {
                     since: 0,
                     old: None,
                     conversation_id: conversation.into(),
+                    fork: false,
                     cwd: "/".into(),
                     prompt: None,
                     starred: true,

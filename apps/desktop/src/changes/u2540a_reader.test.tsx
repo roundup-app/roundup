@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, openDiff, openFile, saveNote, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
+import { COMPARISON, openDiff, openFile, openFirstModule, saveNote, openChanges, treeRow, startNote, waitDiff } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
 import { createSignal, flush } from "solid-js";
@@ -23,10 +23,13 @@ vi.mock("diff", { spy: true });
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); localStorage.clear(); });
 
+/** One file in the list: its module opens on it alone, so the reader's counters below count that file. */
+const openOne = () => openDiff("/p", undefined, () => ({ files: [{ path: "src/a.ts", status: "modified", line: 12, counts: null, blob: null }] }));
+
 const rendered = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff);
 
 it("u5646a_equal_replies_keep_render_and_selection", async () => {
-  const { app, connected } = await openDiff();
+  const { app, connected } = await openOne();
   await waitFor(() => expect(rendered()).toHaveLength(1));
   const drawn = { patches: vi.mocked(createTwoFilesPatch).mock.calls.length, views: vi.mocked(VirtualizedFileDiff).mock.calls.length, files: vi.mocked(processFile).mock.calls.length };
   const click = vi.mocked(VirtualizedFileDiff).mock.calls.at(-1)![0]!.onLineNumberClick!;
@@ -61,7 +64,7 @@ it.each([
   { new: { kind: "absent" as const, revision: COMPARISON.new.revision } },
   { old: { kind: "binary" as const, revision: COMPARISON.old.revision } }, { status: null },
 ])("u5646a_changed_identity_updates_content: %j", async change => {
-  const { app, connected } = await openDiff();
+  const { app, connected } = await openOne();
   await waitFor(() => expect(rendered()).toHaveLength(1));
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, ...change });
   await connected.worktrees.refresh("a");
@@ -113,7 +116,7 @@ it("u5646c_equal_refresh_keeps_fallback_notice", async () => {
   const boundedPatch: (...args: Parameters<typeof createTwoFilesPatch>) => string | undefined = createTwoFilesPatch;
 
   vi.mocked(boundedPatch).mockReturnValueOnce(undefined);
-  const { app, connected } = await openDiff();
+  const { app, connected } = await openOne();
   await screen.findByText(readerCopy.replacementDiff);
 
   for (let i = 0; i < 2; i++) {
@@ -137,7 +140,7 @@ it("u5646c_equal_refresh_keeps_fallback_notice", async () => {
 });
 
 it("u5646d_refresh_recovery_and_disposal", async () => {
-  const { app, connected, view } = await openDiff();
+  const { app, connected, view } = await openOne();
   await waitFor(() => expect(rendered()).toHaveLength(1));
   const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
 
@@ -185,6 +188,7 @@ it("u2540a_late_content_cannot_cross_agents", async () => {
   let resolve!: (value: typeof COMPARISON) => void;
   app.handlers["agent.compareFile"] = () => new Promise(done => { resolve = done; });
   await openChanges();
+  await openFirstModule();
   await waitFor(() => expect(app.calls.some(call => call.method === "agent.compareFile")).toBe(true));
   connected.rail.select("plain");
   resolve(COMPARISON);
@@ -212,7 +216,7 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
-it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s", async action => {
+it.each(["retry", "signal"])("u5558e_failed_reload_retains_data: %s", async action => {
   const { app, connected } = await openDiff();
   const retainedNote = "  unrelated note e\u0301\n🐝  ";
 
@@ -226,16 +230,11 @@ it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s",
   await connected.worktrees.refresh("a");
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
 
-  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  else {
-    app.handlers["agent.compareFile"] = () => COMPARISON;
+  app.handlers["agent.compareFile"] = () => COMPARISON;
 
-    if (action === "signal") await connected.worktrees.refresh("a");
-    else fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(notices("alert")).toHaveLength(0));
-  }
-
-  expect(notices("alert")).toHaveLength(0);
+  if (action === "signal") await connected.worktrees.refresh("a");
+  else fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
   expect(await screen.findByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);

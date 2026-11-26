@@ -44,7 +44,7 @@ Policy observer clarification (T3779c, #4957): Ask submission uses `keys/u2539b_
 
 **U2539d choosing a changed file opens it in the editor.** Webview only. Given U2539b's panel, then:
 - **Choosing.** `Enter` or a double click on a file calls `open_in_editor {path, line}` once, with the Worktree's `path` joined to the file's and its `line`; a deleted file opens nothing and its row says `Deleted`; a folder row only expands. A single click selects. Asserted in `u2539d_enter_opens_the_file_at_its_line`, `u2539d_a_deleted_file_opens_nothing` and `u2539d_a_folder_only_expands`.
-- **Failure.** A failed call shows U80's `✕ <message>` and the panel stays open. Asserted in `u2539d_a_failed_open_shows_one_failure_line`.
+- **Failure.** A failed call shows U80's `✕ <message>` and the panel stays open. Asserted in `u2539d_a_failed_open_shows_one_failure_line`. Amended by U7952a (`scenarios/ui-changes-remote-main.md`): the message names the file and the checkout in plain words, never a raw `not found: <path>`; a group's file joins the group's `checkout`, not the Worktree's `path`.
 - **Kept.** The Rail row's `Open in editor` icon (U427, U428) still opens the Worktree folder. Asserted in `u2539d_the_rail_icon_still_opens_the_folder`.
 
 ## Project menu (U4278a, U4278b)

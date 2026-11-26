@@ -1,4 +1,4 @@
-import { copy } from "./copy";
+import { copy } from "./app/copy";
 
 /** MC56: the Daemon's coded answer when the Terminal host fails, in App words: no host name, code or hint. */
 const LABELS = {
@@ -24,8 +24,35 @@ export const coreFailureLabel = (code: string): string => (isCoreFailureCode(cod
 /** The Daemon keeps a core failure's code at the start of its message (MC4): `core_closed: ...`, or `machine: core_closed: ...`. */
 const SEGMENT = /^([^\s:]+): /;
 
-/** `message` with a coded core failure replaced by its App label; any other message stays as it is. */
+/** U7191f: a start or Restart failure the Daemon names: `Mode <name> (<id>) Attempt <n> Terminal <address> core code <code>: <cause>`. */
+const NAMED = /^(.+?) core code (\S+): /s;
+
+const SUBJECT = /^Mode (.+?) \(\d+\) Attempt (?:\d+|none) Terminal (\S+)$/s;
+
+/** A named failure's text: a coded one in App words, an uncoded one keeping its cause; null when `message` is no named failure. */
+const namedText = (message: string): string | null => {
+  const named = NAMED.exec(message);
+
+  if (named === null) return null;
+
+  const [whole, subject = "", code = ""] = named;
+  const place = SUBJECT.exec(subject);
+  const agent = place?.[1] ?? "";
+  const address = place?.[2] ?? "none";
+
+  if (isCoreFailureCode(code)) return place === null ? LABELS[code] : copy.coreFailure_named(LABELS[code], agent, address);
+
+  if (place === null) return null;
+
+  return copy.coreFailure_cause(coreFailureText(message.slice(whole.length)), agent, address);
+};
+
+/** `message` with a coded core failure replaced by its App label; a named failure without a core code keeps its cause, and any other message stays as it is. */
 export const coreFailureText = (message: string): string => {
+  const named = namedText(message);
+
+  if (named !== null) return named;
+
   const first = SEGMENT.exec(message);
   const head = first?.[1];
 

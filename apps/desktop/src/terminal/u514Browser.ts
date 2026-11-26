@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { expect } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { editSteps } from "../pads/editWalkBrowser";
 
 // Every observer of these selection clauses measures in this viewport.
 export const setViewport = async () => { await browser("set", "viewport", "1512", "950"); };
@@ -122,6 +123,9 @@ export const editor = async (kind: typeof editorKinds[number] | "pad-source" | "
       ["wait", "--fn", "!!document.querySelector('.changes-icon')"],
       ["click", ".changes-icon"],
       ["wait", "--fn", "!!document.querySelector('.changes-view .changes-body')"],
+      // The view opens on the Overview and reads no file (U7679c): choose the first module for its diff.
+      ["wait", "--fn", "!!document.querySelector('.changes-side [data-row=\"module\"]')"],
+      ["click", ".changes-side [data-row=\"module\"]"],
       ["wait", "--fn", "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')"]
     );
     selector = ".diff-content";
@@ -139,7 +143,7 @@ export const editor = async (kind: typeof editorKinds[number] | "pad-source" | "
       ["eval", "document.querySelector('[data-pad=pad-3] .pad-name').focus()"],
       ["wait", "--fn", "document.activeElement?.matches('.pad-name')"],
       ["press", "Enter"],
-      ["wait", "--fn", "!!document.querySelector('.ProseMirror[contenteditable=true]')"]
+      ...editSteps
     );
     selector = ".ProseMirror";
 
