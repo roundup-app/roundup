@@ -185,6 +185,7 @@ impl Git {
         files.retain(|file| written.contains(Path::new(&file.path)));
         Some(OwnedGroup {
             repo: repo.display().to_string(),
+            checkout: top.display().to_string(),
             branch,
             base: default,
             files,

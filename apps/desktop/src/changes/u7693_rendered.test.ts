@@ -68,7 +68,7 @@ it("u7693d_the_chip_is_captured_for_the_critic", async () => {
 
       handlers["agent.remoteMain"] = ${remote};
       handlers["agent.fetchRemoteMain"] = ${fetch};
-      handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: ${JSON.stringify(AGENT)}, branch: "roundup/agent-1", base: "main", files: [{ path: "src/a.ts", status: "modified", line: 1, counts: { added: 1, removed: 1 }, blob: null }] }] });
+      handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: ${JSON.stringify(AGENT)}, checkout: ${JSON.stringify(AGENT)}, branch: "roundup/agent-1", base: "main", files: [{ path: "src/a.ts", status: "modified", line: 1, counts: { added: 1, removed: 1 }, blob: null }] }] });
       window.__fake.setStatus("agent-1", "idle", "ready");
 
       return window.__worktrees.refresh("agent-1").then(() => true);

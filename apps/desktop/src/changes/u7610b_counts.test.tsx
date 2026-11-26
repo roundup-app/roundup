@@ -23,7 +23,7 @@ beforeEach(() => { vi.stubGlobal("IntersectionObserver", DrivenObserver); });
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-const OWNED: OwnedChanges = { groups: [{ repo: "/p", branch: "main", base: "main", files: [
+const OWNED: OwnedChanges = { groups: [{ repo: "/p", checkout: "/p", branch: "main", base: "main", files: [
   { path: "a.ts", status: "modified", line: 3, counts: { added: 10000, removed: 9998 }, blob: null },
   { path: "logo.png", status: "modified", line: null, counts: null, blob: null },
 ] }] };
@@ -53,7 +53,7 @@ it("u7610b_rows_show_the_daemon_counts_and_a_binary_file_shows_none", async () =
 it("u7678c_opening_a_module_reads_only_the_files_its_first_screen_shows", async () => {
   const names = Array.from({ length: 12 }, (_, at) => `pkg/f${String(at).padStart(2, "0")}.ts`);
 
-  const { app } = await open({ groups: [{ repo: "/p", branch: "main", base: "main", files: names.map(path => ({ path, status: "modified", line: 1, counts: { added: 3, removed: 1 }, blob: null })) }] });
+  const { app } = await open({ groups: [{ repo: "/p", checkout: "/p", branch: "main", base: "main", files: names.map(path => ({ path, status: "modified", line: 1, counts: { added: 3, removed: 1 }, blob: null })) }] });
   // SAFETY: `agent.compareFile` calls carry `{ path }` params.
   const compared = () => app.calls.filter(call => call.method === "agent.compareFile").map(call => (call.params as { path: string }).path);
 

@@ -3,6 +3,7 @@ import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { failureOf } from "../app/failureOf";
 import { createMessageToasts } from "../ink/messageToast";
 import type { useConnectedProject } from "../state/connectedProject";
+import { copy } from "./copy";
 import { changedPath } from "./paths";
 
 /** U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card. */
@@ -32,7 +33,7 @@ export const createEditor = (app: ReturnType<typeof useConnectedProject>["app"],
     get message() {
       const error = failures().get(key);
 
-      return error === undefined ? null : `${key.split("/").pop()}: ${error}`;
+      return error === undefined ? null : copy.openFailure(key.split("/").pop() ?? key, root() ?? "", error);
     },
     dismiss: () => clear(key),
   }));

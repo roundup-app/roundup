@@ -57,7 +57,7 @@ it("u7680f_viewed_states_are_captured_for_the_critic", async () => {
   const serve = (files: ChangedFile[]) => read(`(() => {
     const handlers = window.__fake.app.handlers;
 
-    handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p/transform-education", branch: "main", base: "main", files: ${JSON.stringify(files)} }] });
+    handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files: ${JSON.stringify(files)} }] });
     handlers["agent.compareFile"] = ({ path }) => ({ ...${JSON.stringify(COMPARISON)}, oldPath: path, newPath: path });
     window.__fake.setStatus("agent-1", "idle", "ready");
 
