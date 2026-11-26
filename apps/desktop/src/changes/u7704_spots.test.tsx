@@ -98,7 +98,7 @@ it("u7704c_changes_reads_send_the_open_group_and_branch_asks_none", async () => 
   const file = { path: "own.ts", status: "modified" as const, line: 1, counts: { added: 1, removed: 0 }, blob: null };
 
   const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", worktree)], [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
-    app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [file] }, { repo: "/q", branch: "own/x", base: "main", files: [{ ...file, path: "other.ts" }] }] });
+    app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", checkout: "/p", branch: "main", base: "main", files: [file] }, { repo: "/q", checkout: "/q", branch: "own/x", base: "main", files: [{ ...file, path: "other.ts" }] }] });
     app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   });
 
