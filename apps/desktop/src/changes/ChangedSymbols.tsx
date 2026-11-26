@@ -26,7 +26,7 @@ export const ChangedSymbols = (props: { item: ModuleGroup; calls: CallPathsState
         <Disclosure label={copy.functionsAndTypes}>
           <ul class="changed-symbols-list" aria-label={copy.functionsAndTypes}>
             <For each={entries()}>{entry => <li>
-              <button type="button" data-button="quiet" onClick={() => props.aim({ path: entry.path, side: entry.side, line: entry.span.start, span: entry.span })}>{entry.name}</button>
+              <button type="button" class="changed-symbol-name" data-button="quiet" onClick={() => props.aim({ path: entry.path, side: entry.side, line: entry.span.start, span: entry.span })}>{entry.name}</button>
               {" "}<span>{kindWords(entry.kind)}</span>
               <Show when={statusWord(entry.status)}>{word => <>{" "}<span>{word()}</span></>}</Show>
             </li>}</For>
