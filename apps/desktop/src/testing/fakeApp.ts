@@ -47,6 +47,7 @@ const emptyReads: Handlers = {
   "agent.callPaths": ({ language }) => (language ? { state: "noServer", cause: { kind: "notInstalled", detail: `no language server is known for ${language}` } } : { languages: [] }),
   "agent.readback": () => ({ state: "notRead" }),
   "agent.readbackStart": () => ({ state: "reading" }),
+  "agent.skills": () => ({ skills: [] }),
   "agent.links": () => ({ entries: [] }),
   "agent.printedCommands": () => ({ commands: [] }),
   "agent.made": () => [],

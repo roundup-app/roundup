@@ -1,6 +1,7 @@
 //! RB2 to RB5: what `agent.readbackStart` and `agent.readback` return, the state of one Readback
 //! of an Agent's diff.
 
+use super::CompareTarget;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -122,4 +123,18 @@ pub enum Readback {
     Read(Account),
     Stale(Account),
     Failed { kind: String, cause: String },
+}
+
+/// RS1: start a Readback of the Agent's diff, optionally briefed by one of the user's Skills.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReadbackStartParams {
+    pub id: String,
+    #[serde(default)]
+    #[specta(optional, type = CompareTarget)]
+    pub to: CompareTarget,
+    /// A Skill name `agent.skills` lists for the Agent; its body is the readback's review lens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub skill: Option<String>,
 }

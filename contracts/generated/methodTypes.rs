@@ -13,7 +13,7 @@
     Method { name: "agent.changedFiles", params: "agent_ChangedFilesParams", result: "agent_ChangedFiles" },
     Method { name: "agent.repeatScan", params: "agent_ChangedFilesParams", result: "agent_ScanHits" },
     Method { name: "agent.callPaths", params: "agent_CallPathsParams", result: "agent_CallPaths" },
-    Method { name: "agent.readbackStart", params: "agent_ChangedFilesParams", result: "agent_Readback" },
+    Method { name: "agent.readbackStart", params: "agent_ReadbackStartParams", result: "agent_Readback" },
     Method { name: "agent.readback", params: "agent_ChangedFilesParams", result: "agent_Readback" },
     Method { name: "agent.ownedChanges", params: "agent_NodeId", result: "agent_OwnedChanges" },
     Method { name: "agent.compareFile", params: "agent_CompareFileParams", result: "agent_FileComparison" },

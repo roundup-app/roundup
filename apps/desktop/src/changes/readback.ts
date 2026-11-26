@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
 import type { Gap } from "@contracts/agent/Gap";
 import type { Readback } from "@contracts/agent/Readback";
+import type { ReadbackStartParams } from "@contracts/agent/ReadbackStartParams";
 import type { Events } from "../app/events";
 import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
@@ -38,6 +39,9 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
   let generation = 0;
   let wrote = false;
   let begun = false;
+  let listed = false;
+  const [skills, setSkills] = createSignal<readonly string[]>([]);
+  const [skill, setSkill] = createSignal<string | null>(null);
 
   const ask = async (method: "agent.readback" | "agent.readbackStart") => {
     const to = input.to();
@@ -46,9 +50,21 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
 
     if (!to) return;
 
-    const failure = await failureOf(async () => { answer = await input.app.rpc(method, { id: input.id, to }); });
+    const params: ReadbackStartParams = { id: input.id, to };
+    const chosen = method === "agent.readbackStart" ? skill() : null;
+
+    if (chosen !== null) params.skill = chosen;
+
+    const failure = await failureOf(async () => { answer = await input.app.rpc(method, params); });
 
     if (mine === generation) setState(failure !== null || !answer ? { state: "failed", kind: "call", cause: failure ?? "no_answer" } : answer);
+  };
+
+  /** RS5: the names `agent.skills` lists for the Agent, read once and only to offer the picker. */
+  const listSkills = async () => {
+    if (listed) return;
+    listed = true;
+    await failureOf(async () => { setSkills((await input.app.rpc("agent.skills", { id: input.id })).skills.map(each => each.name)); });
   };
 
   createEffect(() => ({ to: input.to(), ready: input.ready() }), ({ to, ready }) => {
@@ -59,6 +75,7 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     } else if (ready && !begun) {
       begun = true;
       void ask("agent.readback");
+      void listSkills();
     }
   });
 
@@ -87,6 +104,10 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
 
   return {
     state,
+    /** RS5: the Skills the user may brief the readback with, and the one picked (none until they pick). */
+    skills,
+    skill,
+    pick: (name: string | null) => setSkill(name),
     account,
     read,
     /** The gaps a diff may draw: only a result that still matches the diff. */
@@ -100,6 +121,8 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
       generation += 1;
       setState({ state: "reading" });
       void ask("agent.readbackStart");
+      // RS5: a pick is for one run; a new Overview opens with none.
+      setSkill(null);
     },
     /** The listing was read again: the diff may have changed under the result. */
     again: () => { if (begun) void ask("agent.readback"); },

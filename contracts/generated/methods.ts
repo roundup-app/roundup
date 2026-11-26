@@ -32,6 +32,7 @@ import type { PrintedCommands as agent_PrintedCommands } from "./agent/PrintedCo
 import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
 import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { Readback as agent_Readback } from "./agent/Readback";
+import type { ReadbackStartParams as agent_ReadbackStartParams } from "./agent/ReadbackStartParams";
 import type { RedoParams as agent_RedoParams } from "./agent/RedoParams";
 import type { RemoteMain as agent_RemoteMain } from "./agent/RemoteMain";
 import type { Removal as agent_Removal } from "./agent/Removal";
@@ -221,7 +222,7 @@ export type RpcMethods = {
   "agent.changedFiles": { params: agent_ChangedFilesParams; result: agent_ChangedFiles };
   "agent.repeatScan": { params: agent_ChangedFilesParams; result: agent_ScanHits };
   "agent.callPaths": { params: agent_CallPathsParams; result: agent_CallPaths };
-  "agent.readbackStart": { params: agent_ChangedFilesParams; result: agent_Readback };
+  "agent.readbackStart": { params: agent_ReadbackStartParams; result: agent_Readback };
   "agent.readback": { params: agent_ChangedFilesParams; result: agent_Readback };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };

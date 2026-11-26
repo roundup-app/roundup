@@ -190,6 +190,17 @@ impl Launcher {
         }
     }
 
+    /// RS2: the body of the user's Skill `name` for an Agent working in `cwd`, read inside the
+    /// Adapter. `None` when the Skill is not one `agent.skills` lists for that Agent.
+    pub fn skill_body(&self, cwd: &Path, root: &Path, name: &str) -> Option<String> {
+        super::skill_body(
+            self.home.as_deref().unwrap_or(Path::new("")),
+            cwd,
+            root,
+            name,
+        )
+    }
+
     /// A7686: the Readback call, which runs on `model` and `effort` (`None` is the vendor's own).
     pub fn readback_call(
         &self,
