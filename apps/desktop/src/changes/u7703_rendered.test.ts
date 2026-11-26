@@ -191,6 +191,9 @@ it("u7703f_the_stepper_is_captured_for_the_critic", async () => {
       name: "narrow",
       width: SIZE.narrow,
       run: async () => {
+        // The Rail would fill a window this narrow: collapse it so the pane shows.
+        await read("document.querySelector('.rail-toggle')?.click() ?? false");
+        await until("document.querySelector('.rail')?.dataset.collapsed === 'true'");
         await until(STEPPING);
         await next();
         await shot("narrow", stop(2));

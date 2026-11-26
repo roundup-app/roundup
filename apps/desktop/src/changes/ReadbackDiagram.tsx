@@ -61,6 +61,7 @@ export const ReadbackDiagram = (props: { text: string; stepper?: Stepper | undef
   const lit = () => props.stepper?.stops()[props.stepper.at()]?.part;
 
   return <>
+  <Show when={stepping() && props.stepper}>{stepper => <DiagramStepper stepper={stepper()} />}</Show>
   <figure class="readback-diagram" aria-label={copy.diagram} tabindex={stepping() ? 0 : undefined}>
   <For each={parseDiagram(props.text)}>{panel => <div class="readback-panel">
     <Show when={panelLabel(panel)}>{label => <p class="readback-panel-label">{label()}</p>}</Show>
@@ -71,6 +72,5 @@ export const ReadbackDiagram = (props: { text: string; stepper?: Stepper | undef
     </ul>
   </div>}</For>
   </figure>
-  <Show when={stepping() && props.stepper}>{stepper => <DiagramStepper stepper={stepper()} />}</Show>
   </>;
 };
