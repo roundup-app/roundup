@@ -9,6 +9,7 @@ import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { Account } from "@contracts/agent/Account";
 import type { Readback } from "@contracts/agent/Readback";
 
 const exec = promisify(execFile);
@@ -55,7 +56,7 @@ const LOOKUP = { languages: [{ language: "typescript", files: 2, server: { found
 
 const step = (note: string, ...hunks: string[]) => ({ note, hunks });
 
-const ACCOUNT = {
+const ACCOUNT: Account = {
   overview: "Adds a loader and a checked shout.",
   diagram: "",
   flows: [
@@ -139,7 +140,7 @@ it("u7689g_the_flows_lens_after_a_readback_is_captured_for_the_critic", async ()
 
   const states: { name: string; answer: Readback; run: () => Promise<void> }[] = [
     { name: "read", answer: READ, run: async () => { await browser("click", '.changes-side [data-row="module"]'); await shot("read", READY + " && !!document.querySelector('.flow-account') && " + said("Shout is checked")); } },
-    { name: "stale", answer: { ...READ, state: "stale" }, run: async () => { await browser("click", '.changes-side [data-row="module"]'); await shot("stale", READY + " && !!document.querySelector('.changes-row-name[data-stale=\"true\"]')"); } },
+    { name: "stale", answer: { ...ACCOUNT, state: "stale" }, run: async () => { await browser("click", '.changes-side [data-row="module"]'); await shot("stale", READY + " && !!document.querySelector('.changes-row-name[data-stale=\"true\"]')"); } },
   ];
 
   try {
