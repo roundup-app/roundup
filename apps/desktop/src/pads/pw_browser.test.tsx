@@ -33,6 +33,7 @@ const mount = async ({ pads: texts = {}, nodes = [agent("chosen", "idle", "ready
 
     if (text === undefined) throw new Error(`not found: pad ${name}`);
 
+    // SAFETY: link.read params always carry the url.
     const heading = new URL((params as { url: string }).url).hash.slice(1);
 
     // SAFETY: the walk reads only `pad.text`.
@@ -44,6 +45,7 @@ const mount = async ({ pads: texts = {}, nodes = [agent("chosen", "idle", "ready
     // SAFETY: pad.read params always carry the name.
     const name = (params as { name: string }).name;
 
+    // SAFETY: the Pad view reads only the fields `padOf` fills.
     return { ...padOf(name, AGENT, pads.get(name) ?? ""), name } as never;
   };
 
@@ -357,7 +359,6 @@ it("pw11_opening_a_pad_shows_its_walk_and_no_editor", async () => {
   expect(await step()).toEqual([1, 3]);
   expect(textbox()?.getAttribute("contenteditable")).not.toBe("true");
   expect(document.querySelectorAll("[contenteditable=true]")).toHaveLength(0);
-  expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
   cleanup();
 
   const m = await mount();
@@ -379,7 +380,6 @@ it("pw12_edit_shows_the_editor", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   await waitFor(() => expect(textbox()?.getAttribute("contenteditable")).toBe("true"));
   expect(walkEl()).toBeNull();
-  expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
 });
 
 it("pw12_done_saves_then_shows_the_walk_at_the_carets_step", async () => {

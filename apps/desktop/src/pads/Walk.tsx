@@ -24,8 +24,8 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
   const last = steps.length - 1;
   const stepAt = (at: number) => steps[at] ?? steps[last] ?? { title: props.name, text: props.text };
   const saved = untrack(() => props.storage.read()?.[props.name]);
-  const held = untrack(() => props.at ?? (props.heading === undefined ? -1 : stepOfHeading(steps, props.heading)));
-  const [index, setIndex] = createSignal(Math.min(Math.max(held >= 0 ? held : (saved ?? 1) - 1, 0), last));
+  const opened = untrack(() => props.at ?? (props.heading === undefined ? -1 : stepOfHeading(steps, props.heading)));
+  const [index, setIndex] = createSignal(Math.min(Math.max(opened >= 0 ? opened : (saved ?? 1) - 1, 0), last));
   let root: HTMLElement | undefined;
   let slide: HTMLDivElement | undefined;
   let body: HTMLDivElement | undefined;
@@ -68,7 +68,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
     void props.storage.write(all);
   };
 
-  if (held >= 0) remember(Math.min(held, last) + 1);
+  if (opened >= 0) untrack(() => remember(Math.min(opened, last) + 1));
 
   // A Back that leaves at step 1 takes focus with it; the walk takes it back, so the keys keep working.
   createEffect(() => stepAt(index()).text, text => {
