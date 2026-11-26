@@ -116,18 +116,30 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
 
   const next = () => (index() === last ? finish() : go(index() + 1));
 
+  /** PW12: E opens the editor. */
+  const editKey = (event: KeyboardEvent, onButton: boolean) => {
+    if (event.key.toLowerCase() !== "e" || !props.onEdit || onButton) return false;
+
+    props.onEdit();
+
+    return true;
+  };
+
+  const stepKey = (event: KeyboardEvent, onButton: boolean) => {
+    if (event.key === "ArrowRight" && index() < last) go(index() + 1);
+    else if (event.key === "ArrowLeft") go(index() - 1);
+    else if (event.key === "Enter" && index() === last && !onButton) finish();
+    else return false;
+
+    return true;
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
     const onButton = event.target instanceof Element && event.target.closest("button") !== null;
 
-    if (event.key === "ArrowRight" && index() < last) go(index() + 1);
-    else if (event.key === "ArrowLeft") go(index() - 1);
-    else if ((event.key === "e" || event.key === "E") && props.onEdit && !onButton) props.onEdit();
-    else if (event.key === "Enter" && index() === last && !onButton) finish();
-    else return;
-
-    event.preventDefault();
+    if (editKey(event, onButton) || stepKey(event, onButton)) event.preventDefault();
   };
 
   const outline = () => (

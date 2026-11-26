@@ -55,6 +55,10 @@ const open = async (recovery = false) => {
   };
 
   setup.connected.drawer.open(() => <ConnectedProjectContext value={setup.connected}><Body /></ConnectedProjectContext>, "key");
+
+  // PW11: a Pad with text opens as its walk; a kept draft opens in Edit.
+  if (!retained) fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Pad body" });
 
   return { ...setup, original, other, acknowledged, lateFailure, field };
@@ -89,6 +93,7 @@ it.each(["open", "closed", "other", "recreated"])("p3557c_failure_lifetime_ackno
     const current = mode === "other" ? other : { ...original, incarnation: "replacement-notes" };
     state.pads = [current, ...(mode === "other" ? [original] : [other])];
     connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={current.name} pads={() => state.pads} onLateFailure={() => {}} onAcknowledged={acknowledged} /></ConnectedProjectContext>, "key");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     await screen.findByRole("textbox", { name: "Pad body" });
   }
 
