@@ -1,7 +1,7 @@
 import { For, Match, Show, Switch } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
 import type { Gap } from "@contracts/agent/Gap";
-import { Icon } from "../ink/Icon";
+import { Icon, type IconName } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { Select } from "../ui/Select";
 import { RiskMark } from "./RiskMark";
@@ -15,7 +15,7 @@ import { ReadbackDiagram } from "./ReadbackDiagram";
 type Linking = { agent: string; listed: (path: string) => boolean; go: (gap: Gap) => void };
 
 /** U7688a, U7688b: the readback's one kind of action is an icon: its name and tooltip carry the words. */
-export const ReadbackAction = (props: { name: string; icon: "read" | "rotate-cw"; run: () => void }) => <IconButton aria-label={props.name} onClick={props.run}><Icon name={props.icon} /></IconButton>;
+export const ReadbackAction = (props: { name: string; icon: IconName; run: () => void }) => <IconButton aria-label={props.name} onClick={props.run}><Icon name={props.icon} /></IconButton>;
 
 /** U7688e: each gap with the link to its line, or without one when its file is gone from the listing. */
 const GapList = (props: { gaps: readonly Gap[] } & Linking) => <ul class="readback-gaps" aria-label={copy.gaps}>

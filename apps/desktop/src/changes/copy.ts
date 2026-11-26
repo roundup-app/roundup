@@ -265,6 +265,21 @@ export const copy = {
   explainDiagram: "Explain as diagram",
   explanation: "Explanation",
   askAgain: "Ask again",
+  /** U7700: the defect pass: its icon buttons, its states, a finding's label and its row count. */
+  findDefects: "Find defects",
+  findAgain: "Find again",
+  keepFinding: "Keep as note",
+  dropFinding: "Drop finding",
+  finding: "Finding",
+  findings: "Findings",
+  /** @prose */
+  findingsQuiet: "No defect pass has run.",
+  lookingForDefects: "Looking for defects…",
+  /** @prose */
+  findingsFailed: "Couldn't look for defects",
+  /** @prose */
+  noFindings: "The pass found no defects.",
+  findingsCount: (count: number) => `${count} ${count === 1 ? "finding" : "findings"}`,
   /** @prose */
   explainFailed: "Couldn't explain these lines",
   /** U7697: a risk mark's accessible name, and the words of a file's rank. */

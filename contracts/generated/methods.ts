@@ -21,6 +21,7 @@ import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { FetchedMain as agent_FetchedMain } from "./agent/FetchedMain";
 import type { FileComparison as agent_FileComparison } from "./agent/FileComparison";
+import type { Findings as agent_Findings } from "./agent/Findings";
 import type { GroupParams as agent_GroupParams } from "./agent/GroupParams";
 import type { HandoffParams as agent_HandoffParams } from "./agent/HandoffParams";
 import type { Instructions as agent_Instructions } from "./agent/Instructions";
@@ -226,6 +227,7 @@ export type RpcMethods = {
   "agent.callPaths": { params: agent_CallPathsParams; result: agent_CallPaths };
   "agent.readbackStart": { params: agent_ReadbackStartParams; result: agent_Readback };
   "agent.explain": { params: agent_ExplainParams; result: agent_Explanation };
+  "agent.findDefects": { params: agent_ChangedFilesParams; result: agent_Findings };
   "agent.readback": { params: agent_ChangedFilesParams; result: agent_Readback };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };

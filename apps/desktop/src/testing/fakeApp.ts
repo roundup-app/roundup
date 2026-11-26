@@ -48,6 +48,7 @@ const emptyReads: Handlers = {
   "agent.readback": () => ({ state: "notRead" }),
   "agent.readbackStart": () => ({ state: "reading" }),
   "agent.explain": () => ({ state: "explained", form: "words", text: "It adds a retry." }),
+  "agent.findDefects": () => ({ state: "found", findings: [] }),
   "agent.skills": () => ({ skills: [] }),
   "agent.links": () => ({ entries: [] }),
   "agent.printedCommands": () => ({ commands: [] }),
