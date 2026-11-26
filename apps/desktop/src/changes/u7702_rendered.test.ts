@@ -37,7 +37,7 @@ const READ: Readback = {
   unplaced: [],
   ranks: [],
   risks: [],
-  explanations: [],
+  explanations: [], stops: [],
   gaps: [],
 };
 

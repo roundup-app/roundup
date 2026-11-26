@@ -26,7 +26,7 @@ const ACCOUNT: Account = {
   unplaced: [],
   ranks: [],
   risks: [],
-  explanations: [],
+  explanations: [], stops: [],
   gaps: [{ path: "pkg/src/new.ts", said: "added a retry", quote: "line 10 new", line: 10 }],
 };
 

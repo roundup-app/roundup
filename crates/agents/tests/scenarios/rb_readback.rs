@@ -35,17 +35,17 @@ fn write(dir: &Path, name: &str, text: &str) {
     std::fs::write(dir.join(name), text).unwrap();
 }
 
-fn answer(text: &str) -> String {
+pub(super) fn answer(text: &str) -> String {
     json!({"structured_output": {"text": text}}).to_string()
 }
 
 /// The first step's answer: one flow holding `a.rs#1`, so `seed.txt#1` is unplaced.
-fn account() -> String {
+pub(super) fn account() -> String {
     with(|_| {})
 }
 
 /// `account()` after `edit` changed its JSON.
-fn with(edit: impl FnOnce(&mut Value)) -> String {
+pub(super) fn with(edit: impl FnOnce(&mut Value)) -> String {
     let mut value = json!({"overview": "It adds a.rs.", "diagram": "a -> b", "modules": [{"module": "m", "account": "x"}],
         "flows": [{"id": "f", "name": "Add", "steps": [{"note": "adds", "hunks": ["a.rs#1"]}]}],
         "ranks": [{"hunk": "a.rs#1", "rank": "core"}, {"hunk": "seed.txt#1", "rank": "glue"}],
@@ -59,7 +59,7 @@ fn gaps(found: Value) -> String {
     json!({"gaps": found}).to_string()
 }
 
-struct Rb {
+pub(super) struct Rb {
     f: Fixture,
     id: String,
     path: PathBuf,
@@ -68,7 +68,7 @@ struct Rb {
 
 /// An Agent in a Worktree of its own, whose diff is a new `a.rs` and a changed `seed.txt`; the
 /// fake answers launch `n` with `replies[n]`.
-async fn rb(replies: &[String]) -> Rb {
+pub(super) async fn rb(replies: &[String]) -> Rb {
     let f = Fixture::in_git_project(SCRIPT, Git::from_env());
     write(f.dir.path(), "seed.txt", "a\nb\n");
     git(f.dir.path(), &["add", "-A"]);
@@ -99,7 +99,7 @@ async fn rb(replies: &[String]) -> Rb {
 }
 
 impl Rb {
-    async fn start(&self) -> Value {
+    pub(super) async fn start(&self) -> Value {
         self.f
             .call("agent.readbackStart", json!({"id": self.id}))
             .await
@@ -112,7 +112,7 @@ impl Rb {
             .unwrap()
     }
     /// The state once the run has left `reading`.
-    async fn settled(&self) -> Value {
+    pub(super) async fn settled(&self) -> Value {
         let mut tick = tokio::time::interval(Duration::from_millis(50));
         for _ in 0..200 {
             tick.tick().await;

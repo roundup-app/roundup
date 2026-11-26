@@ -134,6 +134,8 @@ export const copy = {
     /** @prose */
     "W explains the selected lines in words, D as a diagram.",
     /** @prose */
+    "Left and Right move between a focused diagram's stops.",
+    /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
     "V marks the open item viewed and opens the next one.",
@@ -319,6 +321,11 @@ export const copy = {
   diagramCalls: (from: string, to: string) => `${from} calls ${to}`,
   /** @prose */
   diagramFailed: "Couldn't draw the diagram",
+  /** U7703: the diagram's stepper: its group, its two icon buttons and the stop count. */
+  stepDiagram: "Step through diagram",
+  previousStop: "Previous stop",
+  nextStop: "Next stop",
+  stopCount: sharedCopy.ofTotal,
   /** U7690c: the jump list. */
   jumpToNote: "Jump to note",
   jumpPlaceholder: "Find a note",

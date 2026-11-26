@@ -1,11 +1,13 @@
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
+import type { DiagramStop } from "@contracts/agent/DiagramStop";
 import type { Gap } from "@contracts/agent/Gap";
 import type { Readback } from "@contracts/agent/Readback";
 import type { ReadbackStartParams } from "@contracts/agent/ReadbackStartParams";
 import type { Events } from "../app/events";
 import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
+import { stopsOf } from "./diagram";
 import type { Read } from "./flows";
 import { watchTurns } from "./owned";
 import type { Span } from "./repeats";
@@ -30,6 +32,9 @@ export const failureCause = (state: Readback): string | undefined => state.state
 /** U7688e: the place a gap points at, one line of its file's new side. */
 export const spanOf = (gap: Gap): Span => ({ path: gap.path, start: gap.line, end: gap.line });
 
+/** U7703b: where the stepper stands: the stops to step, the one lit, and the move, which asks the Daemon nothing. */
+export type Stepper = { stops: () => readonly DiagramStop[]; at: () => number; go: (direction: 1 | -1) => void };
+
 /**
  * U7688a, U7688b: the readback of the open comparison. `agent.readback` is read once the listing is ready, every second while it reads, when a turn that wrote ends and when the listing is read again; `agent.readbackStart` is asked only by `start`, the user's action (P9), and never while one reads.
  * A new `to` ends what ran: its answers are dropped. A comparison with no Worktree (`to` null) has no readback.
@@ -42,6 +47,7 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
   let listed = false;
   const [skills, setSkills] = createSignal<readonly string[]>([]);
   const [skill, setSkill] = createSignal<string | null>(null);
+  const [stop, setStop] = createSignal(0);
 
   const ask = async (method: "agent.readback" | "agent.readbackStart") => {
     const to = input.to();
@@ -71,6 +77,7 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     if (!to) {
       generation += 1;
       begun = false;
+      setStop(0);
       setState({ state: "notRead" });
     } else if (ready && !begun) {
       begun = true;
@@ -95,6 +102,17 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
   const account = createMemo(() => accountOf(state()));
   const placed = createMemo(() => state().state === "read" ? gapsOf(account()) : NONE);
 
+  // U7703: the stops the account's diagram can light; the position is kept across a result that replaces the last while it reads, clamped to the new count.
+  const stops = createMemo(() => {
+    const each = account();
+
+    return each ? stopsOf(each) : [];
+  });
+
+  const clamp = (position: number) => Math.min(Math.max(position, 0), Math.max(stops().length - 1, 0));
+  const at = () => clamp(stop());
+  const stepper: Stepper = { stops, at, go: direction => setStop(clamp(at() + direction)) };
+
   // U7689: the readback the lists are drawn from, and whether the diff has moved on since.
   const read = createMemo((): Read | undefined => {
     const each = account();
@@ -112,6 +130,8 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     read,
     /** The gaps a diff may draw: only a result that still matches the diff. */
     placed,
+    /** U7703b: the diagram's stepper: it opens on the first stop, a new run starts there again and no step is a call. */
+    stepper,
     available: () => input.to() !== null,
     /** U7689c: the user may start one: a comparison with a Worktree and no run yet. */
     offered: () => input.to() !== null && state().state === "notRead",
@@ -119,6 +139,7 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     start: () => {
       if (!input.to() || state().state === "reading") return;
       generation += 1;
+      setStop(0);
       setState({ state: "reading" });
       void ask("agent.readbackStart");
       // RS5: a pick is for one run; a new Overview opens with none.

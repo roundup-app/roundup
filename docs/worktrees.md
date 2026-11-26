@@ -33,7 +33,7 @@ P5 says "a dropped or rejected Agent leaves no worktree and no branch". The user
 | `agent.readbackStart` | `{id, to?}` | `{state: "reading"}`, or `{state: "failed", kind, cause}` at once (RB2, RB8); the user's call only |
 | `agent.explain` | `{id, to?, path, side: "old" \| "new", start, end, form: "words" \| "diagram"}` | `{state: "explained", form, text}`, or `{state: "failed", kind, cause}` (RB13 to RB15); one blocking call, the user's only, and the Daemon keeps nothing |
 | `agent.findDefects` | `{id, to?}` | `{state: "found", findings: [{path, start, end, source, text, label: "issue" \| "nit"}]}`, or `{state: "failed", kind, cause}` (RB18 to RB20); one blocking call, the user's only, and the Daemon keeps nothing |
-| `agent.readback` | `{id, to?}` | `{state: "notRead" \| "reading" \| "read" \| "stale" \| "failed", ...}`; a result holds `{overview, diagram, flows, modules, unplaced, ranks, risks, explanations, gaps}` (RB3, RB5, RB7, RB16) |
+| `agent.readback` | `{id, to?}` | `{state: "notRead" \| "reading" \| "read" \| "stale" \| "failed", ...}`; a result holds `{overview, diagram, flows, modules, unplaced, ranks, risks, explanations, stops, gaps}` (RB3, RB5, RB7, RB16, RB21) |
 | `agent.ownedChanges` | `{id}` | `{groups: [{repo, branch, base, files: [{path, status, line, from?}]}]}` (U7186a) |
 | `agent.land` | `{id}` | `{base}` |
 | `agent.discard` | `{id}` | `null` |

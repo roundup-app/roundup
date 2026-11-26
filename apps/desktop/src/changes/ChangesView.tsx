@@ -84,7 +84,7 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { jump: () => void; readback: () => void; viewed: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; noteRow: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
+type KeyActions = { jump: () => void; stop: (direction: 1 | -1) => void; readback: () => void; viewed: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; noteRow: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
@@ -111,6 +111,8 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   } },
   { chords: ["g"], when: event => !typing(event), run: event => { event.preventDefault(); actions.jump(); } },
   { chords: ["r"], when: event => !typing(event), run: event => { event.preventDefault(); actions.readback(); } },
+  { chords: ["ArrowLeft"], when: event => onDiagram(event), run: event => { event.preventDefault(); actions.stop(-1); } },
+  { chords: ["ArrowRight"], when: event => onDiagram(event), run: event => { event.preventDefault(); actions.stop(1); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.enter(); } },
 ]);
@@ -126,6 +128,9 @@ const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? rep
 
 /** U7676b: N, E and Delete act on the focused diff, never while a field or the editor holds the key. */
 const inDiff = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".diff-reader") !== null;
+
+/** U7703c: Left and Right step the diagram only while the figure itself holds focus. */
+const onDiagram = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.matches(".readback-diagram");
 
 /** U7691a: N on a list row notes its module, flow or file. */
 const inTree = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".changes-tree") !== null;
@@ -466,7 +471,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, itemOutdated: note => outdatedItem(note, files(), item => flowListed(item, { traced: calls.done().length > 0, read: readback.read() !== undefined }, () => lensed()("flows").modules)), section: () => section, open: openPath });
 
-  registerChangesKeys(() => section, { jump: jump.open, readback: readback.start, viewed: viewed.markOpen, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, noteRow: () => noteOnRow(treeFocus(), listing().modules, opened(), diffKeys), diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
+  registerChangesKeys(() => section, { jump: jump.open, stop: readback.stepper.go, readback: readback.start, viewed: viewed.markOpen, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, noteRow: () => noteOnRow(treeFocus(), listing().modules, opened(), diffKeys), diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);

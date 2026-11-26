@@ -30,7 +30,7 @@ const LOADER: LineExplanation = { path: NEW, start: 8, end: 9, source: "added 8\
 
 const WIRING: LineExplanation = { path: NEW, start: 14, end: 14, source: "added 14", text: "Wires it into run." };
 
-const account = (over: Partial<Account> = {}): Account => ({ overview: "Adds a loader.", diagram: "", flows: [], modules: [], unplaced: [], ranks: [], risks: [], explanations: [LOADER, WIRING], gaps: [], ...over });
+const account = (over: Partial<Account> = {}): Account => ({ overview: "Adds a loader.", diagram: "", flows: [], modules: [], unplaced: [], ranks: [], risks: [], explanations: [LOADER, WIRING], stops: [], gaps: [], ...over });
 
 type Daemon = { blob: string; changed: (line: number) => string; readback: Readback; explain: (params: { start: number }) => Explanation };
 
