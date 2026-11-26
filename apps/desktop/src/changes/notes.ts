@@ -282,8 +282,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
-
-
+  const { kept, unkeep, gone, undo, removedNote } = createNoteMemory<Note>(new Map([...restored].map(([id, value]) => [id, { notes: value.notes.filter(note => note.sent === undefined) }])), (id, note) => retain(id, { ...recipient(id), notes: [...recipient(id).notes, note].sort((left, right) => left.id - right.id) }));
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 
