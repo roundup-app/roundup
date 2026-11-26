@@ -20,6 +20,7 @@ import { contextMenu, linkEntries } from "../../ui/contextMenu";
 import type { MenuEntry } from "../../ui/contextMenu";
 import { offered } from "./entries";
 import { createModeRestart } from "./modeRestart";
+import { createAgentRestart, isRunning } from "./agentRestart";
 import type { Candidate } from "./entries";
 
 /** What the Rail's confirm is about, with the data its answer needs. A removal's consequences are read before anything is asked. */
@@ -49,10 +50,6 @@ type RailMenuDeps = {
   known: () => Known | null;
 };
 
-/** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
-const isRunning = (node: RailNode, exit: ExitState | null) =>
-  isDoor(node) && exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
-
 const needsConfirmation = (node: RailNode, exit: ExitState | null) =>
   isDoor(node) && isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
@@ -67,7 +64,7 @@ const handOff = async ({ app, rail }: Pick<RailMenuDeps, "app" | "rail">, node: 
 export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, rename, queue, extra, feedback, known }: RailMenuDeps) => {
   const [state, setState] = createSignal<Confirming | null>(null);
   let removingSelection = false;
-  const resuming = new Set<string>();
+  const { restart } = createAgentRestart(app, rail, onFailure);
   const { restartMode, restartRow, playRow, restartPending } = createModeRestart(app, rail, (node, exit) => requestRestart(node, exit));
 
   const lossesOf = (chosen: readonly RailNode[]) => chosen.flatMap(node => [
@@ -260,37 +257,6 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
       case "remove-selection": return removeSelection(current);
       case "reading-selection": return;
     }
-  };
-
-  /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line (U7191c). An exited row is selected, and a reply lost after the send refreshes the row and shows the failure, with no second start while one is pending. */
-  const restart = async (node: RailNode, mode: "normal" | "yolo"): Promise<void> => {
-    const id = node.id;
-    const exited = !isRunning(node, rail.exitOf(node));
-
-    if (resuming.has(id)) return;
-
-    resuming.add(id);
-
-    if (exited) rail.select(id);
-
-    try {
-      await railCommand(rail, {
-        item: id,
-        // U5991a: the row shows running now; the refresh or a failure lifts the pending change.
-        draw: () => {
-          const release = rail.launch(id);
-          const lift = exited ? rail.drawExit(id, null) : () => {};
-
-          return () => { lift(); release(); };
-        },
-        call: () => app.rpc("agent.resume", { id, mode }),
-        unknown: async () => {
-          await rail.refresh({ terminals: true });
-
-          if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
-        },
-      });
-    } finally { resuming.delete(id); }
   };
 
   /** A5214a: `agent.makeWorkstream`; the row then shows as a Workstream, or the Daemon's message shows. */

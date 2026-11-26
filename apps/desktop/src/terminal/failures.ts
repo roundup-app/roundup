@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { coreFailureText } from "./coreFailure";
+import { coreFailureText } from "../coreFailure";
 
 type FailureEntry = { message: string; order: number; retry: (() => void) | null };
 

@@ -3,6 +3,7 @@ import { applying } from "../app/pending";
 import type { Applied } from "../app/pending";
 import { unknownOutcomeLine } from "../app/failureOf";
 import { RpcError } from "../app/seam";
+import { coreFailureText } from "../coreFailure";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { isDoor } from "../state/doorNode";
 import type { RailState } from "../state/rail";
@@ -72,10 +73,8 @@ export const railCommand = async <R>(
   else if (outcome.kind === "pending")
     rail.commandFailure.show(unknownOutcomeLine(outcome.error), command.item ?? null, "rail", command.retryUnknown ?? null, true);
   else {
-    const message =
-      command.label === undefined
-        ? outcome.error.message
-        : `${command.label}: ${outcome.error.message}`;
+    const text = coreFailureText(outcome.error.message);
+    const message = command.label === undefined ? text : `${command.label}: ${text}`;
 
     rail.commandFailure.show(
       message,

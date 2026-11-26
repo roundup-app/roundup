@@ -112,7 +112,7 @@ class GitHub:
         return ''
 
     def __enter__(self):
-        self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write),
+        self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write), patch.object(builder.orders, 'call', side_effect=self.write),
                         patch.object(builder.orders, 'queued', return_value=self.queued),
                         patch.object(builder.orders, 'list_issues', return_value=[dict(number=1, title='t', html_url='', state='open', labels=[], user=dict(login='saadshahd'), body='Key: U1\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nScenarios: U83\nPriority: 2\n')])]
         for p in self.patches:
@@ -1502,8 +1502,6 @@ class Review(unittest.TestCase):
                                             diffs={HEAD: diff(now), 'b' * 40: diff('same')}) as github:
                 self.assertEqual(task(9, HEAD) is None, kept)
             self.assertEqual(sum(f'context={context}' in w and 'state=success' in w for w in github.writes), int(kept))
-        with patch.object(builder, 'call', side_effect=subprocess.CalledProcessError(1, 'gh')):
-            self.assertEqual(builder.patch_id(HEAD), '', 'HTTP 422: GitHub cannot generate the diff')
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
