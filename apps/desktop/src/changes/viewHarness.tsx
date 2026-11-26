@@ -190,7 +190,7 @@ export const switchedTo = async (name: string) => {
 
 export const pane = () => screen.getByRole("region", { name: copy.overview });
 
-/** Registers what every test of the Changes view runs: scroll writes are recorded, and each test's DOM, timers and mocks are reset. */
+/** Registers what every test of the Changes view runs: the move reader is a stand-in that finds no moves, scroll writes are recorded, and each test's DOM, timers and mocks are reset. */
 export const setUpView = () => {
   beforeEach(() => {
     vi.stubGlobal("IntersectionObserver", IdleObserver);

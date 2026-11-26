@@ -43,7 +43,7 @@ export const createGapped = (gaps: () => readonly Gap[] | undefined, only: () =>
   return span ? [{ gapped: true as const, side: "new" as const, ...span, gap }] : [];
 }), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.gap === b[at]?.gap) });
 
-/** U7696a: a move marks the lines a file shows of its first range, to the line that names its other place; the objects stay while the moves do, so a mark is not drawn again. */
+/** U7696a: a move marks the lines a file shows of its first range, to the line that names its other place; the objects stay while the moves do, so a mark is not drawn again; nothing here reads a file, the Worker does. */
 export const createMoving = (moves: () => readonly Moved[] | undefined, only: () => Takes | undefined) => createMemo((): readonly Movement[] => (moves() ?? []).flatMap(moved => {
   const span = moved.lines[0] && shownSpan(moved.lines[0], only());
 
