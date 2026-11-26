@@ -218,7 +218,7 @@ const stamped = (note: Note, message: Message): Note => {
 };
 
 /** U7956a: a Message landing turns the notes it carried Sent; one folded into a later delivery (`merged`) lands with the next delivery to its Agent. */
-const createLanding = <R extends { notes: Note[] }>(recipients: () => ReadonlyMap<string, R>, retain: (key: string, value: R) => unknown) => {
+const createLanding = <R extends { notes: Note[] }>(recipients: () => ReadonlyMap<string, R>, retain: (key: string, value: R) => Promise<void> | void) => {
   const merged = new Map<number, string>();
   const waiting = (note: Note, ids: Set<number>) => note.message !== undefined && note.landed === undefined && ids.has(note.message);
 
@@ -281,9 +281,12 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
     return sent().get(id) ?? { kind: "idle", text: "" };
   };
-  const { kept, unkeep, gone, undo, removedNote } = createNoteMemory<Note>(new Map([...restored].map(([id, value]) => [id, { notes: value.notes.filter(note => note.sent === undefined) }])), (id, note) => retain(id, { ...recipient(id), notes: [...recipient(id).notes, note].sort((left, right) => left.id - right.id) }));
+
+
+
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
+
   const clearItem = (id: string, note: number) => {
     const failed = sent().get(id);
 

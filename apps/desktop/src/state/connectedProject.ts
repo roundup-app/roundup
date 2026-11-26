@@ -256,9 +256,12 @@ export const connectProject = async (
   serveActions(app).catch(error => console.error(copy.actionsUnregistered, error));
 
   // U7956a: the notes the Agent has not yet been given turn Sent as their Messages land.
-  inChildren(() => { const stop = notesFor(app, project.path, drafts).follow(events); onCleanup(stop);
+  inChildren(() => { const stop = notesFor(app, project.path, drafts).follow(events);
 
- return stop; });
+    onCleanup(stop);
+
+    return stop;
+  });
 
   const rail = inChildren(() => createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path)));
 
