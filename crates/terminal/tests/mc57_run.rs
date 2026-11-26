@@ -41,7 +41,7 @@ async fn mc57_no_test_reaches_the_users_core_run() {
     assert!(!mark.exists(), "the user's core was started");
 }
 
-/// MC56: the first start fails because the core closes its pipe; Retry reconnects and starts the
+/// MC56: the first start fails because the core closes its pipe; the retry reconnects and starts the
 /// program once.
 #[tokio::test]
 async fn mc56_retry_after_connection_closed_succeeds() {
@@ -77,10 +77,7 @@ async fn mc56_retry_after_connection_closed_succeeds() {
         rows: 24,
         machine: None,
     };
-    assert!(
-        terminals.spawn(params()).await.is_err(),
-        "the first start fails"
-    );
+    // The first start fails, the closed core is reopened and the start retried (U7191e).
     let started = terminals.spawn(params()).await.unwrap();
     assert!(terminals.core_record(&started.id).unwrap().is_some());
     assert_eq!(std::fs::read_to_string(&count).unwrap().lines().count(), 2);

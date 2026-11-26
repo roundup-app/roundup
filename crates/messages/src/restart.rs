@@ -116,6 +116,43 @@ impl Messages {
         store.atomically(|s| s.reserve_restart(agent, key, binding(node).0, first_prompt))
     }
 
+    /// U7191d: a new user Restart under `key` takes over every other hold on `agent`: the
+    /// coordinator stopped that program before it started this one, so the old hold guards nothing.
+    pub async fn take_over_restart(&self, agent: &str, key: &str) -> Result<(), Error> {
+        let _delivery = self.inner.delivery.write().await;
+        self.store()?
+            .db
+            .execute(
+                "UPDATE message_restarts SET released=-1 WHERE agent=? AND key!=? AND released IS NULL",
+                rusqlite::params![agent, key],
+            )
+            .map_err(Error::internal)?;
+        // A retirement whose removal failed leaves the Agent on the Rail; it guards nothing now.
+        self.store()?
+            .db
+            .execute(
+                "DELETE FROM message_retirements WHERE agent=? AND completed=0",
+                [agent],
+            )
+            .map_err(Error::internal)?;
+        Ok(())
+    }
+
+    /// U7191d: free the hold `key` of a failure that proved nothing was typed. A hold that already
+    /// recorded its prompt as a note stays.
+    pub async fn free_restart(&self, agent: &str, key: &str) -> Result<(), Error> {
+        let _delivery = self.inner.delivery.write().await;
+        self.store()?
+            .db
+            .execute(
+                "DELETE FROM message_restarts WHERE agent=? AND key=? AND released IS NULL AND note IS NULL",
+                rusqlite::params![agent, key],
+            )
+            .map_err(Error::internal)?;
+        nudge(&self.inner, agent).await;
+        Ok(())
+    }
+
     /// After the coordinator has observed the matching SessionStart AND first-prompt
     /// acknowledgement, record its reserved text as one delivered user note. Never Steers.
     /// A recording or Touch failure is retryable with the same key, without retyping the prompt.

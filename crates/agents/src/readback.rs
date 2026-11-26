@@ -5,8 +5,8 @@
 use super::*;
 use crate::worktree::{DiffInput, Hunk};
 use contracts::agent::{
-    Account, CallPathsAnswer, CompareTarget, FlowSource, Gap, Gaps, ModuleNote, ReadFlow,
-    ReadFlowStep, Readback,
+    Account, CallPathsAnswer, CompareTarget, FlowSource, Gap, Gaps, HunkRank, ModuleNote, Rank,
+    ReadFlow, ReadFlowStep, Readback, Risk, RiskLevel, RiskTarget,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -18,9 +18,15 @@ const MAX_HUNKS: usize = 400;
 const ACCOUNT_SYSTEM: &str = "You read a code change and write a readback of it. Your input is \
 JSON: `hunks` (each {id, path, text}) and `flows` (call paths already read from the code, each \
 {id, entry, hunks}: hunk ids in call order). Reply with one JSON object and nothing else: \
-{\"overview\": two or three sentences, \"diagram\": a small text diagram of the parts and calls \
-(before and after where the shape changed), \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
-\"hunks\": [hunk ids]}]}], \"modules\": [{\"module\", \"account\"}]}. Keep each given flow under \
+{\"overview\": two or three sentences, \"diagram\": a small text diagram, one call per line as \
+`A -> B` (a chain `A -> B -> C` is allowed), with a line `Before` or `After` starting each panel \
+where the shape changed, \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
+\"hunks\": [hunk ids]}]}], \"modules\": [{\"module\", \"account\"}], \"ranks\": [{\"hunk\": hunk id, \"rank\": \"core\" \
+(the change itself), \"forced\" (what it forces elsewhere: a caller, a type, a migration) or \
+\"glue\" (wiring, plumbing, re-exports, renames)}] with one entry for every hunk id, \"risks\": \
+[{\"target\": \"flow\" or \"module\", \"id\": the flow id or the module name, \"level\": \"high\", \
+\"medium\" or \"low\", \"reason\": one sentence}] with one entry for every flow and every module}. \
+Judge rank and risk from what the change does, never from a file name or size. Keep each given flow under \
 its id with exactly its hunks in its order; you may add flows under new ids. Use only hunk ids \
 from the input.";
 
@@ -218,6 +224,22 @@ struct RawAccount {
     diagram: String,
     flows: Vec<RawFlow>,
     modules: Vec<ModuleNote>,
+    ranks: Vec<RawRank>,
+    risks: Vec<RawRisk>,
+}
+
+#[derive(Deserialize)]
+struct RawRank {
+    hunk: String,
+    rank: String,
+}
+
+#[derive(Deserialize)]
+struct RawRisk {
+    target: String,
+    id: String,
+    level: String,
+    reason: String,
 }
 
 #[derive(Deserialize)]
@@ -234,6 +256,120 @@ fn json_in<T: for<'de> Deserialize<'de>>(text: &str) -> Result<T, String> {
         .map(|(start, end)| &text[start..=end])
         .unwrap_or(text);
     serde_json::from_str(object).map_err(|err| err.to_string())
+}
+
+/// RB10: one rank for every hunk id of the input, and no other; refused naming the hunk.
+fn ranks(raw: Vec<RawRank>, hunks: &[Hunk]) -> Result<Vec<HunkRank>, String> {
+    let mut out: Vec<HunkRank> = Vec::new();
+    for given in raw {
+        if !hunks.iter().any(|hunk| hunk.id == given.hunk) {
+            return Err(format!(
+                "rank for hunk {} which is in no part of the diff",
+                given.hunk
+            ));
+        }
+        let rank = match given.rank.as_str() {
+            "core" => Rank::Core,
+            "forced" => Rank::Forced,
+            "glue" => Rank::Glue,
+            other => {
+                return Err(format!(
+                    "hunk {} has rank {other:?}, not core, forced or glue",
+                    given.hunk
+                ));
+            }
+        };
+        match out.iter().find(|seen| seen.hunk == given.hunk) {
+            Some(seen) if seen.rank != rank => {
+                return Err(format!("hunk {} has two different ranks", given.hunk));
+            }
+            Some(_) => {}
+            None => out.push(HunkRank {
+                hunk: given.hunk,
+                rank,
+            }),
+        }
+    }
+    match hunks
+        .iter()
+        .find(|hunk| out.iter().all(|rank| rank.hunk != hunk.id))
+    {
+        Some(hunk) => Err(format!("hunk {} has no rank", hunk.id)),
+        None => Ok(out),
+    }
+}
+
+/// RB11: one risk for every flow and every module, with a reason; refused naming it.
+fn risks(
+    raw: Vec<RawRisk>,
+    flows: &[ReadFlow],
+    modules: &[ModuleNote],
+) -> Result<Vec<Risk>, String> {
+    let mut out: Vec<Risk> = Vec::new();
+    for given in raw {
+        let target = match given.target.as_str() {
+            "flow" if flows.iter().any(|flow| flow.id == given.id) => RiskTarget::Flow,
+            "module" if modules.iter().any(|note| note.module == given.id) => RiskTarget::Module,
+            "flow" | "module" => {
+                return Err(format!(
+                    "risk for {} {} which the readback does not name",
+                    given.target, given.id
+                ));
+            }
+            other => {
+                return Err(format!(
+                    "risk for {} has target {other:?}, not flow or module",
+                    given.id
+                ));
+            }
+        };
+        let level = match given.level.as_str() {
+            "high" => RiskLevel::High,
+            "medium" => RiskLevel::Medium,
+            "low" => RiskLevel::Low,
+            other => {
+                return Err(format!(
+                    "{} {} has risk level {other:?}, not high, medium or low",
+                    given.target, given.id
+                ));
+            }
+        };
+        if given.reason.trim().is_empty() {
+            return Err(format!(
+                "{} {} has a risk with no reason",
+                given.target, given.id
+            ));
+        }
+        if out
+            .iter()
+            .any(|seen| seen.target == target && seen.id == given.id)
+        {
+            return Err(format!("{} {} has two risks", given.target, given.id));
+        }
+        out.push(Risk {
+            target,
+            id: given.id,
+            level,
+            reason: given.reason,
+        });
+    }
+    let missing = flows
+        .iter()
+        .map(|flow| (RiskTarget::Flow, "flow", flow.id.as_str()))
+        .chain(
+            modules
+                .iter()
+                .map(|note| (RiskTarget::Module, "module", note.module.as_str())),
+        );
+    for (target, word, id) in missing {
+        if out
+            .iter()
+            .all(|seen| seen.target != target || seen.id != id)
+        {
+            return Err(format!("{word} {id} has no risk"));
+        }
+    }
+    Ok(out)
 }
 
 /// RB3: the answer in the fixed shape, with `unplaced` computed here; refused with a cause when
@@ -280,11 +416,15 @@ fn account(text: &str, hunks: &[Hunk], code: &[CodeFlow]) -> Result<Account, Str
     {
         return Err(format!("flow {} of the code is missing", missing.id));
     }
+    let ranks = ranks(raw.ranks, hunks)?;
+    let risks = risks(raw.risks, &flows, &raw.modules)?;
     Ok(Account {
         overview: raw.overview,
         diagram: raw.diagram,
         flows,
         modules: raw.modules,
+        ranks,
+        risks,
         unplaced: hunks
             .iter()
             .filter(|h| !placed.contains(&h.id))
@@ -399,9 +539,27 @@ impl Agents {
         &self,
         id: &str,
         to: CompareTarget,
+        skill: Option<&str>,
     ) -> Result<Readback, RpcError> {
         let worktree = self.readback_worktree(id)?;
         let key = key(id, to);
+        let lens = match skill {
+            None => None,
+            Some(name) => match self.shared.rail_view.launcher.skill_body(
+                &worktree.path,
+                self.project_dir(),
+                name,
+            ) {
+                Some(body) => Some(body),
+                None => {
+                    // RS3: no run starts, and the kept result stays as it was.
+                    return Ok(state(&failed(
+                        "call",
+                        format!("the Skill \"{name}\" is not one of this Agent's Skills"),
+                    )));
+                }
+            },
+        };
         {
             let mut runs = self
                 .shared
@@ -465,7 +623,7 @@ impl Agents {
             .unwrap_or_default();
         let shared = Arc::clone(&self.shared);
         tokio::spawn(async move {
-            let entry = run(&call, input, flows, last_message).await;
+            let entry = run(&call, input, flows, last_message, lens.as_deref()).await;
             shared.readbacks.set(key, entry);
         });
         Ok(Readback::Reading)
@@ -479,6 +637,7 @@ async fn run(
     input: DiffInput,
     flows: Vec<CodeFlow>,
     last_message: Option<String>,
+    lens: Option<&str>,
 ) -> Entry {
     let hunks: Vec<_> = input
         .hunks
@@ -486,7 +645,7 @@ async fn run(
         .map(|hunk| json!({"id": hunk.id, "path": hunk.path, "text": hunk.text}))
         .collect();
     let stdin = json!({"hunks": hunks, "flows": flows}).to_string();
-    let text = match call.read(ACCOUNT_SYSTEM, stdin.as_bytes()).await {
+    let text = match call.read(ACCOUNT_SYSTEM, lens, stdin.as_bytes()).await {
         Ok(text) => text,
         Err(cause) => return failed("call", cause),
     };
@@ -497,7 +656,7 @@ async fn run(
     if let Some(said) = last_message.filter(|said| !said.trim().is_empty()) {
         let stdin = json!({"account": &account, "hunks": hunks, "last_message": said}).to_string();
         account.gaps = match call
-            .read(GAPS_SYSTEM, stdin.as_bytes())
+            .read(GAPS_SYSTEM, None, stdin.as_bytes())
             .await
             .and_then(|text| gaps(&text, &input.hunks))
         {
@@ -569,7 +728,18 @@ mod tests {
     }
 
     fn reply(flows: Value) -> String {
-        json!({"overview": "o", "diagram": "d", "modules": [], "flows": flows}).to_string()
+        let ranks: Vec<_> = hunks()
+            .iter()
+            .map(|hunk| json!({"hunk": hunk.id, "rank": "core"}))
+            .collect();
+        let risks: Vec<_> = flows
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|flow| json!({"target": "flow", "id": flow["id"], "level": "low", "reason": "r."}))
+            .collect();
+        json!({"overview": "o", "diagram": "d", "modules": [], "flows": flows, "ranks": ranks, "risks": risks})
+            .to_string()
     }
 
     fn flow(id: &str, ids: &[&str]) -> Value {

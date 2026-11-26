@@ -1,6 +1,7 @@
 //! RB2 to RB5: what `agent.readbackStart` and `agent.readback` return, the state of one Readback
 //! of an Agent's diff.
 
+use super::CompareTarget;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -55,7 +56,51 @@ pub enum Gaps {
     Failed { failed: String },
 }
 
-/// A read Readback (RB3). `unplaced` is computed by the Daemon: the hunk ids no flow holds.
+/// RB10: how much of the change a hunk is: `core` (the change itself), `forced` (what it forces
+/// elsewhere) or `glue` (wiring), in that order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Rank {
+    Core,
+    Forced,
+    Glue,
+}
+
+/// RB10: the rank of one hunk id of the run's input.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct HunkRank {
+    pub hunk: String,
+    pub rank: Rank,
+}
+
+/// RB11: how much a flow or module deserves a closer look.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskLevel {
+    High,
+    Medium,
+    Low,
+}
+
+/// RB11: what a risk is about: a `ReadFlow` id or a module's name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskTarget {
+    Flow,
+    Module,
+}
+
+/// RB11: the risk of one flow or module, with its one-sentence reason.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct Risk {
+    pub target: RiskTarget,
+    pub id: String,
+    pub level: RiskLevel,
+    pub reason: String,
+}
+
+/// A read Readback (RB3). `ranks` holds one rank per hunk id of the input (RB10) and `risks` one
+/// risk per flow and module (RB11). `unplaced` is computed by the Daemon: the hunk ids no flow holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Account {
     pub overview: String,
@@ -63,6 +108,8 @@ pub struct Account {
     pub flows: Vec<ReadFlow>,
     pub modules: Vec<ModuleNote>,
     pub unplaced: Vec<String>,
+    pub ranks: Vec<HunkRank>,
+    pub risks: Vec<Risk>,
     pub gaps: Gaps,
 }
 
@@ -76,4 +123,18 @@ pub enum Readback {
     Read(Account),
     Stale(Account),
     Failed { kind: String, cause: String },
+}
+
+/// RS1: start a Readback of the Agent's diff, optionally briefed by one of the user's Skills.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReadbackStartParams {
+    pub id: String,
+    #[serde(default)]
+    #[specta(optional, type = CompareTarget)]
+    pub to: CompareTarget,
+    /// A Skill name `agent.skills` lists for the Agent; its body is the readback's review lens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub skill: Option<String>,
 }

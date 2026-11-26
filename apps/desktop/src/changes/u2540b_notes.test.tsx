@@ -8,7 +8,7 @@ import { agent, event } from "../testing/nodes";
 import { WORKTREE } from "./harness";
 import { message } from "../testing/centreFixture";
 import { afterEach, expect, it, vi } from "vitest";
-import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, startNote, openBatch, leaveNote } from "./noteHarness";
+import { COMPARISON, noteList, openDiff, openFile, saveNote, openChanges, beginNote, nextNote, startNote, openBatch, leaveNote } from "./noteHarness";
 
 import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
@@ -29,8 +29,10 @@ const annotations = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.c
 
 it("u5646b_annotation_updates_keep_content", async () => {
   const { connected } = await openDiff();
-  await waitFor(() => expect(processFile).toHaveBeenCalledTimes(1));
-  const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
+  await waitFor(() => expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.some(([input]) => input?.fileDiff?.name === "src/a.ts")).toBe(true));
+  // The module that opens by itself draws its first file before the chosen one: only what the notes add to the chosen file's draw counts.
+  const drawn = { patches: vi.mocked(createTwoFilesPatch).mock.calls.length, parsed: vi.mocked(processFile).mock.calls.length, diffs: vi.mocked(VirtualizedFileDiff).mock.calls.length, renders: vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff).length };
+  const click = vi.mocked(VirtualizedFileDiff).mock.calls.at(-1)![0]!.onLineNumberClick!;
 
   for (const lineNumber of [1, 2]) {
     click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey: lineNumber === 2 }) });
@@ -49,19 +51,18 @@ it("u5646b_annotation_updates_keep_content", async () => {
   await openBatch();
   fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
   await waitFor(() => expect(annotations()).toEqual([]));
-  expect(createTwoFilesPatch).toHaveBeenCalledTimes(1);
-  expect(processFile).toHaveBeenCalledTimes(1);
-  expect(VirtualizedFileDiff).toHaveBeenCalledTimes(1);
-  expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff)).toHaveLength(1);
-  startNote();
+  expect(createTwoFilesPatch).toHaveBeenCalledTimes(drawn.patches);
+  expect(processFile).toHaveBeenCalledTimes(drawn.parsed);
+  expect(VirtualizedFileDiff).toHaveBeenCalledTimes(drawn.diffs);
+  expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff)).toHaveLength(drawn.renders);
+  await beginNote();
   expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
   expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
 });
 
 it("u2540b_save_cancel_and_invalid_ranges", async () => {
   await openDiff();
-  // The pane's read lands after its element: N waits for it, as a user's key does.
-  await waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
+  await beginNote();
   const save = screen.getByRole("button", { name: "Save" });
   expect(save.getAttribute("aria-disabled")).toBe("true");
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  keep exact\ntext  " } });
@@ -78,7 +79,7 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
   await openBatch();
   const noteCount = () => within(screen.getByRole("list", { name: "Notes" })).getAllByRole("listitem").length;
   expect(noteCount()).toBe(1);
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "cancel me" } });
   leaveNote();
   expect(noteCount()).toBe(1);
@@ -89,6 +90,8 @@ it("u2540b_edit_remove_and_batch_across_files", async () => {
   await saveNote("first");
   await openFile("src/deep/b.ts");
   await saveNote("second");
+  // The shared batch lists both files' notes; an edit opens in the file's own reader, so the first file is shown again.
+  await openFile();
   await openBatch();
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "edited first" } });
@@ -105,10 +108,10 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   const secondText = "for b only";
   const firstText = "for a only";
   const { app, connected } = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: firstText } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  startNote();
+  await nextNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished a 🐝\n  " } });
   leaveNote();
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("b", "working", "building", { worktree: { ...WORKTREE, branch: "roundup/b", path: "/p/b" } })];
@@ -121,10 +124,10 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   await openChanges();
   expect(noteList()).toBeNull();
   await openFile();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: secondText } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  startNote();
+  await nextNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished b e\u0301\n  " } });
   connected.rail.select("a");
   flush();
@@ -134,7 +137,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   const batch = await screen.findByRole("list", { name: "Notes" });
   expect(batch.textContent).toContain(firstText);
   expect(batch.textContent).not.toContain(secondText);
-  startNote();
+  await beginNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished a 🐝\n  ");
   leaveNote();
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -147,7 +150,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   await openFile();
   await openBatch();
   expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain(secondText);
-  startNote();
+  await beginNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished b e\u0301\n  ");
 });
 
@@ -155,7 +158,7 @@ it("u2540b_refresh_keeps_original_context", async () => {
   const { app, connected } = await openDiff();
   await saveNote("original");
   await waitFor(() => expect(annotations()).toMatchObject([{ metadata: { text: "original" } }]));
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished 🐝\nexact  " } });
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "later-revision", text: "different\n" } });
   await connected.worktrees.refresh("a");
@@ -184,13 +187,13 @@ it("u2773a_changes_restores_exact_work", async () => {
   const saved = "  saved e\u0301 🐝\nexact  ";
   const unfinished = "  unfinished 🐝\n e\u0301  ";
   const { view } = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: saved } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await openBatch();
   await screen.findByRole("button", { name: "Edit note 1" });
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: unfinished } });
   fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
   const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
@@ -204,7 +207,7 @@ it("u2773a_changes_restores_exact_work", async () => {
   add.focus();
   app.emit(event({ name: "rail.changed" }));
   expect(document.activeElement).toBe(add);
-  startNote();
+  await beginNote();
   const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
   await waitFor(() => expect(document.activeElement).toBe(restored));
   expect(restored.value).toBe(unfinished);
@@ -218,7 +221,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const memory = "  memory 🐝\nnewer  ";
   const { app, view, connected } = await openDiff();
   const retrying = vi.spyOn(notesFor(app, "/p", connected.drafts), "retry");
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: saved } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await openBatch();
@@ -226,7 +229,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   const before = localStorage.getItem("roundup:drafts:/p");
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: memory } });
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(before);
@@ -244,14 +247,14 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   await retrying.mock.results[0]!.value;
   view.unmount();
   const reopened = await openDiff();
-  startNote();
+  await beginNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  memory 🐝\nnewer  ");
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   await openChanges();
   await openFile();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "temporary" } });
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: memory } });
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
@@ -269,7 +272,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   reopened.view.unmount();
   const final = await openDiff();
   expect(notesFor(final.app, final.connected.project.path, final.connected.drafts).list("a").map(note => note.text)).toEqual([saved]);
-  startNote();
+  await beginNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -282,20 +285,20 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   const read = cause === "unreadable" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
   await openDiff();
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "retain exact newer" } });
   read?.mockRestore();
 
   if (original) expect(localStorage.getItem("roundup:drafts:/p")).toBe(original);
   leaveNote();
-  startNote();
+  await beginNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "retain exact newer");
 });
 
 it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
   const noteText = "  original Worktree e\u0301\n🐝  ";
   const { app, connected } = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: noteText } });
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: null })];
   app.emit(event({ name: "rail.changed" }));
@@ -315,7 +318,7 @@ it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
 it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
   const unavailableText = "  unavailable exact 🐝  ";
   const { app, connected } = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: unavailableText } });
   app.handlers["rail.tree"] = () => [agent("replacement", "working", "building", { name: "a", worktree: WORKTREE })];
   app.emit(event({ name: "rail.changed" }));
@@ -337,7 +340,7 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
   const older = "older retained work";
   const newer = "newer memory work";
   const first = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: older } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await openBatch();
@@ -346,7 +349,7 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
   first.view.unmount();
   const read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("temporarily unreadable"); });
   const current = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: newer } });
   read.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
@@ -358,7 +361,7 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
   expect(recovery.textContent).toContain(newer);
   current.view.unmount();
   const reopened = await openDiff();
-  startNote();
+  await beginNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", newer);
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -370,7 +373,7 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
 it("u2773a_changes_recovery_editor_keeps_its_own_work", async () => {
   const { app } = await openDiff();
   const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "first editor work" } });
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   blockedWrite.mockRestore();
@@ -388,13 +391,13 @@ it("u2773a_changes_recovery_editor_keeps_its_own_work", async () => {
 it("u2773e_changes_connection_replacement_keeps_memory", async () => {
   const first = await openDiff();
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  original memory e\u0301\n🐝  " } });
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   first.view.unmount();
   write.mockRestore();
   const next = await openDiff("/p", first.connected.drafts);
-  startNote();
+  await beginNote();
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  original memory e\u0301\n🐝  ");
   expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   next.app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
@@ -423,7 +426,7 @@ it("u3474e_mutation_keeps_the_next_key_live", async () => {
 
 it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
   await openDiff();
-  startNote();
+  await beginNote();
   const field = screen.getByRole("textbox", { name: "Note" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   fireEvent.input(field, { target: { value: "keep this" } });
@@ -431,7 +434,7 @@ it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
   save.focus();
   fireEvent.click(save);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".diff-content")));
-  startNote();
+  await beginNote();
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Note" })));
 });
 
@@ -450,7 +453,7 @@ it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(
   const { app, connected } = await openDiff();
   await saveNote("  copied note e\u0301\n🐝  ");
   await saveNote("  other note 🐝  ");
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
   app.handlers["rail.tree"] = () => [agent("plain", "working", "building")];
   app.emit(event({ name: "rail.changed" }));
@@ -487,7 +490,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   const exact = "  exact form e\u0301\n🐝  ";
   const saved = "unrelated saved note";
   const { app } = await openDiff();
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: saved } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await openBatch();
@@ -497,7 +500,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
 
   fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByRole("button", { name: "Check Message history" });
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: exact } });
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -521,7 +524,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
 it("u2539b_zero_changes_keeps_the_original_note_revision_recoverable", async () => {
   const { app, connected } = await openDiff();
   const text = "  Keep this original note\ne\u0301 🐝  ";
-  startNote();
+  await beginNote();
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: text } });
   const original = structuredClone(connected.drafts.list());
   app.handlers["agent.changedFiles"] = () => ({ files: [] });

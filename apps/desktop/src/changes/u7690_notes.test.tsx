@@ -5,10 +5,11 @@ import { message } from "../testing/centreFixture";
 import { storageIdle } from "../state/storage";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { COMPARISON, openBatch, openChanges, openDiff, startNote } from "./noteHarness";
+import { COMPARISON, openBatch, openChanges, openDiff, openFirstModule, startNote } from "./noteHarness";
 import { NoteView } from "./NoteView";
 import { notesFor } from "./notes";
-import type { Label, Note } from "./notes";
+import { isLine } from "./notes";
+import type { Label, LineNote } from "./notes";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 
@@ -65,7 +66,7 @@ const FIRST = "a.ts";
 
 const LAST = "c.ts";
 
-const NOTE: Omit<Note, "id" | "revision"> = { comparison: COMPARISON, side: "new", start: 51, end: 53, source: "after", text: "body" };
+const NOTE: Omit<LineNote, "id" | "revision"> = { comparison: COMPARISON, side: "new", start: 51, end: 53, source: "after", text: "body" };
 
 it("u7690a_the_composer_sets_and_clears_one_label", async () => {
   await openDiff();
@@ -90,7 +91,7 @@ it("u7690a_the_composer_sets_and_clears_one_label", async () => {
 
 it("u7690a_the_meta_line_names_the_label", () => {
   const sent = Date.now();
-  const meta = (note: Note, status: "unsent" | "sent") => present(render(() => <NoteView note={note} status={status} edit={() => {}} remove={() => {}} />).container.querySelector(".note-meta")).textContent;
+  const meta = (note: LineNote, status: "unsent" | "sent") => present(render(() => <NoteView note={note} status={status} edit={() => {}} remove={() => {}} />).container.querySelector(".note-meta")).textContent;
   const base = { ...NOTE, id: 1, revision: "r" };
 
   expect(meta({ ...base, label: "question" }, "unsent")).toBe(`${copy.newLines(51, 53)} · Question · ${copy.notSent}`);
@@ -176,7 +177,7 @@ it("u7690b_labels_and_replacements_survive_a_restart_and_older_notes_still_load"
   await waitFor(() => expect(localStorage.getItem("roundup:drafts:/p")).toContain("issue"));
   first.unmount();
   const { app, connected } = await openDiff();
-  const [restored] = notesFor(app, connected.project.path, connected.drafts).all("a");
+  const [restored] = notesFor(app, connected.project.path, connected.drafts).all("a").filter(isLine);
 
   expect([restored?.label, restored?.replacement]).toEqual(["nit", "changed"]);
   await openForm();
@@ -193,6 +194,7 @@ const jumpable = async () => {
 
   mounted.app.handlers["agent.compareFile"] = ({ path }) => gone(path);
   await openChanges();
+  await openFirstModule();
   await screen.findByRole("region", { name: copy.changes });
   await waitFor(() => { if (!document.querySelector(".diff-content")) throw new Error("No diff yet"); });
   await new Promise(resolve => setTimeout(resolve, 50));
@@ -221,7 +223,8 @@ const jumpList = () => screen.queryByRole("region", { name: copy.jumpToNote });
 
 const rows = () => within(present(jumpList())).queryAllByRole("option").map(row => [...row.querySelectorAll("span")].map(part => part.textContent).join(" | "));
 
-const openPath = () => document.querySelector(".diff-path")?.textContent;
+/** The file the module's scroll is at: the section holding focus, else the first. */
+const openPath = () => (document.activeElement?.closest<HTMLElement>(".module-file") ?? document.querySelector<HTMLElement>(".module-file"))?.dataset.path;
 
 const isOpen = (path: string) => waitFor(() => { if (openPath() !== path) throw new Error(`Not on ${path}`); });
 

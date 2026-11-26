@@ -13,6 +13,7 @@ const SCRIPT: &str = r#"D=$(dirname "$0")
 case "$*" in
 *--json-schema*)
   n=$(ls "$D"/launch.* 2>/dev/null | wc -l)
+  printf '%s' "$*" > "$D/args.$n"
   cat > "$D/launch.$n"
   [ -f "$D/slow" ] && sleep 2
   cat "$D/reply$n" ;;
@@ -38,9 +39,18 @@ fn answer(text: &str) -> String {
 
 /// The first step's answer: one flow holding `a.rs#1`, so `seed.txt#1` is unplaced.
 fn account() -> String {
-    json!({"overview": "It adds a.rs.", "diagram": "a -> b", "modules": [{"module": "m", "account": "x"}],
-        "flows": [{"id": "f", "name": "Add", "steps": [{"note": "adds", "hunks": ["a.rs#1"]}]}]})
-    .to_string()
+    with(|_| {})
+}
+
+/// `account()` after `edit` changed its JSON.
+fn with(edit: impl FnOnce(&mut Value)) -> String {
+    let mut value = json!({"overview": "It adds a.rs.", "diagram": "a -> b", "modules": [{"module": "m", "account": "x"}],
+        "flows": [{"id": "f", "name": "Add", "steps": [{"note": "adds", "hunks": ["a.rs#1"]}]}],
+        "ranks": [{"hunk": "a.rs#1", "rank": "core"}, {"hunk": "seed.txt#1", "rank": "glue"}],
+        "risks": [{"target": "flow", "id": "f", "level": "high", "reason": "It changes what the rail counts."},
+            {"target": "module", "id": "m", "level": "low", "reason": "A small addition."}]});
+    edit(&mut value);
+    value.to_string()
 }
 
 fn gaps(found: Value) -> String {
@@ -117,6 +127,10 @@ impl Rb {
                 std::fs::read_to_string(self.f.dir.path().join(format!("launch.{n}"))).ok()
             })
             .collect()
+    }
+    /// The command line of launch `n`, which holds its system text.
+    fn args(&self, n: usize) -> String {
+        std::fs::read_to_string(self.f.dir.path().join(format!("args.{n}"))).unwrap()
     }
     async fn stop(&self, message: &str) {
         let attempt = self.f.attempt(&self.id).await;
@@ -377,4 +391,251 @@ async fn rb8_a_diff_under_the_cap_is_sent_whole() {
     r.settled().await;
     let one = input(&r.launches()[0]);
     assert_eq!(one["hunks"].as_array().unwrap().len(), 400);
+}
+
+async fn refused(reply: String) -> String {
+    let r = rb(&[answer(&reply)]).await;
+    r.start().await;
+    let state = r.settled().await;
+    assert_eq!(state["state"], "failed");
+    assert_eq!(state["kind"], "badAnswer");
+    assert!(state.get("ranks").is_none());
+    state["cause"].as_str().unwrap().to_owned()
+}
+
+#[tokio::test]
+async fn rb10_a_read_run_carries_a_rank_for_every_hunk() {
+    let r = rb(&[answer(&account())]).await;
+    r.start().await;
+    let state = r.settled().await;
+    assert_eq!(
+        state["ranks"],
+        json!([{"hunk": "a.rs#1", "rank": "core"}, {"hunk": "seed.txt#1", "rank": "glue"}])
+    );
+}
+
+#[tokio::test]
+async fn rb10_a_missing_or_unknown_rank_is_refused_with_its_cause() {
+    let cause = refused(with(|v| {
+        v["ranks"].as_array_mut().unwrap().pop();
+    }))
+    .await;
+    assert!(cause.contains("seed.txt#1"), "{cause}");
+    let cause = refused(with(|v| v["ranks"][1]["rank"] = json!("tiny"))).await;
+    assert!(
+        cause.contains("seed.txt#1") && cause.contains("tiny"),
+        "{cause}"
+    );
+    let cause = refused(with(|v| {
+        v["ranks"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"hunk": "a.rs#1", "rank": "glue"}));
+    }))
+    .await;
+    assert!(cause.contains("a.rs#1"), "{cause}");
+    let cause = refused(with(|v| {
+        v["ranks"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"hunk": "no.rs#1", "rank": "glue"}));
+    }))
+    .await;
+    assert!(cause.contains("no.rs#1"), "{cause}");
+}
+
+#[tokio::test]
+async fn rb10_ranks_leave_the_flows_and_unplaced_as_they_were() {
+    let r = rb(&[answer(&with(|v| v["ranks"][0]["rank"] = json!("glue")))]).await;
+    r.start().await;
+    let state = r.settled().await;
+    assert_eq!(state["flows"][0]["steps"][0]["hunks"], json!(["a.rs#1"]));
+    assert_eq!(state["unplaced"], json!(["seed.txt#1"]));
+}
+
+#[tokio::test]
+async fn rb11_a_read_run_carries_a_risk_and_reason_for_each_flow_and_module() {
+    let r = rb(&[answer(&account())]).await;
+    r.start().await;
+    let state = r.settled().await;
+    assert_eq!(
+        state["risks"],
+        json!([
+            {"target": "flow", "id": "f", "level": "high", "reason": "It changes what the rail counts."},
+            {"target": "module", "id": "m", "level": "low", "reason": "A small addition."}
+        ])
+    );
+}
+
+#[tokio::test]
+async fn rb11_a_missing_or_unknown_risk_is_refused_with_its_cause() {
+    let cause = refused(with(|v| {
+        v["risks"].as_array_mut().unwrap().pop();
+    }))
+    .await;
+    assert!(cause.contains("module m"), "{cause}");
+    let cause = refused(with(|v| v["risks"][0]["level"] = json!("severe"))).await;
+    assert!(cause.contains("severe"), "{cause}");
+    let cause = refused(with(|v| v["risks"][0]["reason"] = json!(" "))).await;
+    assert!(cause.contains("flow f"), "{cause}");
+    let cause = refused(with(|v| v["risks"][0]["id"] = json!("ghost"))).await;
+    assert!(cause.contains("ghost"), "{cause}");
+    let cause = refused(with(|v| {
+        let again = v["risks"][0].clone();
+        v["risks"].as_array_mut().unwrap().push(again);
+    }))
+    .await;
+    assert!(cause.contains("two risks"), "{cause}");
+}
+
+#[tokio::test]
+async fn rb11_a_risk_carries_no_number_and_no_usage_figure() {
+    let r = rb(&[answer(&account())]).await;
+    r.start().await;
+    let state = r.settled().await;
+    for risk in state["risks"].as_array().unwrap() {
+        assert_eq!(risk.as_object().unwrap().len(), 4);
+        assert!(risk["level"].is_string());
+    }
+    let usage = json!({"usage": {"input_tokens": 41234}, "total_cost_usd": 0.4321}).to_string();
+    let r = rb(&[usage]).await;
+    r.start().await;
+    let cause = r.settled().await["cause"].to_string();
+    assert!(
+        !cause.contains("41234") && !cause.contains("0.4321"),
+        "{cause}"
+    );
+}
+
+#[tokio::test]
+async fn rb11_the_daemon_derives_no_risk_from_a_path_or_size() {
+    let r = rb(&[answer(&with(|v| {
+        v["risks"][0]["level"] = json!("low");
+        v["risks"][1]["level"] = json!("medium");
+        v["ranks"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"hunk": "tests_big.rs#1", "rank": "glue"}));
+    }))])
+    .await;
+    write(&r.path, "tests_big.rs", &"fn t() {}\n".repeat(400));
+    r.start().await;
+    let state = r.settled().await;
+    let levels: Vec<_> = state["risks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["level"].clone())
+        .collect();
+    assert_eq!(levels, [json!("low"), json!("medium")]);
+}
+
+#[tokio::test]
+async fn rb12_ranks_and_risks_stay_with_a_stale_result_and_start_no_call() {
+    let r = rb(&[answer(&account())]).await;
+    r.start().await;
+    r.settled().await;
+    write(&r.path, "a.rs", "fn a() {}\nfn c() {}\n");
+    let state = r.state().await;
+    assert_eq!(state["state"], "stale");
+    assert_eq!(state["ranks"][0]["rank"], "core");
+    assert_eq!(state["risks"][0]["level"], "high");
+    r.state().await;
+    assert_eq!(r.launches().len(), 1);
+}
+
+/// A Skill the user keeps in the Project, whose body is `body`.
+fn keep_skill(r: &Rb, name: &str, body: &str) {
+    let dir = r.f.dir.path().join(".claude/skills").join(name);
+    std::fs::create_dir_all(&dir).unwrap();
+    write(
+        &dir,
+        "SKILL.md",
+        &format!("---\nname: {name}\n---\n{body}\n"),
+    );
+}
+
+#[tokio::test]
+async fn rs1_a_start_with_a_skill_passes_its_body_once_and_without_one_passes_none() {
+    let r = rb(&[
+        answer(&account()),
+        answer(&gaps(json!([]))),
+        answer(&account()),
+    ])
+    .await;
+    keep_skill(&r, "security-review", "LENS-MARKER look for secrets");
+    r.stop("I added a.rs").await;
+    let params = json!({"id": r.id, "skill": "security-review"});
+    r.f.call("agent.readbackStart", params).await.unwrap();
+    r.settled().await;
+    let (one, two) = (r.args(0), r.args(1));
+    let at = one.find("Review lens:").expect("a lens");
+    assert!(one.find("You read a code change").unwrap() < at);
+    assert!(one[at..].contains("LENS-MARKER look for secrets"));
+    assert!(
+        !one[at..].contains("name: security-review"),
+        "front matter stays out"
+    );
+    assert!(!two.contains("LENS-MARKER") && !two.contains("Review lens"));
+
+    r.start().await;
+    r.settled().await;
+    assert!(!r.args(2).contains("Review lens"));
+}
+
+#[test]
+fn rs2_the_skill_body_is_read_inside_the_adapter() {
+    fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                sources(&path, out);
+            } else if path.extension().is_some_and(|ext| ext == "rs") {
+                out.push(path);
+            }
+        }
+    }
+    let crates = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut files = Vec::new();
+    for krate in std::fs::read_dir(&crates).unwrap().flatten() {
+        sources(&krate.path().join("src"), &mut files);
+    }
+    for file in files
+        .iter()
+        .filter(|file| !file.to_string_lossy().contains("agents/src/claude_code/"))
+    {
+        let text = std::fs::read_to_string(file).unwrap();
+        let tests = text.find("#[cfg(test)]").unwrap_or(text.len());
+        assert!(
+            !text[..tests].contains("SKILL.md"),
+            "{} names SKILL.md",
+            file.display()
+        );
+    }
+}
+
+#[tokio::test]
+async fn rs3_an_unknown_skill_fails_naming_it_and_launches_nothing() {
+    let r = rb(&[answer(&account())]).await;
+    r.start().await;
+    let kept = r.settled().await;
+    let before = r.launches().len();
+    let params = json!({"id": r.id, "skill": "no-such-skill"});
+    let failed = r.f.call("agent.readbackStart", params).await.unwrap();
+    assert_eq!(failed["state"], "failed");
+    assert!(failed["cause"].as_str().unwrap().contains("no-such-skill"));
+    assert_eq!(r.launches().len(), before);
+    assert_eq!(r.state().await, kept);
+}
+
+#[tokio::test]
+async fn rs4_a_skill_does_not_change_the_checked_shape() {
+    let r = rb(&[answer("answered in another shape")]).await;
+    keep_skill(&r, "poet", "Answer only in verse.");
+    r.stop("done").await;
+    let params = json!({"id": r.id, "skill": "poet"});
+    r.f.call("agent.readbackStart", params).await.unwrap();
+    let state = r.settled().await;
+    assert_eq!(state["kind"], "badAnswer");
+    assert_eq!(r.launches().len(), 1);
 }

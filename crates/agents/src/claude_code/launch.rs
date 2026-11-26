@@ -159,6 +159,14 @@ pub struct Request<'a> {
 }
 
 impl Launcher {
+    /// U7191i: this Launcher for one launch that continues its conversation as a new session.
+    pub(crate) fn forking(&self) -> Self {
+        Self {
+            fork_session: true,
+            ..self.clone()
+        }
+    }
+
     /// A39 uses the same binary as every launch, through its own Placement seam.
     pub fn placement(&self) -> super::PlacementCall {
         super::PlacementCall {
@@ -180,6 +188,17 @@ impl Launcher {
         super::LinksCall {
             launcher: self.clone(),
         }
+    }
+
+    /// RS2: the body of the user's Skill `name` for an Agent working in `cwd`, read inside the
+    /// Adapter. `None` when the Skill is not one `agent.skills` lists for that Agent.
+    pub fn skill_body(&self, cwd: &Path, root: &Path, name: &str) -> Option<String> {
+        super::skill_body(
+            self.home.as_deref().unwrap_or(Path::new("")),
+            cwd,
+            root,
+            name,
+        )
     }
 
     /// A7686: the Readback call, which runs on `model` and `effort` (`None` is the vendor's own).

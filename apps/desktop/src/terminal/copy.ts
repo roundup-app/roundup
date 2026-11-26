@@ -2,6 +2,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   starting: sharedCopy.starting,
+  runPrinted: (command: string) => `Run ${command}`,
   terminalFocusChanged: "Terminal focus changed",
   terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready.",
   terminalPreparationUnavailable: "Terminal could not open: its renderer was not available.",
@@ -13,7 +14,7 @@ export const copy = {
   working: sharedCopy.working,
   idle: sharedCopy.idle,
   done: sharedCopy.done,
-  tabWithStatus: (name: string, status: string) => `${name}, ${status}`,
+  tabWithStatus: sharedCopy.named,
   newAgent: sharedCopy.newAgent,
   noSelectionTitle: "Nothing selected",
   noSelectionLine: "Pick an Agent in the Rail, or start one.",
@@ -31,6 +32,15 @@ export const copy = {
   askBarLabel: sharedCopy.askBarLabel,
   askBarShortcut: sharedCopy.askBarShortcut,
   selectCommand: "Select command",
+  /** U7191i: the stopped Agent's saved conversation id, shortened; the full id is the tooltip and what Copy writes. */
+  conversationBar: "Saved conversation",
+  conversationId: (id: string) => `Conversation ${id.slice(0, 8)}…`,
+  copy: sharedCopy.copy,
+  copied: sharedCopy.copied,
+  fork: "Fork",
+  forking: "Forking…",
+  restart: sharedCopy.restart,
+  restarting: sharedCopy.restarting,
   noOutputKeptFromAnEarlierRun: "No output kept from an earlier run.",
   /** The first line is the failure; the cause follows it for the tooltip. */
   terminalRestoreFailed: (cause: string) => `Could not restore Terminal output.\n${cause}`,
@@ -50,11 +60,4 @@ export const copy = {
   linkNotOpened: (cause: string) => `link not opened: ${cause}`,
   /** @prose */
   pathNotFound: (path: string, tried: string) => `path not found: ${path} (tried ${tried})`,
-  coreFailure_core_missing: "Terminals are not available on this Mac.",
-  coreFailure_unsupported_generation: "Terminals need an update before they can start.",
-  coreFailure_core_closed: "The Terminal connection was lost.",
-  coreFailure_core_silent: "Terminals did not answer.",
-  coreFailure_core_error: "The Terminal could not start.",
-  coreFailure_core_protocol: "Terminals answered in a way the App cannot read.",
-  coreFailure_core_io: "Terminals could not be reached.",
 } as const;
