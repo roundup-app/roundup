@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { editWalk } from "./editWalkBrowser";
 
 type Element = { type: string; text?: string; x: number; y: number; width: number; height: number };
 
@@ -17,6 +18,7 @@ const drawn = async (source: string) => {
   await wait("Boolean(document.querySelector('[data-shelf-row] .pad-name'))");
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
   await browser("press", "Enter");
+  await editWalk(browser);
   await wait("Boolean(document.querySelector('.visual-drawing .excalidraw canvas'))");
   // Loading stores nothing: the Pad still holds the Mermaid source.
   expect(await read<string>("window.__fake.app.rpc('pad.read', { name: 'pad-3' }).then(pad => pad.text)")).toContain(source);

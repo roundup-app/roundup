@@ -3,7 +3,7 @@ import { flush } from "solid-js";
 import { copy } from "./copy";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
-import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
+import { AGENT, openPad, openShelf, openWalk, padOf, pressEdit } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import type { CanvasApi, CanvasProps } from "./drawingBlock";
 import { bundledRenderers, useRenderers } from "./visualKinds";
@@ -52,6 +52,15 @@ const scene = '{"type":"excalidraw","version":2,"elements":[{"type":"rectangle",
 const block = `\`\`\`excalidraw\n${scene}\n\`\`\`\n`;
 
 const writes = (calls: { method: string; params?: unknown }[]) => calls.filter((call) => call.method === "pad.write");
+
+/** PW11: a Pad opens as its walk, whose read-only drawing loads the scene too; the clauses that count loads count the editor's own. */
+const openEditorAfterWalk = async (name: string) => {
+  await openWalk(name);
+  await screen.findByTestId("canvas");
+  loads = [];
+  await pressEdit();
+  await waitFor(() => expect(loads.length).toBeGreaterThan(0));
+};
 
 describe("u149 a Drawing renders and edits in the Pad", () => {
   // Rule 10: the fake-only render/count proof is retired; u149_a_stored_drawing_renders_in_the_open_drawer_and_reads_back_byte_exact covers opening a stored block through App/Daemon.
@@ -141,8 +150,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
 
   it("u149_a_stored_scene_reloads_without_new_ids_so_bindings_hold", async () => {
     await openShelf([padOf("note", USER, block)]);
-    await openPad("note");
-    await screen.findByTestId("canvas");
+    await openEditorAfterWalk("note");
 
     expect(loads).toEqual([{ regenerateIds: false }]);
   });
@@ -151,8 +159,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     const stored = '{"type":"excalidraw","version":2,"elements":[{"type":"rectangle","id":"a","version":3},{"type":"arrow","id":"r","version":2}]}';
 
     await openShelf([padOf("note", USER, `\`\`\`excalidraw\n${stored}\n\`\`\`\n`)]);
-    await openPad("note");
-    await screen.findByTestId("canvas");
+    await openEditorAfterWalk("note");
 
     expect(loads).toEqual(["restored"]);
   });
@@ -239,7 +246,7 @@ it.each([
 ] as const)("%s", async (_name, selected) => {
   const source = `before\n\n${block}\nafter\n`;
   const { app, connected, state } = await openShelf([padOf("drawing-draft", USER, source)]);
-  await openPad("drawing-draft");
+  await openEditorAfterWalk("drawing-draft");
   const host = (await screen.findByTestId("canvas")).closest(".visual-drawing")!;
   fireEvent.pointerDown(host);
   const [first, ...rest] = current().initialData.elements;

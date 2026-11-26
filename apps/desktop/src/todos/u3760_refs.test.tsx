@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { padOf } from "../pads/padsFixture";
 import { padHandlers } from "../testing/stores";
 import { USER } from "../testing/nodes";
@@ -23,8 +23,6 @@ const open = async (refs: string[], missing: string[] = [], blockers: number[] =
 };
 
 it("u3760_a_ref_row_opens_its_pad_at_the_section", async () => {
-  const scrolled: string[] = [];
-  Element.prototype.scrollIntoView = vi.fn(function (this: Element) { scrolled.push(this.textContent ?? ""); });
   const whole = link("notes");
   const section = link("notes", "日本語");
   const m = await open([whole, section]);
@@ -34,7 +32,8 @@ it("u3760_a_ref_row_opens_its_pad_at_the_section", async () => {
   fireEvent.click(rows[1]!);
   await waitFor(() => expect(todoCallsTo(m.app, "todo.refs")).not.toHaveLength(0));
   await waitFor(() => expect(m.app.calls.filter((call) => call.method === "pad.read").map((call) => call.params)).toEqual([{ name: "notes" }]));
-  await waitFor(() => expect(scrolled).toEqual(["日本語"]));
+  // PW11: a Pad opens as its walk, at the step that holds the section.
+  await waitFor(() => expect(rows[1]!.textContent).toContain(document.querySelector(".walk-title")?.textContent ?? "no walk"));
 });
 
 it("u3760_a_missing_ref_is_not_activatable", async () => {
