@@ -1,5 +1,5 @@
-//! RB2 to RB5: what `agent.readbackStart` and `agent.readback` return, the state of one Readback
-//! of an Agent's diff.
+//! RB2 to RB5, RB13 to RB15: what `agent.readbackStart` and `agent.readback` return, the state of
+//! one Readback of an Agent's diff, and what `agent.explain` asks and answers.
 
 use super::CompareTarget;
 use schemars::JsonSchema;
@@ -137,4 +137,45 @@ pub struct ReadbackStartParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pub skill: Option<String>,
+}
+
+/// RB13: which side of the diff a selection numbers its lines on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum DiffSide {
+    Old,
+    New,
+}
+
+/// RB13: how the reader answers: in sentences, or as a small text diagram.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ExplainForm {
+    Words,
+    Diagram,
+}
+
+/// RB13: explain lines `start` to `end` of `side` of `path` in the Agent's diff, in `form`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExplainParams {
+    pub id: String,
+    #[serde(default)]
+    #[specta(optional, type = CompareTarget)]
+    pub to: CompareTarget,
+    pub path: String,
+    pub side: DiffSide,
+    pub start: u32,
+    pub end: u32,
+    pub form: ExplainForm,
+}
+
+/// RB14, RB15: an Explanation of a selection: `text` is sentences for `words` and the parts and
+/// calls, one `A -> B` per line, for `diagram`; `failed` says why in `cause`, and `kind` is
+/// `outOfDiff`, `tooLarge`, `badAnswer` or `call`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum Explanation {
+    Explained { form: ExplainForm, text: String },
+    Failed { kind: String, cause: String },
 }

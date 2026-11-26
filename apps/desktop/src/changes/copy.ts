@@ -132,6 +132,8 @@ export const copy = {
     /** @prose */
     "R reads back these changes from the diff.",
     /** @prose */
+    "W explains the selected lines in words, D as a diagram.",
+    /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
     "V marks the open item viewed and opens the next one.",
@@ -258,6 +260,13 @@ export const copy = {
   /** @prose */
   readbackCredit: "Read back from the diff",
   changedSinceReadback: "Changed since readback",
+  /** U7698: a selection's explanation: its icon buttons, its section and its failure; the credit is the readback's. */
+  explainWords: "Explain in words",
+  explainDiagram: "Explain as diagram",
+  explanation: "Explanation",
+  askAgain: "Ask again",
+  /** @prose */
+  explainFailed: "Couldn't explain these lines",
   /** U7697: a risk mark's accessible name, and the words of a file's rank. */
   riskMark: { high: "High risk", medium: "Medium risk" },
   rankWord: { core: "Core", forced: "Forced", glue: "Glue" },
