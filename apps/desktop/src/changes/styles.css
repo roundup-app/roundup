@@ -250,7 +250,7 @@
 .readback-credit { color: var(--grey); }
 .readback-account[data-stale="true"] .readback-text { opacity: 0.6; }
 .readback-gaps, .readback-words { padding-inline-start: var(--space-4); }
-.readback-gap { text-align: start; white-space: normal; overflow-wrap: anywhere; }
+.readback .readback-gap[data-button] { text-align: start; white-space: normal; overflow-wrap: anywhere; }
 .readback-panel-label { color: var(--grey); }
 .readback-figure { max-inline-size: 100%; block-size: auto; stroke: var(--text); fill: none; }
 .readback-figure rect { fill: var(--sunken); }

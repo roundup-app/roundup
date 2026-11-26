@@ -34,7 +34,7 @@ const ACCOUNT = {
   overview: "Adds a loader and wires every module through it.",
   diagram: "Before\nrun -> load\nAfter\nrun -> cache -> load",
   flows: [],
-  modules: [{ module: "module-01", account: "Loads data through a cache." }],
+  modules: [{ module: "crates/module-01", account: "Loads data through a cache." }],
   unplaced: [],
   gaps: [GAP],
 };
@@ -76,7 +76,7 @@ it("u7688h_the_readback_is_captured_for_the_critic", async () => {
       handlers["agent.ownedChanges"] = () => ({ groups: ${JSON.stringify(groups)} });
       handlers["agent.changedFiles"] = () => ({ files: ${JSON.stringify(FILES)} });
       handlers["agent.compareFile"] = ({ path }) => ({ ...${JSON.stringify(COMPARISON)}, oldPath: path, newPath: path });
-      handlers["agent.readback"] = () => ${JSON.stringify(answer)};
+      handlers["agent.readback"] = () => (${JSON.stringify(answer)});
       handlers["agent.readbackStart"] = () => ({ state: "reading" });
       window.__fake.setStatus("agent-1", "idle", "ready");
 
@@ -101,7 +101,8 @@ it("u7688h_the_readback_is_captured_for_the_critic", async () => {
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
     await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
-    await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
+    // A script click: at 388 px the header wraps and a pointer click on the segment can miss it.
+    await read("document.querySelector('.changes-view .app-segment[aria-label=\"Tree\"]')?.click() ?? false");
   };
 
   const GAPPED = "!!document.querySelector('.gap-mark')";
