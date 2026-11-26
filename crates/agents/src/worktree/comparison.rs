@@ -36,42 +36,54 @@ impl Git {
         end: Option<&str>,
     ) -> Result<Vec<ChangedFile>, RpcError> {
         let ends: Vec<&str> = std::iter::once(base).chain(end).collect();
-        let diff = [
-            "--no-optional-locks",
-            "diff",
-            "--no-color",
-            "--no-ext-diff",
-            "-M",
-        ];
-        let names = self
-            .run(
+        // One run reads names, counts and hunks: git writes the raw records, then the numstat
+        // records (both NUL-delimited, one of each per changed file), then the -U0 patch.
+        let out = self
+            .run_raw(
                 dir,
-                &[&diff[..], &["-z", "--name-status"], &ends[..]].concat(),
+                &[
+                    &[
+                        "--no-optional-locks",
+                        "diff",
+                        "--no-color",
+                        "--no-ext-diff",
+                        "-M",
+                        "--raw",
+                        "--numstat",
+                        "-z",
+                        "-U0",
+                        "-p",
+                    ][..],
+                    &ends[..],
+                ]
+                .concat(),
             )
             .map_err(failed)?;
-        let patch = self
-            .run(dir, &[&diff[..], &["-U0"], &ends[..]].concat())
-            .map_err(failed)?;
-        let counts = self
-            .run(dir, &[&diff[..], &["--numstat"], &ends[..]].concat())
-            .map_err(failed)?;
-        // Git quotes unusual paths without -z, so each count record occupies one line even for a rename.
-        // Counts also classify a pure binary rename, whose patch has no binary marker or hunk.
-        let mut counts = counts.lines().map(numstat_row);
-        // All outputs use the same ordered diff queue, one record per name-status entry.
-        let mut sections = patch.split("\ndiff --git ").map(first_changed_line);
-        let mut fields = names.split('\0').filter(|field| !field.is_empty());
+        let mut rest = out.as_str();
         let mut files = Vec::new();
-        while let Some(mut file) = changed_name(&mut fields) {
+        while rest.starts_with(':') {
+            let meta = next_field(&mut rest).unwrap_or_default();
+            let letter = meta.split_whitespace().last().unwrap_or_default();
+            let mut fields = std::iter::from_fn(|| next_field(&mut rest));
+            files.extend(changed_entry(letter, &mut fields));
+        }
+        for file in &mut files {
+            // `added\tremoved\tpath`, or an empty path and the two names for a rename.
+            let row = next_field(&mut rest).unwrap_or_default();
+            if row.ends_with('\t') {
+                next_field(&mut rest);
+                next_field(&mut rest);
+            }
+            file.counts = numstat_row(row);
+        }
+        let mut sections = rest.split("\ndiff --git ").map(first_changed_line);
+        for file in &mut files {
             let line = sections.next().flatten();
-            file.counts = counts.next().flatten();
-            let is_binary = file.counts.is_none();
-            file.line = if file.status == ChangedStatus::Deleted || is_binary {
+            file.line = if file.status == ChangedStatus::Deleted || file.counts.is_none() {
                 None
             } else {
                 line
             };
-            files.push(file);
         }
         let untracked = if end.is_some() {
             String::new()
@@ -200,13 +212,58 @@ impl Git {
             .then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
     }
 
-    /// U7672a: the merge base of the remote's main (else the local default branch) with HEAD.
+    /// U7672a, U7960a: the merge base of the remote's main (else the local default branch) with
+    /// HEAD. It is kept per checkout, HEAD commit and reference commit, all read on every call,
+    /// so a moved HEAD or remote main always computes a new one.
     pub(super) fn comparison_base(&self, dir: &Path) -> Result<String, RpcError> {
+        let (reference, ids) = self.base_inputs(dir)?;
+        let key = (dir.to_path_buf(), ids);
+        if let Some(base) = self
+            .bases
+            .lock()
+            .ok()
+            .and_then(|bases| bases.get(&key).cloned())
+        {
+            return Ok(base);
+        }
+        let base = self
+            .run(dir, &["merge-base", &reference, "HEAD"])
+            .map_err(failed)?;
+        if let Ok(mut bases) = self.bases.lock() {
+            if bases.len() >= 64 {
+                bases.clear();
+            }
+            bases.insert(key, base.clone());
+        }
+        Ok(base)
+    }
+
+    /// `run`'s stdout, whole: the records of a `-z` read end in a NUL, which a trim would not touch
+    /// but a path's own edge whitespace it would.
+    fn run_raw(&self, dir: &Path, args: &[&str]) -> Result<String, String> {
+        let output = self.output(dir, args, None)?;
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr).trim().to_owned());
+        }
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// The reference to compare with and the commits of HEAD and of that reference.
+    fn base_inputs(&self, dir: &Path) -> Result<(String, String), RpcError> {
+        let ids = |reference: &str| self.run(dir, &["rev-parse", "HEAD", reference]);
+        if let Ok(full) = self.run(
+            dir,
+            &["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+        ) && full.starts_with("origin/")
+            && let Ok(ids) = ids(&full)
+        {
+            return Ok((full, ids));
+        }
         let (_, reference) = self
             .default_branch(dir)
             .ok_or_else(|| failed("no default branch"))?;
-        self.run(dir, &["merge-base", &reference, "HEAD"])
-            .map_err(failed)
+        let ids = ids(&reference).map_err(failed)?;
+        Ok((reference, ids))
     }
 
     /// U2540a, U7672a: the same merge base as changed_files, paired with the exact bytes of the
@@ -505,6 +562,21 @@ fn image_mime(bytes: &[u8]) -> Option<&'static str> {
 /// Both readers consume Git's same NUL-delimited name-status records.
 fn changed_name<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<ChangedFile> {
     let letter = fields.next()?;
+    changed_entry(letter, fields)
+}
+
+/// The next NUL-terminated field of `rest`, which then starts after it.
+fn next_field<'a>(rest: &mut &'a str) -> Option<&'a str> {
+    let (field, tail) = rest.split_once('\0')?;
+    *rest = tail;
+    Some(field)
+}
+
+/// One record whose status `letter` is read: its paths follow in `fields`.
+fn changed_entry<'a>(
+    letter: &str,
+    fields: &mut impl Iterator<Item = &'a str>,
+) -> Option<ChangedFile> {
     let from = if letter.starts_with('R') || letter.starts_with('C') {
         Some(fields.next()?.to_owned())
     } else {
