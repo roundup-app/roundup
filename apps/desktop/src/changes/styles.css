@@ -258,9 +258,8 @@
 .readback p, .readback ul { margin: 0; }
 .readback-start { display: flex; align-items: center; gap: var(--space-2); min-inline-size: 0; }
 .readback-start .app-select { flex-direction: row; align-items: center; inline-size: auto; }
-.readback-start .app-select-trigger { inline-size: auto; min-block-size: 0; padding: 0; border: 0; background: none; }
+.readback-start .app-select-trigger { inline-size: auto; min-block-size: var(--space-5); padding: 0; border: 0; background: none; }
 .readback-start .app-select-trigger:disabled { background: none; }
-.app-select-list { font: var(--text-small) var(--font-ui); }
 .readback-credit { color: var(--grey); }
 .readback-account[data-stale="true"] .readback-text { opacity: 0.6; }
 .readback-gaps, .readback-words { padding-inline-start: var(--space-4); }
