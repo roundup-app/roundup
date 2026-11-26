@@ -110,6 +110,15 @@ pub struct LineExplanation {
     pub text: String,
 }
 
+/// RB21: one place the readback's diagram is walked to: the name of a part the diagram draws and one
+/// sentence about it. The Daemon keeps them as given; the App, which reads the diagram, keeps those
+/// that name a part it draws.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct DiagramStop {
+    pub part: String,
+    pub text: String,
+}
+
 /// A read Readback (RB3). `ranks` holds one rank per hunk id of the input (RB10) and `risks` one
 /// risk per flow and module (RB11). `unplaced` is computed by the Daemon: the hunk ids no flow holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -122,6 +131,7 @@ pub struct Account {
     pub ranks: Vec<HunkRank>,
     pub risks: Vec<Risk>,
     pub explanations: Vec<LineExplanation>,
+    pub stops: Vec<DiagramStop>,
     pub gaps: Gaps,
 }
 

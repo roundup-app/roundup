@@ -28,6 +28,7 @@ mod ps9;
 mod ra_call_paths;
 mod rail;
 mod rb_readback;
+mod rb_stops;
 mod remove;
 mod resume;
 mod runs;
