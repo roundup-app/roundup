@@ -49,6 +49,10 @@ pub struct ChangedFilesParams {
     #[serde(default)]
     #[specta(optional, type = CompareTarget)]
     pub to: CompareTarget,
+    /// U7955a: read the checkout of this owned group instead of the Worktree (see `CompareFileParams`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = OwnedGroupKey)]
+    pub group: Option<OwnedGroupKey>,
 }
 
 /// Select one relative path in an Agent's Worktree (U2540a) and the `to` it is compared as. With

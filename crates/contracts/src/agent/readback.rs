@@ -1,7 +1,7 @@
 //! RB2 to RB5, RB13 to RB15: what `agent.readbackStart` and `agent.readback` return, the state of
 //! one Readback of an Agent's diff, and what `agent.explain` asks and answers.
 
-use super::CompareTarget;
+use super::{CompareTarget, OwnedGroupKey};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -145,6 +145,10 @@ pub struct ReadbackStartParams {
     #[serde(default)]
     #[specta(optional, type = CompareTarget)]
     pub to: CompareTarget,
+    /// U7955a: read the checkout of this owned group instead of the Worktree (see `CompareFileParams`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = OwnedGroupKey)]
+    pub group: Option<OwnedGroupKey>,
     /// A Skill name `agent.skills` lists for the Agent; its body is the readback's review lens.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
@@ -175,6 +179,10 @@ pub struct ExplainParams {
     #[serde(default)]
     #[specta(optional, type = CompareTarget)]
     pub to: CompareTarget,
+    /// U7955a: read the checkout of this owned group instead of the Worktree (see `CompareFileParams`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = OwnedGroupKey)]
+    pub group: Option<OwnedGroupKey>,
     pub path: String,
     pub side: DiffSide,
     pub start: u32,

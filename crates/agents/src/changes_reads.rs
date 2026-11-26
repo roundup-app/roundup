@@ -20,7 +20,7 @@ impl Agents {
     }
 
     /// The absolute paths the Agent's file-writing tool calls recorded.
-    fn recorded_edits(&self, id: &str) -> Result<Vec<String>, RpcError> {
+    pub(super) fn recorded_edits(&self, id: &str) -> Result<Vec<String>, RpcError> {
         self.shared.node(id)?;
         Ok(self
             .shared

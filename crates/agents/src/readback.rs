@@ -7,8 +7,8 @@ use crate::explain::selected;
 use crate::worktree::{DiffInput, Hunk};
 use contracts::agent::{
     Account, CallPathsAnswer, CompareTarget, DiffSide, FlowSource, Gap, Gaps, HunkRank,
-    LineExplanation, ModuleNote, Rank, ReadFlow, ReadFlowStep, Readback, Risk, RiskLevel,
-    RiskTarget,
+    LineExplanation, ModuleNote, OwnedGroupKey, Rank, ReadFlow, ReadFlowStep, Readback, Risk,
+    RiskLevel, RiskTarget,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -116,9 +116,13 @@ impl Drop for Tracing {
     }
 }
 
-fn key(id: &str, to: CompareTarget) -> (String, &'static str) {
+/// A Readback or a trace is kept per Agent and target, and per group when one is read (U7955a).
+fn key(id: &str, group: Option<&OwnedGroupKey>, to: CompareTarget) -> (String, &'static str) {
     (
-        id.to_owned(),
+        match group {
+            Some(group) => format!("{id}\0{}\0{}", group.repo, group.branch),
+            None => id.to_owned(),
+        },
         if to == CompareTarget::Tree {
             "tree"
         } else {
@@ -129,8 +133,13 @@ fn key(id: &str, to: CompareTarget) -> (String, &'static str) {
 
 impl Readbacks {
     /// RB9: a trace starts; the kept one is dropped and none is read until this one ends.
-    pub(crate) fn trace_started(&self, id: &str, to: CompareTarget) -> Tracing {
-        let key = key(id, to);
+    pub(crate) fn trace_started(
+        &self,
+        id: &str,
+        group: Option<&OwnedGroupKey>,
+        to: CompareTarget,
+    ) -> Tracing {
+        let key = key(id, group, to);
         self.traces
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -152,6 +161,7 @@ impl Readbacks {
     pub(crate) fn traced(
         &self,
         id: &str,
+        group: Option<&OwnedGroupKey>,
         to: CompareTarget,
         signature: Signature,
         answer: &CallPathsAnswer,
@@ -159,13 +169,13 @@ impl Readbacks {
         let mut traces = self.traces.lock().unwrap_or_else(|e| e.into_inner());
         match answer {
             CallPathsAnswer::Done { .. } => traces.insert(
-                key(id, to),
+                key(id, group, to),
                 Trace {
                     signature,
                     answer: Arc::new(answer.clone()),
                 },
             ),
-            _ => traces.remove(&key(id, to)),
+            _ => traces.remove(&key(id, group, to)),
         };
     }
 
@@ -567,11 +577,25 @@ fn state(entry: &Entry) -> Readback {
 }
 
 impl Agents {
-    pub(super) fn readback_worktree(&self, id: &str) -> Result<worktree::Worktree, RpcError> {
-        let record = self.shared.node(id)?.worktree();
-        let record =
-            record.ok_or_else(|| RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")))?;
-        Ok(worktree::Worktree::from(&record))
+    /// The Worktree a read runs on: the Agent's own, or (U7955a) the checkout of `group`, which the
+    /// Daemon finds from the Agent's recorded writes as `agent.compareFile` does.
+    pub(super) async fn readback_worktree(
+        &self,
+        id: &str,
+        group: Option<OwnedGroupKey>,
+        to: CompareTarget,
+    ) -> Result<worktree::Worktree, RpcError> {
+        let Some(group) = group else {
+            let record = self.shared.node(id)?.worktree();
+            let record = record
+                .ok_or_else(|| RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")))?;
+            return Ok(worktree::Worktree::from(&record));
+        };
+        let edits = self.recorded_edits(id)?;
+        let git = self.shared.git.bounded();
+        tokio::task::spawn_blocking(move || git.group_worktree(&edits, &group, to))
+            .await
+            .map_err(|err| RpcError::from(worktree::WorktreeError::Failed(err.to_string())))?
     }
 
     /// RB1: the diff of `worktree` against `to`, read off the async threads.
@@ -598,9 +622,14 @@ impl Agents {
 
     /// RB5, RB7: where the Readback of `(id, to)` stands; a read result whose diff has changed
     /// since the run started reads `stale`.
-    pub(super) async fn readback(&self, id: &str, to: CompareTarget) -> Result<Readback, RpcError> {
-        let worktree = self.readback_worktree(id)?;
-        let key = key(id, to);
+    pub(super) async fn readback(
+        &self,
+        id: &str,
+        group: Option<OwnedGroupKey>,
+        to: CompareTarget,
+    ) -> Result<Readback, RpcError> {
+        let worktree = self.readback_worktree(id, group.clone(), to).await?;
+        let key = key(id, group.as_ref(), to);
         let seen = {
             let runs = self
                 .shared
@@ -637,11 +666,12 @@ impl Agents {
     pub(super) async fn readback_start(
         &self,
         id: &str,
+        group: Option<OwnedGroupKey>,
         to: CompareTarget,
         skill: Option<&str>,
     ) -> Result<Readback, RpcError> {
-        let worktree = self.readback_worktree(id)?;
-        let key = key(id, to);
+        let worktree = self.readback_worktree(id, group.clone(), to).await?;
+        let key = key(id, group.as_ref(), to);
         let lens = match skill {
             None => None,
             Some(name) => match self.shared.rail_view.launcher.skill_body(
@@ -834,8 +864,8 @@ mod tests {
     #[test]
     fn rb9_a_trace_of_an_older_diff_is_not_read() {
         let r = Readbacks::default();
-        let k = key("a1", CompareTarget::Tree);
-        r.traced("a1", CompareTarget::Tree, sig("old"), &done());
+        let k = key("a1", None, CompareTarget::Tree);
+        r.traced("a1", None, CompareTarget::Tree, sig("old"), &done());
         assert!(r.flows_for(&k, &sig("old")).is_some());
         assert!(r.flows_for(&k, &sig("new")).is_none());
     }
@@ -843,13 +873,13 @@ mod tests {
     #[test]
     fn rb9_a_trace_in_flight_leaves_no_flows() {
         let r = Readbacks::default();
-        let k = key("a1", CompareTarget::Tree);
-        r.traced("a1", CompareTarget::Tree, sig("s"), &done());
-        let running = r.trace_started("a1", CompareTarget::Tree);
+        let k = key("a1", None, CompareTarget::Tree);
+        r.traced("a1", None, CompareTarget::Tree, sig("s"), &done());
+        let running = r.trace_started("a1", None, CompareTarget::Tree);
         assert!(r.flows_for(&k, &sig("s")).is_none());
         drop(running);
         assert!(r.flows_for(&k, &sig("s")).is_none());
-        r.traced("a1", CompareTarget::Tree, sig("s"), &done());
+        r.traced("a1", None, CompareTarget::Tree, sig("s"), &done());
         assert!(r.flows_for(&k, &sig("s")).is_some());
     }
 

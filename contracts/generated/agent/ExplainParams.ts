@@ -3,10 +3,13 @@
 import type * as agent$CompareTarget from "./CompareTarget";
 import type * as agent$DiffSide from "./DiffSide";
 import type * as agent$ExplainForm from "./ExplainForm";
+import type * as agent$OwnedGroupKey from "./OwnedGroupKey";
 /**  RB13: explain lines `start` to `end` of `side` of `path` in the Agent's diff, in `form`. */
 export type ExplainParams = {
 	id: string,
 	to?: agent$CompareTarget.CompareTarget,
+	/**  U7955a: read the checkout of this owned group instead of the Worktree (see `CompareFileParams`). */
+	group?: agent$OwnedGroupKey.OwnedGroupKey,
 	path: string,
 	side: agent$DiffSide.DiffSide,
 	start: number,
