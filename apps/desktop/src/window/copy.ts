@@ -81,7 +81,7 @@ export const copy = {
 } as const;
 
 export const menuBarCopy = {
-  waiting: "Waiting",
+  waiting: sharedCopy.waiting,
   ready: "Ready",
   empty: "Nothing for you",
   open: "Open roundup",

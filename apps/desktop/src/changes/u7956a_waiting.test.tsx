@@ -17,7 +17,7 @@ const meta = () => document.querySelector(".note-view .note-meta")?.textContent;
 const sendWaiting = async () => {
   const mounted = await openDiff();
 
-  await saveNote("held");
+  await saveNote("queued");
   mounted.app.handlers["message.send"] = params => message(7, { to: params.to, body: params.body, status: "pending" });
   fireEvent.click(within(screen.getByLabelText(copy.notesRegion, { selector: "section" })).getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(notesFor(mounted.app, "/p").all("a")[0]?.sent).toBeTypeOf("number"));
