@@ -43,3 +43,31 @@ pub struct ChangedFile {
 pub struct ChangedFiles {
     pub files: Vec<ChangedFile>,
 }
+
+/// One repository and branch an Agent owns changes in (U7186a): `files` are the current state
+/// against `base`, the default branch, sorted by `path`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct OwnedGroup {
+    pub repo: String,
+    /// The top of the checkout the `files` paths are relative to (U7952a): a linked worktree's
+    /// when the recorded writes sit in one, else `repo`.
+    pub checkout: String,
+    pub branch: String,
+    pub base: String,
+    pub files: Vec<ChangedFile>,
+}
+
+/// The `repo` and `branch` of one `OwnedGroup` (U7853a): the Owned group key that
+/// `agent.compareFile` reads a file of, through the Agent's recorded writes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OwnedGroupKey {
+    pub repo: String,
+    pub branch: String,
+}
+
+/// What `agent.ownedChanges` returns (U7186a), sorted by `repo` then `branch`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct OwnedChanges {
+    pub groups: Vec<OwnedGroup>,
+}
