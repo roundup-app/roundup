@@ -223,6 +223,7 @@ async fn rb3_a_read_run_answers_the_fixed_shape_and_computes_unplaced() {
     assert_eq!(state["flows"][0]["source"], "readback");
     assert_eq!(state["flows"][0]["steps"][0]["hunks"], json!(["a.rs#1"]));
     assert_eq!(state["unplaced"], json!(["seed.txt#1"]));
+    assert_eq!(state["explanations"], json!([]));
     assert_eq!(state["gaps"], json!([]));
 }
 
@@ -542,6 +543,83 @@ async fn rb12_ranks_and_risks_stay_with_a_stale_result_and_start_no_call() {
     assert_eq!(state["state"], "stale");
     assert_eq!(state["ranks"][0]["rank"], "core");
     assert_eq!(state["risks"][0]["level"], "high");
+    r.state().await;
+    assert_eq!(r.launches().len(), 1);
+}
+
+/// The fixture's account with `explanations`.
+fn explaining(explanations: Value) -> String {
+    with(|value| value["explanations"] = explanations)
+}
+
+#[tokio::test]
+async fn rb16_a_read_run_carries_each_explanation_with_the_lines_it_explains() {
+    let r = rb(&[answer(&explaining(json!([
+        {"hunk": "a.rs#1", "start": 1, "end": 2, "text": " Adds two functions. "},
+        {"hunk": "seed.txt#1", "start": 2, "end": 2, "text": "Replaces b."},
+    ])))])
+    .await;
+    r.start().await;
+    let state = r.settled().await;
+    assert_eq!(state["state"], "read");
+    assert_eq!(
+        state["explanations"],
+        json!([
+            {"path": "a.rs", "start": 1, "end": 2, "source": "fn a() {}\nfn b() {}", "text": "Adds two functions."},
+            {"path": "seed.txt", "start": 2, "end": 2, "source": "changed", "text": "Replaces b."},
+        ])
+    );
+}
+
+#[tokio::test]
+async fn rb16_an_explanation_the_diff_does_not_hold_is_dropped() {
+    let r = rb(&[answer(&explaining(json!([
+        {"hunk": "nowhere.rs#9", "start": 1, "end": 1, "text": "No such hunk."},
+        {"hunk": "a.rs#1", "start": 2, "end": 3, "text": "Runs past the hunk."},
+        {"hunk": "a.rs#1", "start": 2, "end": 1, "text": "Ends before it starts."},
+        {"hunk": "a.rs#1", "start": 1, "end": 1, "text": "  "},
+        {"hunk": "a.rs#1", "start": 2, "end": 2, "text": "Defines b."},
+    ])))])
+    .await;
+    r.start().await;
+    let state = r.settled().await;
+    assert_eq!(state["state"], "read");
+    assert_eq!(
+        state["explanations"],
+        json!([{"path": "a.rs", "start": 2, "end": 2, "source": "fn b() {}", "text": "Defines b."}])
+    );
+}
+
+#[tokio::test]
+async fn rb16_at_most_twelve_explanations_are_kept() {
+    let many: Vec<_> = (0..15)
+        .map(|n| json!({"hunk": "a.rs#1", "start": 1, "end": 1, "text": format!("e{n}")}))
+        .collect();
+    let r = rb(&[answer(&explaining(json!(many)))]).await;
+    r.start().await;
+    let state = r.settled().await;
+    let texts: Vec<_> = state["explanations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|each| each["text"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(texts.len(), 12);
+    assert_eq!((texts[0].as_str(), texts[11].as_str()), ("e0", "e11"));
+}
+
+#[tokio::test]
+async fn rb17_explanations_stay_with_a_stale_result_and_start_no_call() {
+    let r = rb(&[answer(&explaining(json!([
+        {"hunk": "a.rs#1", "start": 1, "end": 1, "text": "Defines a."},
+    ])))])
+    .await;
+    r.start().await;
+    r.settled().await;
+    write(&r.path, "a.rs", "fn a() {}\nfn c() {}\n");
+    let state = r.state().await;
+    assert_eq!(state["state"], "stale");
+    assert_eq!(state["explanations"][0]["text"], "Defines a.");
     r.state().await;
     assert_eq!(r.launches().len(), 1);
 }

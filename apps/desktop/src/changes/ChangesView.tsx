@@ -327,7 +327,6 @@ const Surface = (props: { id: string; name: string }) => {
 
   // U7675d, U7675f: the open file and each file's place outlive the view for the connection's session.
   const memory = changePlaces.of(untrack(() => props.id));
-  const explain = createExplanations({ app, id: untrack(() => props.id), to: own, kept: memory.explained });
   const [picked, setPicked] = createSignal<string | undefined>(memory.open);
   const [start, setStart] = createSignal<string>();
   const [lens, setLens] = createSignal<Lens>(memory.lens);
@@ -335,6 +334,8 @@ const Surface = (props: { id: string; name: string }) => {
   const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
   const { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, gapTotals, again } = createAnalyses({ app, events, id: untrack(() => props.id), own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey() });
+
+  const explain = createExplanations({ app, id: untrack(() => props.id), to: own, kept: memory.explained, read: () => readback.account()?.explanations ?? [] });
 
   const dimmed = createMemo(() => new Set(calls.dim().flatMap(answer => answer.flows.map(flow => moduleKey(flowName(flow.entry))))));
 

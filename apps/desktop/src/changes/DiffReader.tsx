@@ -241,7 +241,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const gapped = createGapped(() => props.gaps, () => props.only);
 
-  const explaining = createExplaining({ explain: () => props.explain, path: () => props.path, blob: () => props.blob, selection });
+  const explaining = createExplaining({ explain: () => props.explain, path: () => props.path, blob: () => props.blob, value: read, selection });
 
   // U7698a: the user asks the selected lines; an answer asks again for its own range.
 

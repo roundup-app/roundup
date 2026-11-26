@@ -1,4 +1,5 @@
 import type { FileDiffMetadata } from "@pierre/diffs";
+import type { FileComparison } from "@contracts/agent/FileComparison";
 
 /** U7675e: where a run of added or removed lines begins: the side holding its first line, and the old and new line numbers it starts at. */
 export type ChangeStart = { side: "old" | "new"; at: { old: number; new: number } };
@@ -74,4 +75,16 @@ export const revealerOf = (
 
     if (fold) view.expandHunk(fold.index, fold.step);
   };
+};
+
+/** U7677e: the source a comparison holds at a note's lines, as a note or an explanation retains it. */
+export const sourceAt = (value: FileComparison, note: LineSelection) => {
+  const content = value[note.side];
+
+  if (content.kind !== "text") return undefined;
+  const lines = content.text.split("\n");
+
+  if (lines.at(-1) === "") lines.pop();
+
+  return lines.slice(note.start - 1, note.end).join("\n");
 };
