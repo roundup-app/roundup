@@ -223,9 +223,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   let rendered: { path: string; revision: string } | undefined;
   let focusHost = () => {};
 
-  let revealNearest = () => {};
-
-  let moveTo = (_side: "old" | "new", _line: number) => {};
+  let revealNearest = () => {}, moveTo = (_side: "old" | "new", _line: number) => {};
 
   const hidden = createMemo(() => hiddenKind(read(), shown()?.path === props.path ? shown()?.kind : undefined));
 

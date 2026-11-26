@@ -28,24 +28,24 @@ export const createFindings = (input: { app: AppSeam; id: string; to: () => "tre
   const [kept, setKept] = input.kept;
 
   /** The pass of the open comparison; another `to` shows none. */
-  const run = createMemo(() => {
-    const held = kept();
+  const pass = createMemo(() => {
+    const run = kept();
 
-    return held?.to === input.to() ? held : undefined;
+    return run?.to === input.to() ? run : undefined;
   });
 
-  const answer = () => run()?.answer;
+  const answer = () => pass()?.answer;
 
   const list = (): readonly Finding[] => {
-    const held = answer();
+    const run = answer();
 
-    return held?.state === "found" ? held.findings : [];
+    return run?.state === "found" ? run.findings : [];
   };
 
   const totals = createMemo(() => placeCounts(input.grouped(), list()));
 
   /** U7700d: a finding leaves the list once the user decides it. */
-  const drop = (finding: Finding) => setKept(held => held?.answer.state === "found" ? { ...held, answer: { ...held.answer, findings: held.answer.findings.filter(each => each !== finding) } } : held);
+  const drop = (finding: Finding) => setKept(run => run?.answer.state === "found" ? { ...run, answer: { ...run.answer, findings: run.answer.findings.filter(each => each !== finding) } } : run);
 
   const ask = () => {
     const to = input.to();
@@ -57,26 +57,26 @@ export const createFindings = (input: { app: AppSeam; id: string; to: () => "tre
     let landed: DefectFindings | undefined;
 
     void failureOf(async () => { landed = await input.app.rpc("agent.findDefects", { id: input.id, to }); })
-      .then(failure => setKept(held => held === asked ? { ...asked, answer: failure !== null || !landed ? { state: "failed", kind: "call", cause: failure ?? "no_answer" } : landed } : held));
+      .then(failure => setKept(run => run === asked ? { ...asked, answer: failure !== null || !landed ? { state: "failed", kind: "call", cause: failure ?? "no_answer" } : landed } : run));
   };
 
   return {
     offered: () => input.to() !== null,
     /** Not run, running, done or failed. */
     state: () => {
-      const held = answer();
+      const run = answer();
 
-      if (held === undefined) return "notRun" as const;
+      if (run === undefined) return "notRun" as const;
 
-      return held.state === "found" ? "done" as const : held.state;
+      return run.state === "found" ? "done" as const : run.state;
     },
     cause: () => {
-      const held = answer();
+      const run = answer();
 
-      return held?.state === "failed" ? held.cause : undefined;
+      return run?.state === "failed" ? run.cause : undefined;
     },
     /** U7700b: the listing's files are no longer the ones the pass read. */
-    stale: () => run()?.answer.state === "found" && run()?.signature !== input.signature(),
+    stale: () => pass()?.answer.state === "found" && pass()?.signature !== input.signature(),
     list,
     totals,
     ask,
