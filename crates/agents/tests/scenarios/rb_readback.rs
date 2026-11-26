@@ -1,10 +1,12 @@
-//! RB1 to RB8 (`scenarios/readback.md`): a fresh model reads the diff. A fake `claude` records the
+//! RB1 to RB8, RB13 to RB15 (`scenarios/readback.md`, `scenarios/readback-explain.md`): a fresh model reads the diff. A fake `claude` records the
 //! stdin of each one-shot launch and answers from `reply<n>` files.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use agents::worktree::Git;
+use contracts::{Actor, ActorKind};
+use rpc::{Ctx, Module, code};
 use serde_json::{Value, json};
 
 use crate::common::Fixture;
@@ -638,4 +640,135 @@ async fn rs4_a_skill_does_not_change_the_checked_shape() {
     let state = r.settled().await;
     assert_eq!(state["kind"], "badAnswer");
     assert_eq!(r.launches().len(), 1);
+}
+
+impl Rb {
+    async fn explain(&self, path: &str, side: &str, lines: (u32, u32), form: &str) -> Value {
+        self.f
+            .call(
+                "agent.explain",
+                json!({"id": self.id, "path": path, "side": side, "start": lines.0, "end": lines.1, "form": form}),
+            )
+            .await
+            .unwrap()
+    }
+}
+
+#[tokio::test]
+async fn rb13_an_explanation_reads_the_hunks_the_lines_and_the_form_only() {
+    let r = rb(&[answer("It adds b."), answer("It dropped b.")]).await;
+    r.stop("MARKER-LAST").await;
+
+    let new = r.explain("a.rs", "new", (2, 2), "words").await;
+    let old = r.explain("seed.txt", "old", (2, 2), "words").await;
+
+    assert_eq!(
+        new,
+        json!({"state": "explained", "form": "words", "text": "It adds b."})
+    );
+    assert_eq!(old["text"], "It dropped b.");
+    let launches = r.launches();
+    assert_eq!(launches.len(), 2);
+    let one = input(&launches[0]);
+    let ids: Vec<&str> = one["hunks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["a.rs#1", "seed.txt#1"]);
+    assert_eq!(
+        one["selection"],
+        json!({"path": "a.rs", "side": "new", "start": 2, "end": 2, "text": "fn b() {}"})
+    );
+    assert_eq!(one["form"], "words");
+    assert_eq!(input(&launches[1])["selection"]["text"], "b");
+    assert!(
+        launches
+            .iter()
+            .all(|launch| !launch.contains("MARKER-LAST"))
+    );
+}
+
+#[tokio::test]
+async fn rb13_an_agent_actor_and_a_shared_checkout_have_no_explanation() {
+    let r = rb(&[answer("x")]).await;
+    let agent = Ctx {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: r.id.clone(),
+            parent: None,
+        },
+        ..r.f.ctx()
+    };
+    let params =
+        json!({"id": r.id, "path": "a.rs", "side": "new", "start": 1, "end": 1, "form": "words"});
+    let err =
+        r.f.agents
+            .call(&agent, "agent.explain", params)
+            .await
+            .unwrap_err();
+    assert_eq!(err.code, code::FORBIDDEN);
+
+    let f = Fixture::in_git_project(SCRIPT, Git::from_env());
+    let node = f.spawn(None, None).await.unwrap();
+    let params = json!({"id": node.base.id, "path": "a.rs", "side": "new", "start": 1, "end": 1, "form": "words"});
+    let err = f.call("agent.explain", params).await.unwrap_err();
+    assert!(err.message.contains("no_worktree"), "{}", err.message);
+    assert!(r.launches().is_empty());
+}
+
+#[tokio::test]
+async fn rb14_each_form_answers_its_shape_and_an_empty_answer_fails() {
+    let r = rb(&[
+        answer("a -> b\nb -> c"),
+        answer("Two sentences."),
+        answer("  "),
+    ])
+    .await;
+
+    let diagram = r.explain("a.rs", "new", (1, 2), "diagram").await;
+    let words = r.explain("a.rs", "new", (1, 2), "words").await;
+    let empty = r.explain("a.rs", "new", (1, 2), "words").await;
+
+    assert_eq!(
+        diagram,
+        json!({"state": "explained", "form": "diagram", "text": "a -> b\nb -> c"})
+    );
+    assert_eq!(words["form"], "words");
+    assert_eq!(empty["state"], "failed");
+    assert_eq!(empty["kind"], "badAnswer");
+    assert!(r.args(0).contains("Form `diagram`") && r.args(0).contains("A -> B"));
+    assert!(r.args(1).contains("Form `words`") && !r.args(1).contains("A -> B"));
+    assert_eq!(input(&r.launches()[0])["form"], "diagram");
+}
+
+#[tokio::test]
+async fn rb15_lines_outside_the_diff_fail_naming_them_and_launch_nothing() {
+    let r = rb(&[answer("It reads two lines.")]).await;
+
+    let outside = r.explain("a.rs", "new", (40, 41), "words").await;
+    let other = r.explain("nope.rs", "new", (1, 1), "words").await;
+    assert_eq!(outside["state"], "failed");
+    assert_eq!(outside["kind"], "outOfDiff");
+    assert!(outside["cause"].as_str().unwrap().contains("a.rs"));
+    assert_eq!(other["kind"], "outOfDiff");
+    assert!(r.launches().is_empty());
+
+    let partly = r.explain("a.rs", "new", (2, 40), "words").await;
+    assert_eq!(partly["state"], "explained");
+    assert_eq!(input(&r.launches()[0])["selection"]["text"], "fn b() {}");
+}
+
+#[tokio::test]
+async fn rb15_a_diff_over_the_cap_fails_naming_the_cap() {
+    let r = rb(&[answer("x")]).await;
+    write(&r.path, "big.txt", &"x".repeat(300 * 1024));
+
+    let state = r.explain("a.rs", "new", (1, 1), "words").await;
+
+    assert_eq!(state["state"], "failed");
+    assert_eq!(state["kind"], "tooLarge");
+    assert!(state["cause"].as_str().unwrap().contains("256 KiB"));
+    assert!(r.launches().is_empty());
 }

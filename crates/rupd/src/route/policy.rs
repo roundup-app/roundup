@@ -163,6 +163,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.ownedChanges", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.printedCommands", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.prompt", Policy { actor: Actor::Caller, observed: true, inputs: Inputs::Id, ..PLAIN }),
+    ("agent.explain", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.readback", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.readbackStart", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.remoteMain", Policy { inputs: Inputs::Id, ..PLAIN }),

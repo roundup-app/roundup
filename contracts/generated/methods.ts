@@ -15,6 +15,8 @@ import type { CreateModeParams as agent_CreateModeParams } from "./agent/CreateM
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
 import type { DeletionParams as agent_DeletionParams } from "./agent/DeletionParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
+import type { ExplainParams as agent_ExplainParams } from "./agent/ExplainParams";
+import type { Explanation as agent_Explanation } from "./agent/Explanation";
 import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { FetchedMain as agent_FetchedMain } from "./agent/FetchedMain";
@@ -223,6 +225,7 @@ export type RpcMethods = {
   "agent.repeatScan": { params: agent_ChangedFilesParams; result: agent_ScanHits };
   "agent.callPaths": { params: agent_CallPathsParams; result: agent_CallPaths };
   "agent.readbackStart": { params: agent_ReadbackStartParams; result: agent_Readback };
+  "agent.explain": { params: agent_ExplainParams; result: agent_Explanation };
   "agent.readback": { params: agent_ChangedFilesParams; result: agent_Readback };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };

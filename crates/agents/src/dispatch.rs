@@ -180,6 +180,18 @@ impl Agents {
         self.readback_start(&p.id, p.to, p.skill.as_deref()).await
     }
 
+    async fn agent_explain(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::ExplainParams,
+    ) -> Result<contracts::agent::Explanation, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user asks for an explanation"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.explain(p).await
+    }
+
     async fn agent_printed_commands(
         &self,
         ctx: &Ctx,

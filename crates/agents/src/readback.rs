@@ -1,6 +1,6 @@
 //! RB1 to RB8: a fresh model reads the Agent's diff and writes the overview, the flows and the
 //! gaps. Only `agent.readbackStart` starts a run; the Daemon holds its state, so closing the view
-//! cancels nothing.
+//! cancels nothing. RB13 to RB15: `agent.explain` has the same reader explain selected lines.
 
 use super::*;
 use crate::worktree::{DiffInput, Hunk};
@@ -15,12 +15,35 @@ use serde_json::json;
 const MAX_BYTES: usize = 256 * 1024;
 const MAX_HUNKS: usize = 400;
 
-const ACCOUNT_SYSTEM: &str = "You read a code change and write a readback of it. Your input is \
+/// RB8, RB15: why a diff is too large to read, in words naming the cap; none when it is under it.
+pub(super) fn over_cap(hunks: &[Hunk]) -> Option<String> {
+    let bytes: usize = hunks.iter().map(|hunk| hunk.text.len()).sum();
+    (hunks.len() > MAX_HUNKS || bytes > MAX_BYTES).then(|| {
+        format!(
+            "the diff has {} hunks and {} KiB; a readback reads at most {MAX_HUNKS} hunks and {} KiB",
+            hunks.len(),
+            bytes.div_ceil(1024),
+            MAX_BYTES / 1024
+        )
+    })
+}
+
+/// The one format of a diagram's text, which `parseDiagram` (the App) reads: the readback and an
+/// explanation ask for it the same way.
+macro_rules! diagram_format {
+    () => {
+        "one call per line as `A -> B` (a chain `A -> B -> C` is allowed), with a line `Before` or `After` starting each panel where the shape changed"
+    };
+}
+pub(crate) use diagram_format;
+
+const ACCOUNT_SYSTEM: &str = concat!(
+    "You read a code change and write a readback of it. Your input is \
 JSON: `hunks` (each {id, path, text}) and `flows` (call paths already read from the code, each \
 {id, entry, hunks}: hunk ids in call order). Reply with one JSON object and nothing else: \
-{\"overview\": two or three sentences, \"diagram\": a small text diagram, one call per line as \
-`A -> B` (a chain `A -> B -> C` is allowed), with a line `Before` or `After` starting each panel \
-where the shape changed, \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
+{\"overview\": two or three sentences, \"diagram\": a small text diagram, ",
+    diagram_format!(),
+    ", \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
 \"hunks\": [hunk ids]}]}], \"modules\": [{\"module\", \"account\"}], \"ranks\": [{\"hunk\": hunk id, \"rank\": \"core\" \
 (the change itself), \"forced\" (what it forces elsewhere: a caller, a type, a migration) or \
 \"glue\" (wiring, plumbing, re-exports, renames)}] with one entry for every hunk id, \"risks\": \
@@ -28,7 +51,8 @@ where the shape changed, \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
 \"medium\" or \"low\", \"reason\": one sentence}] with one entry for every flow and every module}. \
 Judge rank and risk from what the change does, never from a file name or size. Keep each given flow under \
 its id with exactly its hunks in its order; you may add flows under new ids. Use only hunk ids \
-from the input.";
+from the input."
+);
 
 const GAPS_SYSTEM: &str = "You compare a readback of a code change with what its author said it \
 did. Your input is JSON: `account` (the readback), `hunks` (each {id, path, text}) and \
@@ -492,11 +516,33 @@ fn state(entry: &Entry) -> Readback {
 }
 
 impl Agents {
-    fn readback_worktree(&self, id: &str) -> Result<worktree::Worktree, RpcError> {
+    pub(super) fn readback_worktree(&self, id: &str) -> Result<worktree::Worktree, RpcError> {
         let record = self.shared.node(id)?.worktree();
         let record =
             record.ok_or_else(|| RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")))?;
         Ok(worktree::Worktree::from(&record))
+    }
+
+    /// RB1: the diff of `worktree` against `to`, read off the async threads.
+    pub(super) async fn readback_diff(
+        &self,
+        worktree: worktree::Worktree,
+        to: CompareTarget,
+    ) -> Result<DiffInput, RpcError> {
+        let git = self.shared.git.bounded();
+        tokio::task::spawn_blocking(move || git.diff_input(&worktree, to))
+            .await
+            .map_err(|err| RpcError::from(worktree::WorktreeError::Failed(err.to_string())))?
+    }
+
+    /// P8: the call of the `readback` Role's Model and Effort.
+    pub(super) fn readback_reader(&self) -> Result<claude_code::ReadbackCall, RpcError> {
+        let pair = models::resolve(&self.project_models()?, Role::Readback, None, None);
+        Ok(self
+            .shared
+            .rail_view
+            .launcher
+            .readback_call(pair.model, pair.effort))
     }
 
     /// RB5, RB7: where the Readback of `(id, to)` stands; a read result whose diff has changed
@@ -572,40 +618,22 @@ impl Agents {
             }
             runs.insert(key.clone(), Entry::Reading);
         }
-        let git = self.shared.git.bounded();
-        let input = tokio::task::spawn_blocking(move || git.diff_input(&worktree, to))
-            .await
-            .map_err(|err| RpcError::from(worktree::WorktreeError::Failed(err.to_string())));
-        let input = match input {
-            Ok(Ok(input)) => input,
-            Ok(Err(err)) | Err(err) => {
+        let input = match self.readback_diff(worktree, to).await {
+            Ok(input) => input,
+            Err(err) => {
                 self.shared
                     .readbacks
                     .set(key, failed("call", err.message.clone()));
                 return Err(err);
             }
         };
-        let bytes: usize = input.hunks.iter().map(|hunk| hunk.text.len()).sum();
-        if input.hunks.len() > MAX_HUNKS || bytes > MAX_BYTES {
-            let entry = failed(
-                "tooLarge",
-                format!(
-                    "the diff has {} hunks and {} KiB; a readback reads at most {MAX_HUNKS} hunks and {} KiB",
-                    input.hunks.len(),
-                    bytes.div_ceil(1024),
-                    MAX_BYTES / 1024
-                ),
-            );
+        if let Some(cause) = over_cap(&input.hunks) {
+            let entry = failed("tooLarge", cause);
             let answer = state(&entry);
             self.shared.readbacks.set(key, entry);
             return Ok(answer);
         }
-        let pair = models::resolve(&self.project_models()?, Role::Readback, None, None);
-        let call = self
-            .shared
-            .rail_view
-            .launcher
-            .readback_call(pair.model, pair.effort);
+        let call = self.readback_reader()?;
         let last_message = {
             let runs = self.shared.runs();
             match runs.agent(id).map(|agent| &agent.slot) {

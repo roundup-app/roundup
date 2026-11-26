@@ -55,6 +55,7 @@ pub use peer::descends_from;
 mod pick;
 #[cfg(feature = "test-support")]
 pub use peer::{classifications, parent_lookups};
+mod explain;
 mod prepared;
 mod queue;
 mod rail;
