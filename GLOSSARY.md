@@ -236,7 +236,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
 | Work order | same | — |
 | Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
-| Instruction delivery (`InstructionDelivery`, `InstructionState`) | same | — |
+| Instruction delivery (`InstructionDelivery`, `InstructionState`, `InstructionDelivery.cause`, `FIRST_PROMPT_BOUND`) | same | — |
 | Done condition | same | — |
 | Captured Order (`CapturedOrder`, `SetOrderParams.captured`) | same | — |
 | Order title | same | — |
