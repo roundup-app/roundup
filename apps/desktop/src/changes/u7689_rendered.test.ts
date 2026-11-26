@@ -67,7 +67,7 @@ const ACCOUNT: Account = {
   unplaced: ["apps/a/src/types.ts#1"],
   ranks: [],
   risks: [],
-  explanations: [],
+  explanations: [], stops: [],
   gaps: [],
 };
 

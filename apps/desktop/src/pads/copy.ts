@@ -117,7 +117,7 @@ export const copy = {
   walkOverview: sharedCopy.overview,
   walkOutline: "Steps",
   walkHint: "← → to move",
-  walkCount: (step: number, steps: number) => `${step} of ${steps}`,
+  walkCount: sharedCopy.ofTotal,
   /** @prose */
   walkFolded: (step: number, steps: number, title: string) => `Step ${step} of ${steps} · ${title}`,
 } as const;

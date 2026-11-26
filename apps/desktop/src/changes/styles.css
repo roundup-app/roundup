@@ -276,6 +276,12 @@
 .readback-figure { max-inline-size: 100%; block-size: auto; stroke: var(--text); fill: none; }
 .readback-figure rect { fill: var(--sunken); }
 .readback-figure text { fill: var(--text); stroke: none; font: var(--text-small) var(--font-ui); }
+/* U7703b: the stepper's controls sit under the figure; the lit part is marked by ink and weight, with no transition (#7675), and the figure shows the focus ring. */
+.readback-stepper { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.readback-stepper p { flex: 1 1 12ch; min-inline-size: 0; overflow-wrap: anywhere; }
+.readback-stop-count { color: var(--grey); }
+.readback-figure rect[data-lit="true"] { fill: var(--selected); stroke: var(--accent); }
+.readback-words li[aria-current="step"] { font-weight: 600; color: var(--accent); }
 .readback-arrow { fill: var(--text); stroke: none; }
 .module-account { margin: 0; padding: var(--space-3); font: var(--text-small) var(--font-ui); }
 @container readback (width < env(--query-readback-figure)) { .readback-figure { display: none; } }

@@ -110,9 +110,7 @@ pub struct LineExplanation {
     pub text: String,
 }
 
-/// RB21: one place the readback's diagram is walked to: the name of a part the diagram draws and one
-/// sentence about it. The Daemon keeps them as given; the App, which reads the diagram, keeps those
-/// that name a part it draws.
+/// RB21: a part of the diagram and the sentence that says what happens there.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct DiagramStop {
     pub part: String,
