@@ -1,4 +1,4 @@
-import { chromium, webkit, type Browser, type BrowserType } from "playwright";
+import { chromium, webkit, type Browser } from "playwright";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer, type AppServer } from "../testing/appServer";
 import { chromePath } from "../testing/chromePage";
@@ -13,13 +13,15 @@ afterAll(async () => {
   await server?.close();
 });
 
-/** The longest stretch the page's main thread ran without yielding while the Changes list opened. */
-const longestBlock = async (type: BrowserType) => {
-  const executablePath = type === chromium ? chromePath() : undefined;
-  const engine: Browser = await (executablePath === undefined ? type.launch() : type.launch({ executablePath }));
+/** U7610d: ten fresh pages in a row, so one check run holds the ten-run margin. */
+const RUNS = 10;
+
+/** The longest stretch the page's main thread ran without yielding while the Changes list opened, in a fresh page. */
+const longestBlock = async (engine: Browser) => {
+  const context = await engine.newContext();
 
   try {
-    const page = await engine.newPage();
+    const page = await context.newPage();
 
     await page.goto(new URL("/src/changes/u2540.html?dense", server.resolvedUrls.local[0]).href);
     // The lazy diff chunk loads and evaluates once at startup (R3800), not per open; the beat measures the list.
@@ -63,10 +65,21 @@ const longestBlock = async (type: BrowserType) => {
 
     return await beat.evaluate(gaps => gaps.longest);
   } finally {
-    await engine.close();
+    await context.close();
   }
 };
 
 it.each([["Chromium", chromium], ["WebKit", webkit]] as const)("u7610b_a_ten_thousand_line_rewrite_keeps_the_page_responsive (%s)", async (_name, type) => {
-  expect(await longestBlock(type)).toBeLessThan(200);
-}, 60_000);
+  const executablePath = type === chromium ? chromePath() : undefined;
+  const engine: Browser = await (executablePath === undefined ? type.launch() : type.launch({ executablePath }));
+
+  try {
+    const longest: number[] = [];
+
+    for (let run = 0; run < RUNS; run++) longest.push(await longestBlock(engine));
+
+    expect(Math.max(...longest)).toBeLessThan(200);
+  } finally {
+    await engine.close();
+  }
+}, 300_000);
