@@ -65,6 +65,8 @@ const ACCOUNT: Account = {
   ],
   modules: [],
   unplaced: ["apps/a/src/types.ts#1"],
+  ranks: [],
+  risks: [],
   gaps: [],
 };
 

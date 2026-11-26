@@ -5,7 +5,7 @@ import type { ChangedSymbol } from "@contracts/agent/ChangedSymbol";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { copy } from "./copy";
 import { answers, ALIAS, flowComparison, FLOW_FILES, LOAD, OTHER, RUN, TYPESCRIPT } from "./flowFixture";
-import { standInReader, reads } from "./moveHarness";
+import { reads } from "./moveHarness";
 import type { Moved } from "./moves";
 import { take } from "./noteHarness";
 import { chooseLens, comparison, drawnIn, landed, moduleRow, region, setUpView, text, there } from "./viewHarness";
@@ -36,7 +36,6 @@ class Eager {
 
 beforeEach(() => {
   vi.stubGlobal("IntersectionObserver", Eager);
-  standInReader();
   reads.answer = ({ path }) => MARKS.get(path) ?? [];
 });
 

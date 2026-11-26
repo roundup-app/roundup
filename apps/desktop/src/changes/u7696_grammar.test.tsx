@@ -1,16 +1,14 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { beforeEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { copy } from "./copy";
 import { answers, flowComparison, FLOW_FILES } from "./flowFixture";
-import { standInReader, reads } from "./moveHarness";
+import { reads } from "./moveHarness";
 import { take } from "./noteHarness";
 import { chooseLens, drawn, landed, moduleRow, setUpView } from "./viewHarness";
 
 setUpView();
 
 // U7696d: the move reader starts with the first Logic file drawn, never before. A file of its own, since the Worker is made once for a page.
-
-beforeEach(standInReader);
 
 it("u7696d_no_worker_starts_before_a_logic_file_is_drawn", async () => {
   const mounted = await landed(() => ({ files: FLOW_FILES }), flowComparison);

@@ -5,6 +5,7 @@ import type { ChangedSymbol } from "@contracts/agent/ChangedSymbol";
 import type { FlowNode } from "@contracts/agent/FlowNode";
 import type { ReadFlow } from "@contracts/agent/ReadFlow";
 import { copy } from "./copy";
+import { riskOf } from "./rank";
 import { groupModules, noiseOf, scrollOrder, type Grouped, type ModuleGroup, type Takes, type Section } from "./modules";
 
 /** U7683c: one language's finished trace. */
@@ -46,6 +47,13 @@ const pathOf = (hunk: string) => hunk.slice(0, hunk.lastIndexOf("#"));
 
 /** U7689a, U7689b: the files a readback flow's steps name, in step order, each once. */
 const filesOf = (flow: ReadFlow) => [...new Set(flow.steps.flatMap(step => step.hunks.map(pathOf)))];
+
+/** U7697c: the risk mark of the flow `id`, as the part of an item it fills. */
+const riskFor = (read: Read | undefined, id: string) => {
+  const risk = riskOf(read?.account, "flow", id, read?.stale ?? false);
+
+  return risk ? { risk } : {};
+};
 
 const itemOf = (name: string, label: string, files: ChangedFile[], rest: Partial<ModuleGroup>): ModuleGroup => ({
   name,
@@ -100,7 +108,7 @@ export const groupFlows = (files: readonly ChangedFile[], done: readonly Done[],
 
     if (!read || given?.source !== "code" || theirs.length !== own.length || !theirs.every(path => own.includes(path))) return each;
 
-    return { ...each, item: { ...each.item, label: given.name, function: each.entry.name, read: { notes: given.steps.map(step => step.note), added: false, stale: read.stale } } };
+    return { ...each, item: { ...each.item, label: given.name, function: each.entry.name, read: { notes: given.steps.map(step => step.note), added: false, stale: read.stale }, ...riskFor(read, given.id) } };
   }).sort((a, b) => a.entry.path.localeCompare(b.entry.path, undefined, { numeric: true }) || (a.entry.new?.start ?? a.entry.old?.start ?? 0) - (b.entry.new?.start ?? b.entry.old?.start ?? 0));
 
   const loose = distinct(read ? read.account.unplaced.flatMap(hunk => {
@@ -116,7 +124,7 @@ export const groupFlows = (files: readonly ChangedFile[], done: readonly Done[],
   const added = (read?.account.flows ?? []).flatMap(flow => {
     const own = flow.source === "readback" ? filesOf(flow).flatMap(path => listed.get(path) ?? []) : [];
 
-    return own.length > 0 ? [itemOf(readName(flow.id), flow.name, own, { sections: own.map(file => ({ id: file.path, file })), read: { notes: flow.steps.map(step => step.note), added: true, stale: read?.stale ?? false } })] : [];
+    return own.length > 0 ? [itemOf(readName(flow.id), flow.name, own, { sections: own.map(file => ({ id: file.path, file })), read: { notes: flow.steps.map(step => step.note), added: true, stale: read?.stale ?? false }, ...riskFor(read, flow.id) })] : [];
   });
 
   const unplaced = scrollOrder(loose).map((file): Section => ({ id: file.path, file, pick: (side, line) => !(taken.get(file.path) ?? []).some(pick => pick(side, line)) }));

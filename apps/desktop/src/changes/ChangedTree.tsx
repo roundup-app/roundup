@@ -8,6 +8,7 @@ import { copy } from "./copy";
 import { OVERVIEW, type Lens } from "./lens";
 import type { Grouped, ModuleGroup, NoiseKind } from "./modules";
 import { isNew, statusText } from "./paths";
+import { RiskMark } from "./RiskMark";
 import { countFor, groupTarget } from "./itemNotes";
 import type { ItemNote } from "./notes";
 
@@ -27,7 +28,11 @@ export const ItemName = (props: { item: ModuleGroup }) => <>
   <Name text={props.item.label ?? props.item.name} stale={props.item.read?.stale} />
   <Show when={props.item.function}>{name => <span class="changes-row-function">{name()}</span>}</Show>
   <Show when={props.item.read?.added}><span class="changes-row-status">{copy.fromReadback}</span></Show>
+  <Show when={props.item.risk}>{risk => <RiskMark risk={risk()} />}</Show>
 </>;
+
+/** U7697a: a row's risk mark aloud. */
+const riskWords = (item?: ModuleGroup) => item?.risk ? [copy.riskMark[item.risk.level]] : [];
 
 /** U7689a: a row's words aloud: its name, and the function a readback's name stands for. */
 const titleOf = (item: ModuleGroup) => item.function ? copy.rowLabel(item.label ?? item.name, item.function) : item.label ?? item.name;
@@ -94,14 +99,14 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   const movedOf = (key: string) => props.moved?.get(key.slice(2)) ?? 0;
 
   /** The counts an item row says: its repeats, gaps and moves, each when above 0. */
-  const countWords = (key: string | undefined) => key === undefined ? [] : [{ count: repeatsOf, say: copy.repeatsCount }, { count: gapsOf, say: copy.gapsCount }, { count: movedOf, say: copy.movedCount }].filter(({ count }) => count(key) > 0).map(({ count, say }) => say(count(key)));
+  const countWords = (key: string | undefined) => key === undefined ? [] : [{ count: repeatsOf, say: copy.repeatsCount }, { count: gapsOf, say: copy.gapsCount }, { count: movedOf, say: copy.movedCount }].flatMap(({ count, say }) => count(key) > 0 ? [say(count(key))] : []);
 
   const marked = (files: readonly ChangedFile[], item?: ModuleGroup) => files.some(file => props.unfinished.has(file.path)) || (item !== undefined && props.unfinishedItems.has(item.name));
 
   const notesOf = (item: ModuleGroup) => countFor(props.itemNotes, item);
 
   /** U7680a, U7680d: a module row's name adds the words it shows: unfinished work, Viewed, and Changed since you viewed it. */
-  const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [marked(files, item) ? copy.unfinishedWork : "", item !== undefined && notesOf(item) > 0 ? copy.noteCount(notesOf(item)) : "", ...countWords(key), key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", ...readWords(item, props.readHint)].filter(Boolean).reduce(copy.rowLabel, text);
+  const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [marked(files, item) ? copy.unfinishedWork : "", item !== undefined && notesOf(item) > 0 ? copy.noteCount(notesOf(item)) : "", ...countWords(key), key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", ...readWords(item, props.readHint), ...riskWords(item)].filter(Boolean).reduce(copy.rowLabel, text);
 
   /** Each file row's module key and path, by the file's tree value. */
   const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(moduleKey(module.name), file.path), { owner: moduleKey(module.name), path: file.path }] as const))));

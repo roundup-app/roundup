@@ -215,7 +215,12 @@ type Hooks = {
 const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; end: number }): LineSelection => ({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
-export type Drawn = { mark: (ranges: readonly Noted[]) => void; /** U7685a: the new-side lines a repeat marks. */ repeat: (spans: readonly { start: number; end: number }[]) => void; /** U7696a: the new-side lines a move marks. */ move: (spans: readonly { start: number; end: number }[]) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
+/** U7677a, U7685a, U7696a: the lines a note marks, the new-side lines a repeat marks and those a move marks. */
+export type Stamped = { noted: readonly Noted[]; repeat: readonly Span[]; move: readonly Span[] };
+
+type Span = { start: number; end: number };
+
+export type Drawn = { stamp: (stamped: Partial<Stamped>) => void; view: VirtualizedFileDiff<Annotated>; virtualizer: InstanceType<typeof import("@pierre/diffs").Virtualizer>; container: HTMLElement; fileDiff: NonNullable<ReturnType<typeof import("@pierre/diffs").processFile>>; coarse: boolean };
 
 /** U7678c: the module scroll's one Virtualizer, made on the first file drawn; undefined outside a shared scroll. */
 const sharedVirtualizer = (shared: Shared | undefined, Virtualizer: typeof import("@pierre/diffs").Virtualizer) => {
@@ -260,24 +265,22 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   mount.append(container);
   const virtualizer = sharedVirtualizer(hooks.shared, Virtualizer) ?? new Virtualizer();
 
-  let noted: readonly Noted[] = [];
-  let repeated: readonly { start: number; end: number }[] = [];
-  let moved: readonly { start: number; end: number }[] = [];
+  let stamped: Stamped = { noted: [], repeat: [], move: [] };
 
   let functions: readonly (string | undefined)[] = [];
 
-  const stamp = (node: HTMLElement) => {
+  const restamp = (node: HTMLElement) => {
     nameHunks(node, functions);
 
     for (const line of node.shadowRoot?.querySelectorAll<HTMLElement>("[data-line]") ?? []) {
       const side = line.getAttribute("data-line-type") === "change-deletion" ? "old" : "new";
       const number = Number(line.getAttribute("data-line"));
-      const hit = noted.filter(range => range.side === side && range.start <= number && number <= range.end);
+      const hit = stamped.noted.filter(range => range.side === side && range.start <= number && number <= range.end);
 
       line.toggleAttribute("data-noted", hit.length > 0);
       line.toggleAttribute("data-focused", hit.some(range => range.focused));
-      line.toggleAttribute("data-repeat", side === "new" && repeated.some(span => span.start <= number && number <= span.end));
-      line.toggleAttribute("data-moved", side === "new" && moved.some(span => span.start <= number && number <= span.end));
+      line.toggleAttribute("data-repeat", side === "new" && stamped.repeat.some(span => span.start <= number && number <= span.end));
+      line.toggleAttribute("data-moved", side === "new" && stamped.move.some(span => span.start <= number && number <= span.end));
     }
   };
 
@@ -311,7 +314,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
     },
     renderAnnotation: ({ metadata }) => hooks.annotation(metadata),
     // U7677a: Pierre has no line decoration API, so each noted line carries the attribute the stylesheet keys on, again after each render.
-    onPostRender: node => stamp(node),
+    onPostRender: node => restamp(node),
     theme: DIFF_THEME, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true, unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
   // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
@@ -335,5 +338,5 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   // U7610c: the reader's first render of the view is a task of its own.
   await yielded();
 
-  return hooks.current() ? { mark: ranges => { noted = ranges; stamp(container); }, repeat: spans => { repeated = spans; stamp(container); }, move: spans => { moved = spans; stamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
+  return hooks.current() ? { stamp: spans => { stamped = { ...stamped, ...spans }; restamp(container); }, view, virtualizer, container, fileDiff, coarse } : undefined;
 };

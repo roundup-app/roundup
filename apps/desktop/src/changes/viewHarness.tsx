@@ -8,6 +8,7 @@ import { agent, event } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
+import { standInReader } from "./moveHarness";
 import { COMPARISON, marked, openChanges, openFirstModule, take } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
@@ -193,6 +194,7 @@ export const pane = () => screen.getByRole("region", { name: copy.overview });
 export const setUpView = () => {
   beforeEach(() => {
     vi.stubGlobal("IntersectionObserver", IdleObserver);
+    standInReader();
     scrolls.clear();
     Object.defineProperty(Element.prototype, "scrollTop", {
       configurable: true,
