@@ -11,4 +11,5 @@ export type InstructionDelivery = {
 	attempt: string,
 	text: string,
 	state: agent$InstructionState.InstructionState,
+	cause?: string,
 };

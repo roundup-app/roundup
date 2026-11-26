@@ -171,13 +171,62 @@ impl Agents {
     async fn agent_readback_start(
         &self,
         ctx: &Ctx,
-        p: contracts::agent::ChangedFilesParams,
+        p: contracts::agent::ReadbackStartParams,
     ) -> Result<contracts::agent::Readback, RpcError> {
         if ctx.actor.kind == contracts::ActorKind::Agent {
             return Err(RpcError::forbidden("only the user starts a readback"));
         }
         self.shared.guard_reach(&ctx.actor, &p.id, true)?;
-        self.readback_start(&p.id, p.to).await
+        self.readback_start(&p.id, p.to, p.skill.as_deref()).await
+    }
+
+    async fn agent_explain(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::ExplainParams,
+    ) -> Result<contracts::agent::Explanation, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user asks for an explanation"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.explain(p).await
+    }
+
+    async fn agent_find_defects(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::ChangedFilesParams,
+    ) -> Result<contracts::agent::DefectFindings, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user asks for defects"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.find_defects(p).await
+    }
+
+    async fn agent_printed_commands(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::PrintedCommands, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user reads printed commands"));
+        }
+        self.printed_commands(&p.id)
+            .map(|commands| contracts::agent::PrintedCommands { commands })
+    }
+
+    async fn agent_run_printed(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::RunPrintedParams,
+    ) -> Result<contracts::terminal::Opened, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden(
+                "only the user's click runs a printed command",
+            ));
+        }
+        self.run_printed(ctx, p).await
     }
 
     async fn agent_readback(
@@ -218,9 +267,14 @@ impl Agents {
     ) -> Result<contracts::agent::FileComparison, RpcError> {
         let shared = &self.shared;
         {
-            let contracts::agent::CompareFileParams { id, path, to } = p;
+            let contracts::agent::CompareFileParams {
+                id,
+                path,
+                to,
+                group,
+            } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            self.compare_file(&id, &path, to).await
+            self.compare_file(&id, &path, to, group).await
         }
     }
 
@@ -269,6 +323,14 @@ impl Agents {
         _p: (),
     ) -> Result<Vec<contracts::agent::Adoptable>, RpcError> {
         self.adoptable_by(ctx, crate::AdoptBy::User).await
+    }
+
+    async fn agent_offshoot(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.offshoot(ctx, &p.id).await
     }
 
     async fn agent_adopt(

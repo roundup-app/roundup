@@ -7,15 +7,15 @@ import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import { extrasOf, changed, LabelRow, optionalOf, ReplacementField, sameExtras, sourceOf, suggestionOf } from "./NoteExtras";
 import type { Extras } from "./NoteExtras";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import type { Note, Notes, NoteFormDraft } from "./notes";
+import type { LineNote, Notes, NoteFormDraft } from "./notes";
 
 type Fields = Pick<NoteFormDraft, "side" | "start" | "end" | "text"> & Extras;
 
 /** The note the field was opened on, with nothing changed. */
-const unedited = (note: Note, fields: Fields) => fields.text === note.text && fields.side === note.side && fields.start === String(note.start) && fields.end === String(note.end) && sameExtras(fields, extrasOf(note));
+const unedited = (note: LineNote, fields: Fields) => fields.text === note.text && fields.side === note.side && fields.start === String(note.start) && fields.end === String(note.end) && sameExtras(fields, extrasOf(note));
 
 /** Keyboard selection uses the same source and inclusive range as Pierre's gutter selection. */
-export const NoteForm = (props: { id: string; comparison: FileComparison; notes: Notes; selection: { side: "old" | "new"; start: number; end: number }; editing?: Note | undefined; recovered?: NoteFormDraft | undefined; close: () => void; /** U7677d: the field holds or loses focus, for the gutter bar. */ focus?: ((active: boolean) => void) | undefined }) => {
+export const NoteForm = (props: { id: string; comparison: FileComparison; notes: Notes; selection: { side: "old" | "new"; start: number; end: number }; editing?: LineNote | undefined; recovered?: NoteFormDraft | undefined; close: () => void; /** U7677d: the field holds or loses focus, for the gutter bar. */ focus?: ((active: boolean) => void) | undefined }) => {
   const restored = untrack(() => props.recovered ?? props.notes.form(props.id, props.comparison, props.editing?.id));
   const comparison = restored?.comparison ?? props.editing?.comparison ?? props.comparison;
   const revision = restored?.revision ?? crypto.randomUUID();

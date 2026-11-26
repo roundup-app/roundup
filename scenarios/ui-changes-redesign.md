@@ -12,7 +12,7 @@ Module: `apps/desktop/src/changes/`. Ids: U7674a, U7674b, U7674c, U7674d, U7674e
 - **Kept.** Enter or a double click on a file opens the editor (U2539d). Asserted in the U2539d tests of `u2539d_choose.test.tsx`.
 
 **U7674b the header is one line.** Given the open view, then:
-- **Content.** The header holds the Agent's name, From, the switch (U7672c), the shown group's file count with `+added -removed` totals summed from each entry's `counts` (U7610a), and one close button; no title apart from the Agent's name, no `Changes: <Agent> vs <base>` text (amends U7186c's title), no Back, no status line. Asserted in `u7674b_the_header_holds_name_from_switch_totals_and_one_close`.
+- **Content.** The header holds the Agent's name, From, the switch (U7672c), the shown group's file count with `+added -removed` totals summed from each entry's `counts` (U7610a), U7680a's "N of M viewed" when the lens lists a module, and one close button; no title apart from the Agent's name, no `Changes: <Agent> vs <base>` text (amends U7186c's title), no Back, no status line. Asserted in `u7674b_the_header_holds_name_from_switch_totals_and_one_close`.
 - **From.** From is a quiet fixed label, not a control (kept from U7672c). Asserted in `u7672c_from_is_a_label_not_a_control`.
 - **Totals.** Choosing another group or switch value changes the count and totals to that listing's; an entry whose `counts` is `null` adds nothing to the totals. Asserted in `u7674b_totals_follow_the_shown_group`.
 - **Escape.** Escape closes the view, unless a note field (#7676) holds it, which keeps the view open. Asserted in `u7674b_escape_closes_the_view_unless_a_note_field_holds_it`.
@@ -26,7 +26,7 @@ Module: `apps/desktop/src/changes/`. Ids: U7674a, U7674b, U7674c, U7674d, U7674e
 - **Checks moved.** The PR names the Checks this moves (rule 8: a named theme is not a Token, so outside the diff surface Tokens only) and measures rule 7 against `docs/perf.md`. Policy.
 
 **U7674e opening is fast and never blanks the pane.** Given the fake App, then:
-- **One comparison.** Opening the view requests only the first file's `agent.compareFile`. Asserted in `u7674e_opening_requests_only_the_first_files_comparison`.
+- **One comparison.** Opening the view requests only the first file's `agent.compareFile`. Asserted in `u7678c_opening_a_module_reads_only_the_files_its_first_screen_shows`, which replaces the first-file test.
 - **No blank.** Up and Down keep the open diff on screen until the next file's diff paints. Asserted in `u7674e_up_and_down_never_blank_the_pane`.
 - **Switch.** Choosing a switch value or group opens its first file. Asserted in `u7674e_choosing_a_value_opens_its_first_file`.
 - **Lazy.** The reader chunk loads when the view opens, never at startup, and the 10,000-line fallback stands (amends U2540d's and U7186c's Reader clause: it loaded on choosing a file). Asserted in `u7186c_the_reader_stays_lazy` and `u2540d_lazy`, edited to the open.

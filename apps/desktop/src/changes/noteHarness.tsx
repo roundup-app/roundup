@@ -3,6 +3,7 @@ import type { ConnectedProject } from "../state/connectedProject";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { captureActions } from "../keys/registry";
 import { copy } from "./copy";
+import { refuseUngroupedRead } from "../testing/fakeApp";
 import { mountControl } from "./harness";
 
 export const COMPARISON: FileComparison = { base: "base-commit", oldPath: "src/a.ts", newPath: "src/a.ts", status: "modified", old: { kind: "text", revision: "old-revision", text: "before\nsecond old\n" }, new: { kind: "text", revision: "new-revision", text: "after\nsecond new\n" } };
@@ -23,34 +24,74 @@ export const openChanges = async () => {
   action.run();
 };
 
-/** The tree's row for `path` in the newest Changes view: Pierre draws it inside a shadow root. */
-export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
-  const row = [...document.querySelectorAll("file-tree-container")].at(-1)?.shadowRoot?.querySelector<HTMLElement>(`[data-item-path="${path}"]`);
+/** The Changes lists a user sees: another Project's view stays mounted, out of the accessibility tree. */
+const visibleTrees = () => [...document.querySelectorAll<HTMLElement>(".changes-tree")].filter(tree => tree.closest('[aria-hidden="true"], [inert]') === null);
 
-  if (!row) throw new Error(`No tree row for ${path}`);
+/** U7678a: the list chooses a row the way Space does on the focused one: a module or file row opens its scroll, a noise row opens nothing, and no module folds. */
+export const take = (row: HTMLElement) => {
+  row.focus();
+  fireEvent.keyDown(row, { key: " " });
+};
+
+/** U7679c: the view opens on the Overview and reads no file, so a test that reads the first module chooses its row, as a user does. */
+export const openFirstModule = async () => take(await waitFor(() => {
+  const row = visibleTrees().at(-1)?.querySelector<HTMLElement>('[data-row="module"]');
+
+  if (!row) throw new Error("No module row");
+
+  return row;
+}));
+
+/** The rows of the newest list whose label says Unfinished work, as "<kind>:<key>". */
+export const marked = () => [...visibleTrees().at(-1)?.querySelectorAll<HTMLElement>("[data-row]") ?? []].flatMap(row => row.getAttribute("aria-label")?.includes(copy.unfinishedWork) ? [`${row.dataset.row}:${row.dataset.key}`] : []);
+
+/** The list's file row for `path` in the newest Changes view: its module unfolds first, by Right, which chooses nothing. */
+export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
+  const list = visibleTrees().at(-1);
+
+  for (const folded of list?.querySelectorAll<HTMLElement>('[data-row="module"][aria-expanded="false"]') ?? []) fireEvent.keyDown(folded, { key: "ArrowRight" });
+  const row = [...list?.querySelectorAll<HTMLElement>('[data-row="file"]') ?? []].find(each => each.dataset.path === path);
+
+  if (!row) throw new Error(`No list row for ${path}`);
 
   return row;
 });
 
-/** The diff the user sees: another Project's view stays mounted, out of the accessibility tree. */
-const shownDiff = () => screen.getByRole("region", { name: copy.diff }).querySelector<HTMLElement>(".diff-content");
+let shown = "";
+
+/** The diff the user sees: another Project's view stays mounted, out of the accessibility tree; of a module's files, the one last opened. */
+const shownDiff = () => {
+  const regions = screen.getAllByRole("region", { name: copy.diff });
+  const region = regions.find(each => each.closest<HTMLElement>(".module-file")?.dataset.path === shown) ?? regions[0];
+
+  return region?.querySelector<HTMLElement>(".diff-content") ?? null;
+};
 
 export const waitDiff = () => waitFor(() => { if (!shownDiff()) throw new Error("No diff yet"); });
 
-/** Reads one file's diff in the open Changes view: the first file opens by itself (U7674a), another is chosen in the tree. */
+/** Reads one file's diff in the open Changes view: the view opens on the Overview (U7679c), so a file is chosen by its row in its module. */
 export const openFile = async (path = "src/a.ts") => {
-  await waitDiff();
   const row = await treeRow(path);
 
-  row.focus();
-  await within(screen.getAllByLabelText("Diff").at(-1)!).findByText(path, { selector: ".diff-path" });
+  shown = path;
+  take(row);
+  await waitFor(() => { if (!screen.getAllByText(path, { selector: ".diff-path" }).some(each => each.closest(".diff-reader")?.querySelector(".diff-content"))) throw new Error(`${path} is not drawn`); });
+  // The module that was open stays until this one's first screen has painted (U7674e): the view is one scroll only after it leaves.
+  await waitFor(() => { if (document.querySelector('.module-slot[data-pending="true"]')) throw new Error(`${path}'s module is still painting`); });
+  // Another Project's view stays mounted until its tab settles: the diff is the one the user sees once this one is reachable.
+  await waitDiff();
   // Restored drafts read after a tick (rc.21 reads lag writes): a note form opened at once would miss them.
   await new Promise(resolve => setTimeout(resolve, 50));
 };
 
-export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
-  const mounted = await mountControl(undefined, project, drafts);
-  mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
+export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"], changed?: Parameters<typeof mountControl>[0]) => {
+  const mounted = await mountControl(changed, project, drafts);
+  mounted.app.handlers["agent.compareFile"] = params => {
+    refuseUngroupedRead(mounted.app, params);
+
+    return { ...COMPARISON, oldPath: params.path, newPath: params.path };
+  };
+
   await openChanges();
   await openFile();
 
@@ -63,6 +104,15 @@ export const startNote = () => {
 
   diff.focus();
   fireEvent.keyDown(diff, { key: "n" });
+};
+
+/** The pane's read lands after its element (U7678d reads a module's first file at mount): N waits for it, as a user's key does. */
+export const beginNote = () => waitFor(() => { if (!screen.queryByRole("form", { name: "Line note" })) startNote(); screen.getByRole("form", { name: "Line note" }); });
+
+/** A saved note's form closes after its write: the next N waits for that, as a user's next key does. */
+export const nextNote = async () => {
+  await waitFor(() => { if (screen.queryByRole("form", { name: "Line note" })) throw new Error("The saved note's form is still open"); });
+  await beginNote();
 };
 
 /** U7676d: the bar's count opens the batch list. */

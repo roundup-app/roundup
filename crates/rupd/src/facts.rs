@@ -20,6 +20,8 @@ pub struct Facts {
     ended: HashSet<String>,
     /// The children whose current stall was published; leaving the stalled set re-arms it.
     stalled: HashSet<String>,
+    /// The children whose undelivered first prompt was published, by child and cause.
+    undelivered: HashSet<String>,
     /// How many finished compactions of each child were published.
     compacted: HashMap<String, u64>,
 }
@@ -124,6 +126,38 @@ impl Facts {
             .collect()
     }
 
+    /// U7946b: one fact for each child whose first prompt was not delivered, to its parent. A
+    /// Daemon note already in the parent's inbox with the same body counts as published.
+    fn undeliveries(
+        &self,
+        nodes: &[RailNode],
+        undelivered: &HashMap<String, String>,
+        messages: &[Message],
+    ) -> Vec<Fact> {
+        nodes
+            .iter()
+            .filter_map(|child| {
+                let cause = undelivered.get(&child.id)?;
+                let parent = child.parent.as_deref()?;
+                let body = format!(
+                    "[undelivered] {} never received its first prompt: {cause}. Decide whether to send it again or replace it.",
+                    child.name
+                );
+                let key = format!("{}/{cause}", child.id);
+                (!self.undelivered.contains(&key)
+                    && !messages
+                        .iter()
+                        .any(|m| m.from == Actor::daemon() && m.to == parent && m.body == body))
+                .then(|| Fact {
+                    door: parent.to_owned(),
+                    child: key,
+                    body,
+                    count: 0,
+                })
+            })
+            .collect()
+    }
+
     /// One fact for each child whose finished-compaction count rose past what was published; a
     /// count that fell is a new run and starts over.
     fn compactions(&mut self, nodes: &[RailNode], counts: &HashMap<String, u64>) -> Vec<Fact> {
@@ -161,6 +195,8 @@ impl Facts {
         let ended = due.len();
         due.extend(self.stalls(world.nodes(), world.stalled()));
         let stalls = due.len();
+        due.extend(self.undeliveries(world.nodes(), world.undelivered(), world.messages()));
+        let undelivered = due.len();
         due.extend(self.compactions(world.nodes(), world.compactions()));
         for (index, fact) in due.into_iter().enumerate() {
             let sent = reader
@@ -175,8 +211,11 @@ impl Facts {
                 Ok(_) if index < ended => {
                     self.ended.insert(fact.child);
                 }
-                Ok(_) if index >= stalls => {
+                Ok(_) if index >= undelivered => {
                     self.compacted.insert(fact.child, fact.count);
+                }
+                Ok(_) if index >= stalls => {
+                    self.undelivered.insert(fact.child);
                 }
                 Ok(_) => {
                     self.stalled.insert(fact.child);
@@ -199,6 +238,23 @@ mod tests {
             "yolo":false,"channel":null,"stray":[],"model":null,"effort":null,"work":null,"auto":false
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn u7946b_an_undelivered_prompt_is_told_to_its_parent_once() {
+        let nodes = [
+            node("door", "workstream", None, "working"),
+            node("sub", "agent", Some("door"), "idle"),
+        ];
+        let mut facts = Facts::default();
+        let undelivered: HashMap<String, String> =
+            [("sub".to_owned(), "no SessionStart".to_owned())].into();
+        let due = facts.undeliveries(&nodes, &undelivered, &[]);
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].door, "door");
+        assert!(due[0].body.contains("sub") && due[0].body.contains("no SessionStart"));
+        facts.undelivered.insert(due[0].child.clone());
+        assert!(facts.undeliveries(&nodes, &undelivered, &[]).is_empty());
     }
 
     #[test]

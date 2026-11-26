@@ -16,11 +16,37 @@ const DESCRIPTION_CUT: usize = 160;
 /// The Skills of an Agent working in `cwd` inside the Project `root`, for the user whose home
 /// folder is `home`, sorted by name. Anything unreadable is skipped.
 pub fn skills(home: &Path, cwd: &Path, root: &Path) -> Vec<Skill> {
+    found(home, cwd, root)
+        .into_values()
+        .map(|(skill, _)| skill)
+        .collect()
+}
+
+/// RS2: the body of the Skill `name` (the file without its front matter), read from the folders
+/// [`skills`] lists. `None` when no such Skill is listed or its file cannot be read.
+pub fn skill_body(home: &Path, cwd: &Path, root: &Path, name: &str) -> Option<String> {
+    let (_, file) = found(home, cwd, root).remove(name)?;
+    let text = fs::read_to_string(file).ok()?;
+    let mut lines = text.lines();
+    let body = if text.lines().next().map(str::trim_end) == Some("---") {
+        lines.next();
+        lines
+            .by_ref()
+            .find(|line| line.trim_end() == "---")
+            .map(|_| lines.collect::<Vec<_>>().join("\n"))
+            .unwrap_or_default()
+    } else {
+        text.clone()
+    };
+    Some(body.trim().to_owned())
+}
+
+fn found(home: &Path, cwd: &Path, root: &Path) -> BTreeMap<String, (Skill, PathBuf)> {
     let vendor = home.join(".claude");
     let mut found = BTreeMap::new();
-    let mut add = |entry: Option<Skill>| {
-        if let Some(skill) = entry.filter(|skill| !banned(&skill.name)) {
-            found.insert(skill.name.clone(), skill);
+    let mut add = |entry: Option<(Skill, PathBuf)>| {
+        if let Some(entry) = entry.filter(|(skill, _)| !banned(&skill.name)) {
+            found.insert(entry.0.name.clone(), entry);
         }
     };
     for skill in in_folder(&vendor.join("skills"), None) {
@@ -42,7 +68,7 @@ pub fn skills(home: &Path, cwd: &Path, root: &Path) -> Vec<Skill> {
             add(Some(skill));
         }
     }
-    found.into_values().collect()
+    found
 }
 
 /// `cwd` and each parent up to `root`, the farthest first. A `cwd` outside `root` is followed by
@@ -65,7 +91,7 @@ fn banned(name: &str) -> bool {
 }
 
 /// `<folder>/<dir>/SKILL.md` for each `dir`, in name order.
-fn in_folder(folder: &Path, plugin: Option<&str>) -> Vec<Skill> {
+fn in_folder(folder: &Path, plugin: Option<&str>) -> Vec<(Skill, PathBuf)> {
     let mut dirs: Vec<PathBuf> = fs::read_dir(folder)
         .into_iter()
         .flatten()
@@ -83,7 +109,7 @@ fn in_folder(folder: &Path, plugin: Option<&str>) -> Vec<Skill> {
 }
 
 /// `<folder>/*.md`, each named by its stem.
-fn commands(folder: &Path) -> Vec<Skill> {
+fn commands(folder: &Path) -> Vec<(Skill, PathBuf)> {
     let mut files: Vec<PathBuf> = fs::read_dir(folder)
         .into_iter()
         .flatten()
@@ -98,7 +124,7 @@ fn commands(folder: &Path) -> Vec<Skill> {
         .collect()
 }
 
-fn skill(file: &Path, fallback: &str, plugin: Option<&str>) -> Option<Skill> {
+fn skill(file: &Path, fallback: &str, plugin: Option<&str>) -> Option<(Skill, PathBuf)> {
     let text = fs::read_to_string(file).ok()?;
     let fields = front_matter(&text)?;
     if fields
@@ -118,7 +144,7 @@ fn skill(file: &Path, fallback: &str, plugin: Option<&str>) -> Option<Skill> {
     let description = fields
         .get("description")
         .map_or_else(String::new, |text| cut(text));
-    Some(Skill { name, description })
+    Some((Skill { name, description }, file.to_path_buf()))
 }
 
 /// The `key: value` pairs between a leading `---` line and the next one. `None` when the block

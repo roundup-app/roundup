@@ -24,6 +24,7 @@ pub(super) struct Projection<'a> {
     // The greatest question time answers any turn-start lower bound, across all recipients.
     pub(super) questions: Vec<Option<i64>>,
     pub(super) completed: Vec<Option<&'a (String, i64, i64, String)>>,
+    pub(super) undelivered: HashMap<&'a str, &'a str>,
     pub(super) project_key: &'a str,
 }
 
@@ -143,6 +144,11 @@ impl<'a> Projection<'a> {
             messages,
             questions,
             completed,
+            undelivered: source
+                .undelivered
+                .iter()
+                .map(|(id, cause)| (id.as_str(), cause.as_str()))
+                .collect(),
             project_key: source.project_key,
         }
     }
@@ -185,6 +191,11 @@ impl<'a> Projection<'a> {
 
     pub(super) fn pad_name(&self, pad: usize) -> &'a str {
         self.pad_names.get(pad).copied().unwrap_or_default()
+    }
+
+    /// U7946b: why `child`'s first prompt was not delivered, when it was not.
+    pub(super) fn undelivered_of(&self, child: &RailNode) -> Option<&'a str> {
+        self.undelivered.get(child.id.as_str()).copied()
     }
 
     /// The turn `child` last completed, from the Adapter.

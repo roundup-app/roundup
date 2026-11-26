@@ -15,6 +15,8 @@ import { keepSelection } from "./reflowSelection";
 import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
+import { playLines } from "./playLines";
+import type { PlayLine } from "./playLines";
 import type { TurnRows } from "./turns";
 import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
@@ -70,6 +72,10 @@ export type Emulator = {
   find?(query: string, backwards?: boolean): boolean;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
+  /** U7889a: the view's lines that equal one of `printed`, the commands an Agent printed; a wrapped line is one. */
+  playLines?(printed: readonly string[]): PlayLine[];
+  /** U7889a: fires after each drawn frame, when what the view holds may have changed. */
+  onFrame?(listener: () => void): void;
   /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
   selectTurn(index: number, extend: boolean): void;
   paste(text: string): void;
@@ -672,7 +678,7 @@ export const createXtermEmulators = (
       serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: drawnImages.serialized(serializer.serialize({ scrollback: SCROLLBACK_LINES })) }),
       selection: () => terminal.getSelection(),
       find: (query, backwards = false) => query !== "" && (backwards ? searcher.findPrevious(query) : searcher.findNext(query)),
-      turns: shellTurns.turns,
+      turns: shellTurns.turns, playLines: (printed) => playLines(terminal, printed), onFrame: (listener) => { terminal.onRender(() => listener()); },
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
       show,

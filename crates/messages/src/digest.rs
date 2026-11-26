@@ -34,6 +34,8 @@ pub struct Sources<'a> {
     pub touches: Vec<contracts::Touch>,
     /// A5482c: Agent id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text), from the Adapter.
     pub completed: HashMap<String, (String, i64, i64, String)>,
+    /// U7946b: Agent id to the cause its first prompt was not delivered.
+    pub undelivered: HashMap<String, String>,
     pub messages: &'a [Message],
     /// AL1: the Project's key, which an Agent's link names; empty before the Daemon has one.
     pub project_key: &'a str,
@@ -710,6 +712,12 @@ fn entry(
         (None, false) => status.label.as_str(),
     };
     let last = final_reply.map_or(last, |(_, _, _, text)| text.as_str());
+    // U7946b: a prompt that never landed is the child's line, never a plain `idle`.
+    let stuck = (!end)
+        .then(|| from.undelivered_of(child))
+        .flatten()
+        .map(|cause| format!("prompt not delivered: {cause}"));
+    let last = stuck.as_deref().unwrap_or(last);
     let last = if final_reply.is_some() && last.lines().count() > 1 {
         format!("{}[cut]", last.lines().next().unwrap_or_default())
     } else {
@@ -837,6 +845,8 @@ mod link_tests;
 mod reopen_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod u7946_tests;
 
 // B5641a counts source visits at the loops, never inferred from capacities.
 #[inline]
