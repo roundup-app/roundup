@@ -27,7 +27,9 @@ import { Overview } from "./Overview";
 import { createCallPaths } from "./callPaths";
 import { flowName, groupFlows, type Done } from "./flows";
 import { FlowStates } from "./FlowStates";
-import { createRepeatScan, repeatCounts } from "./repeats";
+import { createReadback, spanOf } from "./readback";
+import { ModuleAccount } from "./ReadbackBlock";
+import { createRepeatScan, placeCounts } from "./repeats";
 import { RepeatStates } from "./RepeatStates";
 import { FlowTree } from "./FlowTree";
 import type { DiffKeys } from "./DiffReader";
@@ -71,7 +73,7 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { jump: () => void; viewed: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
+type KeyActions = { jump: () => void; readback: () => void; viewed: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
@@ -94,6 +96,7 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
     if (at) actions.open(at.path, at);
   } },
   { chords: ["g"], when: event => !typing(event), run: event => { event.preventDefault(); actions.jump(); } },
+  { chords: ["r"], when: event => !typing(event), run: event => { event.preventDefault(); actions.readback(); } },
   { chords: ["?", "Shift+?"], when: event => !typing(event), run: event => { event.preventDefault(); actions.toggleHelp(); } },
   { chords: ["Tab"], when: event => event.target instanceof Element && event.target.closest(".changes-tree") !== null, run: event => { event.preventDefault(); actions.enter(); } },
 ]);
@@ -215,9 +218,11 @@ const createAnalyses = (input: Analyses) => {
   const calls = createCallPaths({ app: input.app, events: input.events, id: input.id, to: input.own, ready: input.ready });
   const lensed = createLensed(input.files, calls.done);
   const repeats = createRepeatScan({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "tree", ready: input.ready });
-  const repeatTotals = createMemo(() => repeatCounts(lensed()(input.lens()), repeats.hits()));
+  const repeatTotals = createMemo(() => placeCounts(lensed()(input.lens()), repeats.hits()));
+  const readback = createReadback({ app: input.app, events: input.events, id: input.id, to: input.own, ready: input.ready });
+  const gapTotals = createMemo(() => placeCounts(lensed()(input.lens()), readback.placed().map(spanOf)));
 
-  return { calls, lensed, repeats, repeatTotals, again: () => { calls.reset(); repeats.again(); } };
+  return { calls, lensed, repeats, repeatTotals, readback, gapTotals, again: () => { calls.reset(); repeats.again(); readback.again(); } };
 };
 
 /** U7675a: the comparison's own answer, whichever read made it: the Daemon's changes for a Tree or Branch target, else the Agent's owned changes. */
@@ -297,7 +302,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
-  const { calls, lensed, repeats, repeatTotals, again } = createAnalyses({ app, events, id: untrack(() => props.id), own, files, ready: () => !pending() && failure() === null && files().length > 0, lens });
+  const { calls, lensed, repeats, repeatTotals, readback, gapTotals, again } = createAnalyses({ app, events, id: untrack(() => props.id), own, files, ready: () => !pending() && failure() === null && files().length > 0, lens });
 
   const dimmed = createMemo(() => new Set(calls.dim().flatMap(answer => answer.flows.map(flow => moduleKey(flowName(flow.entry))))));
 
@@ -423,7 +428,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, section: () => section, open: openPath });
 
-  registerChangesKeys(() => section, { jump: jump.open, viewed: viewed.markOpen, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
+  registerChangesKeys(() => section, { jump: jump.open, readback: readback.start, viewed: viewed.markOpen, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
@@ -478,7 +483,7 @@ const Surface = (props: { id: string; name: string }) => {
           <Show when={lens() === "flows"}><FlowStates calls={calls} worktree={own() !== null} /></Show>
           <RepeatStates scan={repeats} notAsked={worktree() !== null && own() !== "tree"} />
           <FindField find={find} />
-          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set(notes.unfinished(props.id).map(form => form.comparison.newPath))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} gaps={gapTotals()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}>
             <p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p>
           </Show>
@@ -488,8 +493,8 @@ const Surface = (props: { id: string; name: string }) => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))?.flow}>{flow => <FlowTree flow={flow()} open={openSection} />}</Show>} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} /></Loading>}>
-            <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => item.flow ? <FlowTree flow={item.flow} open={openSection} /> : <ModuleAccount readback={readback} names={[item.name, item.label ?? item.name]} />}</Show>} start={start()} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} /></Loading>}>
+            <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;
       }}</For>

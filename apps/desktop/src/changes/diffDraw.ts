@@ -1,5 +1,6 @@
 import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { Gap } from "@contracts/agent/Gap";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { copy } from "./copy";
 import { sameRevisions } from "./fileState";
@@ -18,7 +19,10 @@ export type Composer = { composing: true; side: "old" | "new"; start: number; en
 /** U7685a: the mark under the last shown line of a repeat: the other place it names. */
 export type Repeated = { repeating: true; side: "new"; start: number; end: number; hit: ScanHit };
 
-export type Annotated = Note | Mark | Composer | Repeated;
+/** U7688e: the mark under the line a gap names: what the Agent said and what the diff holds. */
+export type Gapped = { gapped: true; side: "new"; start: number; end: number; gap: Gap };
+
+export type Annotated = Note | Mark | Composer | Repeated | Gapped;
 
 /** U7677a: the lines a note covers on one side, and whether its field holds focus. */
 export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
@@ -42,9 +46,10 @@ export const outdated = (note: Note, value: FileComparison | undefined) => note.
 const shown = (note: Note, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
 /** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line; each unfinished field as a mark. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = []): DiffLineAnnotation<Annotated>[] => [
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly Note[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = []): DiffLineAnnotation<Annotated>[] => [
   ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
   ...repeats.map((repeat): DiffLineAnnotation<Repeated> => ({ side: sideName(repeat.side), lineNumber: repeat.end, metadata: repeat })),
+  ...gaps.map((gap): DiffLineAnnotation<Gapped> => ({ side: sideName(gap.side), lineNumber: gap.end, metadata: gap })),
   ...notes.flatMap((note): DiffLineAnnotation<Note>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
     ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]

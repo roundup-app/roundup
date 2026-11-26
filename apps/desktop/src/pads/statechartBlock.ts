@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import type { Layout, LayoutGraph, Size } from "../ui/graphLayout";
 import { copy } from "./copy";
 import type { VisualMount } from "./visualBlocks";
 
@@ -17,11 +18,7 @@ export type Statechart = v.InferOutput<typeof Block>;
 /** One distinct step: the first of the steps that share a `from`, `to` and `label`. */
 type Move = { key: string; from: string; to: string; label: string };
 
-type Point = { x: number; y: number };
-
-type Size = { width: number; height: number };
-
-export type Layout = { width: number; height: number; boxes: Record<string, Point>; routes: Record<string, Point[]>; labels: Record<string, Point> };
+export type { Layout };
 
 export type MachineConfig = { id: string; initial: string; states: Record<string, { on: Record<string, string> }> };
 
@@ -32,7 +29,7 @@ export type StatechartApi = {
   /** A machine whose states each list the events they take and the state each leads to; the call returns what makes a running actor of it. */
   createMachine(config: MachineConfig): () => StepActor;
   /** Places each box (`[id, size]`), routes each move and centres its label where it is clear of boxes and other lines; `moves` are `[key, from, to, label size]`. */
-  layout(boxes: [string, Size][], moves: [string, string, string, Size][]): Promise<Layout>;
+  layout: LayoutGraph;
 };
 
 const BOX = { width: 132, height: 44, maxWidth: 176, line: 17, pad: 12 };

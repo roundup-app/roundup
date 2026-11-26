@@ -3,6 +3,7 @@ import { createEffect, createMemo, createSignal, For, getOwner, onCleanup, runWi
 import { render } from "@solidjs/web";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { Gap } from "@contracts/agent/Gap";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
@@ -20,8 +21,8 @@ import { firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileSt
 import { annotate, drawDiff, gatheredNotes, lineAnnotations, renderedApart } from "./diffDraw";
 import { outdated } from "./diffDraw";
 import type { Annotated, Composer, Noted, Shared } from "./diffDraw";
-import { RepeatedLines } from "./RepeatedLines";
-import { createRepeated } from "./repeats";
+import { LineMark } from "./LineMark";
+import { createGapped, createRepeated } from "./repeats";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
@@ -194,7 +195,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; recover: () => void }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
@@ -224,6 +225,8 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const repeated = createRepeated(() => props.repeats, () => props.only);
 
+  const gapped = createGapped(() => props.gaps, () => props.only);
+
   onCleanup(() => sweep(undefined));
 
   const annotation = (metadata: Annotated) => {
@@ -231,9 +234,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     const draft = untrack(form);
 
     const content = () => {
-      if ("unfinished" in metadata) return <button type="button" class="diff-note" onClick={() => openNote({ side: metadata.side, start: metadata.start, end: metadata.end })}>{copy.unfinishedWork}</button>;
-
-      if ("repeating" in metadata) return <RepeatedLines id={props.id} hit={metadata.hit} to={props.to ?? "tree"} open={(path, at) => props.openAt?.(path, at)} />;
+      if ("unfinished" in metadata || "repeating" in metadata || "gapped" in metadata) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} />;
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
 
@@ -249,11 +250,11 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let repeat = (_spans: readonly { start: number; end: number }[]) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));
-    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata || "repeating" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
+    mark(lines.flatMap(({ metadata }) => "unfinished" in metadata || "repeating" in metadata || "gapped" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]));
   });
 
   // U7685a: the lines of a repeat carry the stamp the style keys on, again after each render.

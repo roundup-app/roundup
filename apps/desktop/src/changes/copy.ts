@@ -128,6 +128,8 @@ export const copy = {
     /** @prose */
     "/ finds a file by name.",
     /** @prose */
+    "R reads back these changes from the diff.",
+    /** @prose */
     "Square brackets jump to the next or previous change.",
     /** @prose */
     "V marks the open item viewed and opens the next one.",
@@ -224,6 +226,36 @@ export const copy = {
   repeatsPartial: "Repeats partly checked",
   repeatsFailed: "Couldn't check repeats",
   repeatsNeedTree: "Repeats need Tree",
+  /** U7688a to U7688f: the readback the Overview carries, its states, the gaps and the diagram. */
+  readback: "Readback",
+  /** @prose */
+  readbackQuiet: "A model that never saw the conversation reads only the diff. It says what it changes.",
+  readBack: "Read back changes",
+  readBackAgain: "Read back again",
+  readingBack: "Reading back…",
+  /** @prose */
+  readbackCredit: "Read back from the diff",
+  changedSinceReadback: "Changed since readback",
+  /** @prose */
+  readbackFailed: "Couldn't read back these changes",
+  /** @prose */
+  readbackNeedsTree: "A readback needs the Tree or Branch comparison",
+  noModuleAccount: "The readback has no separate account of this module; see Overview.",
+  gaps: "Gaps",
+  gapsCount: (count: number) => `${count} ${count === 1 ? "gap" : "gaps"}`,
+  gapSaid: (agent: string, said: string) => `${agent} said: ${said}`,
+  gapDiff: (quote: string) => `The diff: ${quote}`,
+  /** @prose */
+  openGap: sharedCopy.openEvidence,
+  /** @prose */
+  gapsNotCompared: (agent: string) => `Couldn't compare with what ${agent} said`,
+  /** @prose */
+  diagram: "Parts and calls",
+  diagramBefore: "Before",
+  diagramAfter: "After",
+  diagramCalls: (from: string, to: string) => `${from} calls ${to}`,
+  /** @prose */
+  diagramFailed: "Couldn't draw the diagram",
   /** U7690c: the jump list. */
   jumpToNote: "Jump to note",
   jumpPlaceholder: "Find a note",
