@@ -4,7 +4,7 @@ import { expect, it, vi } from "vitest";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 import type { LaneBrowser } from "../todos/laneBrowser";
-import { editWalk } from "../pads/editWalk";
+import { editWalk } from "../pads/editWalkBrowser";
 
 // Solid 2 reads lag writes until the microtask flush: two clicks in one task would each compute the Tree's next fold set from the same stale set, so the second undoes the first.
 const clickEach = (selector: string) => `(async () => { for (const el of document.querySelectorAll('${selector}')) { el.click(); await Promise.resolve(); } })()`;

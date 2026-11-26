@@ -156,7 +156,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
   return (
     <section class="walk" ref={el => { root = el; watch(el); }} tabindex="-1" aria-label={props.name} data-walk data-step={index() + 1} data-steps={steps.length} data-folded={folded() ? "" : undefined} onKeyDown={onKeyDown}>
       <nav class="walk-outline" aria-label={copy.walkOutline}>
-        <Show when={folded()} fallback={<><h2 class="walk-name">{props.name}</h2>{outline()}</>}>
+        <Show when={folded()} fallback={<><Show when={!props.stays}><h2 class="walk-name">{props.name}</h2></Show>{outline()}</>}>
           <Collapsible.Root open={listOpen()} onOpenChange={open => setListOpen(open)}>
             <Collapsible.Trigger data-button="quiet" class="walk-fold">{copy.walkFolded(index() + 1, steps.length, stepAt(index()).title)}</Collapsible.Trigger>
             <Collapsible.Content>{outline()}</Collapsible.Content>

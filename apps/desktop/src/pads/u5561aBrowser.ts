@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { batch, browser, url } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
-import { editSteps } from "./editWalk";
+import { editSteps } from "./editWalkBrowser";
 
 export const captureSha = captureDir("U5704a") ? process.env.ROUNDUP_CAPTURE_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() : undefined;
 

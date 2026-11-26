@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
-import { editWalk } from "../pads/editWalk";
+import { editWalk } from "../pads/editWalkBrowser";
 
 // ui-sdk keeps one empty `role=alert` live region for announcements; only the App's own failure surfaces count here.
 it("u3791c_enter_intervene_review_failure_journey", async () => {

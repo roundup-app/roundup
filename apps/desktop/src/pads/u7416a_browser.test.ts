@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
-import { editWalk } from "./editWalk";
+import { editWalk } from "./editWalkBrowser";
 
 type Element = { type: string; text?: string; x: number; y: number; width: number; height: number };
 

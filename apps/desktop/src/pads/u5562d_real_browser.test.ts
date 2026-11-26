@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { expect } from "vitest";
 import { shelfBrowser } from "../shelf/u371Browser";
-import { editWalk } from "./editWalk";
+import { editWalk } from "./editWalkBrowser";
 import { realBrowserTest } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { captureDir } from "../testing/captures";

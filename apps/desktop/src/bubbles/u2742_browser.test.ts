@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
 import type { AppServer } from "../testing/appServer";
-import { editWalk } from "../pads/editWalk";
+import { editWalk } from "../pads/editWalkBrowser";
 
 const exec = promisify(execFile);
 

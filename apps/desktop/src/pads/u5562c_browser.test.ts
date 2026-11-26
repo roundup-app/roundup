@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
-import { editWalk } from "./editWalk";
+import { editWalk } from "./editWalkBrowser";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 

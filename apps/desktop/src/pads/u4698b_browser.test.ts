@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
-import { editWalk } from "./editWalk";
+import { editWalk } from "./editWalkBrowser";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
@@ -546,7 +546,7 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
       await settle();
       await browser("focus", ".pad-name");
       await browser("press", "Enter");
-      await browser("wait", ".drawer .ProseMirror");
+      await editWalk(browser);
       await browser("focus", ".drawer .ProseMirror");
       await browser("press", "Control+End");
       await settle();

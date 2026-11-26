@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
-import { editWalk } from "./editWalk";
+import { editWalk } from "./editWalkBrowser";
 
 const drawing = '```excalidraw\n{"type":"excalidraw","version":2,"elements":[]}\n```\n';
 

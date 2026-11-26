@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { shelfBrowser } from "../shelf/u371Browser";
 import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
-import { editWalk } from "./editWalk";
+import { editWalk } from "./editWalkBrowser";
 
 const { rig, browser, evaluate, settle, openShelf } = shelfBrowser();
 

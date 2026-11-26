@@ -8,7 +8,7 @@ import type { Actor } from "@contracts/Actor";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { openLane, type LaneBrowser } from "./laneBrowser";
-import { editWalk } from "../pads/editWalk";
+import { editWalk } from "../pads/editWalkBrowser";
 
 const openHistory = async (lane: LaneBrowser, selector: string) => {
   // Blurring the body editor moves the controls, so focus the disclosure before activating it.

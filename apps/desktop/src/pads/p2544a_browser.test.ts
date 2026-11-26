@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
 import type { AppServer } from "../testing/appServer";
-import { editWalk } from "./editWalk";
+import { editWalk } from "./editWalkBrowser";
 
 const execute = promisify(execFile);
 
@@ -132,6 +132,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   await browser("wait", "--fn", "(() => { document.querySelectorAll('.pad-fold[aria-expanded=false]').forEach(fold => fold.click()); const row = [...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3'); row?.focus(); return !!row && document.activeElement === row; })()");
   await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
   await browser("press", "Enter");
+  await editWalk(browser);
   await browser("wait", ".visual-mermaid svg");
   await browser("wait", ".visual-drawing .excalidraw");
   await browser("click", ".visual-mermaid");

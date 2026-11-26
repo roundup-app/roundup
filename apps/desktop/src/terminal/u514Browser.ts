@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { expect } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
-import { editSteps } from "../pads/editWalk";
+import { editSteps } from "../pads/editWalkBrowser";
 
 // Every observer of these selection clauses measures in this viewport.
 export const setViewport = async () => { await browser("set", "viewport", "1512", "950"); };

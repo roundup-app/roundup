@@ -77,7 +77,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
   const { startRealDaemon } = await import("./realDaemonFixture");
   const { createServedApp } = await import("./realSeam");
   const { agentBrowserExecutable } = await import("./chromePage");
-  const { editWalk } = await import("../pads/editWalk");
+  const { editWalk } = await import("../pads/editWalkBrowser");
   const report = await mkdtemp(join(tmpdir(), "p2544e-tool-"));
 
   const profile = join(report, "browser");
