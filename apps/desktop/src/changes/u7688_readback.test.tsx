@@ -29,7 +29,7 @@ const CAUSE = "the model answered in prose";
 
 const GAP: Gap = { path: NEW, said: "added a retry", quote: "line 10 new", line: 10 };
 
-const account = (over: Partial<Account> = {}): Account => ({ overview: "Adds a loader and wires it into run.", diagram: "Before\nrun -> load\nAfter\nrun -> cache -> load", flows: [], modules: [{ module: "pkg", account: "Loads data through a cache." }], unplaced: [], ranks: [], risks: [], explanations: [], gaps: [GAP], ...over });
+const account = (over: Partial<Account> = {}): Account => ({ overview: "Adds a loader and wires it into run.", diagram: "Before\nrun -> load\nAfter\nrun -> cache -> load", flows: [], modules: [{ module: "pkg", account: "Loads data through a cache." }], unplaced: [], ranks: [], risks: [], explanations: [], stops: [], gaps: [GAP], ...over });
 
 const result = (state: "read" | "stale", over: Partial<Account> = {}): Readback => ({ state, ...account(over) });
 

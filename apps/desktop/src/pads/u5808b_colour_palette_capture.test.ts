@@ -6,6 +6,7 @@ import { expect, it } from "vitest";
 import { shelfBrowser } from "../shelf/u371Browser";
 import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
+import { editWalk } from "./editWalkBrowser";
 
 const { rig, browser, evaluate, settle, openShelf } = shelfBrowser();
 
@@ -40,7 +41,7 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
   await browser("wait", ".pad-name");
   await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === ${JSON.stringify(title)}).focus(); return true; })()`);
   await browser("press", "Enter");
-  await browser("wait", ".ProseMirror[contenteditable=true]");
+  await editWalk(browser);
   await settle();
   await browser("wait", 'button[aria-label="Text colour"]');
   await browser("click", ".drawer .ProseMirror");

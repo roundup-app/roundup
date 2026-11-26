@@ -9,7 +9,7 @@ import { appSettings } from "../settings/preferences";
 import { Collapsible } from "../ui/Collapsible";
 import { durationMs, easingOutCurve } from "../ui/reorderMotion";
 import { copy } from "./copy";
-import { walkSteps } from "./walkSteps";
+import { stepOfHeading, walkSteps } from "./walkSteps";
 import type { walkStorage } from "./walkStorage";
 import type { PadEditorHandle } from "./PadRichEditor";
 
@@ -19,12 +19,13 @@ const PadRichEditor = lazy(() => import("./PadRichEditor"));
 const SIDE_BY_SIDE = 720;
 
 /** PW1 to PW6: a Pad read one top-level step at a time, forward and back, read-only. `onFinish` runs once per finish; the caller decides where focus goes (PW5). */
-export const Walk = (props: { name: string; text: string; storage: ReturnType<typeof walkStorage>; reducedMotion: Accessor<boolean>; onFinish: () => void }) => {
+export const Walk = (props: { name: string; text: string; storage: ReturnType<typeof walkStorage>; reducedMotion: Accessor<boolean>; onFinish: () => void; /** PW11: opens at the step holding this heading, else at the saved step. */ heading?: string | undefined; /** PW12: a step to open at, ahead of the heading and the saved step. */ at?: number | undefined; /** PW5: a walk opened with no link stays open at step 1 after Finish. */ stays?: boolean; /** PW12: the walk's Edit key. */ onEdit?: () => void }) => {
   const steps = untrack(() => walkSteps(props.text, props.name));
   const last = steps.length - 1;
   const stepAt = (at: number) => steps[at] ?? steps[last] ?? { title: props.name, text: props.text };
   const saved = untrack(() => props.storage.read()?.[props.name]);
-  const [index, setIndex] = createSignal(Math.min(Math.max((saved ?? 1) - 1, 0), last));
+  const opened = untrack(() => props.at ?? (props.heading === undefined ? -1 : stepOfHeading(steps, props.heading)));
+  const [index, setIndex] = createSignal(Math.min(Math.max(opened >= 0 ? opened : (saved ?? 1) - 1, 0), last));
   let root: HTMLElement | undefined;
   let slide: HTMLDivElement | undefined;
   let body: HTMLDivElement | undefined;
@@ -67,6 +68,8 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
     void props.storage.write(all);
   };
 
+  if (opened >= 0) untrack(() => remember(Math.min(opened, last) + 1));
+
   // A Back that leaves at step 1 takes focus with it; the walk takes it back, so the keys keep working.
   createEffect(() => stepAt(index()).text, text => {
     editor?.setText(text);
@@ -104,21 +107,39 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
     finished = true;
     remember(null);
     props.onFinish();
+
+    if (props.stays) {
+      finished = false;
+      setIndex(0);
+    }
   };
 
   const next = () => (index() === last ? finish() : go(index() + 1));
+
+  /** PW12: E opens the editor. */
+  const editKey = (event: KeyboardEvent, onButton: boolean) => {
+    if (event.key.toLowerCase() !== "e" || !props.onEdit || onButton) return false;
+
+    props.onEdit();
+
+    return true;
+  };
+
+  const stepKey = (event: KeyboardEvent, onButton: boolean) => {
+    if (event.key === "ArrowRight" && index() < last) go(index() + 1);
+    else if (event.key === "ArrowLeft") go(index() - 1);
+    else if (event.key === "Enter" && index() === last && !onButton) finish();
+    else return false;
+
+    return true;
+  };
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
     const onButton = event.target instanceof Element && event.target.closest("button") !== null;
 
-    if (event.key === "ArrowRight" && index() < last) go(index() + 1);
-    else if (event.key === "ArrowLeft") go(index() - 1);
-    else if (event.key === "Enter" && index() === last && !onButton) finish();
-    else return;
-
-    event.preventDefault();
+    if (editKey(event, onButton) || stepKey(event, onButton)) event.preventDefault();
   };
 
   const outline = () => (
@@ -135,7 +156,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
   return (
     <section class="walk" ref={el => { root = el; watch(el); }} tabindex="-1" aria-label={props.name} data-walk data-step={index() + 1} data-steps={steps.length} data-folded={folded() ? "" : undefined} onKeyDown={onKeyDown}>
       <nav class="walk-outline" aria-label={copy.walkOutline}>
-        <Show when={folded()} fallback={<><h2 class="walk-name">{props.name}</h2>{outline()}</>}>
+        <Show when={folded()} fallback={<><Show when={!props.stays}><h2 class="walk-name">{props.name}</h2></Show>{outline()}</>}>
           <Collapsible.Root open={listOpen()} onOpenChange={open => setListOpen(open)}>
             <Collapsible.Trigger data-button="quiet" class="walk-fold">{copy.walkFolded(index() + 1, steps.length, stepAt(index()).title)}</Collapsible.Trigger>
             <Collapsible.Content>{outline()}</Collapsible.Content>

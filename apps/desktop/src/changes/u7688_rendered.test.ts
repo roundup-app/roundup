@@ -38,7 +38,7 @@ const ACCOUNT = {
   unplaced: [],
   ranks: [],
   risks: [],
-  explanations: [],
+  explanations: [], stops: [],
   gaps: [GAP],
 };
 

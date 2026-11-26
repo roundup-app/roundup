@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
+import { editWalk } from "./editWalkBrowser";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
@@ -87,6 +88,7 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
   await browser("wait", ".pad-name");
   await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(name) + '] .pad-name')}).focus(); return true; })()`);
   await browser("press", "Enter");
+  await editWalk(browser);
   await browser("wait", ".drawer .ProseMirror");
   await settle();
 
@@ -544,7 +546,7 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
       await settle();
       await browser("focus", ".pad-name");
       await browser("press", "Enter");
-      await browser("wait", ".drawer .ProseMirror");
+      await editWalk(browser);
       await browser("focus", ".drawer .ProseMirror");
       await browser("press", "Control+End");
       await settle();

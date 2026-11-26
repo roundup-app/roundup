@@ -106,6 +106,8 @@ export const lateUserTerminalOpen = async (listFirst: boolean, intervene: boolea
 
 export const richPadInitialization = async (intervene: boolean) => {
   await fresh();
+  // PW13: a Pad with text opens as its walk; an empty Pad opens in Edit, where the editor's own initial focus is what this proves.
+  await read(`window.__fake.app.rpc('pad.write', { name: 'pad-3', text: '' })`);
   await read(`(() => {
     const app = window.__fake.app, read = app.handlers['pad.read'];
     app.handlers['pad.read'] = params => new Promise(resolve => { window.finishPad = () => resolve(read(params)); });

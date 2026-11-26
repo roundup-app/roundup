@@ -6,15 +6,18 @@ use super::*;
 use crate::explain::selected;
 use crate::worktree::{DiffInput, Hunk};
 use contracts::agent::{
-    Account, CallPathsAnswer, CompareTarget, DiffSide, FlowSource, Gap, Gaps, HunkRank,
-    LineExplanation, ModuleNote, OwnedGroupKey, Rank, ReadFlow, ReadFlowStep, Readback, Risk,
-    RiskLevel, RiskTarget,
+    Account, CallPathsAnswer, CompareTarget, DiagramStop, DiffSide, FlowSource, Gap, Gaps,
+    HunkRank, LineExplanation, ModuleNote, OwnedGroupKey, Rank, ReadFlow, ReadFlowStep, Readback,
+    Risk, RiskLevel, RiskTarget,
 };
 use serde::Deserialize;
 use serde_json::json;
 
 /// RB16: the most explanations a result keeps: an explanation of every line is not wanted.
 const MAX_EXPLANATIONS: usize = 12;
+
+/// RB21: the most stops a result keeps.
+const MAX_STOPS: usize = 12;
 
 /// RB8: a diff over either figure fails and says so.
 const MAX_BYTES: usize = 256 * 1024;
@@ -56,7 +59,9 @@ JSON: `hunks` (each {id, path, text}) and `flows` (call paths already read from 
 \"medium\" or \"low\", \"reason\": one sentence}] with one entry for every flow and every module, \
 \"explanations\": [{\"hunk\": hunk id, \"start\", \"end\": line numbers of the new side inside \
 that hunk, \"text\": one or two sentences}] for the few places a reviewer most needs a reason, at \
-most twelve, never one for every line}. Judge rank and risk from what the change does, never from a file name or size. Keep each given flow under \
+most twelve, never one for every line, \"stops\": [{\"part\": a part the diagram names, \
+\"text\": one sentence}] in the order a reader should walk the diagram, at most twelve, none when \
+the diagram holds no call}. Judge rank and risk from what the change does, never from a file name or size. Keep each given flow under \
 its id with exactly its hunks in its order; you may add flows under new ids. Use only hunk ids \
 from the input."
 );
@@ -269,6 +274,16 @@ struct RawAccount {
     risks: Vec<RawRisk>,
     #[serde(default)]
     explanations: Vec<RawExplanation>,
+    #[serde(default)]
+    stops: Vec<RawStop>,
+}
+
+#[derive(Deserialize)]
+struct RawStop {
+    #[serde(default)]
+    part: String,
+    #[serde(default)]
+    text: String,
 }
 
 #[derive(Deserialize)]
@@ -456,6 +471,21 @@ fn explanations(raw: Vec<RawExplanation>, hunks: &[Hunk]) -> Vec<LineExplanation
         .collect()
 }
 
+/// RB21: the stops in the order given, trimmed, without one that names no part or says nothing, at
+/// most twelve. The diagram's text is the App's to read (RB3), so no part is checked against it here.
+fn stops(raw: Vec<RawStop>) -> Vec<DiagramStop> {
+    raw.into_iter()
+        .filter_map(|given| {
+            let (part, text) = (given.part.trim(), given.text.trim());
+            (!part.is_empty() && !text.is_empty()).then(|| DiagramStop {
+                part: part.to_owned(),
+                text: text.to_owned(),
+            })
+        })
+        .take(MAX_STOPS)
+        .collect()
+}
+
 /// RB3: the answer in the fixed shape, with `unplaced` computed here; refused with a cause when
 /// it names a hunk the input lacks, or drops, moves or reorders a code flow's hunks.
 fn account(text: &str, hunks: &[Hunk], code: &[CodeFlow]) -> Result<Account, String> {
@@ -510,6 +540,7 @@ fn account(text: &str, hunks: &[Hunk], code: &[CodeFlow]) -> Result<Account, Str
         ranks,
         risks,
         explanations: explanations(raw.explanations, hunks),
+        stops: stops(raw.stops),
         unplaced: hunks
             .iter()
             .filter(|h| !placed.contains(&h.id))

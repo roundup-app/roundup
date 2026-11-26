@@ -112,12 +112,15 @@ export const copy = {
   blocks: sharedCopy.blocks,
   resume: sharedCopy.resume,
   walkBack: "Back",
+  edit: sharedCopy.editAction,
+  saving: sharedCopy.saving,
+  done: sharedCopy.done,
   walkNext: "Next",
   walkFinish: "Finish",
   walkOverview: sharedCopy.overview,
   walkOutline: "Steps",
   walkHint: "← → to move",
-  walkCount: (step: number, steps: number) => `${step} of ${steps}`,
+  walkCount: sharedCopy.ofTotal,
   /** @prose */
   walkFolded: (step: number, steps: number, title: string) => `Step ${step} of ${steps} · ${title}`,
 } as const;

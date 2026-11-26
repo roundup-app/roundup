@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { batch, browser, url } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
+import { editSteps } from "./editWalkBrowser";
 
 export const captureSha = captureDir("U5704a") ? process.env.ROUNDUP_CAPTURE_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() : undefined;
 
@@ -21,6 +22,6 @@ export const opened = (path: string) => browser("batch", "--bail", "set viewport
 const focusPad = `(() => { document.querySelectorAll('.pads-tab .pad-fold[aria-expanded=false]').forEach(fold => fold.click()); const row = document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name'); row?.focus(); return !!row && document.activeElement === row; })()`;
 
 // Focus the pad-3 row, open it and wait for the page condition in one CLI connection.
-export const openPad = (until: string) => batch([["wait", "--fn", focusPad], ["press", "Enter"], ["wait", "--fn", until]]);
+export const openPad = (until: string) => batch([["wait", "--fn", focusPad], ["press", "Enter"], ...editSteps, ["wait", "--fn", until]]);
 
 export const source = "Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\n\n<img src=x onerror=alert(1)>\n<script>alert(1)</script>\n[unsafe](javascript:alert(1))\n\n~~~text\nraw evidence\n~~~\n\n</details>";

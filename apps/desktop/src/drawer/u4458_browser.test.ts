@@ -4,6 +4,7 @@ import { expect, it, vi } from "vitest";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 import type { LaneBrowser } from "../todos/laneBrowser";
+import { editWalk } from "../pads/editWalkBrowser";
 
 // Solid 2 reads lag writes until the microtask flush: two clicks in one task would each compute the Tree's next fold set from the same stale set, so the second undoes the first.
 const clickEach = (selector: string) => `(async () => { for (const el of document.querySelectorAll('${selector}')) { el.click(); await Promise.resolve(); } })()`;
@@ -161,6 +162,9 @@ it.concurrent.each(cases)(
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer[data-open=true]')");
       await lane.until(kind === "pad" ? "!!document.querySelector('.drawer .ProseMirror')" : "!!document.querySelector('.drawer .todo-detail-title')");
+
+      // The sweep completes at the Drawer's editable, so a Pad's walk gives way to its editor first.
+      if (kind === "pad") await editWalk(lane.browser);
 
       // A title on two lines pushes the editor toolbar down; the Toast stack must still leave Restore and Maximise clear.
       if (kind === "todo") await lane.evaluate("document.querySelector('.drawer .todo-detail-title p[tabindex]').textContent = 'a very long todo title that goes on and on past the width of the shelf column and wraps onto a second line of the Drawer head'");
