@@ -240,6 +240,11 @@
 .flow-states p { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 .flow-cause { flex-basis: 100%; }
 
+/* U7695a: an entry's name is a quiet button; its kind and status follow it in words. */
+.changed-symbols-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(var(--space-6) * 8); overflow-y: auto; overscroll-behavior: contain; }
+.changed-symbols-list .changed-symbol-name { color: var(--text); }
+.changed-symbols-list li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
+
 /* U7685a, U7685b: the mark under a repeat's last line, and the other place it shows: sunken, in the diff's own type. */
 .repeat-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
 .repeat-place p, .repeat-excerpt { margin: 0; padding-block: var(--space-2); }

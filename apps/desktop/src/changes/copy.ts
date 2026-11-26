@@ -39,6 +39,8 @@ export const copy = {
   traceFailed: (language: string | undefined) => language === undefined ? "Couldn't trace calls" : `Couldn't trace ${language} calls`,
   /** @prose */
   changedSinceTraced: "Changed since traced",
+  /** U7695a: an item's changed functions and types: the disclosure's label and the list's name. */
+  functionsAndTypes: "Functions and types",
   /** @prose */
   flowsNeedWorktree: "Choose Tree or Branch to trace calls",
   languageName: (language: string) => language === "typescript" ? sharedCopy.typescript : `${language.slice(0, 1).toUpperCase()}${language.slice(1)}`,

@@ -7,6 +7,7 @@ import type { JSX } from "@solidjs/web";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Gap } from "@contracts/agent/Gap";
+import type { LineSpan } from "@contracts/agent/LineSpan";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
@@ -31,7 +32,7 @@ import type { ScanHit } from "@contracts/agent/ScanHit";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteView } from "./NoteView";
-import { NoteBatch } from "./NoteBatch";
+import { NoteBatch, type DiffTarget } from "./NoteBatch";
 import { ImagePane } from "./ImagePane";
 import { drawsLines, imageHidden, imageSides } from "./images";
 
@@ -87,6 +88,8 @@ const createChangeCursor = () => {
 
       return next;
     },
+    /** U7695c: the first change that begins in `span` on `side`, where `]` would stop on it. */
+    within: (side: "old" | "new", span: LineSpan) => starts.find(each => span.start <= each.at[side] && each.at[side] <= span.end),
     enter: (direction: 1 | -1) => {
       at = direction === 1 ? 0 : starts.length - 1;
 
@@ -122,9 +125,6 @@ const createNoteField = (props: { editing?: LineNote | undefined; onEdited: () =
 
   return { form, edit, open, composer, close: () => { setForm(undefined); props.onEdited(); refocus(); } };
 };
-
-/** U7690c: a line the jump list chose, for the file that draws it. */
-export type DiffTarget = { path: string; side: "old" | "new"; line: number };
 
 /** U7854d: the word a diff header carries: New for a created file, Deleted for a removed one, none for the rest. */
 const statusWord = (status: ChangedStatus | null) => status !== null && (isNew(status) || status === "deleted") ? statusText[status] : null;
@@ -367,8 +367,10 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   // U7690c: the line a note's jump chose takes the focus once its file is drawn.
   createEffect(() => ({ view: renderer(), target: props.target }), ({ view, target }) => {
     if (!view || !target || rendered?.path !== target.path) return;
-    moveTo(target.side, target.line);
-    focusHost();
+    const change = target.span && changes.within(target.side, target.span);
+
+    // The annotations of a file drawn by this very jump read the selection as it was before this write: the line lands once they have run.
+    queueMicrotask(() => { moveTo(change?.side ?? target.side, change ? change.at[change.side] : target.line); focusHost(); });
     props.arrived?.();
   });
 
