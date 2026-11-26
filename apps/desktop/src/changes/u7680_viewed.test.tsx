@@ -239,7 +239,7 @@ it("u7680c_reopening_restores_the_marks_and_each_comparison_keeps_its_own", asyn
 });
 
 it("u7680c_each_group_keeps_its_own_marks", async () => {
-  const group = (repo: string, branch: string, files: ChangedFile[]) => ({ repo, branch, base: "main", files });
+  const group = (repo: string, branch: string, files: ChangedFile[]) => ({ repo, checkout: repo, branch, base: "main", files });
 
   await mountOwned(agent("g", "idle", "ready"), { groups: [group("/p", "main", [f("a/x.ts"), f("b/x.ts")]), group("/q", "own/x", [f("a/x.ts"), f("c/y.ts")])] });
   await openFromRail("g", 4);

@@ -56,8 +56,8 @@ it("u7674a_a_group_switcher_shows_only_with_several_groups", async () => {
 
   absent(() => screen.queryByRole("list", { name: "Repositories and branches" }));
   app.handlers["agent.ownedChanges"] = () => ({ groups: [
-    { repo: WORKTREE.path, branch: "one", base: "main", files: FILES.files },
-    { repo: "/p/other", branch: "two", base: "main", files: [{ path: "o.ts", status: "modified", line: 1, counts: { added: 7, removed: 0 }, blob: null }] },
+    { repo: WORKTREE.path, checkout: WORKTREE.path, branch: "one", base: "main", files: FILES.files },
+    { repo: "/p/other", checkout: "/p/other", branch: "two", base: "main", files: [{ path: "o.ts", status: "modified", line: 1, counts: { added: 7, removed: 0 }, blob: null }] },
   ] });
   await connected.owned.refresh("a");
   await screen.findByRole("list", { name: "Repositories and branches" });
@@ -81,8 +81,8 @@ it("u7674b_totals_follow_the_shown_group", async () => {
   const { app, connected } = await open();
 
   app.handlers["agent.ownedChanges"] = () => ({ groups: [
-    { repo: WORKTREE.path, branch: "one", base: "main", files: FILES.files },
-    { repo: "/p/other", branch: "two", base: "main", files: [{ path: "o.ts", status: "modified", line: 1, counts: { added: 7, removed: 0 }, blob: null }] },
+    { repo: WORKTREE.path, checkout: WORKTREE.path, branch: "one", base: "main", files: FILES.files },
+    { repo: "/p/other", checkout: "/p/other", branch: "two", base: "main", files: [{ path: "o.ts", status: "modified", line: 1, counts: { added: 7, removed: 0 }, blob: null }] },
   ] });
   await connected.owned.refresh("a");
   fireEvent.click(await screen.findByRole("button", { name: /two/ }));

@@ -25,7 +25,7 @@ const COMPARISON: FileComparison = { base: "base", oldPath: "", newPath: "", sta
 // The owner's case: an Agent in a shared checkout with one untracked, one dotfile and one modified file.
 const OWNER = [file(".claude/rules/git.md", { status: "untracked", counts: { added: 5, removed: 0 } }), file(".oxfmtrc.json", { counts: { added: 5, removed: 1 } }), file("vite.config.ts", { counts: { added: 25, removed: 7 } })];
 
-type Group = { repo: string; branch: string; base: string; files: ChangedFile[] };
+type Group = { repo: string; checkout: string; branch: string; base: string; files: ChangedFile[] };
 
 const READY = "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')";
 
@@ -82,7 +82,7 @@ it("u7854f_the_changes_layout_is_captured_for_the_critic", async () => {
     shots.push({ name, checks });
   };
 
-  const one = (files: ChangedFile[]): Group[] => [{ repo: "/p/transform-education", branch: "main", base: "main", files }];
+  const one = (files: ChangedFile[]): Group[] => [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files }];
 
   /** The Changes view over `groups`, closed and opened again so each state reads afresh. */
   const opened = async (groups: Group[], failing = false) => {
@@ -107,7 +107,7 @@ it("u7854f_the_changes_layout_is_captured_for_the_critic", async () => {
   const states: { name: string; run: () => Promise<void> }[] = [
     { name: "owner-folded", run: async () => { await opened(one(OWNER)); await shot("owner-folded", READY); } },
     { name: "owner-unfolded", run: async () => { await opened(one(OWNER)); await until(READY); await unfold(); await shot("owner-unfolded", "!!document.querySelector('.changes-side [data-row=\"file\"]')"); } },
-    { name: "two-groups", run: async () => { await opened([...one(OWNER), { repo: "/p/te", branch: "feature/a-long-branch-name", base: "main", files: [file("a.ts")] }]); await shot("two-groups", READY); } },
+    { name: "two-groups", run: async () => { await opened([...one(OWNER), { repo: "/p/te", checkout: "/p/te", branch: "feature/a-long-branch-name", base: "main", files: [file("a.ts")] }]); await shot("two-groups", READY); } },
     { name: "failure", run: async () => { await opened(one(OWNER), true); await shot("failure", said("Retry")); } },
   ];
 

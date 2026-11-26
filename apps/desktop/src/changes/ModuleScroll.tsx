@@ -46,13 +46,6 @@ export type ScrollKeys = DiffKeys & { noteItem: (item: Pick<Item, "kind" | "name
 
 type Line = { side: "old" | "new"; line: number };
 
-/** U7678c: the line a click landed on: Pierre draws each line in its own shadow DOM, so the event's path names it. */
-const lineOf = (event: MouseEvent): Line | undefined => {
-  const line = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.line !== undefined);
-
-  return line && { side: line.dataset.lineType === "change-deletion" ? "old" : "new", line: Number(line.dataset.line) };
-};
-
 /** U7678c, U7683d: one module's hunks as one scroll, or a flow's `sections` in call order (a file, or the hunks of one function of it): each under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
 export const ModuleScroll = (props: { id: string; name: string; files: readonly ChangedFile[]; sections?: readonly Section[] | undefined; above?: JSX.Element; start: string | undefined; scroll: { get: () => number | undefined; set: (top: number) => void }; places: Places; keys: (keys: ScrollKeys) => void; /** U7691a: the item this scroll is, when it takes a note; U7691c: whether a Sent note on an item has gone Outdated. */ item?: ItemTarget | undefined; itemOutdated: (note: ItemNote) => boolean; target: DiffTarget | undefined; arrived: () => void; onReady: () => void; to: CompareTarget; group?: OwnedGroupKey | undefined; viewed?: { on: boolean; changed: boolean; toggle: () => void } | undefined; notes: Notes; recover: () => void; open: (path: string, at?: Line) => void; /** U7685a: the scan's repeats, each drawn by the file that holds its lines. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the readback's gaps, each drawn by the file that holds its line. */ gaps?: readonly Gap[] | undefined; /** U7697a: the words of a file's rank, by path, while the rank order is in force. */ ranks?: ReadonlyMap<string, string> | undefined; /** U7696a: the Logic lens's moves, each drawn by the file that holds its lines. */ moves?: Moves | undefined; /** U7698: the explanations of the Agent's diff, each drawn by the file that holds its lines. */ explain?: Explanations | undefined; /** U7700c: the defect pass's findings, each drawn by the file that holds its lines. */ findings?: FindingsState | undefined }) => {
   let scroller: HTMLDivElement | undefined;
@@ -180,14 +173,6 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
   const here = () => readers.get(current);
 
-  // U7678c: a double click on a hunk opens its file in the editor at the line it landed on.
-  const doubleClicked = (event: MouseEvent) => {
-    const id = event.target instanceof Element ? event.target.closest<HTMLElement>(".module-file")?.dataset.path : undefined;
-    const path = id === undefined ? undefined : fileOf(id)?.path;
-
-    if (path !== undefined) props.open(path, lineOf(event));
-  };
-
   createEffect(() => props.keys, keys => keys({
     focus: () => here()?.focus(),
     step: direction => {
@@ -226,7 +211,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
     </header></Show>
     <Show when={props.item}>{item => <ItemNotes id={props.id} notes={props.notes} target={item()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>
     {props.above}
-    <div class="module-scroll" tabindex="-1" aria-label={props.name} onDblClick={doubleClicked} ref={element => { scroller = element; shared.scroller = element; }}>
+    <div class="module-scroll" tabindex="-1" aria-label={props.name} ref={element => { scroller = element; shared.scroller = element; }}>
     <For each={paths()}>{id => {
       // Memos keep these steady while a refresh brings new file objects, so a reader redraws only when what it draws changes.
       const path = createMemo(() => fileOf(id)?.path ?? id);
