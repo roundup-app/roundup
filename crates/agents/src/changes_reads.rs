@@ -19,6 +19,23 @@ impl Agents {
         Ok(contracts::agent::OwnedChanges { groups })
     }
 
+    /// LH25: the folder of a Rail node: its Worktree record, else the linked git worktree of its
+    /// newest recorded write, else the Project folder.
+    pub(super) async fn folder_of(&self, id: &str) -> Result<String, RpcError> {
+        if let Some(worktree) = self.shared.node(id)?.worktree() {
+            return Ok(worktree.path);
+        }
+        let edits = self.recorded_edits(id)?;
+        let git = self.shared.git.bounded();
+        let newest = tokio::task::spawn_blocking(move || git.newest_checkout(&edits))
+            .await
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?;
+        Ok(newest
+            .unwrap_or_else(|| self.project_dir().to_path_buf())
+            .to_string_lossy()
+            .into_owned())
+    }
+
     /// The absolute paths the Agent's file-writing tool calls recorded.
     fn recorded_edits(&self, id: &str) -> Result<Vec<String>, RpcError> {
         self.shared.node(id)?;
@@ -26,7 +43,7 @@ impl Agents {
             .shared
             .runs()
             .agent(id)
-            .map(|agent| agent.facts.edits.iter().cloned().collect())
+            .map(|agent| agent.facts.edits.clone())
             .unwrap_or_default())
     }
 

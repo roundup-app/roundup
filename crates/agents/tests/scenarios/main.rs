@@ -18,6 +18,7 @@ mod g10;
 mod g13;
 mod interrupt;
 mod landing;
+mod lh25_folder;
 mod m7;
 mod naming;
 mod orders;

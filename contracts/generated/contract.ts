@@ -21,6 +21,7 @@ export const CONTRACT = {
     "agent.extras_add": "02666c2b3b7ec153",
     "agent.fetchRemoteMain": "fc310306e231b3a4",
     "agent.findDefects": "1e8a17416cacc0c1",
+    "agent.folder": "0b929f27cf23198c",
     "agent.handoff": "444d7191ed72d9ca",
     "agent.instructions": "656ce925870a23fd",
     "agent.interrupt": "14f2a58ce154f8c5",

@@ -154,6 +154,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.extras_add", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.fetchRemoteMain", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.findDefects", Policy { inputs: Inputs::Id, ..PLAIN }),
+    ("agent.folder", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.handoff", Policy { actor: Actor::Caller, ..PLAIN }),
     ("agent.instructions", Policy { actor: Actor::Caller, inputs: Inputs::Id, ..PLAIN }),
     ("agent.interrupt", Policy { actor: Actor::Caller, observed: true, inputs: Inputs::Id, ..PLAIN }),

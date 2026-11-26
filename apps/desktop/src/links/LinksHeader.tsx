@@ -2,6 +2,8 @@ import "./styles.css";
 import ChevronDown from "@lucide/solid/icons/chevron-down";
 import ChevronUp from "@lucide/solid/icons/chevron-up";
 import { createMemo, createSignal, lazy, onCleanup, Show } from "solid-js";
+import { usePadList } from "../pads/padList";
+import { usePadRead } from "../pads/padRead";
 import { isDoor } from "../state/doorNode";
 import { openDeliverable } from "../ask/openDeliverable";
 import { useConnectedProject } from "../state/connectedProject";
@@ -10,8 +12,6 @@ import { inlineFor, LinksView, specOf } from "./catalogue";
 import { copy } from "./copy";
 
 const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
-
-const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
 /**
  * LH6 to LH10: the links header, laid over the top edge of the shown Agent's Terminal (Pane's `header`), out of the layout flow, so it
@@ -54,24 +54,37 @@ export const LinksHeader = (props: { active: () => boolean }) => {
     onCleanup(() => observer.disconnect());
   };
 
-  const spec = (id: string) => specOf(links.read(id), made.read(id));
+  const pads = usePadList();
+  const padRead = usePadRead(pads);
 
-  const total = (id: string) => (links.read(id)?.entries.length ?? 0) + made.read(id).length + 2;
+  // LH27: a made Pad shows while the Pads tab's mark on it is `new` or `changed`; a Pad the list does not hold yet shows no icon.
+  const shown = (id: string) => made.read(id).filter(item => {
+    if (item.kind !== "pad") return true;
+    const pad = pads.pads().find(each => each.name === item.id);
 
-  const folder = () => door()?.worktree?.path ?? project.path;
+    return pad !== undefined && padRead.mark(pad) !== null;
+  });
+
+  const spec = (id: string) => specOf(links.read(id), shown(id));
+
+  const total = (id: string) => (links.read(id)?.entries.length ?? 0) + shown(id).length + 2;
 
   const env = {
-    editor: () => void app.openInEditor(folder()).catch(error => console.error(error)),
+    // LH26: the Daemon names the folder; the App sends it no path.
+    editor: () => {
+      const id = door()?.id;
+
+      if (id) void app.rpc("agent.folder", { id }).then(({ path }) => app.openInEditor(path)).catch(error => console.error(error));
+    },
     terminal: () => {
       const id = door()?.id;
 
       if (id) createIn("terminal", id);
     },
-    made: (item: { kind: "pad" | "todo" | "file"; id: string }) => {
+    made: (item: { kind: "pad" | "file"; id: string }) => {
       const agent = door()?.id;
 
       if (item.kind === "pad") drawer.open(() => <PadHost name={item.id} />, "pointer", { kind: "pad", project: project.path });
-      else if (item.kind === "todo") drawer.open(() => <TodoHost id={Number(item.id)} />, "pointer", { kind: "todo", project: project.path });
       // LH22: a file opens as Made opens a Deliverable (DV5); a gone one shows no error and the list is read again.
       else void openDeliverable(app, project.path, item.id).then(cause => { if (cause && agent) made.refresh(agent); }, error => console.error(error));
     },

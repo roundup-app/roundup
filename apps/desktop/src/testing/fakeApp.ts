@@ -53,6 +53,7 @@ const emptyReads: Handlers = {
   "agent.links": () => ({ entries: [] }),
   "agent.printedCommands": () => ({ commands: [] }),
   "agent.made": () => [],
+  "agent.folder": () => ({ path: "/p" }),
   "terminal.list": () => [],
   "project.programRun": () => ({ state: "none" }),
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),

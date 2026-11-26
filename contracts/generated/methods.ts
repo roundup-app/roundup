@@ -4,6 +4,7 @@ import type { RunParams as action_RunParams } from "./action/RunParams";
 import type { RunResult as action_RunResult } from "./action/RunResult";
 import type { AdoptParams as agent_AdoptParams } from "./agent/AdoptParams";
 import type { Adoptable as agent_Adoptable } from "./agent/Adoptable";
+import type { AgentFolder as agent_AgentFolder } from "./agent/AgentFolder";
 import type { Brief as agent_Brief } from "./agent/Brief";
 import type { CallPaths as agent_CallPaths } from "./agent/CallPaths";
 import type { CallPathsParams as agent_CallPathsParams } from "./agent/CallPathsParams";
@@ -229,6 +230,7 @@ export type RpcMethods = {
   "agent.explain": { params: agent_ExplainParams; result: agent_Explanation };
   "agent.findDefects": { params: agent_ChangedFilesParams; result: agent_DefectFindings };
   "agent.readback": { params: agent_ChangedFilesParams; result: agent_Readback };
+  "agent.folder": { params: agent_NodeId; result: agent_AgentFolder };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
   "agent.remoteMain": { params: agent_NodeId; result: agent_RemoteMain };

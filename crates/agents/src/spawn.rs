@@ -484,7 +484,7 @@ impl Agents {
         })
     }
 
-    /// X12: start the user's login shell in the Project folder, owned by any Agent or the Project.
+    /// X12: start the user's login shell in the owner's folder (LH25), owned by any Agent or the Project.
     pub(super) async fn open_terminal(&self, params: OpenParams) -> Result<Opened, RpcError> {
         let OpenParams {
             workstream,
@@ -492,21 +492,25 @@ impl Agents {
             rows,
         } = params;
         let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
-        let owner = match workstream {
+        let (owner, cwd) = match workstream {
             Some(workstream) => {
                 self.shared
                     .rail()
                     .node(crate::rail::agent_id(&workstream)?)?;
-                workstream
+                let cwd = self.folder_of(&workstream).await?;
+                (workstream, cwd)
             }
-            None => self.project_dir().to_string_lossy().into_owned(),
+            None => {
+                let project = self.project_dir().to_string_lossy().into_owned();
+                (project.clone(), project)
+            }
         };
         let shell = self.shared.shell.clone();
         let spawned = self
             .shared
             .terminals
             .spawn_shell_owned(
-                &self.project_dir().to_string_lossy(),
+                &cwd,
                 &shell,
                 &owner,
                 BTreeMap::new(),
