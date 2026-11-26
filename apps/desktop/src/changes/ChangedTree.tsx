@@ -30,6 +30,9 @@ export const ItemName = (props: { item: ModuleGroup }) => <>
 /** U7689a: a row's words aloud: its name, and the function a readback's name stands for. */
 const titleOf = (item: ModuleGroup) => item.function ? copy.rowLabel(item.label ?? item.name, item.function) : item.label ?? item.name;
 
+/** U7689b, U7689c, U7689d: the words a readback adds to an item's row: where it came from, that the diff moved on, and the way to a readback. */
+const readWords = (item: ModuleGroup | undefined, offered: boolean | undefined) => [item?.read?.added ? copy.fromReadback : "", item?.read?.stale ? copy.changedSinceReadback : "", item?.untraced && offered ? copy.readToSee : ""];
+
 /** A file row's tree value: its path under the item that holds it; a file two flows hold is two rows. */
 export const fileValue = (owner: string, path: string) => `f:${owner}\0${path}`;
 
@@ -64,7 +67,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   const marked = (files: readonly ChangedFile[]) => files.some(file => props.unfinished.has(file.path));
 
   /** U7680a, U7680d: a module row's name adds the words it shows: unfinished work, Viewed, and Changed since you viewed it. */
-  const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [marked(files) ? copy.unfinishedWork : "", key !== undefined && repeatsOf(key) > 0 ? copy.repeatsCount(repeatsOf(key)) : "", key !== undefined && gapsOf(key) > 0 ? copy.gapsCount(gapsOf(key)) : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", item?.read?.added ? copy.fromReadback : "", item?.read?.stale ? copy.changedSinceReadback : "", item?.untraced && props.readHint ? copy.readToSee : ""].filter(Boolean).reduce(copy.rowLabel, text);
+  const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [marked(files) ? copy.unfinishedWork : "", key !== undefined && repeatsOf(key) > 0 ? copy.repeatsCount(repeatsOf(key)) : "", key !== undefined && gapsOf(key) > 0 ? copy.gapsCount(gapsOf(key)) : "", key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", ...readWords(item, props.readHint)].filter(Boolean).reduce(copy.rowLabel, text);
 
   /** Each file row's module key and path, by the file's tree value. */
   const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(moduleKey(module.name), file.path), { owner: moduleKey(module.name), path: file.path }] as const))));
