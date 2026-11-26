@@ -11,7 +11,7 @@ afterEach(cleanup);
 
 const GROUP = { repo: "/p", branch: "main" };
 
-const OWNED: OwnedChanges = { groups: [{ ...GROUP, base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 }, blob: null }] }] };
+const OWNED: OwnedChanges = { groups: [{ ...GROUP, checkout: "/p", base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 }, blob: null }] }] };
 
 const READS = ["agent.callPaths", "agent.repeatScan", "agent.readback"];
 
