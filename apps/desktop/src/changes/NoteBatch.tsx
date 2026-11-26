@@ -14,6 +14,7 @@ import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack }
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@ui-sdk/solid/command";
 import { statusOf, where, words } from "./NoteView";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import type { LineSpan } from "@contracts/agent/LineSpan";
 import type { NoteStatus } from "./NoteView";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { dismissable } from "../ink/recovery";
@@ -25,6 +26,9 @@ import { useConnectedProject } from "../state/connectedProject";
 import { filesOf, isItem, isLine, reply, titleOf } from "./notes";
 import { NoteForm } from "./NoteForm";
 import type { Form, ItemNote, LineNote, Note, NoteFormDraft, Notes } from "./notes";
+
+/** U7690c, U7695c: where a jump aims: a line, or a function's `span`, whose first changed line takes the focus (`line` when it holds none). */
+export type DiffTarget = { path: string; side: "old" | "new"; line: number; span?: LineSpan };
 
 /** The lines of a line note or an unfinished form, as the batch words them. */
 const spanOf = (row: { side: "old" | "new"; start: number | string; end: number | string }) => {
@@ -304,7 +308,7 @@ export const NoteJump = (props: { rows: readonly JumpRow[]; highlighted: number;
 /** U7690c: G opens the list; a choice opens its file (`open`) and aims the reader at its line until `arrived`. */
 export const createJump = (deps: { id: string; notes: Notes; files: () => readonly ChangedFile[]; keys: () => { at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: LineNote) => boolean } | undefined; itemOutdated: (note: ItemNote) => boolean; section: () => HTMLElement | undefined; open: (path: string) => void }) => {
   const [jumping, setJumping] = createSignal(false);
-  const [aim, setAim] = createSignal<{ path: string; side: "old" | "new"; line: number }>();
+  const [aim, setAim] = createSignal<DiffTarget>();
   let origin: Element | null = null;
 
   const status = (note: Note): NoteStatus => statusOf(deps.notes, deps.id, note, () => isItem(note) ? deps.itemOutdated(note) : deps.keys()?.outdated(note) ?? false);
@@ -331,6 +335,12 @@ export const createJump = (deps: { id: string; notes: Notes; files: () => readon
     setJumping(false);
   };
 
+  // The file opens in the scroll and its diff puts the focus on the target once it is drawn.
+  const aimAt = (target: DiffTarget) => {
+    deps.open(target.path);
+    setAim(target);
+  };
+
   // An item note opens its first file the change still lists; a line note aims the reader at its line.
   const choose = (note: Note) => {
     setJumping(false);
@@ -343,12 +353,11 @@ export const createJump = (deps: { id: string; notes: Notes; files: () => readon
       return;
     }
 
-    deps.open(note.comparison.newPath);
-    setAim({ path: note.comparison.newPath, side: note.side, line: note.start });
+    aimAt({ path: note.comparison.newPath, side: note.side, line: note.start });
   };
 
   return {
-    aim, arrived: () => setAim(undefined), itemOutdated: deps.itemOutdated,
+    aim, aimAt, arrived: () => setAim(undefined), itemOutdated: deps.itemOutdated,
     open: () => {
       if (deps.notes.all(deps.id).length === 0) return;
       origin = document.activeElement;
