@@ -378,9 +378,11 @@ const PadBody = (props: {
   // PW11, PW13: a Pad with text and no kept draft opens as its walk; a new, empty or kept-draft Pad opens in Edit. PW12: Done shows the walk only once the editor's text is saved.
   const { reading, walkAt, edit, done, finish, editFocus, mount } = createPadReading({
     kept: () => Boolean(recovered) || invalid(), text: opened.text, name, origin, initialFocus: props.initialFocus, editor: () => editor, act,
-    save: async () => { saveAfterPause.clear(); await write(false, cycle.send({ kind: "due", due: "autosave" }));
+    save: async () => {
+      saveAfterPause.clear(); await write(false, cycle.send({ kind: "due", due: "autosave" }));
 
- return cycle.save().kind === "clean" && actionFailure.message() === null; },
+      return cycle.save().kind === "clean" && actionFailure.message() === null;
+    },
     release: () => { editor = undefined; },
   });
 
@@ -389,10 +391,7 @@ const PadBody = (props: {
     void write(false, cycle.send({ kind: "due", due: "autosave" }));
   };
 
-  const exportToFile = () =>
-    act(async () => {
-      await exportPad(connected.app, name);
-    });
+  const exportToFile = () => act(() => exportPad(connected.app, name));
 
   const remove = (source: ActivationSource) =>
     act(async () => {
@@ -536,10 +535,7 @@ const PadBody = (props: {
           onSelection={() => { capture(); setSelected(editor?.selectedText() ?? ""); }}
           onReady={(ready) => {
             editor = ready;
-            adoptEditor(ready, { first: mount.first, heading: mount.first ? props.heading : undefined, editing: editing(), text: origin(), draft, recovered }, () => {
-              setInvalid(true);
-              actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
-            });
+            adoptEditor(ready, { first: mount.first, heading: mount.first ? props.heading : undefined, editing: editing(), text: origin(), draft, recovered }, () => { setInvalid(true); actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid")); });
           }}
         />
       </Loading></Show></PadChangesView>

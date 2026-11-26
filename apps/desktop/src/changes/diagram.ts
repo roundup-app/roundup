@@ -1,3 +1,5 @@
+import { copy } from "./copy";
+
 /** U7688c: one call of the diagram, from a part to a part it calls. */
 export type Call = readonly [from: string, to: string];
 
@@ -31,6 +33,9 @@ export const parseDiagram = (text: string): Panel[] => {
 
   return panels;
 };
+
+/** U7688c, U7702e: the word a panel's label shows, none for a diagram with no "Before" or "After". */
+export const panelLabel = (panel: Panel) => panel.label === "before" ? copy.diagramBefore : panel.label === "after" ? copy.diagramAfter : undefined;
 
 /** U7688c: the parts the calls of a panel name, in order of first mention. */
 export const partsOf = (calls: readonly Call[]) => [...new Set(calls.flat())];

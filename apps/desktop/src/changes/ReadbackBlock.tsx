@@ -10,6 +10,7 @@ import { FlowTree } from "./FlowTree";
 import type { Lens } from "./lens";
 import type { ModuleGroup } from "./modules";
 import { failureCause, gapsFailure, gapsOf, type ReadbackState } from "./readback";
+import type { PadSave, ReadbackPad } from "./readbackPad";
 import { ReadbackDiagram } from "./ReadbackDiagram";
 
 type Linking = { agent: string; listed: (path: string) => boolean; go: (gap: Gap) => void };
@@ -34,8 +35,19 @@ const AccountText = (props: { account: Account } & Linking) => <>
   <Show when={gapsOf(props.account).length > 0}><GapList gaps={gapsOf(props.account)} agent={props.agent} listed={props.listed} go={props.go} /></Show>
 </>;
 
+/** U7702b, U7702c: where a save of the readback as a Pad stands, in words, with the cause of a failure after them. */
+const PadStatus = (props: { status: PadSave }) => <p role="status">
+  <Switch>
+    <Match when={props.status.kind === "saving"}>{copy.saving}</Match>
+    <Match when={props.status.kind === "saved" ? props.status : undefined}>{saved => copy.padSaved(saved().name)}</Match>
+    <Match when={props.status.kind === "notMoved" ? props.status : undefined}>{moved => <>{copy.padNotMoved(moved().name)} <span class="flow-cause">{moved().cause}</span></>}</Match>
+    <Match when={props.status.kind === "unknown" ? props.status : undefined}>{unknown => unknown().cause}</Match>
+    <Match when={props.status.kind === "failed" ? props.status : undefined}>{failed => <>{copy.padNotSaved} <span class="flow-cause">{failed().cause}</span></>}</Match>
+  </Switch>
+</p>;
+
 /** U7688a, U7688b, U7688c, U7688e: the readback at the top of the Overview: the quiet line and button before one, then the states, the account and its gaps. */
-export const ReadbackBlock = (props: { readback: ReadbackState } & Linking) => {
+export const ReadbackBlock = (props: { readback: ReadbackState; pad: ReadbackPad } & Linking) => {
   const state = () => props.readback.state();
   const start = () => props.readback.start();
 
@@ -55,6 +67,7 @@ export const ReadbackBlock = (props: { readback: ReadbackState } & Linking) => {
         <Match when={failureCause(state())}>{cause => <p>{copy.readbackFailed} <ReadbackAction name={copy.retry} icon="rotate-cw" run={start} /> <span class="flow-cause">{cause()}</span></p>}</Match>
         <Match when={props.readback.account()}>{account => <div class="readback-account" data-stale={state().state === "stale" ? "true" : "false"}>
           <Show when={state().state === "stale"}><p>{copy.changedSinceReadback} <ReadbackAction name={copy.readBackAgain} icon="rotate-cw" run={start} /></p></Show>
+          <div class="readback-start"><ReadbackAction name={copy.savePad} icon="file-plus" run={() => void props.pad.save()} /><Show when={props.pad.status()}>{status => <PadStatus status={status()} />}</Show></div>
           <div class="readback-text"><AccountText account={account()} agent={props.agent} listed={props.listed} go={props.go} /></div>
         </div>}</Match>
       </Switch>
