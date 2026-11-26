@@ -59,7 +59,7 @@ it("u7698f_the_explanation_is_captured_for_the_critic", async () => {
   /** The Daemon lists the file at `blob` and answers `agent.explain` with `answer`, or never. */
   const serve = (blob: string, answer: Explanation | "never") => {
     const files = [file(PATH, blob)];
-    const groups = [{ repo: "/p/transform-education", branch: "main", base: "main", files }];
+    const groups = [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files }];
 
     return read(`(() => {
       const handlers = window.__fake.app.handlers;

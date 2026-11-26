@@ -415,7 +415,7 @@ const Surface = (props: { id: string; name: string }) => {
   const totals = () => totalsOf(files());
 
   // U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card.
-  const openAt = createOpenAt(app, () => own() ? worktree() ?? undefined : group()?.repo, files);
+  const openAt = createOpenAt(app, () => own() ? worktree() ?? undefined : group()?.checkout, files);
 
   // U7675e, U7679e: J and K step the Overview and the modules from anywhere, ] and [ step changes, Tab crosses from the list to the diff or the Overview's entries, ? lists them.
   const [help, setHelp] = createSignal(false);

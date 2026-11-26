@@ -290,6 +290,7 @@ pub struct WorktreePr {
     #[specta(optional, type = bool)]
     pub draft: Option<bool>,
 }
+/// What the Agent's own Worktree is compared as, against the remote's main (U7672a): everything
 /// in its folder now, or its commits only.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]

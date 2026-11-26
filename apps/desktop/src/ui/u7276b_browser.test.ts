@@ -8,7 +8,7 @@ afterAll(closeBrowser);
 
 const changesIcon = async () => {
   await read(`(() => {
-    window.__fake.app.handlers['agent.ownedChanges'] = () => ({ groups: [{ repo: '/p', branch: 'main', base: 'main', files: [{ path: 'a.ts', status: 'modified', line: 1, counts: null, blob: null }] }] });
+    window.__fake.app.handlers['agent.ownedChanges'] = () => ({ groups: [{ repo: '/p', checkout: '/p', branch: 'main', base: 'main', files: [{ path: 'a.ts', status: 'modified', line: 1, counts: null, blob: null }] }] });
     window.__fake.setStatus('tokens', 'idle', 'idle');
     return true;
   })()`);

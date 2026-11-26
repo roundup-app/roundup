@@ -142,7 +142,7 @@ export const closeButton = () => screen.getByRole("button", { name: copy.closeCh
 
 export const calls = (app: { calls: { method: string }[] }, method: string) => app.calls.filter(call => call.method === method).length;
 
-export const owning = (files: ChangedFile[]): OwnedChanges => ({ groups: [{ repo: "/p", branch: "main", base: "main", files }] });
+export const owning = (files: ChangedFile[]): OwnedChanges => ({ groups: [{ repo: "/p", checkout: "/p", branch: "main", base: "main", files }] });
 
 /** The Rail and the centre over Agents `a` and `b`: `owned` decides what each owns. */
 export const mountRailWith = (owned: (id: string) => OwnedChanges) => mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready")], [], () => null, () => false, { pane: fakeEmulators().factory }, [], { name: "p", path: fresh() }, app => {

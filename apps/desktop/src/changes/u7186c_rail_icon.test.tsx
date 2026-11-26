@@ -9,8 +9,8 @@ import { COMPARISON, openFirstModule, treeRow } from "./noteHarness";
 afterEach(cleanup);
 
 const OWNED: OwnedChanges = { groups: [
-  { repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 3, counts: null, blob: null }, { path: "b.rs", status: "added", line: 1, counts: null, blob: null }] },
-  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] },
+  { repo: "/p", checkout: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 3, counts: null, blob: null }, { path: "b.rs", status: "added", line: 1, counts: null, blob: null }] },
+  { repo: "/q", checkout: "/q", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] },
 ] };
 
 const mountRailWith = (owned: (id: string) => OwnedChanges | Promise<OwnedChanges>) =>

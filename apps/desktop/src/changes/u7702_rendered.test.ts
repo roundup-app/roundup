@@ -68,7 +68,7 @@ it("u7702g_the_save_is_captured_for_the_critic", async () => {
 
   /** The Daemon answers with the listing of the Tree target, each file's comparison and the read readback; `pad.create` answers with `creating`. */
   const serve = (creating: string) => {
-    const groups = [{ repo: "/p/transform-education", branch: "main", base: "main", files: FILES }];
+    const groups = [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files: FILES }];
 
     return read(`(() => {
       const handlers = window.__fake.app.handlers;

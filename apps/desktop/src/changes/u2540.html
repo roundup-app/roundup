@@ -65,7 +65,7 @@ const files = [{ path, line: 1, status: "modified", counts: size ? { added: size
 app.handlers["agent.changedFiles"] = () => ({ files });
 
 // U7186c: the Rail icon shows from what the Agent owns, and the Changes view lists the same files.
-app.handlers["agent.ownedChanges"] = ({ id }) => ({ groups: id === "agent-1" ? [{ repo: worktree.path, branch: worktree.branch, base: worktree.base, files }] : [] });
+app.handlers["agent.ownedChanges"] = ({ id }) => ({ groups: id === "agent-1" ? [{ repo: worktree.path, checkout: worktree.path, branch: worktree.branch, base: worktree.base, files }] : [] });
 
 app.handlers["agent.compareFile"] = () => comparison;
 

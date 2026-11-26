@@ -269,3 +269,18 @@ fn u7672b_a_later_remote_commit_never_shows_as_a_change() {
         "the base is the branch point, before the remote's new commit"
     );
 }
+
+#[test]
+fn u7952a_a_group_carries_the_checkout_its_writes_sit_in() {
+    let (_tmp, dir) = repo("main");
+    let (_trees, tree) = linked(&dir, "own/x");
+    let in_tree = write(&tree, "a.txt", "a\n");
+    let in_main = write(&dir, "seed.txt", "changed\n");
+    let groups = Git::from_env().owned_groups(&[in_tree]);
+    assert_eq!(
+        (groups[0].repo.as_str(), groups[0].checkout.as_str()),
+        (dir.to_str().unwrap(), tree.to_str().unwrap())
+    );
+    let groups = Git::from_env().owned_groups(&[in_main]);
+    assert_eq!(groups[0].checkout, dir.display().to_string());
+}

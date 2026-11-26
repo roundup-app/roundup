@@ -49,6 +49,9 @@ pub struct ChangedFiles {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct OwnedGroup {
     pub repo: String,
+    /// The top of the checkout the `files` paths are relative to (U7952a): a linked worktree's
+    /// when the recorded writes sit in one, else `repo`.
+    pub checkout: String,
     pub branch: String,
     pub base: String,
     pub files: Vec<ChangedFile>,

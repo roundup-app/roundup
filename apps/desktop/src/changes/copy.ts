@@ -9,6 +9,8 @@ const fileNoun = (count: number) => count === 1 ? "file" : "files";
 const filesOf = (count: number) => `${count} ${fileNoun(count)}`;
 
 export const copy = {
+  /** U7952a: a failed open names the file and the checkout; a missing file says it is not there, never the raw `not found: <path>`. */
+  openFailure: (name: string, checkout: string, error: string) => `Could not open ${name} in ${checkout}: ${/^not found\b/i.test(error) ? "it is not there" : error}`,
   checking: sharedCopy.checking,
   sending: sharedCopy.sending,
   saving: sharedCopy.saving,

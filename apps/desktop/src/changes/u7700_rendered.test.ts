@@ -67,7 +67,7 @@ it("u7700g_the_findings_are_captured_for_the_critic", async () => {
   /** The Daemon lists the file and answers `agent.findDefects` with `answer`. */
   const serve = (answer: DefectFindings) => {
     const files = [file(PATH, "one")];
-    const groups = [{ repo: "/p/transform-education", branch: "main", base: "main", files }];
+    const groups = [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files }];
 
     return read(`(() => {
       const handlers = window.__fake.app.handlers;

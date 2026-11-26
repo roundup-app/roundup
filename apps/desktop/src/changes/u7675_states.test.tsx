@@ -628,7 +628,7 @@ it("u7678c_a_note_made_in_a_scroll_keeps_its_file_side_and_line", () => keepsIts
 
 it("u7679b_a_note_made_in_logic_keeps_its_file_side_and_line", () => keepsItsNote(copy.lenses.logic));
 
-it("u7678c_enter_or_a_double_click_on_a_hunk_opens_its_file_in_the_editor", async () => {
+it("u7952a_a_double_click_in_the_diff_opens_nothing", async () => {
   const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));
   const lineOf = (type: string, line: number) => there(drawnIn("m/a.ts").flatMap(each => [...each.shadowRoot?.querySelectorAll("[data-line]") ?? []]).find(each => each.getAttribute("data-line-type") === type && each.getAttribute("data-line") === String(line)));
 
@@ -637,15 +637,11 @@ it("u7678c_enter_or_a_double_click_on_a_hunk_opens_its_file_in_the_editor", asyn
   press("]");
   await marks(at("new", 21), "m/a.ts");
 
-  // Enter opens the focused line; a double click, the line it lands on; a removed line has no place in the file, so the file opens at its own line.
-  press("Enter", there(content("m/a.ts")));
+  // A double click selects a word and opens nothing (U7952a); Enter opens the focused line.
   fireEvent.dblClick(lineOf("change-addition", 21));
   fireEvent.dblClick(lineOf("change-deletion", 3));
-  await waitFor(() => expect(app.editorCalls).toEqual([
-    { path: `${WORKTREE.path}/m/a.ts`, line: 21 },
-    { path: `${WORKTREE.path}/m/a.ts`, line: 21 },
-    { path: `${WORKTREE.path}/m/a.ts`, line: 1 },
-  ]));
+  press("Enter", there(content("m/a.ts")));
+  await waitFor(() => expect(app.editorCalls).toEqual([{ path: `${WORKTREE.path}/m/a.ts`, line: 21 }]));
 });
 
 it("u7678c_a_file_row_opens_its_modules_scroll_at_that_files_first_hunk", async () => {

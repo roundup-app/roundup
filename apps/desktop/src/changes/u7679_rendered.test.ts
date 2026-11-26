@@ -36,7 +36,7 @@ const DENSE = [...many(499, n => `crates/dense-${String(n % 25).padStart(2, "0")
 // The worst cases: a module of 100 files, a 120-character module name, a one-letter name, an emoji name, and the noise rows.
 const WORST = [...many(100, n => `crates/aa-big/src/f-${n}.rs`), file(`${"m".repeat(120)}/src/a.rs`), file("x/src/a.rs"), file("crates/🦀-lenses/src/a.rs"), file("README.md"), file("pnpm-lock.yaml"), file("crates/gen/generated/g.rs")];
 
-type Group = { repo: string; branch: string; base: string; files: ChangedFile[] };
+type Group = { repo: string; checkout: string; branch: string; base: string; files: ChangedFile[] };
 
 const READY = "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')";
 
@@ -72,7 +72,7 @@ it("u7679f_the_lenses_overview_and_find_are_captured_for_the_critic", async () =
 
   /** The Daemon answers with `groups` and each file's comparison. */
   const serve = (files: ChangedFile[]) => {
-    const groups: Group[] = [{ repo: "/p/transform-education", branch: "main", base: "main", files }];
+    const groups: Group[] = [{ repo: "/p/transform-education", checkout: "/p/transform-education", branch: "main", base: "main", files }];
 
     return read(`(() => {
       const handlers = window.__fake.app.handlers;

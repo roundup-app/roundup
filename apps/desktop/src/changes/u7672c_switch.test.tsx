@@ -11,8 +11,8 @@ afterEach(cleanup);
 const tree = (name: string) => ({ worktree: { path: `/w/${name}`, branch: `own/${name}`, base: "main", adopted: false } });
 
 const OWNED: OwnedChanges = { groups: [
-  { repo: "/p", branch: "main", base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 }, blob: null }] },
-  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "other.ts", status: "added", line: 1, counts: { added: 2, removed: 0 }, blob: null }] },
+  { repo: "/p", checkout: "/p", branch: "main", base: "main", files: [{ path: "own.ts", status: "modified", line: 1, counts: { added: 1, removed: 0 }, blob: null }] },
+  { repo: "/q", checkout: "/q", branch: "own/x", base: "main", files: [{ path: "other.ts", status: "added", line: 1, counts: { added: 2, removed: 0 }, blob: null }] },
 ] };
 
 const LISTS = { tree: ["tree.ts", "loose.ts"], branch: ["branch.ts"] } as const;
