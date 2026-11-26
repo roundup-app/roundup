@@ -1,4 +1,4 @@
-//! RB1 to RB8, RB13 to RB15 (`scenarios/readback.md`, `scenarios/readback-explain.md`): a fresh model reads the diff. A fake `claude` records the
+//! RB1 to RB8, RB13 to RB15, RB18 to RB20 (`scenarios/readback.md`, `scenarios/readback-explain.md`, `scenarios/readback-findings.md`): a fresh model reads the diff. A fake `claude` records the
 //! stdin of each one-shot launch and answers from `reply<n>` files.
 
 use std::path::{Path, PathBuf};
@@ -787,7 +787,6 @@ async fn rb13_an_agent_actor_and_a_shared_checkout_have_no_explanation() {
             .await
             .unwrap_err();
     assert_eq!(err.code, code::FORBIDDEN);
-
     let f = Fixture::in_git_project(SCRIPT, Git::from_env());
     let node = f.spawn(None, None).await.unwrap();
     let params = json!({"id": node.base.id, "path": "a.rs", "side": "new", "start": 1, "end": 1, "form": "words"});
@@ -844,6 +843,153 @@ async fn rb15_a_diff_over_the_cap_fails_naming_the_cap() {
     write(&r.path, "big.txt", &"x".repeat(300 * 1024));
 
     let state = r.explain("a.rs", "new", (1, 1), "words").await;
+
+    assert_eq!(state["state"], "failed");
+    assert_eq!(state["kind"], "tooLarge");
+    assert!(state["cause"].as_str().unwrap().contains("256 KiB"));
+    assert!(r.launches().is_empty());
+}
+
+impl Rb {
+    async fn find(&self) -> Value {
+        self.f
+            .call("agent.findDefects", json!({"id": self.id}))
+            .await
+            .unwrap()
+    }
+}
+
+fn found(entries: &[Value]) -> String {
+    answer(&json!({"findings": entries}).to_string())
+}
+
+fn entry(hunk: &str, start: u32, end: u32, label: &str, text: &str) -> Value {
+    json!({"hunk": hunk, "start": start, "end": end, "label": label, "text": text})
+}
+
+#[tokio::test]
+async fn rb18_the_pass_reads_the_hunks_only() {
+    let r = rb(&[found(&[])]).await;
+    r.stop("MARKER-LAST").await;
+    let state = r.find().await;
+
+    assert_eq!(state, json!({"state": "found", "findings": []}));
+    let launches = r.launches();
+    assert_eq!(launches.len(), 1);
+    let one = input(&launches[0]);
+    assert_eq!(one.as_object().unwrap().len(), 1);
+    let ids: Vec<&str> = one["hunks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["a.rs#1", "seed.txt#1"]);
+    assert!(!launches[0].contains("MARKER-LAST"));
+}
+
+#[tokio::test]
+async fn rb18_an_agent_actor_and_a_shared_checkout_have_no_pass() {
+    let r = rb(&[found(&[])]).await;
+    let agent = Ctx {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: r.id.clone(),
+            parent: None,
+        },
+        ..r.f.ctx()
+    };
+    let err =
+        r.f.agents
+            .call(&agent, "agent.findDefects", json!({"id": r.id}))
+            .await
+            .unwrap_err();
+    assert_eq!(err.code, code::FORBIDDEN);
+    let f = Fixture::in_git_project(SCRIPT, Git::from_env());
+    let node = f.spawn(None, None).await.unwrap();
+    let err = f
+        .call("agent.findDefects", json!({"id": node.base.id}))
+        .await
+        .unwrap_err();
+    assert!(err.message.contains("no_worktree"), "{}", err.message);
+    assert!(r.launches().is_empty());
+}
+
+#[tokio::test]
+async fn rb19_each_finding_carries_path_range_source_sentence_and_label() {
+    let r = rb(&[found(&[entry(
+        "a.rs#1",
+        1,
+        2,
+        "issue",
+        " b() never runs. ",
+    )])])
+    .await;
+
+    let state = r.find().await;
+
+    assert_eq!(
+        state,
+        json!({"state": "found", "findings": [{"path": "a.rs", "start": 1, "end": 2,
+            "source": "fn a() {}\nfn b() {}", "text": "b() never runs.", "label": "issue"}]})
+    );
+}
+
+#[tokio::test]
+async fn rb19_a_finding_the_diff_does_not_hold_is_dropped() {
+    let r = rb(&[found(&[
+        entry("nope#1", 1, 1, "issue", "No such hunk."),
+        entry("a.rs#1", 2, 9, "issue", "Runs outside the hunk."),
+        entry("a.rs#1", 1, 1, "high", "Wrong label."),
+        entry("a.rs#1", 1, 1, "nit", "  "),
+        entry("a.rs#1", 2, 2, "nit", "Keeps this one."),
+    ])])
+    .await;
+
+    let state = r.find().await;
+
+    assert_eq!(state["state"], "found");
+    let kept = state["findings"].as_array().unwrap();
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0]["text"], "Keeps this one.");
+    assert_eq!(kept[0]["label"], "nit");
+}
+
+#[tokio::test]
+async fn rb19_at_most_twelve_findings_are_kept_and_none_is_no_failure() {
+    let many: Vec<Value> = (0..15)
+        .map(|n| entry("a.rs#1", 1, 1, "nit", &format!("Finding {n}.")))
+        .collect();
+    let r = rb(&[found(&many), found(&[])]).await;
+
+    let capped = r.find().await;
+    let none = r.find().await;
+
+    assert_eq!(capped["findings"].as_array().unwrap().len(), 12);
+    assert_eq!(capped["findings"][11]["text"], "Finding 11.");
+    assert_eq!(none, json!({"state": "found", "findings": []}));
+}
+
+#[tokio::test]
+async fn rb20_an_answer_that_is_no_findings_object_fails_with_its_cause() {
+    let r = rb(&[answer("I found nothing wrong."), answer("{\"gaps\": []}")]).await;
+
+    let prose = r.find().await;
+    let other = r.find().await;
+
+    for state in [prose, other] {
+        assert_eq!(state["state"], "failed");
+        assert_eq!(state["kind"], "badAnswer");
+        assert!(state["cause"].as_str().unwrap().contains("not findings"));
+    }
+}
+
+#[tokio::test]
+async fn rb20_a_diff_over_the_cap_fails_naming_the_cap() {
+    let r = rb(&[found(&[])]).await;
+    write(&r.path, "big.txt", &"x".repeat(300 * 1024));
+
+    let state = r.find().await;
 
     assert_eq!(state["state"], "failed");
     assert_eq!(state["kind"], "tooLarge");

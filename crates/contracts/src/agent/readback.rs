@@ -191,3 +191,32 @@ pub enum Explanation {
     Explained { form: ExplainForm, text: String },
     Failed { kind: String, cause: String },
 }
+
+/// RB19: how a Finding rates itself: `issue` changes what the code does, `nit` does not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum FindingLabel {
+    Issue,
+    Nit,
+}
+
+/// RB19: one defect the reader found in the diff: `start` to `end` are new-side lines of
+/// `path`, `source` those lines as the hunk holds them, `text` one sentence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct Finding {
+    pub path: String,
+    pub start: u32,
+    pub end: u32,
+    pub source: String,
+    pub text: String,
+    pub label: FindingLabel,
+}
+
+/// RB19, RB20: the DefectFindings of `agent.findDefects`, none when the reader found no defect; `failed`
+/// says why in `cause`, and `kind` is `tooLarge`, `badAnswer` or `call`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum DefectFindings {
+    Found { findings: Vec<Finding> },
+    Failed { kind: String, cause: String },
+}
