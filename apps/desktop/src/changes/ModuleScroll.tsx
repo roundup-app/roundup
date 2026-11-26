@@ -15,12 +15,28 @@ import { NoteBatch } from "./NoteBatch";
 import { isItem } from "./notes";
 import type { Item, ItemNote, LineNote, Notes } from "./notes";
 import { copy } from "./copy";
+import { queueFocus } from "../keys/focus";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { ItemNotes } from "./ItemNoteForm";
 import { fileTarget } from "./itemNotes";
 import type { Composing } from "./ItemNoteForm";
 import type { ItemTarget } from "./itemNotes";
+
+/** U7691a: the form open on an item. The element with focus when it opened takes focus back when it closes, `fallback` when that element left. */
+const createComposer = (fallback: () => void) => {
+  const [form, setForm] = createSignal<Composing>();
+  let opener: Element | null = null;
+
+  const compose = (next: Composing | undefined, from: Element | null = document.activeElement) => {
+    if (next) opener = from;
+    setForm(next);
+
+    if (!next) queueFocus(() => { if (opener instanceof HTMLElement && opener.isConnected) opener.focus(); else fallback(); });
+  };
+
+  return { form, compose };
+};
 
 /** The reader's keys, and U7691a's: N on a list row opens the form of that item. */
 export type ScrollKeys = DiffKeys & { noteItem: (item: Pick<Item, "kind" | "name">) => void };
@@ -41,7 +57,8 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
   const readers = new Map<string, DiffKeys>();
   const [wanted, setWanted] = createSignal<ReadonlySet<string>>(new Set());
   const [editing, setEditing] = createSignal<LineNote>();
-  const [form, setForm] = createSignal<Composing>();
+  const { form, compose } = createComposer(() => here()?.focus());
+
   // A module's scroll is its files, keyed by path; a flow's is its sections, keyed by file and function, so a file can appear twice.
   const entries = createMemo((): readonly Section[] => props.sections ?? props.files.map(file => ({ id: file.path, file })));
   const paths = createMemo(() => entries().map(entry => entry.id));
@@ -191,7 +208,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
       if (item.kind === "file" && file === undefined) return;
       want(file && firstOf(file.path));
-      setForm({ item });
+      compose({ item });
     },
   }));
 
@@ -201,9 +218,9 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
         <Show when={viewed().changed}><span class="module-changed">{copy.changedSinceViewed}</span></Show>
         <button type="button" data-button="quiet" aria-pressed={viewed().on ? "true" : "false"} onClick={() => viewed().toggle()}>{copy.viewed}</button>
       </>}</Show>
-      <Show when={props.item}>{item => <IconButton aria-label={copy.noteOn[item().kind]} onClick={() => setForm({ item: item() })}><Icon name="note-plus" /></IconButton>}</Show>
+      <Show when={props.item}>{item => <IconButton aria-label={copy.noteOn[item().kind]} onClick={event => compose({ item: item() }, event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
     </header></Show>
-    <Show when={props.item}>{item => <ItemNotes id={props.id} notes={props.notes} target={item()} form={form()} setForm={setForm} outdated={props.itemOutdated} />}</Show>
+    <Show when={props.item}>{item => <ItemNotes id={props.id} notes={props.notes} target={item()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>
     {props.above}
     <div class="module-scroll" tabindex="-1" aria-label={props.name} onDblClick={doubleClicked} ref={element => { scroller = element; shared.scroller = element; }}>
     <For each={paths()}>{id => {
@@ -219,10 +236,10 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
         return file && first() && props.item?.kind !== "file" ? fileTarget(file) : undefined;
       });
 
-      const takeNote = () => {
+      const takeNote = (from: Element) => {
         const target = fileNote();
 
-        if (target) setForm({ item: target });
+        if (target) compose({ item: target }, from);
       };
 
       const repeats = createMemo(() => (props.repeats ?? []).filter(hit => hit.path === path() && shownSpan(hit, only()) !== undefined), { equals: (a, b) => a.length === b.length && a.every((each, at) => each === b[at]) });
@@ -232,11 +249,11 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
       return <section class="module-file" data-path={id} style={{ "min-block-size": `calc(var(--space-5) * ${lines(id)})` }} ref={element => { sections.set(id, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(id); readers.delete(id); }); }}>
         <Show when={entryOf(id)?.label}>{label => <p class="module-function">{label()}</p>}</Show>
         <Show when={wanted().has(id)} fallback={<header class="diff-header"><p class="diff-path">{path()}</p></header>}>
-          <DiffReader shared={shared} batch={false} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} repeats={repeats()} gaps={gaps()} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={setForm} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
+          <DiffReader shared={shared} batch={false} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} repeats={repeats()} gaps={gaps()} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
         </Show>
       </section>;
     }}</For>
     </div>
-    <NoteBatch fallback={() => here()?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={undefined} readOf={path => readers.get(firstOf(path) ?? path)?.read()} edit={note => { if (isItem(note)) setForm({ item: note.item, editing: note }); else setEditing(note); }} />
+    <NoteBatch fallback={() => here()?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={undefined} readOf={path => readers.get(firstOf(path) ?? path)?.read()} edit={note => { if (isItem(note)) compose({ item: note.item, editing: note }); else setEditing(note); }} />
   </div>;
 };

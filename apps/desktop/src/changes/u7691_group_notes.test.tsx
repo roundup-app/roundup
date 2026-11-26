@@ -90,8 +90,11 @@ const typed = (kind: keyof typeof copy.noteOn) =>
 const noteRow = async (row: HTMLElement, kind: keyof typeof copy.noteOn) => {
   take(row);
   await waitFor(() => {
-    if (!screen.queryByRole("form", { name: copy.noteOn[kind] }))
+    if (!screen.queryByRole("form", { name: copy.noteOn[kind] })) {
+      row.focus();
       press("n", row);
+    }
+
     form(kind);
   });
 };
@@ -192,6 +195,18 @@ it("u7691a_the_header_icon_opens_the_form_under_the_header", async () => {
     );
   });
   expect(typed("file")).toBeTruthy();
+});
+
+it("u7691a_closing_an_item_form_hands_focus_back_to_what_opened_it", async () => {
+  await open();
+  await noteRow(moduleRow("a"), "module");
+  press("Escape", typed("module"));
+  await waitFor(() => expect(document.activeElement).toBe(moduleRow("a")));
+  const icon = await screen.findByRole("button", { name: copy.noteOn.module });
+
+  fireEvent.click(icon);
+  await write("module", "saved from the icon");
+  await waitFor(() => expect(document.activeElement).toBe(icon));
 });
 
 it("u7691a_n_in_the_list_opens_an_item_note_and_n_in_the_diff_a_line_note", async () => {

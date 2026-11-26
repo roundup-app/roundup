@@ -136,7 +136,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
         <ItemName item={module()} />
         <span class="changes-row-files">{copy.filesCount(module().total)}</span>
         <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
-        <Show when={notesOf(module()) > 0}><span class="changes-row-repeats">{copy.noteCount(notesOf(module()))}</span></Show>
+        <Show when={notesOf(module()) > 0}><span class="changes-row-notes">{copy.noteCount(notesOf(module()))}</span></Show>
         <Show when={repeatsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.repeatsCount(repeatsOf(moduleKey(module().name)))}</span></Show>
         <Show when={gapsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.gapsCount(gapsOf(moduleKey(module().name)))}</span></Show>
         <Show when={module().untraced && props.readHint}><span class="changes-row-status">{copy.readToSee}</span></Show>
