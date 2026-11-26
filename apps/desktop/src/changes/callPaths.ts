@@ -52,7 +52,7 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
 
   /** One `agent.callPaths` request; its answer counts only while the comparison is the one it was asked for. */
   const ask = async (language: string | undefined) => {
-    const at = input.at();
+    const at = untrack(input.at);
     const mine = generation;
     const reply: Reply = { answer: undefined };
 

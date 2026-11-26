@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
 import type { DiagramStop } from "@contracts/agent/DiagramStop";
 import type { Gap } from "@contracts/agent/Gap";
@@ -50,7 +50,7 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
   const [stop, setStop] = createSignal(0);
 
   const ask = async (method: "agent.readback" | "agent.readbackStart") => {
-    const at = input.at();
+    const at = untrack(input.at);
     const mine = generation;
     let answer: Readback | undefined;
 
@@ -137,7 +137,7 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     offered: () => input.at() !== null && state().state === "notRead",
     /** The user asked: one run at a time, however many ask. */
     start: () => {
-      if (!input.at() || state().state === "reading") return;
+      if (!untrack(input.at) || state().state === "reading") return;
       generation += 1;
       setStop(0);
       setState({ state: "reading" });

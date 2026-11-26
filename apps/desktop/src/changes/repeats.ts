@@ -1,5 +1,5 @@
 import PQueue from "p-queue";
-import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import type { Gap } from "@contracts/agent/Gap";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import type { ScanHits } from "@contracts/agent/ScanHits";
@@ -83,7 +83,7 @@ export const createRepeatScan = (input: { app: AppSeam; events: Events; id: stri
     setRunning(true);
     await afterPaint();
 
-    const at = input.on();
+    const at = untrack(input.on);
 
     if (!at) return void setRunning(false);
 

@@ -104,6 +104,7 @@ const treeOpen = async (now: Daemon) => {
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await waitFor(() => expect(screen.getByRole("radio", { name: copy.targetTree }).getAttribute("aria-checked")).toBe("true"));
   await within(pane()).findByRole("button", { name: copy.findDefects });
 
   return mounted;
@@ -183,12 +184,17 @@ it("u7700a_only_the_user_starts_the_pass_and_a_comparison_without_a_tree_offers_
   ).toEqual([{ id: "a", to: "tree" }]);
   release(found());
 
-  // A comparison with no Worktree offers none.
+  // U7955a: the Changes comparison offers it too, and asks with the open group alone.
   fireEvent.click(screen.getByRole("radio", { name: copy.changes }));
-  await waitFor(() =>
-    expect(screen.queryByRole("button", { name: copy.findDefects })).toBeNull(),
-  );
-  expect(asks(app)).toBe(1);
+  await waitFor(() => expect(screen.getByRole("radio", { name: copy.changes }).getAttribute("aria-checked")).toBe("true"));
+  find();
+  await waitFor(() => expect(asks(app)).toBe(2));
+  expect(
+    app.calls
+      .filter((call) => call.method === "agent.findDefects")
+      .map((call) => call.params)
+      .at(-1),
+  ).toMatchObject({ id: "a", group: expect.anything() });
 });
 
 it("u7700b_every_state_is_drawn_and_the_view_stays_usable", async () => {

@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Finding } from "@contracts/agent/Finding";
 import type { DefectFindings } from "@contracts/agent/DefectFindings";
@@ -49,7 +49,7 @@ export const createFindings = (input: { app: AppSeam; id: string; at: () => Reac
   const drop = (finding: Finding) => setKept(run => run?.answer.state === "found" ? { ...run, answer: { ...run.answer, findings: run.answer.findings.filter(each => each !== finding) } } : run);
 
   const ask = () => {
-    const at = input.at();
+    const at = untrack(input.at);
 
     if (!at || answer()?.state === "running") return;
     const asked: Run = { at: reachKey(at) ?? "", signature: input.signature(), answer: { state: "running" } };

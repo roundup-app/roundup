@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, untrack } from "solid-js";
 import type { ExplainForm } from "@contracts/agent/ExplainForm";
 import type { Explanation } from "@contracts/agent/Explanation";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -56,7 +56,7 @@ export const createExplanations = (input: { app: AppSeam; id: string; at: () => 
       return [...asked, ...remarks().filter(each => each.path === path && !asked.some(kept => sameAsk(kept, each)))];
     },
     ask: (range: Ask) => {
-      const reach = input.at();
+      const reach = untrack(input.at);
       const asked = reach && { ...range, at: reachKey(reach) ?? "" };
 
       if (!reach || !asked || list().some(each => sameAsk(each, asked) && each.answer.state === "asking")) return;

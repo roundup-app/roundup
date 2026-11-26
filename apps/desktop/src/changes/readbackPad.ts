@@ -1,5 +1,5 @@
 import type { Reach } from "./owned";
-import { createEffect, createSignal } from "solid-js";
+import { createEffect, createSignal, untrack } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
 import { unknownOutcomeLine } from "../app/failureOf";
 import { type Applied, applying } from "../app/pending";
@@ -94,7 +94,7 @@ export const createReadbackPad = (input: { id: string; agent: () => string; read
     status,
     save: async () => {
       const read = input.readback.read();
-      const at = input.at();
+      const at = untrack(input.at);
 
       if (!read || !at || status()?.kind === "saving") return;
 
