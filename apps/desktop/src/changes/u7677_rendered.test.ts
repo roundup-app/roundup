@@ -128,7 +128,7 @@ it("u7677f_the_notes_are_captured_for_the_critic", async () => {
 
   const send = () =>
     read(
-      "(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.textContent.startsWith('Send notes')).click(); return true; })()",
+      "(() => { [...document.querySelectorAll('.note-batch button')].find(button => button.getAttribute('aria-label').startsWith('Send notes')).click(); return true; })()",
     );
 
   /** Every state of one note in the App's colour scheme (U7677f). */
@@ -176,7 +176,7 @@ it("u7677f_the_notes_are_captured_for_the_critic", async () => {
     await opened("?submit-failure");
     await saved(BODY, 1);
     await send();
-    await shot(name("send-failed"), said(copy.retry));
+    await shot(name("send-failed"), `!!document.querySelector(".note-batch [aria-label="${copy.retry}"]")`);
 
     // The worst case: 50 notes on one file, one of 2,000 characters.
     await opened("?worst");

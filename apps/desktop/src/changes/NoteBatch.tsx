@@ -122,7 +122,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
           </div></Show>
         </li>}</For></ul>
       </Show>
-      <Show when={list().length > 0 && !uncertain()}><BusyButton kind="quiet" busy={busy()} busyLabel={copy.sending} onClick={event => {
+      <Show when={list().length > 0 && !uncertain()}><BusyButton kind="icon" aria-label={props.notes.failure(props.id) !== null ? copy.retry : copy.sendNotesTo(props.name)} busy={busy()} busyLabel={copy.sending} onClick={event => {
         const focus = captureFocus();
         const button = event.currentTarget;
         const focused = document.activeElement === button;
@@ -130,7 +130,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
         return props.notes.send(props.id).then(() => {
           if (focused && (document.activeElement === button || document.activeElement === document.body) && props.notes.list(props.id).length === 0) focus(() => props.fallback?.());
         });
-      }}>{props.notes.failure(props.id) !== null ? copy.retry : copy.sendNotesTo(props.name)}</BusyButton></Show>
+      }}><Icon name={props.notes.failure(props.id) !== null ? "rotate-cw" : "send"} /></BusyButton></Show>
     </section></Show>;
 };
 
