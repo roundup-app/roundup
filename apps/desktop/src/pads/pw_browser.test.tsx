@@ -9,6 +9,7 @@ import type { OpenRequest } from "../window/nativeOpen";
 import { saveAppSettings } from "../settings/preferences";
 import { readFileSync } from "node:fs";
 import { walkSteps } from "./walkSteps";
+import { AGENT, findPadRow, openPad, openShelf, padOf } from "./padsFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
 
@@ -32,8 +33,18 @@ const mount = async ({ pads: texts = {}, nodes = [agent("chosen", "idle", "ready
 
     if (text === undefined) throw new Error(`not found: pad ${name}`);
 
+    const heading = new URL((params as { url: string }).url).hash.slice(1);
+
     // SAFETY: the walk reads only `pad.text`.
-    return { kind: "pad", id: name, pad: { name, text }, section: null } as never;
+    return { kind: "pad", id: name, pad: { name, text }, section: heading ? { heading: decodeURIComponent(heading) } : null } as never;
+  };
+
+  app.handlers["pad.list"] = () => [];
+  app.handlers["pad.read"] = params => {
+    // SAFETY: pad.read params always carry the name.
+    const name = (params as { name: string }).name;
+
+    return { ...padOf(name, AGENT, pads.get(name) ?? ""), name } as never;
   };
 
   let receive: ((request: OpenRequest) => void) | undefined;
@@ -70,7 +81,7 @@ const mount = async ({ pads: texts = {}, nodes = [agent("chosen", "idle", "ready
   };
 
   // SAFETY: message.send params always carry `to` and `body`.
-  return { app, connected: project, click, messages: () => app.calls.filter(call => call.method === "message.send").map(call => call.params as { to: string; body: string }) };
+  return { app, connected: project, click, open, messages: () => app.calls.filter(call => call.method === "message.send").map(call => call.params as { to: string; body: string }) };
 };
 
 const walkEl = () => document.querySelector<HTMLElement>("[data-walk]");
@@ -328,4 +339,80 @@ it("pw10_a_long_step_scrolls_and_fades_while_more_is_below", async () => {
   await waitFor(() => expect(frame.hasAttribute("data-more")).toBe(false));
   metrics(300, 0);
   expect(frame.hasAttribute("data-more")).toBe(false);
+});
+
+/** Opens the listed Pad `name` as the Pad list does, without pressing Edit. */
+const openFromList = async (name: string) => {
+  const row = await findPadRow(name);
+
+  row.focus({ preventScroll: true });
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+};
+
+const textbox = () => screen.queryByLabelText("Pad body", { selector: '[role="textbox"]' });
+
+it("pw11_opening_a_pad_shows_its_walk_and_no_editor", async () => {
+  await openShelf([padOf("notes", AGENT, TEXT(3))]);
+  await openFromList("notes");
+  expect(await step()).toEqual([1, 3]);
+  expect(textbox()?.getAttribute("contenteditable")).not.toBe("true");
+  expect(document.querySelectorAll("[contenteditable=true]")).toHaveLength(0);
+  expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
+  cleanup();
+
+  const m = await mount();
+  m.open({ kind: "link", url: `roundup://pad/notes?project=${KEY}`, surface: "/project" });
+  expect(await step()).toEqual([1, 3]);
+  expect(document.querySelectorAll("[contenteditable=true]")).toHaveLength(0);
+});
+
+it("pw11_a_pad_link_with_a_heading_opens_the_step_that_holds_it", async () => {
+  const m = await mount();
+  m.open({ kind: "link", url: `roundup://pad/notes?project=${KEY}#Part%202`, surface: "/project" });
+  expect(await step()).toEqual([2, 3]);
+});
+
+it("pw12_edit_shows_the_editor", async () => {
+  await openShelf([padOf("notes", AGENT, TEXT(3))]);
+  await openFromList("notes");
+  await step();
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  await waitFor(() => expect(textbox()?.getAttribute("contenteditable")).toBe("true"));
+  expect(walkEl()).toBeNull();
+  expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
+});
+
+it("pw12_done_saves_then_shows_the_walk_at_the_carets_step", async () => {
+  const shelf = await openShelf([padOf("notes", AGENT, TEXT(3))]);
+  const root = await openPad("notes");
+  const writes = () => shelf.app.calls.filter(call => call.method === "pad.write");
+
+  root.value = "# Part 1\nBody 1\n\n# Part 2\nedited\n\n# Part 3\nBody 3";
+
+  // The caret goes to the end of the document, whose size in ProseMirror positions is found by trying down from the text's length.
+  for (let at = root.value.length; at > 0; at--) {
+    try { root.setSelectionRange(at, at, "none"); break; } catch { /* beyond the document */ }
+  }
+
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(await step()).toEqual([3, 3]);
+  expect(writes()).toHaveLength(1);
+  expect(shelf.state.pads[0]?.text).toContain("edited");
+});
+
+it("pw13_a_new_empty_pad_opens_in_edit", async () => {
+  await openShelf([padOf("notes", AGENT, "")]);
+  await openFromList("notes");
+  await waitFor(() => expect(textbox()?.getAttribute("contenteditable")).toBe("true"));
+  expect(walkEl()).toBeNull();
+});
+
+it("pw13_a_pad_with_a_kept_draft_opens_in_edit", async () => {
+  const pad = padOf("notes", AGENT, TEXT(3));
+  const shelf = await openShelf([pad]);
+
+  shelf.connected.drafts.edit({ surface: "pads", object: pad.incarnation, recipient: null }, { originalName: "notes", source: "# Part 1\nkept", base: pad.text, baseRevision: pad.revision }, null, "ordinary");
+  await openFromList("notes");
+  await waitFor(() => expect(textbox()?.getAttribute("contenteditable")).toBe("true"));
+  expect(walkEl()).toBeNull();
 });

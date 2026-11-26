@@ -9,7 +9,7 @@ import { appSettings } from "../settings/preferences";
 import { Collapsible } from "../ui/Collapsible";
 import { durationMs, easingOutCurve } from "../ui/reorderMotion";
 import { copy } from "./copy";
-import { walkSteps } from "./walkSteps";
+import { stepOfHeading, walkSteps } from "./walkSteps";
 import type { walkStorage } from "./walkStorage";
 import type { PadEditorHandle } from "./PadRichEditor";
 
@@ -19,12 +19,13 @@ const PadRichEditor = lazy(() => import("./PadRichEditor"));
 const SIDE_BY_SIDE = 720;
 
 /** PW1 to PW6: a Pad read one top-level step at a time, forward and back, read-only. `onFinish` runs once per finish; the caller decides where focus goes (PW5). */
-export const Walk = (props: { name: string; text: string; storage: ReturnType<typeof walkStorage>; reducedMotion: Accessor<boolean>; onFinish: () => void }) => {
+export const Walk = (props: { name: string; text: string; storage: ReturnType<typeof walkStorage>; reducedMotion: Accessor<boolean>; onFinish: () => void; /** PW11: opens at the step holding this heading, else at the saved step. */ heading?: string | undefined; /** PW12: a step to open at, ahead of the heading and the saved step. */ at?: number | undefined; /** PW5: a walk opened with no link stays open at step 1 after Finish. */ stays?: boolean; /** PW12: the walk's Edit key. */ onEdit?: () => void }) => {
   const steps = untrack(() => walkSteps(props.text, props.name));
   const last = steps.length - 1;
   const stepAt = (at: number) => steps[at] ?? steps[last] ?? { title: props.name, text: props.text };
   const saved = untrack(() => props.storage.read()?.[props.name]);
-  const [index, setIndex] = createSignal(Math.min(Math.max((saved ?? 1) - 1, 0), last));
+  const held = untrack(() => props.at ?? (props.heading === undefined ? -1 : stepOfHeading(steps, props.heading)));
+  const [index, setIndex] = createSignal(Math.min(Math.max(held >= 0 ? held : (saved ?? 1) - 1, 0), last));
   let root: HTMLElement | undefined;
   let slide: HTMLDivElement | undefined;
   let body: HTMLDivElement | undefined;
@@ -67,6 +68,8 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
     void props.storage.write(all);
   };
 
+  if (held >= 0) remember(Math.min(held, last) + 1);
+
   // A Back that leaves at step 1 takes focus with it; the walk takes it back, so the keys keep working.
   createEffect(() => stepAt(index()).text, text => {
     editor?.setText(text);
@@ -104,6 +107,11 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
     finished = true;
     remember(null);
     props.onFinish();
+
+    if (props.stays) {
+      finished = false;
+      setIndex(0);
+    }
   };
 
   const next = () => (index() === last ? finish() : go(index() + 1));
@@ -115,6 +123,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
 
     if (event.key === "ArrowRight" && index() < last) go(index() + 1);
     else if (event.key === "ArrowLeft") go(index() - 1);
+    else if ((event.key === "e" || event.key === "E") && props.onEdit && !onButton) props.onEdit();
     else if (event.key === "Enter" && index() === last && !onButton) finish();
     else return;
 

@@ -48,6 +48,7 @@ vi.mock("../pads/PadRichEditor", async (original) => {
       selection: () => ({ start: field!.selectionStart, end: field!.selectionEnd, direction: field!.selectionDirection }),
       selectedText: () => "", restoreSelection: selection => field!.setSelectionRange(selection.start, selection.end, selection.direction),
       scrollToHeading: () => {},
+      caretHeading: () => null,
     });
   });
 

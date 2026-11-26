@@ -207,6 +207,11 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   }
 
+  // PW11: a Pad with text opens as its walk; these tests are of the editor, so they press Edit.
+  const walk = await waitFor(() => document.querySelector<HTMLElement>("[data-walk]") ?? screen.queryByLabelText("Pad body", { selector: '[role="textbox"]' }) ?? Promise.reject(new Error("no Pad shown")), { timeout: 5000 });
+
+  if (walk.matches("[data-walk]")) fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
   const surface = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' }, { timeout: 5000 });
   const root = surface.closest<HTMLElement>(".pad-editor");
   const editor = editors.at(-1);

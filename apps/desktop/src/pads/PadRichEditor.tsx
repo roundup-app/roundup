@@ -56,6 +56,8 @@ export type PadEditorHandle = {
   selectedText(): string;
   /** T27: brings the first heading whose text is `heading` (case, whitespace runs and leading `#` ignored, as P15 reads it) to the top of the view. */
   scrollToHeading(heading: string): void;
+  /** PW12: the text of the last heading at or before the caret, null above every heading. */
+  caretHeading(): string | null;
   /** The document equals the one last loaded, whatever Markdown it would serialize to. */
   unchanged(): boolean;
 };
@@ -588,6 +590,20 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
         }),
         selectedText: () => crepe!.editor.action(selectedMarkdown),
         focus: focusEditor, unchanged: () => document().eq(originalDocument),
+        caretHeading: () => crepe!.editor.action(ctx => {
+          const { state } = ctx.get(editorViewCtx);
+          let found: string | null = null;
+
+          state.doc.descendants((node, pos) => {
+            if (pos > state.selection.head) return false;
+
+            if (node.type.name === "heading") found = node.textContent;
+
+            return true;
+          });
+
+          return found;
+        }),
         scrollToHeading: (heading) => {
           const wanted = normalHeading(heading);
 

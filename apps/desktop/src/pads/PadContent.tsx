@@ -24,6 +24,9 @@ import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
 import { outcomeOf, RpcError } from "../app/seam";
 import { createDraftField } from "../state/draftField";
+import { Walk } from "./Walk";
+import { walkStorage } from "./walkStorage";
+import { stepOfHeading, walkSteps } from "./walkSteps";
 
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
@@ -145,6 +148,12 @@ const PadBody = (props: {
   const [shown, setShown] = createSignal(draft ? draft.source : source);
   const [origin, setOrigin] = createSignal(base);
   const [editing, setEditing] = createSignal(Boolean(recovered));
+  // PW11, PW13: a Pad with text and no kept draft opens as its walk; a new, empty or kept-draft Pad opens in Edit.
+  const [reading, setReading] = createSignal(!recovered && !invalid() && opened.text.trim() !== "");
+  const [walkAt, setWalkAt] = createSignal<number | undefined>(undefined);
+  const before = document.activeElement;
+  let editFocus = props.initialFocus;
+  let firstMount = true;
 
   createEffect(editing, (active) => active ? connected.drafts.editor(destination) : undefined);
 
@@ -357,6 +366,26 @@ const PadBody = (props: {
       void write();
     });
 
+  const edit = () => {
+    editFocus = captureFocus();
+    setReading(false);
+  };
+
+  /** PW12: the walk shows only once what the editor holds is saved; a failed save keeps the editor open. */
+  const done = () => act(async () => {
+    saveAfterPause.clear();
+    await write(false, cycle.send({ kind: "due", due: "autosave" }));
+
+    if (cycle.save().kind !== "clean" || actionFailure.message() !== null) return;
+
+    const heading = editor?.caretHeading();
+    const at = heading ? stepOfHeading(walkSteps(origin(), name), heading) : -1;
+
+    setWalkAt(at >= 0 ? at : undefined);
+    editor = undefined;
+    setReading(true);
+  });
+
   const flush = () => {
     saveAfterPause.clear();
     void write(false, cycle.send({ kind: "due", due: "autosave" }));
@@ -477,7 +506,9 @@ const PadBody = (props: {
     <div class="pad-body" data-pad-width={maximised() ? width() : undefined} data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
-          <PadTitle name={name} incarnation={destination.object} onRenamed={props.onRenamed} locked={deleted()} reload={list.reload} returnFocus={() => editor?.focus()} fail={message => { if (message === null) actionFailure.clear(); else actionFailure.show(message); }} />
+          <Show when={reading()} fallback={<PadTitle name={name} incarnation={destination.object} onRenamed={props.onRenamed} locked={deleted()} reload={list.reload} returnFocus={() => editor?.focus()} fail={message => { if (message === null) actionFailure.clear(); else actionFailure.show(message); }} />}>
+            <span class="pad-head-name">{name}</span>
+          </Show>
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
@@ -495,11 +526,16 @@ const PadBody = (props: {
             <Icon name="trash" />
           </IconButton>
         </Show>
+        <Show when={reading()} fallback={<BusyButton kind="primary" busyLabel={copy.saving} onClick={() => done()}>{copy.done}</BusyButton>}>
+          <button type="button" data-button="primary" disabled={deleted()} onClick={edit}>{copy.edit}</button>
+        </Show>
       </div>
-      <PadChangesView changes={changes}><Loading>
+      <PadChangesView changes={changes}><Show when={!reading()} fallback={
+        <Walk name={name} text={origin()} storage={walkStorage(connected.project.path)} reducedMotion={connected.reducedMotion} heading={props.heading} at={walkAt()} stays onEdit={edit} onFinish={() => { if (before instanceof HTMLElement && before.isConnected) before.focus({ preventScroll: true }); }} />
+      }><Loading>
         <PadRichEditor
           toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
-          initialFocus={props.initialFocus}
+          initialFocus={editFocus}
           text={source}
           readonly={invalid()}
           onChange={onChange}
@@ -507,21 +543,23 @@ const PadBody = (props: {
           onBlur={onEditorBlur}
           onSelection={() => { capture(); setSelected(editor?.selectedText() ?? ""); }}
           onReady={(ready) => {
+            const initial = firstMount;
+            firstMount = false;
             editor = ready;
-            queueMicrotask(() => { if (props.heading !== undefined) ready.scrollToHeading(props.heading); });
+            queueMicrotask(() => { if (initial && props.heading !== undefined) ready.scrollToHeading(props.heading); });
 
             // The editor loads lazily; text adopted before it was ready must still reach it.
             if (!editing()) ready.setText(origin());
 
-            if (draft?.document !== undefined && !ready.restoreDocument(draft.document, draft.editorCaret ?? false)) {
+            if (initial && draft?.document !== undefined && !ready.restoreDocument(draft.document, draft.editorCaret ?? false)) {
               setInvalid(true);
               actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
             }
 
-            if (recovered?.selection) ready.restoreSelection(recovered.selection);
+            if (initial && recovered?.selection) ready.restoreSelection(recovered.selection);
           }}
         />
-      </Loading></PadChangesView>
+      </Loading></Show></PadChangesView>
       <PadNotes name={name} revision={() => originalRevision} selection={selected} restoreFocus={() => editor?.focus()} />
     </div>
   );
