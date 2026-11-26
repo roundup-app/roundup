@@ -51,9 +51,15 @@ export const lineAnnotations = (value: FileComparison | undefined, notes: readon
     : []),
 ];
 
+/** The views that hold annotations a later empty pass must take down. */
+const annotating = new WeakSet<object>();
+
 /** U7676c: draws the annotations under their lines, opens the folds that hide them (U7692b: an unchanged line is a new-side line) and keeps the focused line selected (U7676a). */
 export const annotate = (view: VirtualizedFileDiff<Annotated>, lines: readonly DiffLineAnnotation<Annotated>[], at: LineSelection) => {
-  view.render({ lineAnnotations: [...lines] });
+  // U7610d: a view that drew no annotation and has none to draw is not rendered again: the second render of a 20,000-line diff was the open's longest task.
+  if (lines.length > 0 || annotating.has(view)) view.render({ lineAnnotations: [...lines] });
+
+  if (lines.length > 0) annotating.add(view);
 
   for (const { side, lineNumber, metadata } of lines) if (side === "additions") { view.revealLine(metadata.start); view.revealLine(lineNumber); }
 
