@@ -41,7 +41,7 @@ Module: `apps/desktop/src/changes/` (the Overview's readback, its states, the ga
 
 **U7688h the rendered readback at 1512 by 950 and at 388 px.** Given the U26 harness, dark App, on the 14-module fixture with the fake `agent.readback`, then these draw: not read, reading, read (with the diagram and a gap), stale and failed, each in its own browser session (#7924). D2, D5, D6 and every Check passing on `main` still pass. Run `just capture U7688h`; evidence under `artifacts/ux/U7688h/`, uncommitted. Policy; the design critic judges layout and looks, never a Vitest test (rule 10). Rule 7 stands: the diagram's layout loads lazily; this specification makes no measured performance claim.
 
-**Amended.** U7679c ("Pane": the Overview pane holds the readback block above the lens's list, the quiet line and button before one, the account after) and U7679e ("The ? list": gains R). U7683c's "a flow's row counts its gaps (#7688)" is what U7688e builds for gaps. Kept: notes, Viewed, the repeats and the lenses as built.
+**Amended.** U7679c ("Pane": the Overview pane holds the readback block above the lens's list, the quiet line and button before one, the account after) and U7679e ("The ? list": gains R). U7683c's "a flow's row counts its gaps (#7688)" is what U7688e builds for gaps. U7688e's line: under one line a gap sits after a note and before an explanation (U7699d). Kept: notes, Viewed, the repeats and the lenses as built.
 
 Not wanted: an automatic start; a Model or Effort control (U377); a token, price or usage figure, even in a failure cause (P14); editing the readback's text; Plannotator (plannotator.ai) as the review surface, rejected by the owner, 2026-11-18. No test of layout or looks.
 
