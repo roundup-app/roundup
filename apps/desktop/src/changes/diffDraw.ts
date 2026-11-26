@@ -1,5 +1,6 @@
 import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { Finding } from "@contracts/agent/Finding";
 import type { Gap } from "@contracts/agent/Gap";
 import type { ScanHit } from "@contracts/agent/ScanHit";
 import { copy } from "./copy";
@@ -27,10 +28,13 @@ export type Gapped = { gapped: true; side: "new"; start: number; end: number; ga
 /** U7696a: the mark under the last line of a move's first range: where the code stood, or its old and new name. */
 export type Movement = { moving: true; side: "new"; start: number; end: number; moved: Moved };
 
-export type Annotated = LineNote | Mark | Composer | Repeated | Gapped | Movement | Explaining;
+/** U7700c: the mark under the last line of a finding's range. */
+export type Found = { found: true; side: "new"; start: number; end: number; finding: Finding };
+
+export type Annotated = LineNote | Mark | Composer | Repeated | Gapped | Movement | Explaining | Found;
 
 /** U7676c, U7698b: what the diff draws under a line that is no note and no field; the stamps of noted lines leave these out. */
-export const isMark = (metadata: Annotated): metadata is Mark | Repeated | Gapped | Movement | Explaining => "unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata || "explaining" in metadata;
+export const isMark = (metadata: Annotated): metadata is Mark | Repeated | Gapped | Movement | Explaining | Found => "unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata || "explaining" in metadata || "found" in metadata;
 
 /** U7677a: the lines a note covers on one side, and whether its field holds focus. */
 export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
@@ -41,8 +45,8 @@ export const outdated = (note: LineNote, value: FileComparison | undefined) => n
 /** U7677a: a note draws under its lines while its comparison is the open one, and a Sent note while its lines still read the same. */
 const shown = (note: LineNote, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
-/** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line, each unfinished field as a mark, then the repeats, a gap (U7688e), a move and an explanation (U7699d): Pierre stacks them under one line in this order. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = [], moves: readonly Movement[] = [], explained: readonly Explaining[] = []): DiffLineAnnotation<Annotated>[] => [
+/** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line, each unfinished field as a mark, then the repeats, a gap (U7688e), a move, an explanation (U7699d) and a finding (U7700c): Pierre stacks them under one line in this order. */
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = [], moves: readonly Movement[] = [], explained: readonly Explaining[] = [], found: readonly Found[] = []): DiffLineAnnotation<Annotated>[] => [
   ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
   ...notes.flatMap((note): DiffLineAnnotation<LineNote>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
@@ -52,6 +56,7 @@ export const lineAnnotations = (value: FileComparison | undefined, notes: readon
   ...gaps.map((gap): DiffLineAnnotation<Gapped> => ({ side: sideName(gap.side), lineNumber: gap.end, metadata: gap })),
   ...moves.map((move): DiffLineAnnotation<Movement> => ({ side: sideName(move.side), lineNumber: move.end, metadata: move })),
   ...explained.map((each): DiffLineAnnotation<Explaining> => ({ side: sideName(each.side), lineNumber: each.end, metadata: each })),
+  ...found.map((each): DiffLineAnnotation<Found> => ({ side: sideName(each.side), lineNumber: each.end, metadata: each })),
 ];
 
 /** The views that hold annotations a later empty pass must take down. */

@@ -22,7 +22,7 @@ export const createExplained = () => createSignal<readonly Asked[]>([]);
 type Kept = ReturnType<typeof createExplained>;
 
 /** U7699b: whether the file's text at an explanation's lines no longer reads as the `source` it was written against (U2540b's older-context rule); a file not yet read has not changed. */
-const changedFrom = (value: FileComparison | undefined, at: LineSelection, source: string) => value !== undefined && (sourceAt(value, at) ?? "").replaceAll("\r", "") !== source;
+export const changedFrom = (value: FileComparison | undefined, at: LineSelection, source: string) => value !== undefined && (sourceAt(value, at) ?? "").replaceAll("\r", "") !== source;
 
 /** U7698b: the cause of a failed ask. */
 export const explainCause = (answer: Asked["answer"]): string | undefined => answer.state === "failed" ? answer.cause : undefined;

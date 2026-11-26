@@ -290,7 +290,7 @@ struct RawGap {
     quote: String,
 }
 
-fn json_in<T: for<'de> Deserialize<'de>>(text: &str) -> Result<T, String> {
+pub(crate) fn json_in<T: for<'de> Deserialize<'de>>(text: &str) -> Result<T, String> {
     let object = text
         .find('{')
         .zip(text.rfind('}'))
@@ -413,28 +413,33 @@ fn risks(
     Ok(out)
 }
 
+/// RB16, RB19: the path and the text of lines `start` to `end` of hunk `id`, none unless the hunk
+/// exists and those lines lie wholly in its new side.
+pub(crate) fn placed(hunks: &[Hunk], id: &str, start: u32, end: u32) -> Option<(String, String)> {
+    let hunk = hunks.iter().find(|hunk| hunk.id == id)?;
+    let want = u64::from(end).checked_sub(u64::from(start))? + 1;
+    let lines = selected(
+        std::slice::from_ref(hunk),
+        &hunk.path,
+        DiffSide::New,
+        start,
+        end,
+    );
+    (u64::try_from(lines.len()) == Ok(want)).then(|| (hunk.path.clone(), lines.join("\n")))
+}
+
 /// RB16: the explanations the diff holds, at most twelve: the hunk exists, the lines lie wholly in
 /// that hunk's new side and the text is not empty; the others are dropped.
 fn explanations(raw: Vec<RawExplanation>, hunks: &[Hunk]) -> Vec<LineExplanation> {
     raw.into_iter()
         .filter_map(|given| {
-            let hunk = hunks.iter().find(|hunk| hunk.id == given.hunk)?;
-            let want = u64::from(given.end).checked_sub(u64::from(given.start))? + 1;
-            let lines = selected(
-                std::slice::from_ref(hunk),
-                &hunk.path,
-                DiffSide::New,
-                given.start,
-                given.end,
-            );
-            (u64::try_from(lines.len()) == Ok(want) && !given.text.trim().is_empty()).then(|| {
-                LineExplanation {
-                    path: hunk.path.clone(),
-                    start: given.start,
-                    end: given.end,
-                    source: lines.join("\n"),
-                    text: given.text.trim().to_owned(),
-                }
+            let (path, source) = placed(hunks, &given.hunk, given.start, given.end)?;
+            (!given.text.trim().is_empty()).then(|| LineExplanation {
+                path,
+                start: given.start,
+                end: given.end,
+                source,
+                text: given.text.trim().to_owned(),
             })
         })
         .take(MAX_EXPLANATIONS)
