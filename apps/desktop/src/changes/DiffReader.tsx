@@ -25,8 +25,12 @@ import type { LineNote, Notes } from "./notes";
 import { compareParams, firstLine, hiddenKind, noticeFor, revisionOf, sameRead } from "./fileState";
 import { annotate, drawDiff, gatheredNotes, lineAnnotations, renderedApart } from "./diffDraw";
 import { outdated } from "./diffDraw";
-import type { Annotated, Composer, Noted, Shared, Stamped } from "./diffDraw";
+import { isMark } from "./diffDraw";
+import type { Annotated, Composer, Explaining, Noted, Shared, Stamped } from "./diffDraw";
 import { LineMark } from "./LineMark";
+import { ExplainedLines } from "./ExplainedLines";
+import type { Explanations } from "./explain";
+import type { ExplainForm } from "@contracts/agent/ExplainForm";
 import { createGapped, createMoving, createRepeated } from "./repeats";
 import { apart } from "./moves";
 import type { Moved } from "./moves";
@@ -49,7 +53,7 @@ const scrollTo = (mount: HTMLElement, top: number) => {
 /** U7678d: what `enter` did: moved to a change, found none in the file, or the file is not drawn yet. */
 export type Entered = "moved" | "none" | "wait";
 
-export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: LineNote) => boolean; /** U7678d: the file's current read, for a batch shared by a module's files. */ read: () => FileComparison | undefined };
+export type DiffKeys = { focus: () => void; step: (direction: 1 | -1) => boolean; enter: (direction: 1 | -1) => Entered; reload: () => void; reveal: () => void; note: () => void; /** U7698a: W and D ask the readback's reader to explain the selected lines. */ explain: (form: ExplainForm) => void; edit: () => void; remove: () => void; /** U7690c: the focused line, and whether a Sent note no longer reads as it did. */ at: () => { path: string; side: "old" | "new"; line: number }; outdated: (note: LineNote) => boolean; /** U7678d: the file's current read, for a batch shared by a module's files. */ read: () => FileComparison | undefined };
 
 type Slot = { element: HTMLElement; metadata: Annotated; dispose: () => void };
 
@@ -203,7 +207,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; /** U7696a: the moves and renames in this file's new lines, and the Logic lens's ask for a file once it is drawn. */ moves?: readonly Moved[] | undefined; onRead?: ((value: FileComparison) => void) | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element; /** U7697a: the word of this file's rank. */ rank?: string | undefined }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; /** U7696a: the moves and renames in this file's new lines, and the Logic lens's ask for a file once it is drawn. */ moves?: readonly Moved[] | undefined; onRead?: ((value: FileComparison) => void) | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element; /** U7697a: the word of this file's rank. */ rank?: string | undefined; /** U7698: the explanations of the Agent's diff, asked from this file's header and keys. */ explain?: Explanations | undefined }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
@@ -237,6 +241,11 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const gapped = createGapped(() => props.gaps, () => props.only);
 
+  const explaining = createMemo((): readonly Explaining[] => (props.explain?.of(props.path) ?? []).map(asked => ({ explaining: true as const, side: asked.side, start: asked.start, end: asked.end, asked })), { equals: (a, b) => a.length === b.length && a.every((each, at) => each.asked === b[at]?.asked) });
+
+  // U7698a: the user's ask of the selected lines, or of a range an answer is asked again for; the blob id is the file's now.
+  const ask = (form: ExplainForm, at: LineSelection = selection()) => props.explain?.ask({ path: props.path, side: at.side, start: at.start, end: at.end, form, blob: props.blob ?? null });
+
   onCleanup(() => sweep(undefined));
 
   const annotation = (metadata: Annotated) => {
@@ -244,6 +253,8 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     const draft = untrack(form);
 
     const content = () => {
+      if ("explaining" in metadata) return <ExplainedLines asked={metadata.asked} stale={(props.blob ?? null) !== metadata.asked.blob} again={() => ask(metadata.asked.form, metadata.asked)} />;
+
       if ("unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} />;
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
@@ -258,11 +269,11 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let stamp = (_stamped: Partial<Stamped>) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving(), explaining()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));
-    stamp({ noted: lines.flatMap(({ metadata }) => "unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]) });
+    stamp({ noted: lines.flatMap(({ metadata }) => isMark(metadata) ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]) });
   });
 
   // U7685a, U7696a: the lines of a repeat and of a move carry the stamps the style keys on, again after each render.
@@ -377,7 +388,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   createEffect(() => props.keys, keys => keys?.({
     at: () => ({ path: props.path, side: selection().side, line: selection().start }), outdated: note => outdated(note, read()), read: () => read(),
-    focus: () => focusHost(), reload: () => reload(), reveal: () => revealNearest(), note: () => openNote(selection()), edit: () => edit(noteOnLine()),
+    focus: () => focusHost(), reload: () => reload(), reveal: () => revealNearest(), note: () => openNote(selection()), explain: form => ask(form), edit: () => edit(noteOnLine()),
     remove: () => { const note = noteOnLine();
 
       if (note) void props.notes.remove(props.id, note.id);
@@ -413,7 +424,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <DiffIdentity read={read()} path={props.path} rank={props.rank} />
-      <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show><Show when={props.onNote}>{note => <IconButton aria-label={copy.noteOn.file} onClick={event => note()(event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
+      <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show><Show when={props.explain?.offered() && drawableOf(read(), hidden())}><IconButton aria-label={copy.explainWords} onClick={() => ask("words")}><Icon name="talk" /></IconButton><IconButton aria-label={copy.explainDiagram} onClick={() => ask("diagram")}><Icon name="workflow" /></IconButton></Show><Show when={props.onNote}>{note => <IconButton aria-label={copy.noteOn.file} onClick={event => note()(event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
     </header>{props.under}
     <BlockedFailure message={failure() && `${copy.fileReadFailed(props.path)}: ${failure()}`} content={copy.fileReadFailed(props.path)} recover={loading() ? undefined : { run: retry }} />
     <StatusNote text={failure() ? null : notice()} />

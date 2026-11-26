@@ -250,8 +250,8 @@
 .repeat-place p, .repeat-excerpt { margin: 0; padding-block: var(--space-2); }
 .repeat-excerpt { font: var(--text-small) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* U7688e: the mark under the line a gap names: the same sunken ground as a repeat's. */
-.gap-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
-.gap-mark p { margin: 0; overflow-wrap: anywhere; }
+.gap-mark, .explained { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
+.gap-mark p, .explained p { margin: 0; overflow-wrap: anywhere; }
 /* U7696a: the mark under a move's first range: the diff's own ground shows through (D3 reads --diff-ground as saturated) under the diff's own ink. */
 .moved-mark { margin: 0; padding: var(--space-2); color: var(--diff-text); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 /* U7688b, U7688c: the readback above the Overview's modules; a stale one is dimmed, and a narrow pane shows the diagram's words alone. */
