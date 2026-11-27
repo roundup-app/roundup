@@ -44,12 +44,12 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
 const motionOf = (source: ActivationSource) => source === "key" ? "key" : "click";
 
 /** U8005a: Changes folds the Rail and closes the Bench without saving; closing it restores each one the user has not touched since. */
-export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Widths, railSlide: ReturnType<typeof createRailSlide>, frame: ShelfFrame, source: Accessor<ActivationSource>) => {
-  let before: { rail: boolean; bench: boolean } | null = null;
+export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Pick<Widths, "collapsed">, railSlide: Pick<ReturnType<typeof createRailSlide>, "set">, frame: Pick<ShelfFrame, "open" | "fold" | "toggle">, source: Accessor<ActivationSource>, project: Accessor<string | null>) => {
+  let before: { rail: boolean; bench: boolean; project: string | null } | null = null;
 
   createEffect(changesOpen, open => {
     if (open) {
-      before = { rail: widths.collapsed(), bench: frame.open() };
+      before = { rail: widths.collapsed(), bench: frame.open(), project: project() };
 
       if (!before.rail) railSlide.set(true, motionOf(source()), false);
       frame.fold(source());
@@ -63,7 +63,8 @@ export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Widths
 
     if (!kept) return;
 
-    if (!kept.rail && widths.collapsed()) railSlide.set(false, motionOf(source()));
+    // A Project switch re-reads the new Project's Rail, which Changes did not fold.
+    if (!kept.rail && kept.project === project() && widths.collapsed()) railSlide.set(false, motionOf(source()));
 
     if (kept.bench && !frame.open()) frame.toggle(source());
   });
