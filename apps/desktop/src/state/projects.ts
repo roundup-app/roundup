@@ -122,13 +122,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
       listed.map(({ name, path, running }) => {
         const known = tabs().find(tab => tab.project.path === path);
 
-        if (known) return known;
-
-        const opened: OpenTab = { project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 };
-
-        if (!running) opened.notRunning = true;
-
-        return opened;
+        return known ?? { project: { name, path }, exit: running ? null : { code: null }, notRunning: !running, reopenFailure: null, generation: 0 };
       }),
       order.read() ?? [],
     ));
