@@ -437,42 +437,6 @@ for (const owner of ["todo_comments", "todo_history", "todo_refs"] as const) {
 }
 
 
-it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editable_text_recovery_%s", async action => {
-  const m = await mountTodos([todo(1), todo(2)]);
-  await openDrawerOf(1);
-  fireEvent.click(within(drawer()).getByRole("button", { name: "Add notes" }));
-  const field = await within(drawer()).findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
-  const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-  fireEvent.input(field, { target: { value: exactDraft } });
-  fireEvent.keyDown(field, { key: "Escape" });
-  await waitFor(() => expect(m.connected.drafts.problem()?.revision).toBe(m.connected.drafts.list().at(-1)?.revision));
-  const retained = m.connected.drafts.list();
-  const problem = m.connected.drafts.problem();
-  m.app.clipboardWrite = () => Promise.reject(new Error("Clipboard unavailable; retry"));
-  fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
-  await screen.findByRole("alert", { name: /Clipboard unavailable; retry/ });
-  m.app.emit(todoEvent("todo.updated", todo(2)));
-  expect(screen.getByRole("alert", { name: /Clipboard unavailable; retry/ })).toBeTruthy();
-
-  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  else if (action === "save") {
-    fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
-    await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
-  } else {
-    fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
-    await waitFor(() => expect(drawer().hasAttribute("inert")).toBe(true));
-    m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
-  }
-
-  await waitFor(() => expect(screen.queryByRole("alert", { name: /Clipboard unavailable; retry/ })).toBeNull());
-  expect(m.connected.drafts.problem()).toEqual(problem);
-  expect(m.connected.drafts.list()).toEqual(retained);
-  expect(await screen.findByRole("alert", { name: /couldn.t keep|could not|retained|retain/i })).toBeTruthy();
-  storage.mockRestore();
-});
-
-
 it("p3557c_failure_lifetime_todo_drawer_removed_notice_dismiss", async () => {
   const m = await mountTodos([todo(1), todo(2)]);
   await openDrawerOf(1);

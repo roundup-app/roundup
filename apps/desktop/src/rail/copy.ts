@@ -46,7 +46,7 @@ export const copy = {
   railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? sharedCopy.draftSurface(surface)} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
   railDraftUnavailable: "The original target is unavailable. Your text stays in its field.",
   railDraftRetry: "Retry storage",
-  railDraftMissingTarget: sharedCopy.railDraftMissingTarget,
+  railDraftMissingTarget: "Unavailable target",
   deliverables: sharedCopy.deliverables,
   dismissError: "Dismiss error",
   markDone: "Mark done",

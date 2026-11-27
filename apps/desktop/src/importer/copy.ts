@@ -66,7 +66,7 @@ export const copy = {
   importRestored: (count: number) => `${count} were chosen earlier. Waiting to check they are unchanged.`,
   importNotImportable: (count: number) => `${count} not importable`,
   importExcludedReason: (cause: string) => `${importExcludedReasons.get(cause) ?? "Can't be read as a conversation"}.${["missingDirectory", "noCompleteRecords", "incompleteMetadata", "sdkUnreadable", "recordsMissing", "liveWithoutRecords", "unknown"].includes(cause) ? " Start import Agent to list conversations again." : ""}`,
-  importAge: (minutes: number) => minutes < 1440 ? sharedCopy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
+  importAge: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? new Intl.RelativeTimeFormat("en-GB", { style: "short", numeric: "always" }).format(-minutes, "minute") : minutes < 1440 ? `${Math.floor(minutes / 60)} h ago` : `${Math.floor(minutes / 1440)} d ago`,
   importUnconfirmed: "Import completion is unconfirmed. Keep your choices; Start import Agent to check before importing again.",
   importRowRefusal: (failure: { code: number; outcome: string }) => failure.outcome === "failed" && importRefusals.has(failure.code)
     ? `${importRefusals.get(failure.code)} ${[-32001, -32007, -32003, -32009].includes(failure.code) ? "Start import Agent to check available conversations." : "Choose it again, or Start import Agent to list conversations again."}`
