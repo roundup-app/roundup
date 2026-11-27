@@ -1,6 +1,5 @@
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
-import { BusyButton } from "../ui/BusyButton";
 import { createEffect, createMemo, createSignal, flush, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { Events } from "../app/events";
@@ -27,6 +26,8 @@ import { createFind, FindField } from "./Find";
 import { groupLens, lensAfter, LENSES, OVERVIEW, type Lens } from "./lens";
 import { createViewed } from "./createViewed";
 import { comparisonOf } from "./viewed";
+import { ViewedProgress } from "./ViewedProgress";
+import { createLanding } from "./landing";
 import { noiseOf, type Grouped } from "./modules";
 import { Overview } from "./Overview";
 import { createCallPaths } from "./callPaths";
@@ -391,30 +392,7 @@ const Surface = (props: { id: string; name: string }) => {
   // U7680: the marks the landing and the header read; its callbacks run only after the view has made `opened` and the list.
   const viewed = createViewed({ memory, comparison: () => comparisonOf(target(), own() ? undefined : groupKey()), files, settled: () => !pending() && failure() === null, lensed, lens, opened: () => opened(), open: next => { setLens(next.lens); choosePath(next.key); flush(); focusTree(next.key); } });
 
-  // U8010a: with no item chosen, the landing is the first item not viewed, else the first item, else the lens's empty state (the Overview pane); it is made once for a listing, so marking an item never moves it.
-  const signature = createMemo(() => `${target()}|${active()}|${lens()}|${rows().join("\0")}`);
-
-  const landed = createMemo(() => {
-    signature();
-
-    return untrack(() => {
-      if (rows().length === 0) return undefined;
-
-      const modules = listing().modules.map(module => moduleKey(module.name));
-
-      return modules.find(key => !viewed.viewedKeys().has(key)) ?? modules[0] ?? OVERVIEW;
-    });
-  });
-
-  // U7675c: the landing becomes the chosen item, so one that leaves the listing is told as it is.
-  createEffect(() => ({ chosen: picked(), landing: landed() }), ({ chosen, landing }) => { if (chosen === undefined && landing !== undefined && landing !== OVERVIEW) setPicked(landing); });
-
-  // U7674a, U8010a: what shows is the chosen item still listed, or the Overview pane, else the landing.
-  const opened = () => {
-    const chosen = picked();
-
-    return chosen !== undefined && (chosen === OVERVIEW ? rows().length > 0 : rows().includes(chosen)) ? chosen : landed();
-  };
+  const opened = createLanding({ signature: () => `${target()}|${active()}|${lens()}|${rows().join("\0")}`, rows, modules: () => listing().modules, viewedKeys: () => viewed.viewedKeys(), picked, setPicked });
 
   const { panes, ready } = createPanes(opened, lens, () => `${target()}|${active()}`);
 
@@ -553,11 +531,7 @@ const Surface = (props: { id: string; name: string }) => {
         <SegmentGroup label={copy.compareTo} segments={segmentsOf(worktree() !== null)} value={target()} onValueChange={choose} />
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
-      <Show when={viewed.progress().total > 0}>
-        <Show when={viewed.progress().viewed === viewed.progress().total && notes.list(props.id).length > 0 && notes.state(props.id).kind !== "unknown"} fallback={<span class="changes-progress">{copy.viewedProgress(viewed.progress().viewed, viewed.progress().total)}</span>}>
-          <BusyButton kind="icon" aria-label={notes.failure(props.id) !== null ? copy.retry : copy.sendNotesTo(props.name)} busy={notes.state(props.id).kind === "pending"} busyLabel={copy.sending} onClick={() => notes.send(props.id)}><Icon name={notes.failure(props.id) !== null ? "rotate-cw" : "send"} /></BusyButton>
-        </Show>
-      </Show>
+      <ViewedProgress id={props.id} name={props.name} viewed={viewed.progress().viewed} total={viewed.progress().total} notes={notes} />
       <IconButton aria-label={copy.overview} data-home="true" aria-pressed={opened() === OVERVIEW ? "true" : "false"} onClick={() => { choosePath(OVERVIEW); flush(); section?.querySelector<HTMLElement>(".changes-overview [data-entry]")?.focus(); }}><Icon name="home" /></IconButton>
       <IconButton aria-label={copy.closeChanges} onClick={event => close(activationSource(event))}><Icon name="x" /></IconButton>
     </header>
