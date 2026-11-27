@@ -8,6 +8,7 @@ import type { Actor } from "@contracts/Actor";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { openLane, type LaneBrowser } from "./laneBrowser";
+import { editWalk } from "../pads/editWalkBrowser";
 
 const openHistory = async (lane: LaneBrowser, selector: string) => {
   // Blurring the body editor moves the controls, so focus the disclosure before activating it.
@@ -348,7 +349,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
       await lane.until("(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group] .shelf-group-control[aria-expanded=false], .pad-fold[aria-expanded=false]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
       await lane.browser("focus", ".pad-name");
       await lane.browser("press", "Enter");
-      await lane.until("!!document.querySelector('.drawer .ProseMirror')");
+      await editWalk(lane.browser);
     };
 
     await selectHome();

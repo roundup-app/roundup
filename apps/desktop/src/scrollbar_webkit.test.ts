@@ -165,15 +165,17 @@ const SCENES: { query: string; open?: (page: Page) => Promise<void>; areas: stri
     open: async (page) => {
       // The page answers the diff reads only; the Rail's icon needs the owned-changes read, so give it one and nudge the Agent's status to refresh it.
       await page.evaluate(() => {
-        window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
+        window.__fake.app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", checkout: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
         window.__fake.setStatus("agent-1", "idle", "idle");
       });
       await page.click(".changes-icon");
-      await page.waitForSelector(".changes-side file-tree-container");
+      // The view opens on the Overview and draws no module (U7679c): choose the first module for its scroll.
+      await page.click('.changes-side .changes-tree [data-row="module"]');
+      await page.waitForSelector(".module-scroll");
       // This page mounts the App without main.tsx, so load the sheets and start the scrollbars it would have.
       await page.evaluate('Promise.all([import("/src/sheets.ts"), import("/src/scrollHover.ts")]).then(([, scrollHover]) => scrollHover.trackScrollbars(document))');
     },
-    areas: [".diff-content"],
+    areas: [".module-scroll"],
   },
 ];
 

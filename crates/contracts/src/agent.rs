@@ -9,12 +9,16 @@ use crate::{Error, common::Status};
 
 mod call_paths;
 pub use call_paths::*;
+mod owned;
+pub use owned::*;
+mod changed;
+pub use changed::*;
 mod comparison;
 pub use comparison::*;
 mod readback;
 pub use readback::*;
-mod scan;
-pub use scan::{ScanHit, ScanHits, ScanPlace};
+mod spot;
+pub use spot::*;
 mod remote_main;
 pub use remote_main::{FetchedMain, RemoteMain};
 mod alert;
@@ -287,93 +291,6 @@ pub struct WorktreePr {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = bool)]
     pub draft: Option<bool>,
-}
-
-/// How a Changed file differs from the Agent's Base (U2539a).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum ChangedStatus {
-    Added,
-    Modified,
-    Renamed,
-    Deleted,
-    Untracked,
-}
-
-/// The `+added -removed` line counts of one changed file, as `git diff --numstat` counts them (U7610a).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct LineCounts {
-    pub added: u32,
-    pub removed: u32,
-}
-
-/// One file the Agent's Worktree differs in: `line` is the 1-based first differing line in the
-/// working copy (`null` for a deleted or binary file), `counts` its line counts (`null` for a
-/// binary file), `blob` git's blob id of the To side (`null` for a deleted file), `from` the old
-/// path of a renamed file.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct ChangedFile {
-    pub path: String,
-    pub status: ChangedStatus,
-    pub line: Option<u32>,
-    pub counts: Option<LineCounts>,
-    pub blob: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub from: Option<String>,
-}
-
-/// What `agent.changedFiles` returns (U2539a), sorted by `path`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct ChangedFiles {
-    pub files: Vec<ChangedFile>,
-}
-
-/// One repository and branch an Agent owns changes in (U7186a): `files` are the current state
-/// against `base`, the default branch, sorted by `path`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct OwnedGroup {
-    pub repo: String,
-    pub branch: String,
-    pub base: String,
-    pub files: Vec<ChangedFile>,
-}
-
-/// What `agent.ownedChanges` returns (U7186a), sorted by `repo` then `branch`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct OwnedChanges {
-    pub groups: Vec<OwnedGroup>,
-}
-
-/// What the Agent's own Worktree is compared as, against the remote's main (U7672a): everything
-/// in its folder now, or its commits only.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum CompareTarget {
-    #[default]
-    Tree,
-    Branch,
-}
-
-/// The Agent's changed-file list: the remote's main against its Worktree's `to` (U7672a).
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ChangedFilesParams {
-    pub id: String,
-    #[serde(default)]
-    #[specta(optional, type = CompareTarget)]
-    pub to: CompareTarget,
-}
-
-/// Select one relative path in an Agent's Worktree (U2540a) and the `to` it is compared as.
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct CompareFileParams {
-    pub id: String,
-    pub path: String,
-    #[serde(default)]
-    #[specta(optional, type = CompareTarget)]
-    pub to: CompareTarget,
 }
 
 /// What `agent.land` returns (G4): the commit the Base points at after Landing.
@@ -719,6 +636,19 @@ pub struct RunParams {
     pub cwd: Option<String>,
 }
 
+/// U7889a: the shell commands an Agent printed, in the order it printed them, each once.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct PrintedCommands {
+    pub commands: Vec<String>,
+}
+
+/// U7889c: run one of `id`'s printed commands in a shell the Agent owns.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RunPrintedParams {
+    pub id: String,
+    pub command: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct NodeId {
     pub id: String,
@@ -770,6 +700,9 @@ pub struct InstructionDelivery {
     pub attempt: String,
     pub text: String,
     pub state: InstructionState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub cause: Option<String>,
 }
 
 /// Read-only instruction history. Home follows placement; attribution never follows names.

@@ -1,5 +1,6 @@
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Status } from "@contracts/Status";
+import { descendantsOf, type RailSource } from "../state/railTopology";
 import { isDoor, type DoorNode } from "../state/doorNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 
@@ -60,3 +61,7 @@ export const attentionCounts = (holders: readonly Holder[]) => {
 
   return { needsYou: kinds.filter((kind) => kind === "needs-you").length, error: kinds.filter((kind) => kind === "error").length };
 };
+
+/** U7915b, U7915c: the nodes a Mark done on the row clears: its own `needs-you` not yet marked, and, while the row is folded, those of the Agents below it. */
+export const markedBy = (source: RailSource, node: RailNode, folded: boolean, dismissed: Dismissed): RailNode[] =>
+  [node, ...(folded ? descendantsOf(source, node.id) : [])].filter(each => raisesAttention(each) && each.status?.kind === "needs-you" && !dismissed(each));

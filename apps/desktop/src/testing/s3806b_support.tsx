@@ -515,9 +515,12 @@ export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof 
     }
 
     await Promise.resolve();
-    expect(connected.rail.selected()).toBe(row.owner === "App" ? "ops" : "keep");
 
-    if (row.owner === "App") expect(document.querySelector('[data-id="created"]')).toBeNull();
+    // U7916: a plain New Agent is selected once the tree shows it, whichever way the Switcher closed; a prompt whose newer draft waits selects nothing.
+    if (row.owner === "App" && row.label === "New Agent") await waitFor(() => expect(connected.rail.selected()).toBe("created"));
+    else expect(connected.rail.selected()).toBe(row.owner === "App" ? "ops" : "keep");
+
+    if (row.owner === "App" && row.label !== "New Agent") expect(document.querySelector('[data-id="created"]')).toBeNull();
 
     if (submitted) {
       await waitFor(() => expect(connected.drafts.list().some(entry => entry.revision === submitted.revision)).toBe(false));
@@ -619,7 +622,7 @@ export const reviewChangesSurviveSurfaceClose = async ({ how, outcome }: (typeof
   const { app, connected } = await mountApp();
   const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", adopted: false, base: "main" } });
   app.handlers["rail.tree"] = () => [workstream("ops"), reviewed];
-  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/first", branch: "reviewed", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
+  app.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/first", checkout: "/first", branch: "reviewed", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
   await connected.rail.refresh();
   connected.rail.select("reviewed");
   // The Rail icon shows once the shared owned read has answered, which is what offers the action.

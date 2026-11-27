@@ -258,6 +258,10 @@ const TOOLS: &[(&str, &str)] = &[
         "read what a Worktree holds and whether it can land; yours or one in your Reach",
     ),
     (
+        "agent_postSpots",
+        "place spots on lines of your files, each tagged with its tool; a source's next post replaces its spots",
+    ),
+    (
         "route_list",
         "see the Routes: whom each Agent's questions go to",
     ),

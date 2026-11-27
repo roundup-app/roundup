@@ -12,7 +12,19 @@
 /* U7677a: a noted line keeps a 2 px accent bar and a faint tint, drawn from the marker the reader stamps; the focused note's bar turns full accent. No border. */
 [data-line][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer); background-size: var(--note-bar-width) 100%, auto; background-position: left top; background-repeat: no-repeat; }
 [data-line][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer); }
+/* U7685a, U7704a: a spotted line keeps a bar on its right edge in the grey of the counts, drawn from the marker the reader stamps; a noted line keeps its bar on the left too. No border. */
+[data-line][data-spot] { --spot-bar-layer: linear-gradient(var(--grey), var(--grey)); background-image: var(--spot-bar-layer); background-size: var(--note-bar-width) 100%; background-position: right top; background-repeat: no-repeat; }
+[data-line][data-spot][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer), var(--spot-bar-layer); background-size: var(--note-bar-width) 100%, auto, var(--note-bar-width) 100%; background-position: left top, left top, right top; }
+[data-line][data-spot][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer), var(--spot-bar-layer); }
+/* U7696a: a moved line keeps the same bar, on its left edge in the grey of the counts, from the marker the reader stamps; a noted line keeps its own bar over it. */
+[data-line][data-moved] { background-image: linear-gradient(var(--grey), var(--grey)); background-size: var(--note-bar-width) 100%; background-position: left top; background-repeat: no-repeat; }
+[data-line][data-moved][data-noted] { background-image: var(--note-bar-layer), var(--note-tint-layer); background-size: var(--note-bar-width) 100%, auto; }
+[data-line][data-moved][data-noted][data-focused] { background-image: var(--note-bar-focused-layer), var(--note-tint-layer); }
 :focus { outline: none; }
+
+/* U7678c: a hunk's function sits beside its fold's count, in the count's ink, and gives way before the count does. */
+[data-unmodified-lines] { flex: none; }
+[data-hunk-function] { flex: 1 1 0; min-width: 0; margin-inline-start: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The App's chrome is non-selectable; diff text must opt into native selection. */
 [data-line] { user-select: text; }

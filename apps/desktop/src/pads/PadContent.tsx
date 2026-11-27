@@ -24,6 +24,9 @@ import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
 import { outcomeOf, RpcError } from "../app/seam";
 import { createDraftField } from "../state/draftField";
+import { Walk } from "./Walk";
+import { walkStorage } from "./walkStorage";
+import { createPadReading } from "./padReading";
 
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
@@ -79,6 +82,21 @@ const draftOf = (original: { name: string; base: string; revision: number }, sou
 const sameContent = (left: Pad, right: Pad) =>
   left.revision === right.revision &&
   left.text === right.text;
+
+/** PW11: only the editor mounted at open restores a draft, a selection or a heading; the editor loads lazily, so text adopted before it was ready must still reach it. */
+const adoptEditor = (
+  ready: PadEditorHandle,
+  from: { first: boolean; heading: string | undefined; editing: boolean; text: string; draft: { document?: string | undefined; editorCaret?: boolean | undefined } | undefined; recovered: { selection?: Parameters<PadEditorHandle["restoreSelection"]>[0] | null | undefined } | undefined | false },
+  invalid: () => void,
+) => {
+  queueMicrotask(() => { if (from.heading !== undefined) ready.scrollToHeading(from.heading); });
+
+  if (!from.editing) ready.setText(from.text);
+
+  if (from.first && from.draft?.document !== undefined && !ready.restoreDocument(from.draft.document, from.draft.editorCaret ?? false)) invalid();
+
+  if (from.first && from.recovered && from.recovered.selection) ready.restoreSelection(from.recovered.selection);
+};
 
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
@@ -169,7 +187,7 @@ const PadBody = (props: {
   let pendingActor: Actor | null = null;
   let closed = false;
   let finalDraft: string | null | undefined;
-  const saveAfterPause = debounce(() => flush(), SAVE_PAUSE_MS);
+  const saveAfterPause = debounce(() => void save(), SAVE_PAUSE_MS);
 
   /** `typing`: the user is editing, which a change handler knows before `editing` shows it. */
   const capture = (typing = editing()) => {
@@ -257,7 +275,7 @@ const PadBody = (props: {
     capture();
     finalDraft = currentDraft();
     closed = true;
-    flush();
+    void save();
     const message = actionFailure.message();
 
     if (!deleted() && message) props.onLateFailure(message);
@@ -357,15 +375,18 @@ const PadBody = (props: {
       void write();
     });
 
-  const flush = () => {
+  const save = async () => {
     saveAfterPause.clear();
-    void write(false, cycle.send({ kind: "due", due: "autosave" }));
+    await write(false, cycle.send({ kind: "due", due: "autosave" }));
   };
 
-  const exportToFile = () =>
-    act(async () => {
-      await exportPad(connected.app, name);
-    });
+  // PW11, PW13: a Pad with text and no kept draft opens as its walk; a new, empty or kept-draft Pad opens in Edit. PW12: Done shows the walk only once the editor's text is saved.
+  const { reading, walkAt, edit, done, finish, editFocus, mount } = createPadReading({
+    kept: () => Boolean(recovered) || invalid(), text: opened.text, name, origin, initialFocus: props.initialFocus, editor: () => editor, act,
+    save, saved: () => cycle.save().kind === "clean" && actionFailure.message() === null, release: () => { editor = undefined; },
+  });
+
+  const exportToFile = () => act(() => exportPad(connected.app, name));
 
   const remove = (source: ActivationSource) =>
     act(async () => {
@@ -412,7 +433,7 @@ const PadBody = (props: {
   const onEditorBlur = (next: EventTarget | null) => {
     if (next instanceof Element && next.closest(".pad-rich-editor, [data-dismiss-failure]")) return;
 
-    flush();
+    void save();
   };
 
   const keepMine = () => {
@@ -448,7 +469,7 @@ const PadBody = (props: {
 
     field.save();
     cycle.send({ kind: "resume" });
-    flush();
+    void save();
   });
 
   const useTheirs = () => {
@@ -477,7 +498,7 @@ const PadBody = (props: {
     <div class="pad-body" data-pad-width={maximised() ? width() : undefined} data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
-          <PadTitle name={name} incarnation={destination.object} onRenamed={props.onRenamed} locked={deleted()} reload={list.reload} returnFocus={() => editor?.focus()} fail={message => { if (message === null) actionFailure.clear(); else actionFailure.show(message); }} />
+          <Show when={reading()} fallback={<PadTitle name={name} incarnation={destination.object} onRenamed={props.onRenamed} locked={deleted()} reload={list.reload} returnFocus={() => editor?.focus()} fail={message => { if (message === null) actionFailure.clear(); else actionFailure.show(message); }} />}><span class="pad-head-name">{name}</span></Show>
         </span>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
@@ -495,11 +516,12 @@ const PadBody = (props: {
             <Icon name="trash" />
           </IconButton>
         </Show>
+        <Show when={reading()} fallback={<BusyButton kind="primary" busyLabel={copy.saving} onClick={() => done()}>{copy.done}</BusyButton>}><button type="button" data-button="primary" disabled={deleted()} onClick={edit}>{copy.edit}</button></Show>
       </div>
-      <PadChangesView changes={changes}><Loading>
+      <PadChangesView changes={changes}><Show when={!reading()} fallback={<Walk name={name} text={origin()} storage={walkStorage(connected.project.path)} reducedMotion={connected.reducedMotion} heading={props.heading} at={walkAt()} stays onEdit={edit} onFinish={finish} />}><Loading>
         <PadRichEditor
           toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
-          initialFocus={props.initialFocus}
+          initialFocus={editFocus()}
           text={source}
           readonly={invalid()}
           onChange={onChange}
@@ -508,20 +530,10 @@ const PadBody = (props: {
           onSelection={() => { capture(); setSelected(editor?.selectedText() ?? ""); }}
           onReady={(ready) => {
             editor = ready;
-            queueMicrotask(() => { if (props.heading !== undefined) ready.scrollToHeading(props.heading); });
-
-            // The editor loads lazily; text adopted before it was ready must still reach it.
-            if (!editing()) ready.setText(origin());
-
-            if (draft?.document !== undefined && !ready.restoreDocument(draft.document, draft.editorCaret ?? false)) {
-              setInvalid(true);
-              actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
-            }
-
-            if (recovered?.selection) ready.restoreSelection(recovered.selection);
+            adoptEditor(ready, { first: mount.first, heading: mount.first ? props.heading : undefined, editing: editing(), text: origin(), draft, recovered }, () => { setInvalid(true); actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid")); });
           }}
         />
-      </Loading></PadChangesView>
+      </Loading></Show></PadChangesView>
       <PadNotes name={name} revision={() => originalRevision} selection={selected} restoreFocus={() => editor?.focus()} />
     </div>
   );

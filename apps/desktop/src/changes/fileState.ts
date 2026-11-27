@@ -1,7 +1,13 @@
 import { copy } from "./copy";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
+import type { CompareTarget } from "@contracts/agent/CompareTarget";
+import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
 import type { LineSelection } from "./lines";
 import { drawsLines, imageHidden, imageSides, imageSizes } from "./images";
+
+/** U7853a: a Changes read names the open group; Tree and Branch name the Worktree's `to`. */
+export const compareParams = (id: string, path: string, to: CompareTarget, group: OwnedGroupKey | undefined): CompareFileParams => group ? { id, path, group } : { id, path, to };
 
 /** U7675b: a side over this many lines is offered with Show anyway, not drawn at once. */
 const TOO_LARGE_LINES = 20000;

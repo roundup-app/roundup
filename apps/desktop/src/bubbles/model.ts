@@ -1,4 +1,4 @@
-import { createMemo, createSignal, untrack } from "solid-js";
+import { createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import { captureFocus } from "../keys/focus";
 import type { placesStorage, Place, Rect } from "./places";
 
@@ -30,7 +30,7 @@ export const samePlaces = (a: Record<string, Place>, b: Record<string, Place>): 
 };
 
 /** The bubbles' state: their places and where they persist, the one Terminal opening, the keys it reserves and the bubble that wants focus. */
-export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writable: () => boolean) => {
+export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writable: () => boolean, rail?: { revealTerminal?: ((id: string) => void) | undefined }) => {
   // Reads lag writes until the next flush. `latest` is what the last write set, so a handler that writes and reads in one turn (a Pull's frame, then the focus that ends it) builds on it.
   let latest = store.read();
   const [shownPlaces, showPlaces] = createSignal<Record<string, Place>>(latest);
@@ -75,6 +75,12 @@ export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writ
   const [opening, setOpening] = createSignal<Opening>(IDLE);
   const [reserved, setReserved] = createSignal<Record<string, string | null>>({});
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
+
+  // U7889d: a Terminal another surface started (a click on a printed command) is shown and focused as one the user opens.
+  if (rail) {
+    rail.revealTerminal = (id) => setWanted({ id, focus: captureFocus(true) });
+    onCleanup(() => { rail.revealTerminal = undefined; });
+  }
 
   const begin = (next: Opening): void => {
     began = next;

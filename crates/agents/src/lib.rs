@@ -55,6 +55,8 @@ pub use peer::descends_from;
 mod pick;
 #[cfg(feature = "test-support")]
 pub use peer::{classifications, parent_lookups};
+mod explain;
+mod findings;
 mod prepared;
 mod queue;
 mod rail;
@@ -219,12 +221,14 @@ struct Shared {
     steer_bound: Duration,
     /// A7498a: how long a first prompt waits for its receipt after its one Enter.
     receipt_bound: Duration,
+    first_prompt_bound: Duration,
     /// A7498a: how long a Mode waits to take its first prompt before anything is typed.
     ready_bound: Duration,
     steer: SteerSettings,
     events: events::State,
     rail_view: rail_view::State,
     readbacks: readback::Readbacks,
+    posted: spots::Posted,
     ending: ending::State,
     resume_effect: Option<ResumeEffect>,
 }
@@ -280,6 +284,10 @@ pub const STEER_BOUND: Duration = Duration::from_secs(10);
 /// A7498a: how long a first prompt waits for its receipt after its one extra Enter, following
 /// `STEER_BOUND` without one; apart from `STEER_BOUND` and `START_DOOR_ACK_BOUND`.
 pub const RECEIPT_BOUND: Duration = Duration::from_secs(60);
+
+/// U7946a: how long a spawn's first prompt may stay `prepared` before it leaves for `uncertain`
+/// with a cause; apart from `STEER_BOUND`.
+pub const FIRST_PROMPT_BOUND: Duration = Duration::from_secs(60);
 
 /// A7498a: how long a Mode waits to be idle after `SessionStart`, before anything is typed.
 pub const MODE_READY_BOUND: Duration = Duration::from_secs(15);
@@ -379,6 +387,7 @@ mod typed;
 pub use typed::RailRead;
 mod adoption;
 pub use adoption::AdoptBy;
+mod changes_reads;
 mod ending;
 mod events;
 mod handoff;
@@ -386,6 +395,7 @@ mod import_work;
 mod jobs;
 pub use jobs::{JobStop, OpenJob};
 mod model_wiring;
+mod offshoot;
 mod owners;
 mod program;
 mod rail_view;
@@ -393,9 +403,11 @@ mod registration;
 mod removal;
 mod resume_wait;
 pub use resume_wait::RESUME_BODY;
+mod printed_run;
 mod remote_wiring;
 mod resume;
 mod spawn;
+mod spots;
 mod steer;
 mod store;
 mod wiring;

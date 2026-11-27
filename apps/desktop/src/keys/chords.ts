@@ -94,6 +94,8 @@ const CHORD_TABLE = {
   "editor.italic": { name: "editor.italic", keys: "⌘I", what: copy.italic, presses: ["meta+KeyI"], inEditor: true },
   "editor.inline-code": { name: "editor.inline-code", keys: "⌘E", what: copy.inlineCode, presses: ["meta+KeyE"], inEditor: true },
   "terminal.find": { name: "terminal.find", keys: "⌘F", what: copy.find, presses: ["meta+KeyF"], inTerminals: true },
+  // U7889e: from the Terminal, moves focus to the first ▶ of a printed command; Tab then reaches the next.
+  "terminal.play-marks": { name: "terminal.play-marks", keys: "⌥⌘R", what: copy.terminalPlayMarks, presses: ["alt+meta+KeyR"], inTerminals: true },
   "edit.undo": { name: "edit.undo", keys: "⌘Z", what: copy.undoFocused, presses: ["meta+KeyZ"] },
   "edit.redo": { name: "edit.redo", keys: "⇧⌘Z", what: copy.redoFocused, presses: ["meta+shift+KeyZ"] },
   "settings.open": { name: "settings.open", keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },

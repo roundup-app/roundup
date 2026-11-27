@@ -139,6 +139,7 @@ impl Agents {
                     .unwrap_or_else(|| "/bin/sh".into()),
                 mcp_env: std::env::var_os("ROUNDUP_MCP"),
                 readbacks: Default::default(),
+                posted: Default::default(),
                 rail_view: rail_view::State {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
@@ -150,6 +151,7 @@ impl Agents {
                 resume_effect: None,
                 steer_bound: STEER_BOUND,
                 receipt_bound: crate::RECEIPT_BOUND,
+                first_prompt_bound: crate::FIRST_PROMPT_BOUND,
                 ready_bound: crate::MODE_READY_BOUND,
                 steer: crate::SteerSettings {
                     before_steer: None,
@@ -254,6 +256,13 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
+    }
+
+    /// U7946a: leave a first prompt's `prepared` after `bound` instead of `FIRST_PROMPT_BOUND`.
+    /// Call it before the first call is made.
+    #[must_use]
+    pub fn with_first_prompt_bound(self, bound: Duration) -> Self {
+        self.configure(|shared| shared.first_prompt_bound = bound)
     }
 
     /// A7498a: wait `bound` instead of `RECEIPT_BOUND` for a first prompt's receipt after its Enter.
@@ -589,6 +598,7 @@ pub(super) mod tests {
             shell: "/bin/sh".into(),
             mcp_env: None,
             readbacks: Default::default(),
+            posted: Default::default(),
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -605,6 +615,7 @@ pub(super) mod tests {
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             receipt_bound: crate::RECEIPT_BOUND,
+            first_prompt_bound: crate::FIRST_PROMPT_BOUND,
             ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
@@ -651,6 +662,7 @@ pub(super) mod tests {
             shell: "/bin/sh".into(),
             mcp_env: None,
             readbacks: Default::default(),
+            posted: Default::default(),
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -667,6 +679,7 @@ pub(super) mod tests {
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             receipt_bound: crate::RECEIPT_BOUND,
+            first_prompt_bound: crate::FIRST_PROMPT_BOUND,
             ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,
@@ -747,6 +760,7 @@ pub(super) mod tests {
             shell: "/bin/sh".into(),
             mcp_env: None,
             readbacks: Default::default(),
+            posted: Default::default(),
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -763,6 +777,7 @@ pub(super) mod tests {
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             receipt_bound: crate::RECEIPT_BOUND,
+            first_prompt_bound: crate::FIRST_PROMPT_BOUND,
             ready_bound: crate::MODE_READY_BOUND,
             steer: crate::SteerSettings {
                 before_steer: None,

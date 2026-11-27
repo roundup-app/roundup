@@ -3,6 +3,7 @@ import { projectMenu } from "./menuProbe";
 import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
+import { isDoor } from "../state/doorNode";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import * as v from "valibot";
 import { RpcError, appSettingsPageSchema } from "../app/seam";
@@ -21,15 +22,24 @@ export type Handlers = {
 
 /** C7684e: `agent.repeatScan` answers by Agent id: `repeat-hits`, `repeat-partial`, `repeat-failure`, else none. */
 function repeatScanFixture(id: string): RpcMethods["agent.repeatScan"]["result"] {
-  const hit = { path: "new.ts", start: 3, end: 22, other: { path: "owned.ts", start: 12, end: 31 } };
+  const hit = { source: { kind: "repeats" as const }, path: "new.ts", start: 3, end: 22, other: { path: "owned.ts", start: 12, end: 31 }, stale: false };
 
-  if (id === "repeat-hits") return { hits: [hit], complete: true };
+  if (id === "repeat-hits") return { spots: [hit], complete: true };
 
-  if (id === "repeat-partial") return { hits: [hit], complete: false };
+  if (id === "repeat-partial") return { spots: [hit], complete: false };
 
   if (id === "repeat-failure") throw new RpcError(-32603, "failed: the scan could not read the Worktree");
 
-  return { hits: [], complete: true };
+  return { spots: [], complete: true };
+}
+
+/** C7704b: `agent.spots` answers by Agent id: `spots-tool` (oxlint's on lines 3-5 and an outdated one of tests on lines 7-8 of new.ts), `spots-failure`, else none. */
+function spotsFixture(id: string): RpcMethods["agent.spots"]["result"] {
+  if (id === "spots-tool") return { spots: [{ source: { kind: "tool", name: "oxlint" }, path: "new.ts", start: 3, end: 5, message: "unused variable", stale: false }, { source: { kind: "tool", name: "tests" }, path: "new.ts", start: 7, end: 8, message: "fails here", stale: true }] };
+
+  if (id === "spots-failure") throw new RpcError(-32603, "failed: the spots could not be read");
+
+  return { spots: [] };
 }
 
 /** Reads the regions make once a Project is open answer empty; any other method fails with METHOD_NOT_FOUND until a test installs a handler. */
@@ -43,11 +53,17 @@ const emptyReads: Handlers = {
   "agent.ownedChanges": () => ({ groups: [] }),
   "agent.remoteMain": () => ({ kind: "none" }),
   "agent.repeatScan": ({ id }) => repeatScanFixture(id),
+  "agent.spots": ({ id }) => spotsFixture(id),
   "agent.callPaths": ({ language }) => (language ? { state: "noServer", cause: { kind: "notInstalled", detail: `no language server is known for ${language}` } } : { languages: [] }),
   "agent.readback": () => ({ state: "notRead" }),
   "agent.readbackStart": () => ({ state: "reading" }),
+  "agent.explain": () => ({ state: "explained", form: "words", text: "It adds a retry." }),
+  "agent.findDefects": () => ({ state: "found", findings: [] }),
+  "agent.skills": () => ({ skills: [] }),
   "agent.links": () => ({ entries: [] }),
+  "agent.printedCommands": () => ({ commands: [] }),
   "agent.made": () => [],
+  "agent.dir": () => ({ path: "/p" }),
   "terminal.list": () => [],
   "project.programRun": () => ({ state: "none" }),
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),
@@ -178,6 +194,17 @@ export type FakeApp = AppSeam & {
 };
 
 const folderOf = (path: string): string => path.split("/").pop() ?? path;
+
+/** U7873a, U7955a: the Daemon refuses a `agent.compareFile` read, and each of `GROUPED`, with no `group` for an Agent with no Worktree; a fake's handler calls this first, so a caller that omits `group` fails its own test. */
+const GROUPED = new Set(["agent.callPaths", "agent.repeatScan", "agent.readback", "agent.readbackStart", "agent.explain", "agent.findDefects"]);
+
+export const refuseUngroupedRead = (app: FakeApp, params: { id: string; group?: object }): void => {
+  const nodes = app.handlers["rail.tree"]?.(null);
+
+  if (params.group || !Array.isArray(nodes)) return;
+
+  if (nodes.some(node => node.id === params.id && isDoor(node) && node.worktree === null)) throw new RpcError(-32001, `no_worktree: ${params.id}`);
+};
 
 export const createFakeApp = (): FakeApp => {
   const menuBarListeners = new Set<(action: MenuBarAction) => void>();
@@ -489,6 +516,11 @@ export const createFakeApp = (): FakeApp => {
       const handler = app.handlers[method];
 
       if (!handler) throw new RpcError(METHOD_NOT_FOUND, `no handler for ${method}`);
+
+      // SAFETY: every GROUPED method takes an `id` and an optional `group` object.
+      const grouped = params as { id: string; group?: object };
+
+      if (GROUPED.has(method)) refuseUngroupedRead(app, grouped);
 
       return handler(params);
     },

@@ -2,7 +2,7 @@
 import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
+import { AGENT, openPad, openShelf, padOf, padShown } from "./padsFixture";
 import { RpcError } from "../app/seam";
 
 afterEach(cleanup);
@@ -14,7 +14,7 @@ it("u7641a_a_double_click_beside_a_pad_name_opens_the_pad", async () => {
 
   fireEvent.dblClick(await padRow());
 
-  await screen.findByRole("textbox", { name: "Pad body" }, { timeout: 5000 });
+  expect((await padShown()).matches("[data-walk]")).toBe(true);
   expect(app.calls.filter(call => call.method === "pad.rename")).toEqual([]);
   expect(screen.queryByText(/failed/i)).toBeNull();
 });
@@ -96,6 +96,6 @@ it("u3789f_the_user_opens_any_owners_item_every_way", async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
 
-  await screen.findByRole("textbox", { name: "Pad body" }, { timeout: 5000 });
+  expect((await padShown()).matches("[data-walk]")).toBe(true);
   expect(screen.queryByText(/failed/i)).toBeNull();
 });

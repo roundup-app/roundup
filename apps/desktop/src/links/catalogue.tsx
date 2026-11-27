@@ -1,7 +1,6 @@
 import Code from "@lucide/solid/icons/code";
 import GitPullRequest from "@lucide/solid/icons/git-pull-request";
 import Link from "@lucide/solid/icons/link";
-import ListTodo from "@lucide/solid/icons/list-todo";
 import NotebookText from "@lucide/solid/icons/notebook-text";
 import FileText from "@lucide/solid/icons/file-text";
 import Server from "@lucide/solid/icons/server";
@@ -38,7 +37,6 @@ const catalog = defineCatalog(schema, {
     "dev-server": icon,
     asked: icon,
     pad: madeIcon,
-    todo: madeIcon,
     file: madeIcon,
     more: { props: z.object({ count: z.number() }) },
   },
@@ -123,7 +121,6 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
       pad: madeOf(NotebookText, "pad"),
-      todo: madeOf(ListTodo, "todo"),
       file: madeOf(FileText, "file"),
       more: ctx => (
         <Popover.Root open={open()} onOpenChange={({ open: next }) => setOpen(next)} initialFocusEl={() => content()?.querySelector("button")} finalFocusEl={() => trigger()}>

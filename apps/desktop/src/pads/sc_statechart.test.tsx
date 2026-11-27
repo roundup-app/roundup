@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createActor, createMachine } from "xstate";
-import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
+import { AGENT, openPad, openShelf, openWalk, padOf, pressEdit } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import { copy } from "./copy";
 import type { Layout, Statechart, StatechartApi, StepActor } from "./statechartBlock";
@@ -245,7 +245,14 @@ describe("sc statechart block", () => {
     useRenderers({ ...bundledRenderers, statechart: async () => { requested += 1;
 
  return api; } });
-    await show(chart);
+    await openShelf([padOf("note", AGENT, `intro\n\n\`\`\`statechart\n${JSON.stringify(chart)}\n\`\`\`\n`)]);
+    // PW11: the walk draws the block too; the clause counts the editor's own load.
+    await openWalk("note");
+    await waitFor(() => expect(requested).toBeGreaterThan(0));
+    requested = 0;
+    await pressEdit();
+    await waitFor(() => expect(requested).toBeGreaterThan(0));
+    await new Promise((done) => setTimeout(done, 20));
 
     expect(requested).toBe(1);
   });

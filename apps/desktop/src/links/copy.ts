@@ -1,7 +1,7 @@
 import type { MadeItem } from "@contracts/links/MadeItem";
 import { copy as sharedCopy } from "../sharedCopy";
 
-const kindName = { pad: "Pad", todo: "Todo", file: "File" } as const;
+const kindName = { pad: "Pad", file: "File" } as const;
 
 /** LH21: a tooltip stays within five words: the kind word and the first four of the item's own name. */
 const WORDS = 5;

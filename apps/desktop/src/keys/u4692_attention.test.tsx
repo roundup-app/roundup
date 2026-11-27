@@ -9,7 +9,7 @@ import { storageIdle } from "../state/storage";
 import { agent, door, info, workstream } from "../testing/nodes";
 import { padHandlers, todoHandlers } from "../testing/stores";
 import { padReadStorage } from "../pads/padRead";
-import { findPadRow } from "../pads/padsFixture";
+import { editShown, findPadRow } from "../pads/padsFixture";
 import { todo } from "../todos/testHarness";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { showShelfTab } from "../testing/shelfTabs";
@@ -127,6 +127,7 @@ it.each(["rail", "centre", "shelf", "triage", "pad", "drawer", "watch", "door", 
       const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
       pad.focus();
       fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
+      await editShown();
       target = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
     } else {
       if (place === "triage") fireEvent.click(await screen.findByRole("button", { name: "Triage" }));

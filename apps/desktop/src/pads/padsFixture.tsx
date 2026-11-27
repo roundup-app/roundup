@@ -186,8 +186,13 @@ export const findPadRow = async (name: string) => {
   return find()!;
 };
 
-/** Opens a Pad's Drawer and returns its scroll root with textarea-shaped `value` accessors over the document, so a test can type `fireEvent.input(field, { target: { value } })` and read what the Pad holds. */
-export const openPad = async (name: string, recovery?: { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[]; revision: string }) => {
+type Recovery = { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[]; revision: string };
+
+/** Resolves with what an opened Pad shows: its walk, or its editor. */
+export const padShown = () => waitFor(() => document.querySelector<HTMLElement>("[data-walk]") ?? screen.queryByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' }) ?? Promise.reject(new Error("no Pad shown")), { timeout: 5000 });
+
+/** PW11: opens a Pad's Drawer as the user finds it, the walk of a Pad with text, the editor of an empty or kept-draft Pad; resolves with what shows. */
+export const openWalk = async (name: string, recovery?: Recovery) => {
   trackEditors();
 
   if (recovery) {
@@ -206,6 +211,19 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     button.focus({ preventScroll: true });
     fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   }
+
+  return padShown();
+};
+
+export const pressEdit = async () => fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+/** Presses Edit on an opened Pad when it shows its walk; a Pad that opened in Edit needs no press. */
+export const editShown = async () => { if ((await padShown()).matches("[data-walk]")) await pressEdit(); };
+
+/** Opens a Pad's Drawer, presses Edit when a walk shows, and returns its scroll root with textarea-shaped `value` accessors over the document, so a test can type `fireEvent.input(field, { target: { value } })` and read what the Pad holds. */
+export const openPad = async (name: string, recovery?: Recovery) => {
+  await openWalk(name, recovery);
+  await editShown();
 
   const surface = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' }, { timeout: 5000 });
   const root = surface.closest<HTMLElement>(".pad-editor");

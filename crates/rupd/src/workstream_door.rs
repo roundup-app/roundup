@@ -86,11 +86,7 @@ for line in sys.stdin:
         rail_told: Default::default(),
         observers: Default::default(),
         resources: Default::default(),
-        made: Arc::new(crate::made::Made::new(
-            todos,
-            pads,
-            Arc::clone(&publications),
-        )),
+        made: Arc::new(crate::made::Made::new(pads, Arc::clone(&publications))),
         publications,
         prompt_effect_gate: None,
         actions: Default::default(),

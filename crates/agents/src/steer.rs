@@ -29,9 +29,31 @@ impl Shared {
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
             }
+            // U7946c: this task is the spawn's only write of its first prompt, so it lands once,
+            // however late `SessionStart` arrives.
+            let delivery = crate::rail::agent_id(&id)
+                .and_then(|agent| shared.rail().first_instruction(agent, &attempt))
+                .unwrap_or_else(|err| {
+                    eprintln!("agents: no delivery state for {id}: {err}");
+                    None
+                });
             let result = shared
                 .coordinate(Actor::daemon(), &id, Some(&attempt), prompt)
                 .await;
+            if let Some(delivery) = &delivery {
+                let state = match &result {
+                    Ok(()) => Some(contracts::agent::InstructionState::Submitted),
+                    Err(SteerError::Refused(_)) => {
+                        Some(contracts::agent::InstructionState::Refused)
+                    }
+                    Err(SteerError::Uncertain(_)) => None,
+                };
+                if let Some(state) = state
+                    && let Err(err) = shared.rail().instruction_state(delivery, state)
+                {
+                    eprintln!("agents: delivery state of {id} not saved: {err}");
+                }
+            }
             if let Err(err) = &result {
                 eprintln!("agents: the coordination text of {id} failed: {err}");
             }
@@ -47,6 +69,31 @@ impl Shared {
                     Err(SteerError::Refused(_)) => FirstSteerCompletion::Refused,
                     Err(SteerError::Uncertain(_)) => FirstSteerCompletion::Uncertain,
                 }));
+            }
+        });
+    }
+
+    /// U7946a: `FIRST_PROMPT_BOUND` after a spawn, a first prompt without a receipt leaves `prepared`
+    /// for `uncertain`, with the cause its parent reads on `agent.instructions`.
+    pub(super) fn bound_first_prompt(&self, id: &str, attempt: &str) {
+        let Some(shared) = self.me.upgrade() else {
+            return;
+        };
+        let (id, attempt) = (id.to_owned(), attempt.to_owned());
+        tokio::spawn(async move {
+            tokio::time::sleep(shared.first_prompt_bound).await;
+            let cause = format!(
+                "no receipt within {} s of the spawn",
+                shared.first_prompt_bound.as_secs_f64()
+            );
+            match crate::rail::agent_id(&id).and_then(|agent| {
+                shared
+                    .rail()
+                    .expire_first_instruction(agent, &attempt, &cause)
+            }) {
+                Ok(true) => eprintln!("agents: prompt not delivered to {id}: {cause}"),
+                Ok(false) => {}
+                Err(err) => eprintln!("agents: delivery bound of {id}: {err}"),
             }
         });
     }

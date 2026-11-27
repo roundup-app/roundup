@@ -122,6 +122,17 @@ class Release(unittest.TestCase):
                     self.assertIn(module, result.stdout)
                     self.assertIn(chunk, result.stdout)
 
+    def test_c9d_a_worker_report_beside_the_report_covers_its_chunk(self):
+        import json
+        for module, code in [("sem-jiff/dist/index.js", 0), ("@shikijs/langs/dist/typescript.mjs", 1)]:
+            with self.subTest(module=module):
+                report, inventory = self.modules("mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs")
+                (self.root / "modules-worker.json").write_text(json.dumps({"version": 2, "nodeMetas": {"w": {"id": module, "moduleParts": {"assets/worker.js": "q"}}},
+                                                                           "nodeParts": {"q": {"metaUid": "w", "renderedLength": 7}}}))
+                self.file("dist/assets/worker.js", 7)
+                result = self.run_check("modules", report, "--inventory", inventory, "--dist", self.root / "dist")
+                self.assertEqual(result.returncode, code, result.stderr)
+
     def test_c9d_missing_metadata_is_an_observer_error(self):
         import json
         report, inventory = self.modules("mermaid@12.1.0/dist/chunks/mermaid.core/flowDiagram-ABC.mjs")

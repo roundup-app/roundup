@@ -1,26 +1,24 @@
 //! U7186a: what an Agent's recorded file writes leave changed, per repository and branch.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
-use contracts::agent::OwnedGroup;
+use contracts::agent::{CompareTarget, FileComparison, OwnedGroup, OwnedGroupKey};
+use rpc::RpcError;
 
-use super::Git;
+use super::{Git, Worktree, failed, invalid};
+
+/// A repository's main checkout and the checkout of one of its git worktrees (`top`), keyed to the
+/// files of `top` the Agent wrote, relative to it.
+type Sites = BTreeMap<(PathBuf, PathBuf), BTreeSet<PathBuf>>;
 
 impl Git {
     /// One group per repository and branch the absolute `edits` sit in, sorted by repo then branch.
     /// Each group lists only the edited files that now differ from the merge base with the remote's
     /// main (U7672b). A missing repository or an unreadable one is omitted. Runs no command that writes.
     pub fn owned_groups(&self, edits: &[String]) -> Vec<OwnedGroup> {
-        let mut sites: BTreeMap<(PathBuf, PathBuf), BTreeSet<PathBuf>> = BTreeMap::new();
-        for edit in edits {
-            if let Some((top, rel)) = self.locate(Path::new(edit)) {
-                let common = self.common_root(&top).unwrap_or_else(|| top.clone());
-                sites.entry((common, top)).or_default().insert(rel);
-            }
-        }
         let mut groups = Vec::new();
-        for ((repo, top), written) in sites {
+        for ((repo, top), written) in self.sites(edits) {
             if let Some(group) = self.owned_group(&repo, &top, &written) {
                 groups.push(group);
             }
@@ -29,14 +27,121 @@ impl Git {
         groups
     }
 
-    /// The repository root holding `path` (canonical) and `path` relative to it.
-    fn locate(&self, path: &Path) -> Option<(PathBuf, PathBuf)> {
+    /// The canonical checkout roots the absolute `edits` sit in.
+    pub fn written_tops(&self, edits: &[String]) -> Vec<PathBuf> {
+        self.sites(edits).into_keys().map(|(_, top)| top).collect()
+    }
+
+    /// U7853a: `path` as `agent.compareFile` reads it for an Agent with no Worktree: in the checkout
+    /// of the group `group` names, as Changes lists it, so `to` is never `Branch`. A group the
+    /// `edits` do not sit in is refused whatever the caller names; no path of the caller is opened.
+    pub fn compare_group_file(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        path: &str,
+        to: CompareTarget,
+    ) -> Result<FileComparison, RpcError> {
+        let top = self.group_top(edits, group, to)?;
+        self.compare_file(&top, path, to)
+    }
+
+    /// U7955a: the checkout of the group `group` names, as a Worktree the reads that take one run
+    /// on: its HEAD's branch, and the remote's main (else the local default branch) as its base.
+    /// Refused as `compare_group_file` refuses; no path of the caller is opened.
+    pub fn group_worktree(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        to: CompareTarget,
+    ) -> Result<Worktree, RpcError> {
+        let path = self.group_top(edits, group, to)?;
+        let (_, base) = self
+            .default_branch(&path)
+            .ok_or_else(|| failed("no default branch"))?;
+        Ok(Worktree {
+            path,
+            branch: group.branch.clone(),
+            base,
+            adopted: true,
+        })
+    }
+
+    /// The checkout the `edits` sit in that `group` names: a group is read as Changes, not Branch.
+    fn group_top(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        to: CompareTarget,
+    ) -> Result<PathBuf, RpcError> {
+        if to == CompareTarget::Branch {
+            return Err(invalid(
+                "group_target",
+                "a group is read as Changes, not Branch",
+            ));
+        }
+        self.sites(edits)
+            .into_keys()
+            .find(|(repo, top)| {
+                repo == Path::new(&group.repo)
+                    && self
+                        .run(top, &["rev-parse", "--abbrev-ref", "HEAD"])
+                        .is_ok_and(|branch| branch == group.branch)
+            })
+            .map(|(_, top)| top)
+            .ok_or_else(|| {
+                invalid(
+                    "unsafe_path",
+                    "not a repository and branch the Agent wrote in",
+                )
+            })
+    }
+
+    /// LH25: the top of the linked git worktree holding the newest of `edits` (oldest first) whose
+    /// checkout still exists; a write in a main checkout or outside a repository is passed over.
+    pub fn newest_checkout(&self, edits: &[String]) -> Option<PathBuf> {
+        let mut tops = HashMap::new();
+        edits.iter().rev().find_map(|edit| {
+            let (top, _) = self.locate(Path::new(edit), &mut tops)?;
+            let linked = self.common_root(&top).is_some_and(|common| common != top);
+            (linked && top.is_dir()).then_some(top)
+        })
+    }
+
+    /// Where the absolute `edits` sit: per (main checkout, git worktree) the files written there.
+    /// Git runs once per folder and per repository, not once per edit.
+    fn sites(&self, edits: &[String]) -> Sites {
+        let (mut tops, mut commons) = (HashMap::new(), HashMap::<PathBuf, PathBuf>::new());
+        let mut sites = Sites::new();
+        for edit in edits {
+            if let Some((top, rel)) = self.locate(Path::new(edit), &mut tops) {
+                let common = commons
+                    .entry(top.clone())
+                    .or_insert_with(|| self.common_root(&top).unwrap_or_else(|| top.clone()))
+                    .clone();
+                sites.entry((common, top)).or_default().insert(rel);
+            }
+        }
+        sites
+    }
+
+    /// The repository root holding `path` (canonical) and `path` relative to it; `tops` holds the
+    /// root already found for each folder.
+    fn locate(
+        &self,
+        path: &Path,
+        tops: &mut HashMap<PathBuf, Option<PathBuf>>,
+    ) -> Option<(PathBuf, PathBuf)> {
         let name = path.file_name()?;
         let parent = path.ancestors().skip(1).find(|dir| dir.is_dir())?;
-        let top = self
-            .run(parent, &["rev-parse", "--show-toplevel"])
-            .ok()
-            .and_then(|top| std::fs::canonicalize(top).ok())?;
+        let top = tops
+            .entry(parent.to_path_buf())
+            .or_insert_with(|| {
+                self.run(parent, &["rev-parse", "--show-toplevel"])
+                    .ok()
+                    .and_then(|top| std::fs::canonicalize(top).ok())
+            })
+            .clone()?;
         let dir = std::fs::canonicalize(parent).ok()?;
         let rel = if parent == path.parent()? {
             dir.strip_prefix(&top).ok()?.join(name)
@@ -102,6 +207,7 @@ impl Git {
         files.retain(|file| written.contains(Path::new(&file.path)));
         Some(OwnedGroup {
             repo: repo.display().to_string(),
+            checkout: top.display().to_string(),
             branch,
             base: default,
             files,

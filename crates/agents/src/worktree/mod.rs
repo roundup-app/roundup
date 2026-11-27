@@ -3,6 +3,7 @@
 //! operations a user runs, and the user's own hooks and config apply (`docs/worktrees.md`).
 //! `git2` is rejected there: a native dependency whose rebase reports conflicts differently.
 
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -71,6 +72,8 @@ pub struct Git {
     call_levers: (bool, bool),
     /// U7693: the time one remote-main call has, in place of 5 s (read) and 60 s (fetch).
     network_limit: Option<Duration>,
+    /// U7960a: merge bases by (checkout, HEAD and reference commits).
+    bases: Arc<Mutex<HashMap<(PathBuf, String), String>>>,
 }
 
 impl Git {
@@ -93,6 +96,7 @@ impl Git {
             call_limit: call_paths::LIMIT,
             call_levers: (true, false),
             network_limit: None,
+            bases: Arc::default(),
         }
     }
 
@@ -151,6 +155,7 @@ impl Git {
             machine: self.machine.clone(),
             host: self.host.clone(),
             scan_reads: self.scan_reads.clone(),
+            bases: self.bases.clone(),
             ..Self::with_path(self.path.clone())
         }
     }
@@ -925,3 +930,5 @@ pub use hunks::{DiffInput, Hunk};
 mod owned;
 mod remote_main;
 mod repeat;
+mod spots;
+pub use spots::{MAX_SPOTS, PlacedSpot};

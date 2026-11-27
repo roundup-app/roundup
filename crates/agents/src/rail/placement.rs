@@ -191,3 +191,22 @@ impl Rail {
         Ok(tx.commit()?)
     }
 }
+
+impl Rail {
+    /// U7191i: put `id` among the children of `of`'s parent, right after `of`.
+    pub fn place_after(&mut self, id: AgentId, of: AgentId) -> Result<(), StoreError> {
+        let (moved, of) = (id.to_string(), of.to_string());
+        let tx = self.db.transaction()?;
+        let nodes = load(&tx)?;
+        let parent = find_stored(&nodes, &of)?.parent.clone();
+        let mut ids = siblings(&nodes, parent.as_deref());
+        ids.retain(|sibling| *sibling != moved);
+        let at = ids
+            .iter()
+            .position(|sibling| *sibling == of)
+            .ok_or_else(|| StoreError::invalid("Rail row is not among its siblings"))?;
+        ids.insert(at + 1, moved);
+        place(&tx, parent.as_deref(), &ids)?;
+        Ok(tx.commit()?)
+    }
+}

@@ -1,5 +1,5 @@
 /* U170 Busy: the label, the busy label and a hidden copy of the busy label with its mark share one cell, so the button keeps its width whichever shows. */
-button[data-busy-button] { display: inline-grid; place-items: center; }
+button[data-busy-button] { display: inline-grid; place-items: center; row-gap: 0; }
 .busy-idle, .busy-work, button[data-busy-button]::after { grid-area: 1 / 1; }
 .busy-idle, .busy-work { display: inline-flex; align-items: center; gap: inherit; }
 button[data-busy-button]::after { content: attr(data-busy-label); visibility: hidden; padding-left: calc(var(--space-3) + var(--space-1)); }

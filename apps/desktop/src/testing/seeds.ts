@@ -112,6 +112,7 @@ const nestedTree = (now: number): RailNode[] => [
     parent: "backend",
     order: 1,
     status: statusAt(now, "needs-you", "asks: keep v1 routes? and a long label that should truncate in the live line", 4),
+    worktree: { path: "/p/.roundup/migrate", branch: "roundup/migrate", adopted: false, base: "main" },
   }),
   agent("tokens", "working", "editing src/auth/token.rs", {
     name: "token-rotation",
@@ -637,6 +638,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     const waiting = nodes.find(node => node.kind === "workstream" && node.attempt === null);
 
     app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 3, machine: null, program: null, models: { roles: [] } });
+    app.handlers["agent.worktreeState"] = () => ({ ahead: 3, behind: 0, dirty: false, ci: { state: "passed", stale: false }, pr: { number: 7205, stale: false } });
     app.handlers["workstream.queue"] = () => ({ running: 3, cap: 3, entries: waiting ? [{ workstream: waiting.id, start: { kind: "queued" } }] : [] });
   }
 

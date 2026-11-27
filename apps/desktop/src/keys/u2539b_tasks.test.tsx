@@ -153,7 +153,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     press("Enter");
     await waitFor(() => expect(projectMenu.path).toBe("/project6"));
   } else {
-    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
+    daemon.handlers["agent.ownedChanges"] = () => ({ groups: [{ repo: "/p", checkout: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] }] });
     connected().rail.select("a1");
     void connected().owned.refresh("a1");
     await waitFor(() => expect(captureActions(document.body).some(each => each.value === "action:leader:C")).toBe(true));
@@ -331,7 +331,7 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   key("Slash", { metaKey: true });
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" })).value).toBe(text);
   expect(terminal.selection()).toBe("exact Terminal selection\n second line");
-  expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "project.programRun", "action.userList", "message.list", "message.reconcileWork", "todo.listHanded", "config.read", "machine.list", "agent.ownedChanges", "agent.links", "agent.made", "search.find"].includes(call.method))).toEqual([]);
+  expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "project.programRun", "action.userList", "message.list", "message.reconcileWork", "todo.listHanded", "config.read", "machine.list", "agent.ownedChanges", "agent.links", "agent.made", "search.find", "agent.printedCommands"].includes(call.method))).toEqual([]);
 });
 
 it("u4274b_project_menu_omits_navigation_toggles", async () => {

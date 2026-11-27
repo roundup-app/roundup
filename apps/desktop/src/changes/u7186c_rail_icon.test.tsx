@@ -4,13 +4,13 @@ import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { agent, event } from "../testing/nodes";
 import { mountRail, rowOf, settled } from "../rail/railFixture";
 import { diffsLoaded } from "./diffDraw";
-import { COMPARISON, treeRow } from "./noteHarness";
+import { COMPARISON, openFirstModule, treeRow } from "./noteHarness";
 
 afterEach(cleanup);
 
 const OWNED: OwnedChanges = { groups: [
-  { repo: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 3, counts: null, blob: null }, { path: "b.rs", status: "added", line: 1, counts: null, blob: null }] },
-  { repo: "/q", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] },
+  { repo: "/p", checkout: "/p", branch: "main", base: "main", files: [{ path: "a.ts", status: "modified", line: 3, counts: null, blob: null }, { path: "b.rs", status: "added", line: 1, counts: null, blob: null }] },
+  { repo: "/q", checkout: "/q", branch: "own/x", base: "main", files: [{ path: "a.ts", status: "modified", line: 1, counts: null, blob: null }] },
 ] };
 
 const mountRailWith = (owned: (id: string) => OwnedChanges | Promise<OwnedChanges>) =>
@@ -56,6 +56,7 @@ it("u7186c_the_reader_stays_lazy", async () => {
 
   app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "3 changed files" }));
+  await openFirstModule();
   await waitFor(() => expect(diffsLoaded()).toBe(true));
 });
 

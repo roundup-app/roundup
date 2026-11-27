@@ -1,6 +1,6 @@
 //! C7684: where the lines a Worktree changed repeat in the repo. Line hashing, no model: each
 //! line becomes its token hash, so indentation and trailing spaces do not matter, and a run of
-//! `MIN_LINES` lines with `MIN_TOKENS` tokens that another place holds again is one hit. Reads
+//! `MIN_LINES` lines with `MIN_TOKENS` tokens that another place holds again is one Spot. Reads
 //! only, with no lock an Agent's own git call needs (`--no-optional-locks`, a private lock).
 
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use contracts::agent::{ScanHit, ScanHits, ScanPlace};
+use contracts::agent::{ScanSpots, Spot, SpotPlace, SpotSource};
 use rpc::RpcError;
 
 use super::{Git, Worktree, WorktreeError, failed};
@@ -36,13 +36,13 @@ struct File {
 }
 
 impl Git {
-    /// The hits for `worktree`'s working tree against its merge base, scanned over the files git
+    /// The Spots for `worktree`'s working tree against its merge base, scanned over the files git
     /// lists in it. A cancelled scan returns what it has, incomplete.
     pub fn repeat_scan(
         &self,
         worktree: &Worktree,
         cancel: &AtomicBool,
-    ) -> Result<ScanHits, RpcError> {
+    ) -> Result<ScanSpots, RpcError> {
         if !worktree.path.is_dir() {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
@@ -110,17 +110,17 @@ impl Git {
                 changed: changed.get(path).cloned().unwrap_or_default(),
             });
         }
-        let mut hits = Vec::new();
+        let mut spots = Vec::new();
         let windows = windows(&files);
         for file in files.iter().filter(|file| !file.changed.is_empty()) {
             if cancel.load(Ordering::Relaxed) {
                 complete = false;
                 break;
             }
-            hits.extend(find(file, &files, &windows));
+            spots.extend(find(file, &files, &windows));
         }
-        hits.sort_by(|a: &ScanHit, b| (&a.path, a.start).cmp(&(&b.path, b.start)));
-        Ok(ScanHits { hits, complete })
+        spots.sort_by(|a: &Spot, b| (&a.path, a.start).cmp(&(&b.path, b.start)));
+        Ok(ScanSpots { spots, complete })
     }
 
     fn read_lines(&self, path: &Path) -> Option<Vec<Line>> {
@@ -240,11 +240,11 @@ fn window_hash(run: &[Line]) -> u64 {
     hasher.finish()
 }
 
-/// The hits for one changed file: its runs that touch a changed line and repeat elsewhere,
+/// The Spots for one changed file: its runs that touch a changed line and repeat elsewhere,
 /// each with the first other place by path then line, extended to the run's whole length.
-fn find(file: &File, files: &[File], windows: &HashMap<u64, Vec<(usize, usize)>>) -> Vec<ScanHit> {
+fn find(file: &File, files: &[File], windows: &HashMap<u64, Vec<(usize, usize)>>) -> Vec<Spot> {
     let touches = |lo: u32, hi: u32| file.changed.iter().any(|&(s, e)| s <= hi && e >= lo);
-    let mut hits = Vec::new();
+    let mut spots = Vec::new();
     let mut i = 0;
     while let Some(run) = file.lines.get(i..i + MIN_LINES) {
         let (Some(first), Some(last)) = (run.first(), run.last()) else {
@@ -270,7 +270,7 @@ fn find(file: &File, files: &[File], windows: &HashMap<u64, Vec<(usize, usize)>>
                         if len < MIN_LINES {
                             return None;
                         }
-                        let place = ScanPlace {
+                        let place = SpotPlace {
                             path: other.path.clone(),
                             start: theirs.first()?.no,
                             end: theirs.get(len - 1)?.no,
@@ -286,13 +286,16 @@ fn find(file: &File, files: &[File], windows: &HashMap<u64, Vec<(usize, usize)>>
             i += 1;
             continue;
         };
-        hits.push(ScanHit {
+        spots.push(Spot {
+            source: SpotSource::Repeats,
             path: file.path.clone(),
             start: first.no,
             end,
-            other,
+            message: None,
+            other: Some(other),
+            stale: false,
         });
         i += len;
     }
-    hits
+    spots
 }
