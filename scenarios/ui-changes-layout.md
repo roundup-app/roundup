@@ -40,3 +40,38 @@ Checks on main (numbered references, not claims that this specification implemen
 3. `scenarios/ui-changes-modules.md`, U7678a, U7678b, U7678c and U7678e: the module rows and the file notices inside a module's scroll.
 4. `scenarios/ui-diff-notes.md`, U2540a and U5646d: a failed read keeps the drawn diff; Retry.
 5. `scenarios/ui-failure-toasts.md`, U7314c, and `scenarios/automatic-updates.md`, U5558e: where a diff-read failure shows.
+
+---
+
+# UI: the Changes view draws a file before it scrolls in, on one ground, with one bar (U8031a–U8031d)
+
+Module: `apps/desktop/src/changes/`, the fake App and `loop/`. Ids: U8031a, U8031b, U8031c, U8031d. Work order: [#8031](https://github.com/roundup-app/roundup/issues/8031). Owner, 2026-11-27: the Changes view "flashes a lot when I scroll", near the file bar, as new files come in. No Daemon method, Message or contract change. Implementation is a dependent Issue; this PR specifies.
+
+**The class.** A region that starts preparing only when it is visible, with a placeholder whose ground or height differs from what replaces it. Every lazily mounted list or reader under `apps/desktop/src/` is audited for it and each hit is fixed.
+
+**U8031a a file near the fold is read and drawn before it scrolls in.** Given a change of many files and the scroll at its top, then:
+- **Ahead.** A file whose top lies within the margin below the scroll's visible edge is read and drawn without scrolling. A file beyond the margin is not read. The margin is Pierre's read-ahead, 4000 px (`Virtualizer.js` of `@pierre/diffs`), named once as a constant.
+- **Root.** The observer takes the scroll element as its `root`, so the margin applies to the scroll and not to the window.
+- **Open fast.** A long change still reads only the files inside the margin (rule 7).
+Asserted in `u8031a_a_file_inside_the_margin_is_drawn_before_it_scrolls_in`.
+
+**U8031b a placeholder paints the ground of what replaces it.** Given a file not yet drawn, then its placeholder has the diff's ground, so the drawn diff replaces it with no change of ground. Policy; the design critic judges it from U8031d's captures (rule 10: no test of looks).
+
+**U8031c a file's bar is drawn once.** Given a file whose diff arrives, then:
+- **Same node.** The bar's element before the diff is the bar's element after it.
+- **No flicker line.** No status line is added above the code and then removed while the file loads: the loading line of `DiffReader` shows only for a read slower than its existing late delay, and never in the first frame.
+Asserted in `u8031c_a_files_bar_stays_the_same_node_when_its_diff_arrives`.
+
+**U8031d the guard and the capture.** Then:
+- **Guard.** A source check fails when an `IntersectionObserver` outside a test file is made without a `rootMargin` option. It fails on `main` as of 2026-11-27 (`ModuleScroll.tsx` makes one with none) and passes once each passes a `rootMargin`. It starts no browser. Asserted in `u8031d_every_intersection_observer_passes_a_root_margin`.
+- **Capture.** `just capture U8031d` records the Changes view scrolling through a long change at 1512 by 950, dark mode only, uncommitted under `artifacts/ux/U8031d/`; D2, D5 and D6 and every Check passing on `main` still pass. Policy; the design critic judges it.
+- **Perf.** `just perf` shows no regression above 10% (rule 7, `docs/perf.md`).
+
+Not wanted: a Vitest test of looks, turning off lazy drawing, a new Daemon method or contract change.
+
+Blocks #8035.
+
+Checks on main (numbered references, not claims that this specification implements them):
+
+1. `scenarios/ui-changes-layout.md`, U7854e: the pane's failure line under the header.
+2. `scenarios/ui-changes-modules.md`, U7678c: the file notices inside a module's scroll.
