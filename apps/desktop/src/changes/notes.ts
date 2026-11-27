@@ -324,6 +324,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   };
 
   const landing = createLanding(recipients, retain);
+
   const accepted = async (id: string, submission: Submission, message: Message) => {
     const current = recipient(id);
 
