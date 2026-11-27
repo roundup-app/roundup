@@ -20,12 +20,13 @@ const mountFailing = async () => {
   vi.spyOn(appLog, "write").mockImplementation(line => { lines.push(line); });
 
   const mounted = await mountPane([terminal("a")], [info("t-a")]);
+  mounted.connected.rail.select("a");
+  flush();
+
   const emulator = mounted.emulators.get("t-a");
 
   if (!emulator) throw new Error("no emulator");
 
-  mounted.connected.rail.select("a");
-  flush();
   mounted.app.clipboardFailure = new Error(RAW);
   emulator.selectedText = "selected";
 
