@@ -107,7 +107,7 @@ it("u7704h_the_spots_are_captured_for_the_critic", async () => {
   const open = async () => { await browser("click", '.changes-side [data-row="module"]'); await until("!!document.querySelector('.spot-mark')"); };
 
   const states: { name: string; mode: "done" | "failed"; run: () => Promise<void> }[] = [
-    { name: "marks", mode: "done", run: async () => { await open(); await shot("marks", said("1 from oxlint")); } },
+    { name: "marks", mode: "done", run: async () => { await open(); await shot("marks", said("2 from oxlint")); } },
     { name: "outdated", mode: "done", run: async () => { await open(); await shot("outdated", "!!document.querySelector('.spot-mark[data-stale]')"); } },
     { name: "unshown", mode: "done", run: async () => { await open(); await shot("unshown", "!!document.querySelector('.diff-reader .note-group')"); } },
     { name: "failed", mode: "failed", run: () => shot("failed", said("Couldn't read spots")) },
