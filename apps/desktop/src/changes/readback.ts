@@ -73,13 +73,18 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     await failureOf(async () => { setSkills((await input.app.rpc("agent.skills", { id: input.id })).skills.map(each => each.name)); });
   };
 
+  let reached: string | null = null;
+
   createEffect(() => ({ to: reachKey(input.at()), ready: input.ready() }), ({ to, ready }) => {
-    if (!to) {
+    if (to !== reached) {
+      reached = to;
       generation += 1;
       begun = false;
       setStop(0);
       setState({ state: "notRead" });
-    } else if (ready && !begun) {
+    }
+
+    if (to && ready && !begun) {
       begun = true;
       void ask("agent.readback");
       void listSkills();
