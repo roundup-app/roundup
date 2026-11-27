@@ -228,6 +228,7 @@ pub(super) async fn run_on<T: DeserializeOwned>(
 
 #[cfg(all(test, unix))]
 mod tests {
+    #![allow(clippy::unwrap_used)]
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 
