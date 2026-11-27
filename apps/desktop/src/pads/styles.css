@@ -721,6 +721,10 @@ li[aria-selected="true"] svg {
   white-space: nowrap;
 }
 
+.icon-statechart .statechart-arrow {
+  background: var(--surface);
+}
+
 .statechart-reason {
   color: var(--grey);
   font-size: var(--text-small);
@@ -749,11 +753,11 @@ li[aria-selected="true"] svg {
   color: var(--disabled);
 }
 
-.visual-statechart [aria-expanded]::before {
+.visual-statechart [aria-expanded]:not([data-button="icon"])::before {
   content: "▸ ";
 }
 
-.visual-statechart [aria-expanded="true"]::before {
+.visual-statechart [aria-expanded="true"]:not([data-button="icon"])::before {
   content: "▾ ";
 }
 
