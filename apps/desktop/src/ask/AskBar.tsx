@@ -202,7 +202,7 @@ export const AskBar = () => {
   }, null);
 
   const close = (restore: boolean): void => {
-    if (untrack(() => optionalViews.some(connected.hasView))) optionalViews.forEach(connected.hideView);
+    if (untrack(() => optionalViews.some(connected.hasView))) optionalViews.forEach(view => connected.hideView(view));
     selectedPane = !restore;
     setOpening(null);
     setSelected(null);

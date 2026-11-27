@@ -1,5 +1,5 @@
 import { isDoor } from "./doorNode";
-import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, runWithOwner, untrack, useContext, type Accessor, type Owner } from "solid-js";
+import { createContext, createEffect, createRoot, createSignal, flush, getOwner, onCleanup, runWithOwner, untrack, useContext, type Accessor, type Owner } from "solid-js";
 import { createHeld } from "./held";
 import { createTodoUndo } from "./undo";
 import type { RpcMethodName } from "@contracts/methods";
@@ -305,6 +305,17 @@ export const connectProject = async (
 
 
   const projectView = createProjectView(rail.selected, openShelf);
+  const select = rail.select;
+
+  // U8005b: another Agent closes Changes, and the sidebars come back, before it is selected.
+  rail.select = (id, intent, focus) => {
+    if (id !== untrack(rail.selected) && projectView.hasView("changes")) {
+      projectView.hideView("changes");
+      flush();
+    }
+
+    select(id, intent, focus);
+  };
 
   return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, program, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), links: inChildren(() => createLinkSets(app, events, daemonExit)), made: inChildren(() => createMadeItems(app, events, daemonExit)), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), changeTargets: createChangeTargets(), changePlaces: createChangePlaces(), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
 };

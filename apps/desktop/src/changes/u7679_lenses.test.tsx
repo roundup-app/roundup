@@ -153,10 +153,15 @@ it("u7679c_reopening_restores_the_open_item_in_the_lens_last_used", async () => 
   await waitFor(() => expect(treeFocus()).toBe("m:b"));
 
   // Another Agent keeps its own place and lens, and this one's are still here when it returns.
+  // U8005b: selecting another Agent closes Changes; its own icon opens the view again.
   fireEvent.click(rowOf("b"));
+  await gone(() => screen.queryByRole("region", { name: copy.changes }));
+  fireEvent.click(await within(rowOf("b")).findByRole("button", { name: /changed files?/ }));
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.modules));
   await screen.findByRole("region", { name: copy.overview });
   fireEvent.click(rowOf("a"));
+  await gone(() => screen.queryByRole("region", { name: copy.changes }));
+  fireEvent.click(await icon());
   await showing("b/x.ts");
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.logic));
   await marks(at("new", 21));
@@ -418,8 +423,10 @@ it("u7679c_each_agent_keeps_its_lens_and_a_new_session_opens_on_modules", async 
   expect(lensNow()).toBe(copy.lenses.modules);
   await chooseLens(copy.lenses.tests);
   fireEvent.click(rowOf("b"));
+  fireEvent.click(await within(rowOf("b")).findByRole("button", { name: copy.changedFiles(LENS_FILES.length) }));
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.modules));
   fireEvent.click(rowOf("a"));
+  fireEvent.click(await within(rowOf("a")).findByRole("button", { name: copy.changedFiles(LENS_FILES.length) }));
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.tests));
 
   // Nothing is stored: a new session starts on Modules.
