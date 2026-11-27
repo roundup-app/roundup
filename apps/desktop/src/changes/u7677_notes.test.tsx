@@ -167,18 +167,19 @@ it("u7677d_save_is_disabled_while_the_field_is_empty", async () => {
   await waitFor(() => expect(form().getByRole("button", { name: "Save" }).getAttribute("aria-disabled")).not.toBe("true"));
 });
 
-it("u7677e_acceptance_marks_the_submitted_notes_sent_and_keeps_them", async () => {
-  const { app } = await sendOne();
+it("u7677e_acceptance_marks_the_submitted_notes_waiting_and_keeps_them", async () => {
+  const mounted = await openDiff();
+
+  await saveNote("submitted");
+  mounted.app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body, status: "pending" });
+  fireEvent.click(within(bar()).getByRole("button", { name: /Send notes:/ }));
+  const { app } = mounted;
+  await waitFor(() => expect(notesFor(app, "/p").all("a")[0]?.sent).toBeTypeOf("number"));
   const [kept] = notesFor(app, "/p").all("a");
 
   expect(kept?.text).toBe("submitted");
-  await waitFor(() => expect(view().getAttribute("data-state")).toBe("sent"));
-  const at = new Date(kept?.sent ?? 0);
-  const time = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
-  const meta = present(view().querySelector(".note-meta")).textContent;
-
-  expect(meta).toBe(`${copy.newLine(1)} · ${copy.sentAt(kept?.sent)}`);
-  expect(meta).toContain(time);
+  await waitFor(() => expect(view().getAttribute("data-state")).toBe("waiting"));
+  expect(present(view().querySelector(".note-meta")).textContent).toBe(`${copy.newLine(1)} · ${copy.waiting}`);
   await screen.findByText("Sent 1 note to a");
   await saveNote("added meanwhile");
   expect(notesFor(app, "/p").list("a").map(note => note.text)).toEqual(["added meanwhile"]);

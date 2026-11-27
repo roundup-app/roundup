@@ -158,6 +158,7 @@ export const copy = {
   saving: "Saving…",
   sending: "Sending…",
   checking: "Checking…",
+  waiting: "Waiting",
   copying: "Copying…",
   removing: "Removing…",
   starting: "Starting…",
