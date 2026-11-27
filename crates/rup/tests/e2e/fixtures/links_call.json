@@ -1,0 +1,18 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "systemMessage": "You list the links a coding session's user would need to see"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_links_call",
+            "name": "StructuredOutput",
+            "arguments": "{\"entries\": []}"
+          }
+        ]
+      }
+    }
+  ]
+}
