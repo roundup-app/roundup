@@ -20,6 +20,7 @@ export const createLanding = (input: Landing) => {
       if (input.rows().length === 0) return undefined;
 
       const keys = input.modules().map(module => moduleKey(module.name));
+      process.stderr.write("LAND " + JSON.stringify([keys, [...input.viewedKeys()], input.signature()]) + "\n");
 
       return keys.find(key => !input.viewedKeys().has(key)) ?? keys[0] ?? OVERVIEW;
     });

@@ -392,7 +392,7 @@ const Surface = (props: { id: string; name: string }) => {
   // U7680: the marks the landing and the header read; its callbacks run only after the view has made `opened` and the list.
   const viewed = createViewed({ memory, comparison: () => comparisonOf(target(), own() ? undefined : groupKey()), files, settled: () => !pending() && failure() === null, lensed, lens, opened: () => opened(), open: next => { setLens(next.lens); choosePath(next.key); flush(); focusTree(next.key); } });
 
-  const opened = createLanding({ signature: () => `${target()}|${active()}|${lens()}|${rows().join("\0")}`, rows, modules: () => listing().modules, viewedKeys: () => viewed.viewedKeys(), picked, setPicked });
+  const opened = createLanding({ signature: () => `${target()}|${active()}|${comparisonOf(target(), own() ? undefined : groupKey())}|${lens()}|${rows().join("\0")}`, rows, modules: () => listing().modules, viewedKeys: () => viewed.viewedKeys(), picked, setPicked });
 
   const { panes, ready } = createPanes(opened, lens, () => `${target()}|${active()}`);
 
