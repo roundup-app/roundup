@@ -16,7 +16,7 @@ export const copy = {
   needsText: "Write what happened first.",
   noCommit: "no commit",
   unknown: "unknown",
-  send: sharedCopy.send,
+  send: "Send",
   sending: sharedCopy.sending,
   copy: sharedCopy.copy,
   close: sharedCopy.close,

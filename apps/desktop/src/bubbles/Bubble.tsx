@@ -201,7 +201,7 @@ export const Bubble = (props: {
   const dismissed = (press: Event): void => {
     const target = press.target;
 
-    if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
+    if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair"))) return;
 
     if (props.preparing) props.toggleMinimised(id());
     else if (!place().min) props.setPlace(id(), { ...place(), min: true });

@@ -19,7 +19,6 @@ const READY = "!!document.querySelector('diffs-container')?.shadowRoot?.querySel
 const said = (words: string) => `document.body.textContent.includes(${JSON.stringify(words)})`;
 
 /** The words in the diff, whether Pierre draws them in its shadow root or slots them in. */
-const diffSaid = (words: string) => `(() => { const diff = document.querySelector('diffs-container'); return !!diff && (diff.textContent + (diff.shadowRoot?.textContent ?? '')).includes(${JSON.stringify(words)}); })()`;
 
 const FOCUS_DIFF = "(() => { document.querySelector('.diff-content').focus(); return true; })()";
 
@@ -98,12 +97,6 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await browser("set", "viewport", String(SIZE.width), String(SIZE.height));
 
     await opened();
-    await startNote();
-    await write("Rename this once the callers agree");
-    await browser("press", "Escape");
-    await shot("note-unfinished-work", diffSaid(copy.unfinishedWork));
-
-    await opened();
     await saved("Rename this once the callers agree", 1);
     await shot("note-saved", said(copy.noteCount(1)));
     await read(FOCUS_DIFF);
@@ -127,13 +120,6 @@ it("u7676e_the_notes_are_captured_for_the_critic", async () => {
     await until("Object.keys(localStorage).some(key => key.startsWith('roundup:drafts:') && localStorage.getItem(key).includes('Second note'))");
     await opened("?restore");
     await shot("note-restored", said(copy.notesKept(2)));
-
-    await opened();
-    await startNote();
-    await write("Half a thought");
-    // U7678a: Esc keeps the text as unfinished work, and the list marks the module that holds it.
-    await browser("press", "Escape");
-    await shot("note-unfinished-kept", `[...document.querySelectorAll('.changes-side [data-row="module"]')].some(row => row.getAttribute('aria-label')?.includes(${JSON.stringify(copy.unfinishedWork)}))`);
 
     // The dense fixture: 100 notes over a 10,000-line diff, the batch list open; the view never scrolls sideways.
     await opened("?dense");

@@ -219,7 +219,7 @@ it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(vie
 
 });
 
-it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
+it("u4453c_new_terminal_keeps_a_saved_name_draft", async () => {
   const { connected, shells, daemon } = await mountNavigation(false, 0, 2);
   shells.push(info("saved", { owner: "home", title: "zsh" }));
   await connected().rail.refresh({ terminals: true });
@@ -248,13 +248,6 @@ it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
   flush();
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("new"));
   expect(connected().drafts.list()).toEqual(retained);
-  const recovery = document.querySelector<HTMLButtonElement>(".terminal-recover")!;
-  recovery.focus();
-  expect(document.activeElement).toBe(recovery);
-  fireEvent.click(recovery);
-  flush();
-  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(dialog.querySelector(".draft-value")?.textContent).toBe(text);
   expect(connected().drafts.list()).toEqual([expect.objectContaining({ destination: { surface: "bubbles", object: shells[0]!.incarnation, recipient: "saved" }, value: { name: text, base: "zsh" } })]);
   expect(daemon.calls.filter(call => ["terminal.open", "terminal.close", "terminal.write"].includes(call.method))).toEqual([{ method: "terminal.open", params: { workstream: "home", cols: 100, rows: 30 } }]);
 });

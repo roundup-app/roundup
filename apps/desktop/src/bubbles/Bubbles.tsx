@@ -4,15 +4,12 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus, focusTarget, provideFocusTarget } from "../keys/focus";
 import { createTerminalClose } from "./close";
 import { dismissable } from "../ink/recovery";
-import { DialogFailure, StatusNote } from "../ink/MountedLine";
+import { createMessageToast } from "../ink/messageToast";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
-import { NameDraftRecovery } from "../drawer/NameDraftRecovery";
-import { Editable } from "../ui/Editable";
-import { FlatAdd, FlatTab } from "../ui/FlatTab";
-import { IconButton } from "../ui/IconButton";
-import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
+import { FlatAdd } from "../ui/FlatTab";
+import { textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
 import { idle, step } from "./pull";
 import type { Pull, Pressed, Pulling } from "./pull";
@@ -20,16 +17,15 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tab } from "./tab";
 import type { TabContext } from "./tab";
 import { copy } from "./copy";
-import { createBubbleFailure, createCopyFailure } from "./failures";
+import { createBubbleFailure } from "./failures";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, flush, For, onCleanup, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, For, onCleanup, onSettled, untrack } from "solid-js";
 import { Portal } from "@solidjs/web";
 import { createBubblesModel, samePlaces } from "./model";
 import type { Arrival } from "./model";
 import { HintLine } from "../keys/HintLine";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Icon } from "../ink/Icon";
-import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopology";
@@ -44,16 +40,12 @@ import "./styles.css";
 
 const ESCAPE = "Escape".split(" ");
 
-const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
+const schema = v.strictObject({ name: v.string(), base: v.string() });
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 
 export const Bubbles = (props: {
   screens: Screens;
-  /** Open only this Project's original, non-pending revision in a shown Terminal tab.
-   * Refuse foreign/unavailable work; restore never sends or retries storage.
-   */
-  recovery?: { project: string; revision: string } | undefined;
 }) => {
   const connected = useConnectedProject();
   const { rail, app } = connected;
@@ -66,11 +58,7 @@ export const Bubbles = (props: {
       : facts.rail.terminals().some(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running) ? "available" : "unavailable";
   });
   const records = createMemo(() => drafts.list().filter(draft => draft.destination.surface === "bubbles"));
-  const [recovering, recover] = createSignal(false);
-  const copyFailures = createCopyFailure(() => records().map(draft => draft.revision));
-  const copyFailure = copyFailures.failure;
-  const recoveryLine = dismissable(() => (copyFailure()) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null);
-  const currentDraft = () => records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1);
+  const recoveryLine = dismissable(() => (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null);
 
   const problem = () => {
     const failure = drafts.problem();
@@ -78,9 +66,12 @@ export const Bubbles = (props: {
     return failure?.destination && failure.destination.surface !== "bubbles" ? null : failure;
   };
 
-  const original = (draft: ReturnType<typeof drafts.list>[number]) => rail.terminals().find(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running);
-  let recoveryPanel: HTMLDivElement | undefined;
-  registerKeys({ kind: "layer", element: () => recoveryPanel, active: recovering, modal: true }, []);
+  createMessageToast({
+    get message() { return recoveryLine.message(); },
+    dismiss: recoveryLine.dismiss,
+    get recover() { return problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined; },
+  });
+
 
   const model = createBubblesModel(store, () => connected.daemonExit() === null, rail);
   const { places, commitPlaces, wanted, setWanted, reserved } = model;
@@ -208,13 +199,6 @@ export const Bubbles = (props: {
     commitPlaces(next);
 
     return next;
-  };
-
-  const openRecovery = (target?: () => HTMLElement | null | undefined) => {
-    show(null);
-    // Let the Terminal's dismissable layer close before the recovery layer takes focus.
-    const focus = captureFocus(true);
-    setTimeout(() => focus(() => { target?.()?.focus(); recover(true); }));
   };
 
   // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
@@ -706,7 +690,7 @@ export const Bubbles = (props: {
   const onFocusLeave = (event: FocusEvent): void => {
     const { target } = event;
 
-    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, .terminal-recover, [role=menu], [role=menuitem]")) return;
+    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
 
     const unfolded = shown().filter(({ id }) => !placeOf(id).min);
 
@@ -739,11 +723,9 @@ export const Bubbles = (props: {
   });
 
   const tabContext: TabContext = {
-    props, connected, schema, path, drafts, records, editing, setEditing, shown, nameFor, placeOf, toggleMinimised, openRecovery, readOnly, rename,
+    props, connected, schema, drafts, records, editing, setEditing, shown, nameFor, placeOf, toggleMinimised, readOnly, rename,
     setFailure, clearItemFailure, lastTarget, close, bubbleMenus,
   };
-
-  const recoveryNotice = (draft: ReturnType<typeof records>[number]) => !original(draft) || readOnly() ? copy.originalUnavailable : draft.value.base !== nameFor(original(draft)!) ? copy.railDraftConflict : null;
 
   return <div class="bubbles" ref={setLayer}>
       <For each={bubbleKeys()}>{key => {
@@ -760,21 +742,10 @@ export const Bubbles = (props: {
             <div class="terminal-tab-list"><For each={shownIds()}>{id => <Tab id={id} ctx={tabContext} />}</For></div>
             <div class="terminal-tabs-actions">
               <Tip kind="fixed" name={copy.newTerminal} text={copy.newTerminal}>{trigger => <FlatAdd {...trigger({ ref: element => { newTerminal = element; }, onClick: () => void open() })} data-button="add" class="terminal-new" aria-label={copy.newTerminal}><Icon name="plus" /></FlatAdd>}</Tip>
-              <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
             </div>
           </div>
           <HintLine />
         </div>
       </Portal>
-      <NameDraftRecovery class="bubble-recovery" open={recovering()} onOpenChange={recover} panel={element => { recoveryPanel = element; }}
-        identity={copy.draftIdentity(connected.project.name, copy.terminalName)} records={records()} current={currentDraft()} app={app}
-        lines={<DialogFailure message={recoveryLine.message()} dismiss={() => copyFailure() !== undefined ? copyFailures.dismiss() : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />}
-        label={(draft, index) => copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index + 1))}
-        detail={draft => <p class="draft-identity">{copy.draftIdentity(String(draft.value.base ?? ""), draft.destination.recipient ?? copy.noDraftRecipient)}</p>}
-        notice={draft => <StatusNote text={recoveryNotice(draft) ?? copy.draftStatus[draft.status]} />}
-        value={draft => String(draft.value.name ?? "")}
-        onCopySuccess={draft => copyFailures.clear(draft.revision)}
-        onCopyFailure={(draft, error) => copyFailures.fail(draft.revision, copy.copyDraftFailure(error.message))}
-        onDiscard={draft => { drafts.discard(draft.revision); setEditing(null); }} />
     </div>;
 };

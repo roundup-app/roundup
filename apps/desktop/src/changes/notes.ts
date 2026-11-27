@@ -400,8 +400,6 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
       if (!invalid.size) for (const [id, value] of recipients()) await retain(id, value);
     },
-    /** U7676c: the forms holding typed text, each Esc or file switch having kept it as unfinished work. */
-    unfinished: (id: string): readonly NoteFormDraft[] => recipient(id).forms.filter(isLine).filter(form => form.text.trim() !== ""),
     form: (id: string, comparison: FileComparison, replacing?: number) => recipient(id).forms.find((form): form is NoteFormDraft => !isItem(form) && form.replacing === (replacing ?? null) && form.comparison.newPath === comparison.newPath),
     editForm: (id: string, form: Form) => {
       const current = recipient(id);
@@ -515,9 +513,6 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 export type Notes = ReturnType<typeof notesFor>;
 
 const formsOf = (notes: Notes, id: string): readonly Form[] => notes.entries().find(([key]) => key === id)?.[1].forms ?? [];
-
-/** U7691a: the unfinished forms on items. */
-export const unfinishedItems = (notes: Notes, id: string) => formsOf(notes, id).filter(isItem).filter(form => form.text.trim() !== "");
 
 /** U7691a: the form kept on an item, the one that replaces note `replacing` when given. */
 export const itemFormOf = (notes: Notes, id: string, item: Pick<Item, "kind" | "name">, replacing?: number) => formsOf(notes, id).find((form): form is ItemFormDraft => isItem(form) && form.item.kind === item.kind && form.item.name === item.name && form.replacing === (replacing ?? null));

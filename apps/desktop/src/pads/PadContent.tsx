@@ -33,7 +33,6 @@ import { usePadList } from "./padList";
 import { PadTitle } from "./PadTitle";
 import { usePadRead } from "./padRead";
 import { PadChangesAction, PadChangesView, usePadChanges } from "./PadChanges";
-import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
 
 import type { PadEditorHandle } from "./PadRichEditor";
@@ -101,8 +100,6 @@ const adoptEditor = (
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
-  revision?: string;
-  list?: PadList;
   pads: Accessor<readonly Pad[]>;
   /** T27: a Todo's section link opens the Pad scrolled to this heading. */
   heading?: string | undefined;
@@ -114,7 +111,7 @@ const PadBody = (props: {
   onRenamed?: ((name: string) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
-  const list = props.list ?? usePadList();
+  const list = usePadList();
   const maximised = useContext(DrawerMaximisedContext), changes = usePadChanges(list, props.initial, () => props.pads());
   const [width, setWidth] = createSignal(untrack(() => appSettings().padWidth));
   // The body opens on the Pad as it is now, read once.
@@ -122,7 +119,7 @@ const PadBody = (props: {
   const destination = { surface: "pads", object: opened.incarnation, recipient: null };
   const ownDrafts = () => connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
   // The body reopens the draft it opened with, read once.
-  const retained = untrack(() => ownDrafts().filter(draft => props.revision === undefined || draft.revision === props.revision).at(-1));
+  const retained = untrack(() => ownDrafts().at(-1));
 
   const parsed = retained ? v.safeParse(padDraft, retained.value) : null;
   const field = createDraftField(connected.drafts, destination, stored, retained);
@@ -145,9 +142,7 @@ const PadBody = (props: {
   const sourceLabel = copy.copyField(copy.draftField("source").toLowerCase());
 
   const statusLabel = () => {
-    const status = copy.draftStatus[ownDrafts().filter(draft => props.revision === undefined || draft.revision === props.revision).at(-1)?.status ?? "draft"];
-
-    return props.revision === undefined ? copy.draftIdentity(copy.currentDraft, status) : status;
+    return copy.draftIdentity(copy.currentDraft, copy.draftStatus[ownDrafts().at(-1)?.status ?? "draft"]);
   };
 
   const changed = recovered && (base !== opened.text || sourceRevision !== opened.revision);
@@ -543,10 +538,6 @@ const PadBody = (props: {
 export const PadDrawer = (props: {
   name: string;
   heading?: string | undefined;
-  /** Select a retained revision in this Project, using pads' already-loaded identity facts.
-   * Missing revisions or originals render no editor; recovery never performs opening reads.
-   */
-  recovery?: { project: string; revision: string; list: PadList };
   pads: Accessor<readonly Pad[]>;
   onLateFailure: (message: string) => void;
   onFailureCleared?: (() => void) | undefined;
@@ -555,17 +546,6 @@ export const PadDrawer = (props: {
 }) => {
   const connected = useConnectedProject();
   const initialFocus = captureFocus();
-
-  const recovery = untrack(() => props.recovery);
-
-  if (recovery !== undefined) {
-    if (recovery.project !== connected.project.path) return null;
-
-    const retained = untrack(() => connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null));
-    const original = untrack(() => recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined);
-
-    return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
-  }
 
   // U7499b: the Pad is read when the Drawer opens on it and when it leaves it, and it keeps its place on the Pads tab meanwhile.
   const padRead = usePadRead();

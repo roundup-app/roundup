@@ -1,12 +1,10 @@
 // fallow-ignore-file duplicate-export -- press supplies Ask slash-key codes; switcherFixture supplies letter-key codes. Tests import each directly.
-import { createSignal, flush, Show } from "solid-js";
+import { flush } from "solid-js";
 import { expect } from "vitest";
 import { render, waitFor } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { DrawerHost } from "../drawer/DrawerHost";
-import { BusyButton } from "../ui/BusyButton";
-import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import type { AskRouting } from "../state/asks";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -26,13 +24,6 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with its registered `⌘/` owner; `asks` seeds `ask.list`. */
-/** Stands in for the Overview menu: the panel opens through the same entry, shown only while work qualifies. */
-const RecoveryEntry = () => {
-  const entries = useRecoveryMenu();
-
-  return <Show when={entries().length > 0}><BusyButton kind={null} busyLabel="Recovering…" onClick={() => entries()[0]!.run?.()}>Recover unfinished work</BusyButton></Show>;
-};
-
 export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false, viewing = () => true, routing?: AskRouting) => {
   const app = createFakeApp();
 
@@ -54,14 +45,11 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   if (selected !== null) connected.rail.select(selected);
 
-  const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
-
   const view = render(() => (
     <ToastHost><ConnectedProjectContext value={connected}>
-      <aside class="rail"><RecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
-      <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar recovery={recovery()} /></div>
+      <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar /></div>
     </ConnectedProjectContext></ToastHost>
   ));
 
@@ -70,7 +58,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
 
 
-  return { app, connected, setRecovery, unmount: view.unmount };
+  return { app, connected, unmount: view.unmount };
 };
 
 export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.map((part) => part.text).join(" ")): Ask => ({ id, text, at: BigInt(at), parts });

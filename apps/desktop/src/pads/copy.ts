@@ -11,7 +11,7 @@ export const copy = {
   draftField: sharedCopy.draftField,
   draftIdentity: sharedCopy.draftIdentity,
   openDraft: sharedCopy.openDraft,
-  currentDraft: sharedCopy.currentDraft,
+  currentDraft: "Current",
   draftStatus: sharedCopy.draftStatus,
   storageRetry: sharedCopy.storageRetry,
   discardRevision: sharedCopy.discardRevision,

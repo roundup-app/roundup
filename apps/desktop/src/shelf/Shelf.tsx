@@ -22,7 +22,7 @@ import "./styles.css";
 /** An ARIA state attribute's value: `"true"` or `"false"`. */
 const ariaState = (on: boolean) => on ? "true" : "false";
 
-const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads {...props} />}</Deferred>;
+const Pads = () => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads />}</Deferred>;
 
 const Todos = lazy(() => import("../todos/Todos").then(module => ({ default: module.Todos })));
 

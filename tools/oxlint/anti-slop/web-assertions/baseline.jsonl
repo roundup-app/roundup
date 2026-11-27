@@ -1,4 +1,3 @@
-{"file":"apps/desktop/src/window/m8_project_requested.test.tsx","test":"u2773h_credential_values_remain_hidden_until_copy","identity":"6cd1fa0fe6a3df93adb6ce0bd2aabe3460071930c64226fc28061007df8c3962"}
 {"file":"apps/desktop/src/app/u135_schemes.test.tsx","test":"u135 schemes > u135_reduced_motion_makes_every_duration_but_the_instant_changes_0s","identity":"938a7a40cebb8716be9a2a09393f971a1b865f19a4976f39f67f83433edadec5"}
 {"file":"apps/desktop/src/window/u3791a_recovery.test.tsx","test":"u3791a_recovery_sends_no_agent_input","identity":"e44fa3f4b78aaa9e9256fb463ad6251a6a4355d77bc7615a858dca2046c6d1c2"}
 {"file":"apps/desktop/src/ask/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_ask_bar_send_dismiss_once","identity":"8414b1dd901e6df097735762da20b28eeb6d1b9c55244db926a6bc9f94974cc0"}
@@ -92,7 +91,6 @@
 {"file":"apps/desktop/src/pads/u148_mermaid_block.test.tsx","test":"u148 a Mermaid block renders in the Pad > u148_invalid_text_shows_the_source_and_exactly_one_error_line","identity":"5baf8678bd32f5c2db13da48567ac22750b35101995cf2ee57a4d2b2acb79b6f"}
 {"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"u149 a Drawing renders and edits in the Pad > u149_a_body_the_canvas_cannot_load_shows_its_text_and_one_error_and_writes_nothing","identity":"ad3d365ff5eb36b834311f8dd369ce3d39367bff2879b21a15857e0e2a9bd99f"}
 {"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"u149 a Drawing renders and edits in the Pad > u149_a_body_the_canvas_cannot_load_shows_its_text_and_one_error_and_writes_nothing","identity":"b726fa049a8da2ea6882404a9423e2b8a166d9017e6b8451a5194d22055c7fe2"}
-{"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"%s","identity":"00d3f9b0ac9980e7fe451be50a41d153ad5aa163205d1ec64c9b237b3e254329"}
 {"file":"apps/desktop/src/pads/u18_pad_list.test.tsx","test":"u18 list and ownership > u18_an_older_pad_list_reply_that_arrives_late_never_wins","identity":"a4805243cdef184e73bb65d25df95c142fa88ef3f545056c444e2b1548b9c354"}
 {"file":"apps/desktop/src/pads/u20_pad_drawer.test.tsx","test":"u20 open and edit > u20_pad_changed_for_the_open_pad_calls_pad_list_not_pad_read_and_refreshes_its_text","identity":"0b9d733d4d74236c3ff7747630aa63f5adbd85b9c0562a30d08d86528605bdda"}
 {"file":"apps/desktop/src/pads/u20_pad_drawer.test.tsx","test":"u20 open and edit > u20_an_older_pad_list_reply_that_arrives_late_never_wins","identity":"ea881141046e996f0635f03c8b8fcb854709241d6f1cd5e730d152e4c02730d3"}
@@ -108,8 +106,6 @@
 {"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u36 a pad edit never overwrites another actor's change > u36_a_reload_with_no_tracked_actor_does_not_clear_a_showing_conflict_line","identity":"0087308dbd1da14d62224fe73b369b1c4af35f7799d7c23e2f141cdfcbc5bd72"}
 {"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u36 a pad edit never overwrites another actor's change > u36_an_unrelated_event_sharing_the_pads_name_is_never_mistaken_for_a_pad_changed","identity":"a61e09baae7638e11d56f0d1729032becea628251b01e1dc932ce901cc22ff5d"}
 {"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write","identity":"20e12da6e5a14a1baaabbc720529d9e6d9057693be3ff673a6aeb3354d9bf1ef"}
-{"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u3021c_open_restores_exact_revision_without_rpc_pads_%s","identity":"064a644fb510d832c5d252370c25919ef8fa8928b94eb7fd3c5b0b9f4bb8ec72"}
-{"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u3021c_open_restores_exact_revision_without_rpc_pads_%s","identity":"b6e6c3ca5a6453c44df16bd356af5e6e2970fbcefd3cc38332cef519335b22bf"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_no_pads_yet_disappears_once_a_pad_exists","identity":"6ca2afc95e7cdac0940c18e17982a6034db16737d2327cb41731894f124f63c1"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"bcad2209228b21c1619c036e649296f7d470c6beedde3c6f66e047f4be265a9e"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"67720e3d6cfc74afb607c9aaf83626d6657c29e746f6b766791fd67397f11767"}
@@ -171,7 +167,6 @@
 {"file":"apps/desktop/src/todos/u15_todo_list.test.tsx","test":"u15 Todo list > u15_a_failed_todo_list_shows_its_message_in_ink","identity":"5ce827bf6f917de1d9d26741f909ccdba08228134ad927bb975e0f41bbadd8fc"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_delegate_board_%s","identity":"3400882cb786bb49ea8e4877bf97eab2d789f79acdd4b87c7ccff504dae6bb6e"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_delegate_board_%s","identity":"30319a27526f0604c7be95b1610a2a1af2b23a119f3783e16eea5c3009e8a21a"}
-{"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_the_switch_is_absent_without_a_workstream","identity":"5701c4135075bbbcbbce87d2865b482482ab310ef1a3e7509e343c5c6780961b"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3708 the Todos list is a tree drawn from blockers > u3708_depth_is_read_from_the_first_blocker","identity":"b602b2e44217621c5bed80941f9e922e0feac01f651765735c9ec3e60d3e725c"}
 {"file":"apps/desktop/src/todos/u3708_nesting.test.tsx","test":"u3711 a move that would make a cycle is refused and says why > u3711_a_refused_move_returns_the_row_and_shows_the_cause","identity":"17a806c30b02c97791d52d67bcbd8a0046c342144922419f5a88355f8da76ead"}

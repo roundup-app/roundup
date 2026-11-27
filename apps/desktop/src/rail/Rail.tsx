@@ -21,7 +21,7 @@ import { Sortable, type SortableMove } from "../ui/sortable";
 import { keyMove, type DropRules, type RowKey, type TreeRow } from "../ui/treeDrop";
 import { AppTree, tabStop, Trunks } from "../ui/TreeView";
 import { TreeItem, TreeItemIndicator, createTreeController } from "@ui-sdk/solid/tree";
-import { useConnectedProject, type ConnectedProject } from "../state/connectedProject";
+import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailDialogs, type RailDialog } from "./dialogs";
 import { RailConfirm } from "./menu/RailConfirm";
@@ -34,15 +34,13 @@ import { focusedRowId, keyedRowIdAt, ROW, rowIdAt, strandedRow, type RowActions 
 import { strandedRowKeys } from "./strandedKeys";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
-import { useRecoveryMenu } from "../drawer/DraftRecovery";
+import { contextMenu } from "../ui/contextMenu";
 import { draftsOf } from "../state/railStorage";
 import { createRailDrag } from "./drag";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { afterElseBefore } from "../keys/survivor";
 import { RailToggle } from "./RailToggle";
 import { createRailTree, sameList, sections } from "./railTree";
-import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import { StartMachine } from "./StartMachine";
 import { createLaunch, railCommand } from "./railCommands";
@@ -56,22 +54,6 @@ const taskSchema = v.object({ text: v.string(), parent: v.nullable(v.string()), 
 type Destination = Parameters<typeof createDraftField>[1];
 
 const sameDestination = (a: Destination, b: Destination) => a.surface === b.surface && a.object === b.object && a.recipient === b.recipient;
-
-/** The revision whose recovery entry stands open, one per Project: a retry from a Rail that closed opens it in the Rail that replaced it. */
-type Recovery = { open: () => string | null; set: (revision: string | null) => void };
-
-const recoveries = new WeakMap<ConnectedProject, Recovery>();
-
-const recoveryOf = (project: ConnectedProject): Recovery => {
-  const known = recoveries.get(project);
-
-  if (known) return known;
-  const [open, set] = createSignal<string | null>(null);
-  const created = { open: () => open(), set: (revision: string | null) => { set(revision); } };
-  recoveries.set(project, created);
-
-  return created;
-};
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
@@ -156,14 +138,21 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
 
-  const recoveryEntries = useRecoveryMenu();
-
   const todoCount = createAgentPads();
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const failure = rail.commandFailure;
   const retained = draftsOf(connected.drafts);
-  // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
-  const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
+
+  // U7978c: a name or task draft of an Agent or Workstream that is gone has no field to show it.
+  createEffect(() => rail.failure() === null && rail.nodes.length > 0 ? new Set(rail.nodes.map(node => node.id)) : null, ids => {
+    if (!ids) return;
+
+    for (const draft of retained.records()) {
+      const { surface, object } = draft.destination;
+
+      if ((surface === "rail-name" || (surface === "rail-task" && object !== project.path && object !== "")) && !ids.has(object) && (draft.status === "draft" || draft.status === "failed")) retained.discard(draft.revision);
+    }
+  });
 
   const [dialog, setDialog] = createSignal<RailDialog | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
@@ -208,20 +197,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   const [editingName, setEditingName] = createSignal<string | null>(null);
   const [taskDestination, setTaskDestination] = createSignal<string | null>(null);
   const task = () => retained.records().filter((entry) => entry.destination.surface === "rail-task").at(-1);
-
-  const recovery = createMemo(() => retained.records().filter((entry) => {
-    const { surface, object } = entry.destination;
-
-    if (!surface.startsWith("rail-")) return false;
-
-    if (surface === "rail-task" && composing() && entry.revision === task()?.revision) return false;
-
-    if (surface === "rail-name" && object === editingName() && rail.nodes.some(node => node.id === object)) {
-      return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
-    }
-
-    return true;
-  }));
 
   const destinationName = (id: string) => id === "" || id === project.path ? copy.overview : rail.nodes.find((node) => node.id === id)?.name ?? copy.railDraftMissingTarget;
 
@@ -381,7 +356,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     });
   };
 
-  const openSelectionMenu = (node: RailNode, x: number, y: number, extra: MenuEntry[] = []) => {
+  const openSelectionMenu = (node: RailNode, x: number, y: number) => {
     const outside = !isSelected(node.id);
 
     if (outside) setSelected([node.id]);
@@ -390,7 +365,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     // A write shows at the next flush, so the row alone stands for the selection it just replaced.
     const chosen = outside ? [node] : selectedNodes();
 
-    if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y, undefined, extra);
+    if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y);
 
     return contextMenu(app, [
       { id: "group", label: copy.group, run: async () => {
@@ -451,8 +426,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
     if (row && node) {
       const box = row.getBoundingClientRect();
-      // U3289c: the keyboard reaches the recovery item through the focused row's menu, since the Rail itself is not a Tab stop.
-      void openSelectionMenu(node, box.left, box.bottom, recoveryEntries("key"));
+      void openSelectionMenu(node, box.left, box.bottom);
     }
   };
 
@@ -546,8 +520,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  const recovering = recoveryOf(connected);
-
   /** Sends the task revision `sent` as a note to `door`, or as a new Agent's prompt; the composer closes unless newer typing waits. */
   const deliver = async (sent: { revision: string; destination: Destination }, prompt: string | null, door: string | null) => {
     const added = rail.adding();
@@ -555,11 +527,10 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     const retry = () => {
       const saved = retained.records().find(entry => entry.revision === sent.revision);
 
-      if (!saved || !canSpawn()) return;
+      // An unknown acceptance is never resent (U2773b).
+      if (!saved || !canSpawn() || saved.status === "unknown") return;
 
-      // The open recovery entry shows the exact uncertain revision without sending it twice.
-      if (saved.status === "unknown") recovering.set(saved.revision);
-      else void submitPrompt(prompt, saved);
+      void submitPrompt(prompt, saved);
     };
 
     const slow = setTimeout(() => setAsking(true), 500);
@@ -650,12 +621,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     // U6249d: Escape on a focused row dismisses the failure its line shows, as the line's Dismiss does.
     { chords: ["Escape"], when: press => shownFailure(focusedRowId(press)) !== undefined, run: press => rail.dismiss(shownFailure(focusedRowId(press))!) },
-    // U3289c: with the Rail itself focused (no row), the same keys open the recovery item the background right-click opens.
-    { chords: ["ContextMenu", "Shift+F10"], when: () => document.activeElement === container() && recoveryEntries().length > 0, run: () => {
-      const box = container()!.getBoundingClientRect();
-
-      void contextMenu(app, recoveryEntries(), box.left + 8, box.top + 8);
-    } },
     { action: CHORDS["rail.remove"], capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
@@ -691,15 +656,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     <>
     <MovePicker replacement={rowElement} target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
-    <div class="rail-scroll" onContextMenu={(press: MouseEvent) => {
-      // U3289c: the Rail background holds the recovery item; a row keeps its own menu.
-      if (press.target instanceof Element && press.target.closest(".rail-row")) return;
-      openOnRelease(press, (x, y) => {
-        const entries = recoveryEntries();
-
-        if (entries.length > 0) void contextMenu(app, entries, x, y);
-      });
-    }}>
+    <div class="rail-scroll">
     <div class="rail-tree" data-history-region="rail" tabindex="-1" ref={element => { setContainer(element); guardCtrlClick(element); rowKeys(element, () => ({ rows: treeRows(), ...dropRules }), moveTo); trackFocus(element, setFocused); }}>
       <Show when={composing()}>
         <StatusNote text={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
@@ -830,12 +787,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     </div>
     </div>
 
-      <RailRecovery recovery={recovery} revisions={revisions} destinationName={destinationName} open={recovering.open} setOpen={recovering.set} discard={revision => {
-        const current = task()?.revision === revision;
-        retained.discard(revision);
-
-        if (current && !task()) setTaskDestination(parent());
-      }} />
       <RailDialogs dialog={dialog} close={() => setDialog(null)} menu={menu} rowElement={rowElement} />
       <RailConfirm menu={menu} rowElement={rowElement} />
       <RailFooter retained={retained} asking={asking} canSpawn={canSpawn} createWorkstream={createWorkstream} openCreateMode={() => setDialog({ kind: "create-mode" })} openAdopt={() => setDialog({ kind: "adopt-worktree" })} />

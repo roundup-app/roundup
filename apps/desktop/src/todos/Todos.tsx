@@ -21,8 +21,7 @@ import { createDependencyGroups } from "./dependencyGroups";
 import { createCountMotion, createFinishMotion } from "./finishMotion";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
-import * as v from "valibot";
-import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
+import { useTodoDraftFailure, todoDraftSchema } from "./EditableText";
 import { registerOpener } from "../shelf/openItem";
 import { createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
@@ -52,20 +51,10 @@ import { createListModel, focusRow, idOfRow, rowButtonOf, rowIdContaining, rowRe
 import { triage } from "./triage";
 import type { Choosing } from "./choosing";
 import { reorderChange } from "./state";
-import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
 import { doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeRows, type NestedRow } from "./todoView";
-
-/** U7314f: a kept draft whose Todo is gone says so in a toast, with Retry to read the list again. */
-const UnavailableDraft = (props: { object: string; reload: () => void }) => {
-  const unavailable = dismissable(() => copy.draftIdentity(copy.originalUnavailable, props.object));
-
-  createMessageToast({ get message() { return unavailable.message(); }, dismiss: unavailable.dismiss, recover: { run: () => props.reload() } });
-
-  return <TodoDraftRecovery object={props.object} />;
-};
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS: readonly ChordName[] = ["todo.triage-move", "todo.triage-assign", "todo.triage-done"];
@@ -73,19 +62,14 @@ const QUIET_KEYS: readonly ChordName[] = ["todo.triage-move", "todo.triage-assig
 /** The tree role a row takes at `level`. */
 const rowAttributes = (level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level });
 
-export const Todos = (props: {
-  /** Open a retained creation form using this Project's already-loaded Todo facts. */
-  recovery?: { project: string; revision: string; list: TodosState };
-}) => {
+export const Todos = () => {
   const connected = useConnectedProject();
   const shelf = useContext(ShelfActions);
   const tabs = shelf ? useTabsContext() : null;
 
   connected.drafts.validate("todos", todoDraftSchema);
 
-  if (props.recovery && props.recovery.project !== connected.project.path) return null;
-
-  const todos = props.recovery?.list ?? useTodoList();
+  const todos = useTodoList();
   const copied = new Map<number, ReturnType<typeof createCopyFeedback>>();
 
   const registerCopy = (id: number) => (feedback: ReturnType<typeof createCopyFeedback>) => {
@@ -94,19 +78,11 @@ export const Todos = (props: {
     return () => { if (copied.get(id) === feedback) copied.delete(id); };
   };
 
-  // A retained form opens once from what is stored now, so this guard is a snapshot.
-  const recovery = untrack(() => props.recovery);
-
-  const retained = recovery ? untrack(() => connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "todos" && draft.destination.object === "new")) : undefined;
-
-  const form = v.safeParse(creationSchema, retained?.value);
   const homeExists = (home: string | null) => home === null || connected.rail.nodes.some(node => node.id === home && node.kind === "workstream");
 
-  if (recovery && untrack(() => todos.project !== connected.project.path || !todos.isLoaded() || todos.failure() !== null || !retained || !form.success
-    || retained.destination.recipient !== form.output.home || !homeExists(form.output.home))) return null;
-
-  const [typing, setTyping] = createSignal(retained !== undefined);
+  const [typing, setTyping] = createSignal(false);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
+  useTodoDraftFailure(() => "new", typing);
   const shelfFailure = dismissable(() => todos.failure() || (!typing() ? createFailure() : null));
   createMessageToast({ get message() { return shelfFailure.message(); }, dismiss: shelfFailure.dismiss, recover: { run: () => todos.reload() } });
   const [unfolded, setUnfolded] = createSignal(false);
@@ -430,8 +406,8 @@ export const Todos = (props: {
     );
   });
 
-  const { creationHome, creation, openField, field } = createTodoCreation({
-    form, retained, homeExists, typing, setTyping, createFailure, setCreateFailure,
+  const { creationHome, openField, field } = createTodoCreation({
+    homeExists, typing, setTyping, createFailure, setCreateFailure,
     setFiled, active, scope, selectedWorkstream, plusButton: () => plusButton, section: () => section,
   });
 
@@ -459,7 +435,7 @@ export const Todos = (props: {
   onCleanup(registerOpener("todo", id => {
     const todo = todos.byId().get(Number(id));
 
-    if (!todo || props.recovery !== undefined) return false;
+    if (!todo) return false;
     show(todo, "key");
 
     return true;
@@ -828,9 +804,6 @@ export const Todos = (props: {
         } else queueFocus(() => rowButtonOf(id)?.focus());
       }} />
       <Show when={typing() ? creationHome() ?? connected.project.path : null} keyed>{_home => field()}</Show>
-      <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
-        if (creation()?.revision === revision) setTyping(false);
-      }} />
       <Show when={foldedDone().length > 0}>
         <div class="shelf-list">
         <Show when={unfolded()}>
@@ -873,10 +846,6 @@ export const Todos = (props: {
           </ShelfRow>
 
         </div>
-      </Show>
-      <Show when={todos.isLoaded()}>
-        <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
-          && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <UnavailableDraft object={object} reload={() => todos.reload()} />}</For>
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>

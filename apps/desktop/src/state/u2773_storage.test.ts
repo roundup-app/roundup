@@ -1,14 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { createComponent, createEffect, createRoot, flush, useContext } from "solid-js";
+import { createEffect, createRoot, flush } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { RequestedApp as App } from "../testing/requestedApp";
-import { fakeEmulators } from "../terminal/paneHarness";
+import { openDraftProjects } from "../testing/draftProjects";
 import { createFakeApp } from "../testing/fakeApp";
-import { info, terminal } from "../testing/nodes";
-import { ProjectDraftsContext, useConnectedProject, createProjectDrafts } from "./connectedProject";
-import type { ConnectedProject } from "./connectedProject";
+import { useConnectedProject, createProjectDrafts } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { draftStorage, storedValue } from "./storage";
@@ -86,8 +80,27 @@ it.each(["acknowledged", "failed", "unknown"] as const)("u2773b_storage_settleme
   expect((await drafts.submit(a.revision))?.draft.value).toEqual({ text: " A\n😀 " });
   const b = (await edit(drafts, " B\ne\u0301 "));
   (await drafts.settle(a.revision, outcome));
-  expect(draftStorage("/project/a").list()).toEqual(outcome === "acknowledged"
-    ? [b] : [{ ...a, status: outcome }, b]);
+  expect(draftStorage("/project/a").list()).toEqual(outcome === "unknown" ? [{ ...a, status: outcome }, b] : [b]);
+});
+
+it("u7978c_drafts_no_field_shows_are_dropped", async () => {
+  const drafts = draftStorage("/project/a");
+  const failed = await edit(drafts, "older failed");
+  await drafts.submit(failed.revision);
+  await drafts.settle(failed.revision, "failed");
+  const newest = await edit(drafts, "newest unsent");
+  const retiredOrder = (await retained(drafts.edit({ surface: "orders", object: "n1", recipient: null }, { title: "t", ask: "a", done: "d" }, null, "ordinary"))).draft;
+  const foreignName = (await retained(drafts.edit({ surface: "header", object: "/project/b", recipient: null }, { name: "x" }, null, "ordinary"))).draft;
+  const other = (await retained(draftStorage("/project/b").edit({ surface: "header", object: "/project/b", recipient: null }, { name: "kept" }, null, "ordinary"))).draft;
+
+  const reopened = draftStorage("/project/a");
+  expect(reopened.list()).toEqual([newest]);
+  await vi.waitFor(() => {
+    const stored = localStorage.getItem("roundup:drafts:/project/a") ?? "";
+    expect([failed.revision, retiredOrder.revision, foreignName.revision].filter(revision => stored.includes(revision))).toEqual([]);
+    expect(stored).toContain(newest.revision);
+  });
+  expect(draftStorage("/project/b").list()).toEqual([other]);
 });
 
 it("u2773b_storage_discard_consumes_only_selected_revision", async () => {
@@ -252,7 +265,7 @@ it("u2773e_credentials_keep_existing_policy", async () => {
 
 it("u2773a_storage_identity_separates_surface_object_recipient", async () => {
   const drafts = draftStorage("/project/a");
-  const destinations = [target, { ...target, surface: "orders" }, { ...target, object: "another" }, { ...target, recipient: "agent-b" }];
+  const destinations = [target, { ...target, surface: "pads" }, { ...target, object: "another" }, { ...target, recipient: "agent-b" }];
   const expected = await Promise.all(destinations.map(async (destination, index) => (await retained(drafts.edit(destination, { text: `exact ${index}` }, null, "ordinary"))).draft));
   const reopened = draftStorage("/project/a").list();
   expect(reopened).toEqual(expected);
@@ -319,54 +332,12 @@ it("u2773b_storage_late_out_of_order_replies_keep_original_project", async () =>
   const elsewhere = (await edit(second, "same named agent in another Project"));
   (await first.settle(b.revision, "acknowledged"));
   (await first.settle(a.revision, "failed"));
-  expect(draftStorage("/project/a").list()).toEqual([{ ...a, status: "failed" }, current]);
+  expect(draftStorage("/project/a").list()).toEqual([current]);
   expect(draftStorage("/project/b").list()).toEqual([elsewhere]);
 });
 
 // The existing emulator edge runs inside the mounted Project context: consumers
 // observe the same public holder that surface owners will use, without a new App seam.
-const openDraftProjects = async () => {
-  const directory = mkdtempSync(join(tmpdir(), "roundup-drafts-"));
-  const paths = [join(directory, "a"), join(directory, "b")];
-  const app = createFakeApp();
-  const seen: ConnectedProject[] = [];
-  let authority: ReturnType<typeof createProjectDrafts> | null | undefined;
-
-  const emulators = fakeEmulators();
-
-  for (const [index, path] of paths.entries()) {
-    mkdirSync(path);
-    app.add(path);
-    app.of(path).handlers["rail.tree"] = () => [terminal(`editor-${index}`)];
-    app.of(path).handlers["terminal.list"] = () => [info(`t-editor-${index}`)];
-  }
-
-  const view = render(() => createComponent(App, {
-    app, reducedMotion: () => false, clock: () => 0,
-    createEmulator: (id) => {
-      // A component reads the Project authority at render, where an owner holds the context; the App provides it once, above the header and every Pane.
-      authority ??= useContext(ProjectDraftsContext);
-      seen.push(useConnectedProject());
-
-      return emulators.factory(id);
-    },
-  }));
-
-  // U7155a: a Project's Pane stays mounted across switches, so its newest connection is the one the last Terminal created for it saw.
-  const connection = (index: number) => seen.filter((open) => open.project.path === paths[index]).at(-1);
-
-  const select = async (index: number) => {
-    const tabs = within(await screen.findByRole("tablist", { name: "Projects" })).getAllByRole("tab");
-    fireEvent.click(tabs[index]!);
-    fireEvent.click(await waitFor(() => within(screen.getByRole("tree", { name: "Rail" })).getByText(`editor-${index}`)));
-    await waitFor(() => expect(connection(index)).toBeDefined());
-
-    return connection(index)!;
-  };
-
-  return { app, paths, select, connection, authority: () => authority, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
-};
-
 it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s", async (status) => {
   const opened = await openDraftProjects();
 

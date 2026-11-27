@@ -1,13 +1,9 @@
 import { copy as recoveryCopy } from "../sharedCopy";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { flush } from "solid-js";
 import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
-import { DrawerHost } from "../drawer/DrawerHost";
-import { Pads } from "./Pads";
-import { ConnectedProjectContext } from "../state/connectedProject";
 import { agent, terminal, USER, workstream } from "../testing/nodes";
-import { ToastHost } from "../testing/toastHost";
 
 afterEach(cleanup);
 
@@ -165,58 +161,6 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   }
 });
 
-
-it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_creation_captured_caret_%s", async (capturedCaret) => {
-  const { app, connected } = await openShelf([]);
-  const destination = { surface: "pads", object: "creation", recipient: null };
-  const a = connected.drafts.edit(destination, { name: "  earlier é 🪁  ", home: AGENT.id }, capturedCaret ? { start: 2, end: 7, direction: "backward" } : null, "ordinary").draft;
-  flush();
-  connected.drafts.submit(a.revision);
-  flush();
-  connected.drafts.edit(destination, { name: "newer 🌱", home: null }, null, "ordinary");
-  flush();
-  connected.drafts.settle(a.revision, "failed");
-  flush();
-  const retained = structuredClone(connected.drafts.list());
-  cleanup();
-  render(() => <ToastHost><ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
-  const calls = [...app.calls];
-  connected.drawer.open(() => <ConnectedProjectContext value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext>, "key");
-  flush();
-  const field = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
-  await waitFor(() => expect(document.activeElement).toBe(field));
-  expect(field.value).toBe("  earlier é 🪁  ");
-
-  if (capturedCaret) expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([2, 7, "backward"]);
-
-  fireEvent.select(field);
-  flush();
-  fireEvent.blur(field);
-  flush();
-  connected.drawer.close("key");
-  flush();
-  expect(connected.drafts.list()).toEqual(retained);
-  expect(app.calls).toEqual(calls);
-  connected.drawer.open(() => <ConnectedProjectContext value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext>, "key");
-  flush();
-  const editing = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
-  await waitFor(() => expect(document.activeElement).toBe(editing));
-  const b = retained.at(-1)!;
-  editing.setSelectionRange(3, 5, "forward");
-  fireEvent.select(editing);
-  flush();
-  expect(connected.drafts.list()).toContainEqual(b);
-  fireEvent.input(editing, { target: { value: "edited A 🌱" } });
-  flush();
-  connected.drawer.close("key");
-  flush();
-  const { draftStorage } = await import("../state/storage");
-  await waitFor(() => expect(draftStorage(connected.project.path).list().some(draft => draft.value.name === editing.value)).toBe(true));
-  const durable = draftStorage(connected.project.path).list();
-  expect(durable).toContainEqual(b);
-  expect(durable.some(draft => draft.value.name === "edited A 🌱")).toBe(true);
-  expect(app.calls).toEqual(calls);
-});
 
 // U3735 replaces the mixed owner/creation observer: Home, refusal and focus remain.
 it.each(["create", "move"])("u3735_failed_create_or_move_preserves_name_%s", async step => {

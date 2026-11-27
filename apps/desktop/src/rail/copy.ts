@@ -7,8 +7,6 @@ const work = "Work";
 
 const railDraftLabels = new Map([["rail-task", work], ["rail-name", sharedCopy.name]]);
 
-const railDraftStatuses = new Map([["draft", sharedCopy.draftStatus.draft], ["pending", "Submitting…"], ["unknown", "Unconfirmed"], ["failed", "Unsent"]]);
-
 const dash = "—";
 
 const removalPlurals = new Intl.PluralRules("en");
@@ -43,20 +41,12 @@ export const copy = {
   time: (at: number) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
-  railDraftTaskAction: (send: boolean) => send ? sharedCopy.send : "Start Agent",
-  railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Your unfinished work remains; reopening does not retry it. Review the target before creating another request.`,
-  railDraftBase: (name: string) => `Original name: ${name}`,
-  railDraftDestination: sharedCopy.dotted,
-  railDrafts: sharedCopy.unfinishedWork,
+  railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Your text stays in its field; reopening does not retry it. Review the target before creating another request.`,
   railDraftConflict: sharedCopy.railDraftConflict,
-  railDraftUnavailable: "The original target is unavailable. Copy or discard your unfinished work.",
-  railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? sharedCopy.unfinishedWork} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
+  railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? sharedCopy.draftSurface(surface)} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
+  railDraftUnavailable: "The original target is unavailable. Your text stays in its field.",
   railDraftRetry: "Retry storage",
-  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Input"} · ${object} · ${railDraftStatuses.get(status) ?? sharedCopy.draftStatus.draft}`,
-  railDraftMissingTarget: sharedCopy.railDraftMissingTarget,
-  railDraftRecovered: sharedCopy.unfinishedWork,
-  railDraftCopy: sharedCopy.copy,
-  railDraftDiscard: sharedCopy.discardRevision,
+  railDraftMissingTarget: "Unavailable target",
   deliverables: sharedCopy.deliverables,
   dismissError: "Dismiss error",
   markDone: "Mark done",
@@ -190,7 +180,7 @@ export const copy = {
   modePromptMenu: sharedCopy.modePromptMenu,
   modePromptFor: (name: string) => `First prompt · ${name}`,
   modePromptPlaceholder: "Your first prompt",
-  modePromptConflict: "The saved first prompt changed. Your unfinished work remains; saving replaces the saved prompt.",
+  modePromptConflict: "The saved first prompt changed. Your text stays in its field; saving replaces the saved prompt.",
   modePromptHint: "Sent as the first message each time you restart this Mode.",
   changeReopened: sharedCopy.changeReopened,
   todo: sharedCopy.todo,

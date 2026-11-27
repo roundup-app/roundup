@@ -186,18 +186,18 @@ export const findPadRow = async (name: string) => {
   return find()!;
 };
 
-type Recovery = { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[]; revision: string };
+type Direct = { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[] };
 
 /** Resolves with what an opened Pad shows: its walk, or its editor. */
 export const padShown = () => waitFor(() => document.querySelector<HTMLElement>("[data-walk]") ?? screen.queryByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' }) ?? Promise.reject(new Error("no Pad shown")), { timeout: 5000 });
 
 /** PW11: opens a Pad's Drawer as the user finds it, the walk of a Pad with text, the editor of an empty or kept-draft Pad; resolves with what shows. */
-export const openWalk = async (name: string, recovery?: Recovery) => {
+export const openWalk = async (name: string, direct?: Direct) => {
   trackEditors();
 
-  if (recovery) {
-    const { connected, pads, revision } = recovery;
-    connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
+  if (direct) {
+    const { connected, pads } = direct;
+    connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={name} pads={() => pads} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
   } else {
     const row = await findPadRow(name);
 
@@ -221,8 +221,8 @@ export const pressEdit = async () => fireEvent.click(await screen.findByRole("bu
 export const editShown = async () => { if ((await padShown()).matches("[data-walk]")) await pressEdit(); };
 
 /** Opens a Pad's Drawer, presses Edit when a walk shows, and returns its scroll root with textarea-shaped `value` accessors over the document, so a test can type `fireEvent.input(field, { target: { value } })` and read what the Pad holds. */
-export const openPad = async (name: string, recovery?: Recovery) => {
-  await openWalk(name, recovery);
+export const openPad = async (name: string, direct?: Direct) => {
+  await openWalk(name, direct);
   await editShown();
 
   const surface = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' }, { timeout: 5000 });

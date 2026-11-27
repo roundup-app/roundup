@@ -16,7 +16,7 @@ import { copy } from "./copy";
 import { causeOf, createRemoteMain } from "./remote";
 import { RemoteChip } from "./RemoteChip";
 import { loadReader } from "./chunks";
-import { notesFor, unfinishedItems, type Notes } from "./notes";
+import { notesFor, type Notes } from "./notes";
 import { flowListed, itemNotes, outdatedItem, paneTarget } from "./itemNotes";
 import type { ScrollKeys } from "./ModuleScroll";
 import { createOpenAt } from "./editor";
@@ -544,7 +544,7 @@ const Surface = (props: { id: string; name: string }) => {
           <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set([...notes.unfinished(props.id).map(form => form.comparison.newPath), ...unfinishedItems(notes, props.id).filter(form => form.item.kind === "file").map(form => form.item.name)])} unfinishedItems={new Set(unfinishedItems(notes, props.id).filter(form => form.item.kind !== "file").map(form => form.item.name))} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
       </div>

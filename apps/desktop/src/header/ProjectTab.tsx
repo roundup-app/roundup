@@ -1,5 +1,5 @@
 import { dismissable } from "../ink/recovery";
-import { DialogFailure, StatusNote } from "../ink/MountedLine";
+import { createMessageToast } from "../ink/messageToast";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
@@ -11,7 +11,6 @@ import { FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
 import { Tip } from "../ui/Tip";
-import { NameDraftRecovery } from "../drawer/NameDraftRecovery";
 import type { SortableParts } from "../ui/sortable";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import type { MenuEntry } from "../ui/contextMenu";
@@ -47,7 +46,7 @@ const asApplied = (renamed: Renamed): Applied<Renamed> => {
 };
 
 /** Enter or a click elsewhere sends the new name through the draft owner's own send, so a recovered name goes too; with no owner it is sent directly. */
-const sendRename = async (draft: Field | undefined, rename: () => ReturnType<ProjectsState["rename"]>, acknowledged: (renamed: Renamed) => void, skipped: () => void) => {
+const sendRename = async (draft: Field | undefined, rename: () => ReturnType<ProjectsState["rename"]>, acknowledged: (renamed: Renamed) => void) => {
   if (!draft) {
     void rename().then(acknowledged);
 
@@ -57,12 +56,11 @@ const sendRename = async (draft: Field | undefined, rename: () => ReturnType<Pro
   draft.save();
   const sent = await draft.send(() => rename().then(asApplied));
 
-  if (sent.kind === "skipped") skipped();
-  else if (sent.kind === "applied") acknowledged(sent.result);
+  if (sent.kind === "applied") acknowledged(sent.result);
 };
 
 /** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
-const RenameField = (props: { name: string; restored: "none" | "current" | "selected"; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
+const RenameField = (props: { name: string; restored: "none" | "current"; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
   let field: HTMLInputElement | undefined;
   let finished = false;
   let changed = false;
@@ -99,7 +97,7 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
         return;
       }
 
-      finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false);
+      finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "current" && !changed) ? null : field?.value ?? "", false);
     }} />;
 };
 
@@ -119,14 +117,9 @@ const closeOnKey = (close: () => void) => (press: KeyboardEvent) => {
   }
 };
 
-/** A selected revision reopens in its own Project once it is no longer pending. Older shared recovery records had no captured base: they stay copy/discard-only. */
-const reopensSelected = (ownProject: boolean, retained: { status: string } | undefined, value: { base?: string | undefined } | null): boolean =>
-  ownProject && retained !== undefined && retained.status !== "pending" && value !== null && value.base !== undefined;
-
-/** U2694a: the Project tab's system menu; Recover drafts shows only when there is work to recover. */
-const tabMenu = (tab: { edit: () => void; recoverable: boolean; recover: () => void; alerts: ProjectAlerts; onAlerts: (level: ProjectAlerts) => void; close: () => void; closing: BulkCloses | undefined }): MenuEntry[] => [
+/** U2694a: the Project tab's system menu. */
+const tabMenu = (tab: { edit: () => void; alerts: ProjectAlerts; onAlerts: (level: ProjectAlerts) => void; close: () => void; closing: BulkCloses | undefined }): MenuEntry[] => [
   { id: "rename", label: copy.rename, shortcut: "F2", run: tab.edit },
-  ...(tab.recoverable ? [{ id: "recover", label: copy.recoverDrafts, run: tab.recover }] : []),
   { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: tab.alerts === level, run: () => tab.onAlerts(level) })) },
   { id: "close", label: copy.close, run: tab.close },
   ...bulkCloseItems(tab.closing),
@@ -144,7 +137,6 @@ export const ProjectTab = (props: {
   /** Opens only this Project's retained revision with its captured base; absent/foreign,
    * pending and legacy records stay copy/discard-only. Opening never sends or reads.
    */
-  recovery?: { project: string; revision: string } | undefined;
   onMark: () => void;
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
@@ -166,16 +158,6 @@ export const ProjectTab = (props: {
   createEffect(createMemo(() => editing() !== null), open => open && drafts ? drafts.editor(destination) : undefined);
   const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path && draft.destination.recipient === null) ?? []);
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
-  const [recovering, recover] = createSignal(false);
-  const [copyFailure, failCopy] = createSignal<{ project: string; revision: string | null; message: string } | null>(null);
-  createEffect(
-    () => {
-      const failure = copyFailure();
-
-      return !!failure && (failure.project !== props.tab.path || (failure.revision !== null && !records().some(draft => draft.revision === failure.revision)));
-    },
-    stale => { if (stale) failCopy(null); },
-  );
 
   const problem = createMemo(() => {
     const failure = drafts?.problem();
@@ -189,13 +171,16 @@ export const ProjectTab = (props: {
     return failure ? copy.draftRetention(props.tab.name, copy.projectName, failure.cause) : null;
   });
 
-  let panel: HTMLDivElement | undefined;
-  registerKeys({ kind: "layer", element: () => panel, active: recovering, modal: true }, []);
+  createMessageToast({
+    get message() { return retention.message(); },
+    dismiss: retention.dismiss,
+    recover: { run: () => drafts?.retry(), label: copy.storageRetry },
+  });
 
   let base: string | undefined;
   let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
   let initialName = "";
-  let restored: "none" | "current" | "selected" = "none";
+  let restored: "none" | "current" = "none";
 
   const capture = (draft: Field | undefined, field: HTMLInputElement) => {
     const selection = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
@@ -215,22 +200,18 @@ export const ProjectTab = (props: {
     return (element: HTMLButtonElement) => { button = element; props.sort?.handleRef(element); };
   };
 
-  const edit = (selected?: { project: string; revision: string }) => {
-    const retained = selected ? records().find(draft => draft.revision === selected.revision)
-      : current() ?? records().filter(draft => draft.status === "failed").at(-1);
+  const edit = () => {
+    const retained = current() ?? records().filter(draft => draft.status === "failed").at(-1);
 
     const parsed = retained && v.safeParse(schema, retained.value);
     const value = parsed && parsed.success ? parsed.output : null;
 
-    if (selected && !reopensSelected(selected.project === props.tab.path, retained, value)) return;
     base = value ? value.base : props.tab.base;
     initialName = value?.name ?? props.tab.name;
-    restored = selected ? "selected" : value ? "current" : "none";
+    restored = value ? "current" : "none";
     restoredSelection = value ? retained!.selection : null;
     setEditing({ width: wrap?.offsetWidth ?? 0, from: retained && value ? { revision: retained.revision } : undefined });
   };
-
-  createEffect(() => props.recovery, selected => { if (selected) untrack(() => edit(selected)); });
 
   registerKeys({ kind: "region", element: () => wrap }, [
     { action: CHORDS["rail.rename"], when: press => press.target === button,
@@ -250,23 +231,11 @@ export const ProjectTab = (props: {
       button?.focus();
     }
 
-    if (saved !== null && base === undefined) {
-      recover(true);
-
-      return;
-    }
-
-    if (saved !== null) {
-      const failure = copyFailure();
+    if (saved !== null && base !== undefined) {
       const expected = base;
       const onRename = props.onRename;
-      const rename = () => onRename(saved, expected);
 
-      const acknowledged = (renamed: Renamed) => {
-        if (renamed.status === "acknowledged" && copyFailure() === failure) failCopy(null);
-      };
-
-      await sendRename(draft, rename, acknowledged, () => recover(true));
+      await sendRename(draft, () => onRename(saved, expected), () => {});
     }
   };
 
@@ -280,7 +249,7 @@ export const ProjectTab = (props: {
         const app = props.app;
 
         // The menu shows the tab as it is when the press is released.
-        if (app) openOnRelease(press, (x, y) => void contextMenu(app, untrack(() => tabMenu({ edit, recoverable: !!(records().length || problem() || copyFailure()), recover: () => recover(true), alerts: props.alerts, onAlerts: props.onAlerts, close: props.onClose, closing: props.closing })), x, y));
+        if (app) openOnRelease(press, (x, y) => void contextMenu(app, untrack(() => tabMenu({ edit, alerts: props.alerts, onAlerts: props.onAlerts, close: props.onClose, closing: props.closing })), x, y));
       }}>
       <Show when={editing() === null} fallback={<Show when={editing()} keyed>{session => {
         const draft = drafts && createDraftField(drafts, destination, schema, session.from);
@@ -288,7 +257,7 @@ export const ProjectTab = (props: {
         return <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={field => capture(draft, field)} onDone={(saved, refocus) => finishRename(draft, saved, refocus)} />;
       }}</Show>}>
         <Tabs.Trigger value={props.tab.path} class="tab-name-button"
-          aria-description={[records().length || problem() || copyFailure() ? copy.unfinishedWork : "", ...(mark() ? props.tab.causes.map(cause => cause.text) : [])].filter(Boolean).join(copy.comma) || undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy ? "true" : "false"} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
+          aria-description={mark() ? props.tab.causes.map(cause => cause.text).join(copy.comma) || undefined : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy ? "true" : "false"} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
           onKeyDown={closeOnKey(() => props.onClose())}
           ref={dragHandleRef()}
           onClick={(click) => {
@@ -305,18 +274,5 @@ export const ProjectTab = (props: {
         </div>
       </Show>
     </FlatTab>
-    <NameDraftRecovery class="header-recovery" open={recovering()} onOpenChange={recover} finalFocusEl={() => button ?? null} panel={element => { panel = element; }}
-      identity={props.tab.name} records={records()} current={current()} app={props.app!}
-      lines={<>
-        <DialogFailure message={copyFailure()?.message} dismiss={() => failCopy(null)} />
-        <DialogFailure message={retention.message()} dismiss={retention.dismiss} recover={{ run: () => drafts?.retry(), label: copy.storageRetry }} />
-      </>}
-      label={(draft, index, isCurrent) => copy.draftIdentity(isCurrent ? copy.currentDraft : copy.draftStatus[draft.status], String(index + 1))}
-      solo={(draft, isCurrent) => <StatusNote label={copy.draftStatus[draft.status]} text={isCurrent ? copy.currentDraft : copy.draftStatus[draft.status]} />}
-      notice={draft => <StatusNote text={draft.value.base !== props.tab.base ? copy.railDraftConflict : null} />}
-      value={draft => String(draft.value.name ?? "")}
-      onCopySuccess={() => failCopy(null)}
-      onCopyFailure={(draft, error) => failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error.message) })}
-      onDiscard={draft => { drafts?.discard(draft.revision); setEditing(null); }} />
   </>;
 };

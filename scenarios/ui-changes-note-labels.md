@@ -4,7 +4,7 @@ Module: `apps/desktop/src/changes/` (`NoteForm.tsx`, `NoteBatch.tsx`, `notes.ts`
 
 **Precedence.** A design check (the critic, a D-check) that reads a decision here as a defect changes how it is drawn, never the decision. When both cannot hold, `ask` (`flag:needs-user`).
 
-**Words.** The quoted words below are asserted through `copy.ts`, never layout or looks (rule 10). The App writes "Unfinished work", the user label of Draft (`GLOSSARY.md`). A label's data value is its word in lower case: `question`, `nit`, `issue`.
+**Words.** The quoted words below are asserted through `copy.ts`, never layout or looks (rule 10). A label's data value is its word in lower case: `question`, `nit`, `issue`.
 
 **U7690a a note can carry one label.** Given the composer (U7677d) and the fake App, then:
 - **Choose.** After the note's text the composer offers a group named Label of three toggle buttons, "Question", "Nit" and "Issue", reachable by Tab; none is pressed at first. Pressing one presses it and releases any other, and pressing the pressed one clears it. The set is these three; the user cannot edit it. Edit opens the composer with the note's label pressed. Asserted in `u7690a_the_composer_sets_and_clears_one_label`.

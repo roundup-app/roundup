@@ -8,7 +8,7 @@ const running = "Running";
 
 const failed = "Failed";
 
-const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
+const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
 
 /** The time of day a line names, as 24-hour hours and minutes whatever the locale. */
 export const clockTime = new Intl.DateTimeFormat("en-GB", {
@@ -21,7 +21,7 @@ const noCi = "No CI";
 
 export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": word.newMode, "opening-prompt": word.firstPrompt, "row-name": word.name, rail: "Project item", agent: word.agent, workstream: word.workstream, terminal: word.terminal, orders: "Order", pads: word.pad, todos: word.todo, thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: word.ask, header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" }));
 
-export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Another window has changed stored unfinished work." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
+export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save typed text for reload." : cause === "capacity" ? "Storage for typed text is full." : cause === "changed" ? "Another window has changed stored typed text." : cause === "unreadable" ? "Could not read stored typed text." : "Could not restore stored typed text."} Stored data has been preserved.`;
 
 export type CopyValue = string | number | undefined;
 
@@ -66,8 +66,7 @@ export const copy = {
   diff: "Diff",
   typescript: "TypeScript",
   closeView: (name: string) => `Close ${name}`,
-  railDraftConflict: "The original name has changed. Your unfinished work remains. Copy it or discard it before renaming again.",
-  railDraftMissingTarget: "Unavailable target",
+  railDraftConflict: "The original name has changed. Your text stays in its field. Copy it or discard it before renaming again.",
   settings: "Settings",
   settingsForward: "Forward →",
   deliverables: "Made",
@@ -81,17 +80,11 @@ export const copy = {
   dismissFailure: dismiss,
   dismissedFailure: (label: string) => `Dismissed: ${label}`,
   retryStorage: "Try again",
-  draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? word.unfinishedWork,
+  draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Input",
   draftField: (field: string) => ({ originalName: "Original name", document: "Editor document", editorSource: "Original editor source", editorCaret: "Editor selection context", source: "Source", base: "Original source", name: word.name, title: word.title, ask: word.ask, done: word.done, password: "Password", body: word.text, text: word.text, content: word.text, limits: "Limits" })[field] ?? "Stored value",
   draftIdentity: (...parts: string[]) => parts.join(" · "),
-  recoverDrafts: "Recover unfinished work",
-  riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? new Intl.RelativeTimeFormat("en-GB", { style: "short", numeric: "always" }).format(-minutes, "minute") : `${Math.floor(minutes / 60)} h ago`,
   openDraft: "Open",
-  unfinishedWork: word.unfinishedWork,
-  copyProjectName: "Copy name",
-  currentDraft: "Current",
   draftStatus: { draft: "Unsubmitted", pending: "Pending", failed, unknown: "Completion unknown" },
-  originalUnavailable: "Original object unavailable",
   storageRetry: "Retry storage only",
   discardRevision: "Discard",
   note: "Note",
@@ -141,7 +134,6 @@ export const copy = {
   captureATodo: "Capture a Todo",
   inboxEmpty: "Nothing needs you",
   save: "Save",
-  send: "Send",
   copied: word.copied,
   exportMd: "Export .md",
   delete: "Delete",

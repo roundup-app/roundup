@@ -1,13 +1,11 @@
 import { applied, applying, type Applied } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
-import * as v from "valibot";
 import { TodoHeader } from "./TodoHeader";
 import { TodoMeta } from "./TodoMeta";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { copy } from "./copy";
-import { BusyButton } from "../ui/BusyButton";
-import { createEffect, createMemo, createRoot, createSignal, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, onCleanup, Show } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
 import { MountedStatus, StatusNote } from "../ink/MountedLine";
@@ -19,7 +17,7 @@ import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField } from "../state/draftField";
 import { useTodoList } from "./todoList";
-import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema, sentFailure } from "./EditableText";
+import { EditableText, useTodoDraftFailure, todoDraftSchema, blockerSchema, sentFailure } from "./EditableText";
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import type { TodosState } from "./state";
 
@@ -31,8 +29,6 @@ type DrawerProps = {
   onNavigate?: (id: number) => void;
   onComment?: (focus: ReturnType<typeof captureFocus>) => void;
   todos: TodosState;
-  /** Recovery uses loaded original identities and never fetches or acknowledges History. */
-  recovery?: { project: string; revision: string };
 };
 
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. A body lives under one id: moving to another Todo remounts it, so nothing it holds outlives the Todo it was made for. */
@@ -52,34 +48,6 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const connected = useConnectedProject();
   const { app, drawer, drafts, project, events } = connected;
   drafts.validate("todos", todoDraftSchema);
-
-  // Read once as the body opens; the Drawer mounts a new body for another Todo.
-  const retained = untrack(() => props.recovery ? drafts.list().find(draft => draft.revision === props.recovery?.revision
-    && draft.destination.surface === "todos" && draft.destination.object === String(props.id)) : undefined);
-
-  const original = untrack(() => props.todos.byId().get(props.id));
-  const originalHome = untrack(() => original?.home);
-  const fieldForm = v.safeParse(formSchema, retained?.value);
-  const blockersForm = v.safeParse(blockerSchema, retained?.value);
-
-  const recovery = untrack(() => props.recovery);
-  const todos = untrack(() => ({ project: props.todos.project, loaded: props.todos.isLoaded() && props.todos.failure() === null }));
-
-  if (recovery && (recovery.project !== project.path || todos.project !== project.path || !todos.loaded
-    || !original || !retained || (retained.value.home !== undefined && retained.value.home !== originalHome) || !(fieldForm.success && (retained.destination.recipient === "title" || retained.destination.recipient === "body")
-      || blockersForm.success && retained.destination.recipient?.startsWith("blockers:")))) return null;
-
-  // A recovered blocker choice reopens its own revision; its Save is the only send.
-  const restored = blockersForm.success && retained ? createDraftField(drafts, retained.destination, blockerSchema, retained) : undefined;
-
-  const blockerForm = () => {
-    const parsed = restored?.value();
-
-    return parsed?.success ? parsed.output : undefined;
-  };
-
-  const titleRevision = () => retained?.destination.recipient === "title" ? retained.revision : undefined;
-  const bodyRevision = () => retained?.destination.recipient === "body" ? retained.revision : undefined;
 
   const [titleFailure, setTitleFailure] = createSignal<string | null>(null);
   let dismissTitle: (() => void) | undefined;
@@ -112,6 +80,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const keptText = () => drafts.list().some(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id));
 
   const [saved, setSaved] = createSignal(0);
+  useTodoDraftFailure(() => String(props.id), () => true, saved);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
 
   onCleanup(events.subscribe(event => {
@@ -127,17 +96,9 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     return message;
   };
 
-  const todo = () => {
-    const current = props.todos.byId().get(props.id);
+  const todo = () => props.todos.byId().get(props.id);
 
-    if (props.recovery && (current?.home !== originalHome)) return undefined;
-
-    const form = props.recovery ? blockerForm() : undefined;
-
-    return current && form ? { ...current, title: form.title, body: form.body, done: form.done, blockers: form.blockers.map(Number) } : current;
-  };
-
-  createEffect(createMemo(() => props.todos.isLoaded() && !todo() && !removedByMe() && !deleting() && !props.recovery && !keptText()), gone => {
+  createEffect(createMemo(() => props.todos.isLoaded() && !todo() && !removedByMe() && !deleting() && !keptText()), gone => {
     if (gone) drawer.close("key");
   });
 
@@ -168,14 +129,6 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     const base = target ?? blockerBase();
 
     if (!base) return;
-    const form = blockerForm();
-
-    if (props.recovery && restored && form) {
-      const blockers = action === "add" ? [...new Set([...form.blockers, String(blocker)])] : form.blockers.filter(id => id !== String(blocker));
-      restored.keep({ ...form, blockers }, restored.draft()?.selection ?? null);
-
-      return;
-    }
 
     const targetId = base.id;
     const capture = target ? undefined : captured();
@@ -251,28 +204,6 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     });
   };
 
-  const saveBlockers = async () => {
-    const form = blockerForm();
-    const status = restored?.draft()?.status;
-
-    if (!todo() || !restored || !form || !status) return;
-
-    if (form.expected_change === null) {
-      setFailure(copy.originalUnverified);
-
-      return;
-    }
-
-    const target = props.id;
-    const expected = form.expected_change;
-    restored.save();
-    const sent = await restored.send(() => applying(() => app.rpc("todo.setBlockers", { id: target, blockers: form.blockers.map(Number), expected_change: expected })));
-
-    if (sent.kind === "skipped") setFailure(copy.draftStatus[status]);
-    else if (sent.kind === "applied") { setAnswered(sent.result); clearFailure(); }
-    else setFailure(sentFailure(sent));
-  };
-
   const remove = () => {
     if (deleting()) return;
 
@@ -328,7 +259,6 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
                     captured={captured}
                     saved={saved}
                     onSaved={clearFailure}
-                    revision={titleRevision()}
                     onFailure={(message, dismiss) => { setTitleFailure(message); dismissTitle = dismiss; }}
                     name="title"
                     multiline={false}
@@ -344,19 +274,16 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
                   captured={captured}
                   saved={saved}
                   onSaved={clearFailure}
-                  revision={bodyRevision()}
                   name="body" multiline
                   commit={async (body, expected_change) => { await applied(() => app.rpc("todo.update", { id: props.id, title: null, body, expected_change })); }}
                   latest={() => app.rpc("todo.getHistory", { id: props.id }).then(history => history.changes.at(-1)?.seq ?? null)}
                 />
                 </div>
-                <Show when={!props.recovery}><TodoPr id={props.id} pr={(props.todos.byId().get(props.id) ?? current()).pr} done={(props.todos.byId().get(props.id) ?? current()).done} onSaved={clearFailure} /><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
-                <Show when={blockerForm()}><p><BusyButton kind="quiet" class="word" busyLabel={copy.saving} onClick={() => saveBlockers()}>{copy.save}</BusyButton></p></Show>
-                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} onCapture={setCaptured} /></Show>
+                <TodoPr id={props.id} pr={(props.todos.byId().get(props.id) ?? current()).pr} done={(props.todos.byId().get(props.id) ?? current()).done} onSaved={clearFailure} /><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} />
+                <TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} onCapture={setCaptured} />
               </>
             )}
           </Show>
-      <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
       </div>
 
 

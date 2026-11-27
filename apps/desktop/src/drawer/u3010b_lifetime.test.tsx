@@ -1,9 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { createSignal, flush } from "solid-js";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
-import { mountApp } from "../testing/appFixture";
 import { notices } from "../testing/notices";
-import { openRecovery } from "../testing/recovery";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { ItemDrawer } from "./ItemDrawer";
@@ -12,63 +10,6 @@ import { ToastHost } from "../testing/toastHost";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-});
-
-it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other-discard", "other-save", "failed", "retention"] as const)("p3557c_failure_lifetime_draft_recovery_%s", async action => {
-  localStorage.clear();
-  const { app, drafts } = await mountApp();
-  const store = drafts("/p");
-  const original = store.edit({ surface: "terminal_selection", object: "original", recipient: "a" }, { note: "  original é\n雪  ", excerpt: "exact excerpt", source: "gone" }, null, "ordinary").draft;
-  const other = store.edit({ surface: "terminal_selection", object: "other", recipient: "b" }, { note: "  unrelated 🪁\n  ", source: "gone-too" }, null, "ordinary").draft;
-  flush();
-  const retained = store.list();
-  const clipboard = vi.fn().mockRejectedValue(new Error("clipboard refused"));
-  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
-  await openRecovery();
-  const panel = await screen.findByLabelText("Unfinished work");
-  const row = panel.querySelector<HTMLElement>(`[data-revision="${original.revision}"]`)!;
-  fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
-  await screen.findByText(/clipboard refused/);
-
-  if (action === "dismiss" || action === "retention") {
-    if (action === "retention") {
-      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-      await store.retry();
-      flush();
-      // The storage failure is a toast too (U7314g), so three cards stack and only the front one is in the accessibility tree.
-      expect(notices("alert")).toHaveLength(1);
-    }
-
-    // The older card sits folded behind the newer one, out of the accessibility tree.
-    fireEvent.click(screen.getByText(/clipboard refused/).closest<HTMLElement>(".message-body")!.querySelector("[data-dismiss-failure]")!);
-  } else if (action === "discard") {
-    fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
-  } else if (action === "acknowledged" || action === "failed") {
-    store.submit(original.revision);
-    store.settle(original.revision, action);
-  } else if (action === "other-discard") {
-    store.discard(other.revision);
-  } else if (action === "other-save") {
-    store.submit(other.revision);
-    store.settle(other.revision, "acknowledged");
-  } else {
-    clipboard.mockResolvedValue(undefined);
-    const copied = action === "same-copy" ? original : other;
-    fireEvent.click(within(panel.querySelector<HTMLElement>(`[data-revision="${copied.revision}"]`)!).getByRole("button", { name: "Copy" }));
-    await waitFor(() => expect(clipboard).toHaveBeenCalledTimes(2));
-  }
-
-  flush();
-  expect(Boolean(screen.queryByText(/clipboard refused/))).toBe(["other-copy", "other-discard", "other-save", "failed"].includes(action));
-  expect(store.list().find(draft => draft.revision === other.revision)).toEqual(action === "other-discard" || action === "other-save" ? undefined : other);
-
-  if (action === "discard" || action === "acknowledged") expect(store.list()).toEqual([other]);
-  else if (action === "other-discard" || action === "other-save") expect(store.list()).toEqual([original]);
-  else if (action !== "failed") expect(store.list()).toEqual(retained);
-  else expect(store.list().find(draft => draft.revision === original.revision)).toEqual({ ...original, status: "failed" });
-
-  if (action === "retention") expect(store.problem()).toMatchObject({ operation: "retain", cause: "write" });
-  expect(clipboard.mock.calls[0]).toEqual(["  original é\n雪  \nexact excerpt"]);
 });
 
 it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map(action => ({ failure, action }))))("p3557c_failure_lifetime_item_drawer_$failure_$action", async ({ failure, action }) => {

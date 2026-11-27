@@ -18,7 +18,6 @@ import { outdatedItem } from "./itemNotes";
 import { notesFor } from "./notes";
 import type { ItemNote } from "./notes";
 import {
-  marked,
   noteList,
   openBatch,
   openChanges,
@@ -245,7 +244,7 @@ it("u7691a_the_form_has_a_label_and_no_lines_or_replacement", async () => {
   expect(state()).toBe("unsent");
 });
 
-it("u7691a_esc_keeps_typed_text_as_unfinished_work_and_a_restart_restores_it", async () => {
+it("u7691a_esc_keeps_typed_text_and_a_restart_restores_it", async () => {
   const project = fresh();
   const first = await open(project);
 
@@ -256,7 +255,7 @@ it("u7691a_esc_keeps_typed_text_as_unfinished_work_and_a_restart_restores_it", a
   );
   press("Escape", typed("module"));
   await waitFor(() => expect(anyForm()).toBeNull());
-  expect(marked()).toContain("module:m:a");
+  expect(screen.queryByLabelText(/Unfinished work/)).toBeNull();
   first.view.unmount();
   await open(project);
   await noteRow(moduleRow("a"), "module");

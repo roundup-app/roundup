@@ -57,26 +57,6 @@ p.todo-comment-body { white-space: pre-wrap; }
 
 .todo-dependencies { display: flex; flex-direction: column; gap: var(--space-2); }
 
-.todo-draft-recovery {
-  display: contents;
-}
-.todo-draft-revision {
-  display: flex;
-  font-size: var(--text-small);
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  column-gap: var(--space-4);
-  row-gap: var(--space-3);
-}
-.todo-draft-actions {
-  display: flex;
-  flex-shrink: 0;
-  white-space: nowrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
 .todo-editable {
   position: relative;
   display: flex;
@@ -92,11 +72,6 @@ p.todo-comment-body { white-space: pre-wrap; }
   font-size: var(--text-body);
   font-weight: 400;
 }
-
-.todo-draft-recovery { font-size: var(--text-body); font-weight: 400; }
-.todo-draft-label { flex-basis: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.todo-draft-actions button { font-size: inherit; }
 
 /* U4698d, U7310a: the header and the scroller span the Drawer, so the scrollbar runs along its edge; document rows sit in one column at `--reading-width`, and nothing scrolls sideways. */
 .drawer:has(.todo-header) { padding: 0; overflow: hidden; }
@@ -134,8 +109,6 @@ p.todo-comment-body { white-space: pre-wrap; }
 .todo-meta svg { flex: none; }
 .todo-meta-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-detail-body { line-height: var(--line); }
-/* U7310a: a kept draft's row follows the document, in its reading column. */
-.todo-draft-recovery[data-in-drawer] .todo-draft-line { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); align-self: center; }
 /* U3787h: the restore-pending status wraps in the column and shows only while it holds (U7310d). */
 .todo-detail .todo-delete-feedback { flex-shrink: 0; }
 .todo-delete-feedback { white-space: normal; }

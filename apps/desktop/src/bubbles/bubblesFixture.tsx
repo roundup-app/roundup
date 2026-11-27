@@ -50,7 +50,6 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 
   arrange?.(app);
 
-  const [recovery, recover] = createSignal<{ project: string; revision: string }>();
   const [exit, setExit] = createSignal<{ code: number | null } | null>(null);
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0, exit);
   connected.showView("terminal-tabs");
@@ -90,7 +89,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
         <div class="rail-row" tabindex="0">row</div>
         <div class="centre-stack">
           <Pane createEmulator={unfocused} screensRef={setScreens} />
-          <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
+          <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
           <Show when={hasHost()}><ResourceStrip /></Show>
         </div>
       </ConnectedProjectContext></ToastHost></DisplayClockContext>
@@ -105,7 +104,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
       && !app.outputSubscriptions.some(subscription => subscription.id === bubble.dataset.bubble))) throw new Error("Terminal output subscriptions not attached");
   });
 
-  return { app, connected, emulators, setExit, recover, setHostPresent, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
+  return { app, connected, emulators, setExit, setHostPresent, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
 };
 
 export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: Element | Window = window): KeyboardEvent => {

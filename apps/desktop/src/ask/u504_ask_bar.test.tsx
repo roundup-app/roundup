@@ -271,17 +271,6 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   const reopened = await mountAskBar([], null, undefined, false, path);
   expect(input()!.value).toBe("  B e\u0301\n ");
   expect(sent(reopened.app)).toEqual([]);
-  const older = reopened.connected.drafts.list().find(draft => draft.status !== "draft");
-
-  if (older) {
-    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path}`)!).drafts).toHaveLength(1));
-  }
-
-  reopened.unmount();
-  const again = await mountAskBar([], null, undefined, false, path);
-  expect(again.connected.drafts.list().map(draft => draft.value.text)).toEqual(["  B e\u0301\n "]);
 });
 
 it("u2773b_ask_checks_unknown_acceptance_without_resending", async () => {
@@ -377,44 +366,16 @@ it("u2773b_unknown_asks_have_individual_status_checks", async () => {
 });
 
 
-it("u2773e_recovery_actions_keep_surface_draft", async () => {
+it("u2773e_a_full_store_keeps_the_typed_text_in_the_field", async () => {
   const mounted = await mountAskBar();
   const exact = "  memory e\u0301 🌿\nlast line  ";
-  const clipboard = vi.fn().mockResolvedValue(undefined);
-  vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(clipboard);
-  const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
 
   try {
     type(exact);
-    expect(input()!.value).toBe(exact);
     await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
-    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    await screen.findByRole("button", { name: "Open" });
-    expect(clipboard).not.toHaveBeenCalled();
     expect(input()!.value).toBe(exact);
-    writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(notices("alert")).toHaveLength(0));
     expect(sent(mounted.app)).toEqual([]);
-    const path = mounted.connected.project.path;
-    mounted.unmount();
-    const reopened = await mountAskBar([], null, undefined, false, path);
-    expect(input()!.value).toBe(exact);
-    // Leaving the Ask bar with its text unsent lists it (U3289a).
-    press("Escape", {}, input()!);
-    reopened.connected.showView(null);
-    reopened.connected.rail.select("ann");
-    flush();
-    expect(reopened.connected.drafts.recoverable().map(draft => draft.value.text)).toEqual([exact]);
-    reopened.connected.showView(null);
-    reopened.connected.rail.select(null);
-    flush();
-    await reopen();
-    expect(input()!.value).toBe(exact);
-    expect(sent(reopened.app)).toEqual([]);
-    reopened.unmount();
-    await mountAskBar([], null, undefined, false, path);
-    expect(input()!.value).toBe(exact);
   } finally {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -444,208 +405,6 @@ it("u2773b_ask_out_of_order_replies_keep_newest_work", async () => {
   expect(sent(app)).toHaveLength(2);
 });
 
-
-it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_ask_%s", async outcome => {
-  const mounted = await mountClosed();
-  const { app, connected, setRecovery } = mounted;
-  const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  const exact = "@ops  e\u0301 🌿\n次の行  ";
-  const selection = { start: 2, end: 8, direction: "backward" as const };
-  const a = connected.drafts.edit(destination, { text: exact, workstream: "ops", name: "ops" }, selection, "ordinary").draft;
-  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
-  const b = connected.drafts.edit(destination, { text: "  newer B 🌱\n ", workstream: null, name: null }, { start: 3, end: 7, direction: "forward" }, "ordinary").draft;
-  connected.showView(null);
-  connected.rail.select("ann");
-  flush();
-  const before = connected.drafts.list();
-  const calls = [...app.calls];
-
-  setRecovery({ project: connected.project.path, revision: a.revision });
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual([exact, 2, 8, "backward"]);
-  input()!.focus(); fireEvent.blur(input()!);
-  press("Escape", {}, input()!);
-  expect(connected.drafts.list()).toEqual(before);
-  expect(app.calls).toEqual(calls);
-  press("/", { metaKey: true }, document.querySelector(".outside")!);
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["  newer B 🌱\n ", 3, 7, "forward"]);
-  expect(connected.drafts.list().find(draft => draft.revision === b.revision)).toEqual(b);
-  expect(app.calls).toEqual(calls);
-});
-
-
-it.each(["failed", "unknown"] as const)("u3021c_ask_editing_selected_work_preserves_current_%s", async outcome => {
-  const mounted = await mountAskBar();
-  const { app, connected, setRecovery } = mounted;
-
-  type("@ops A e\u0301 🌿\nexact  ");
-  input()!.setSelectionRange(2, 8, "backward"); fireEvent.select(input()!); flush();
-  const a = connected.drafts.list()[0]!;
-  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
-  expect(a.value).toMatchObject({ workstream: "ops", name: "ops" });
-  type("B current\n  ");
-  input()!.setSelectionRange(1, 4, "forward"); fireEvent.select(input()!); flush();
-  const b = connected.drafts.list().at(-1)!;
-  // Equal names do not replace the captured Workstream identity.
-  app.handlers["rail.tree"] = () => [workstream("ops", { name: "Renamed" }), workstream("replacement", { name: "ops" })];
-  app.emit(event({ name: "rail.changed" }));
-  await connected.rail.settled();
-  const calls = [...app.calls];
-  setRecovery({ project: connected.project.path, revision: a.revision });
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  expect(input()!.value).toBe("@ops A e\u0301 🌿\nexact  ");
-  type("@ops A e\u0301 🌿\nedited  ");
-  input()!.setSelectionRange(3, 9, "backward"); fireEvent.select(input()!); flush();
-  const edited = connected.drafts.list().at(-1)!;
-  expect(connected.drafts.list().find(draft => draft.revision === b.revision)).toEqual(b);
-  expect(app.calls).toEqual(calls);
-  press("Escape", {}, input()!);
-  await reopen();
-  expect(input()!.value).toBe("B current\n  ");
-  const path = connected.project.path;
-  await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path}`)!).drafts.some((draft: { revision: string; selection: unknown }) => draft.revision === edited.revision && JSON.stringify(draft.selection) === JSON.stringify(edited.selection))).toBe(true));
-  mounted.unmount();
-  const reopened = await mountClosed([], null, undefined, false, path);
-  await reopen();
-  expect(input()!.value).toBe("B current\n  ");
-  press("Escape", {}, input()!);
-  expect(reopened.connected.drafts.list()).toContainEqual(edited);
-  expect(edited.value).toMatchObject({ text: "@ops A e\u0301 🌿\nedited  ", workstream: "ops" });
-  reopened.setRecovery({ project: path, revision: edited.revision });
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["@ops A e\u0301 🌿\nedited  ", 3, 9, "backward"]);
-  let accept!: (value: Ask) => void;
-  reopened.app.handlers["ask.send"] = () => new Promise<Ask>(resolve => { accept = resolve; });
-  press("Enter", {}, input()!); press("Enter", { repeat: true }, input()!);
-  await waitFor(() => expect(sent(reopened.app)).toHaveLength(1));
-  expect(sent(reopened.app)).toEqual([{ text: "@ops A e\u0301 🌿\nedited  ", submission: edited.revision, workstream: "ops" }]);
-  accept(ask("accepted", 1, []));
-  await waitFor(() => expect(reopened.connected.drafts.list().some(draft => draft.revision === edited.revision)).toBe(false));
-  expect(reopened.connected.drafts.list().find(draft => draft.revision === b.revision)).toEqual(b);
-  expect(reopened.connected.drafts.list().find(draft => draft.revision === a.revision)).toEqual(a.status === "draft" ? { ...a, status: outcome } : a);
-});
-
-
-it.each(["project", "surface", "object", "recipient", "removed"] as const)("u3021c_ask_refuses_selected_%s_identity", async mismatch => {
-  const { app, connected, setRecovery } = await mountAskBar([], "ann");
-  const destination = { surface: mismatch === "surface" ? "orders" : "ask", object: mismatch === "object" ? "other" : "ask-bar", recipient: mismatch === "recipient" ? "other" : null };
-  const a = connected.drafts.edit(destination, { text: "@gone exact e\u0301 🌿\n ", workstream: mismatch === "removed" ? "gone" : null, name: "gone" }, null, "ordinary").draft;
-  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, "failed");
-  const before = connected.drafts.list();
-  const calls = [...app.calls];
-  setRecovery({ project: mismatch === "project" ? "/other-project" : connected.project.path, revision: a.revision });
-  // AskBar's prop effect and selection restoration run in Solid's effect/microtask turn.
-  await Promise.resolve();
-  expect(input()).toBeNull();
-  expect(connected.drafts.list()).toEqual(before);
-  expect(app.calls).toEqual(calls);
-});
-
-it("u3021c_ask_unknown_open_never_resubmits_before_explicit_reconciliation", async () => {
-  const { app, connected, setRecovery } = await mountAskBar();
-  app.handlers["ask.send"] = () => { throw new Error("reply lost"); };
-
-  type("A exact 🌿\n "); press("Enter", {}, input()!);
-  await screen.findByRole("button", { name: copy.askCheckAcceptanceLabel("A exact 🌿") });
-  const a = connected.drafts.list()[0]!;
-  type("B current");
-  const b = connected.drafts.list().at(-1)!;
-  setRecovery({ project: connected.project.path, revision: a.revision });
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  const calls = [...app.calls];
-  press("Enter", {}, input()!);
-  expect(input()!.value).toBe("A exact 🌿\n ");
-  expect(app.calls).toEqual(calls);
-  app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], "A exact 🌿\n "), submission: a.revision }];
-  fireEvent.click(screen.getByRole("button", { name: copy.askCheckAcceptanceLabel("A exact 🌿") }));
-  await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
-  press("Escape", {}, input()!);
-  await reopen();
-  expect(input()!.value).toBe("B current");
-  expect(sent(app)).toHaveLength(1);
-});
-
-it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
-  const mounted = await mountAskBar();
-  const { app, connected } = mounted;
-  const exact = "@removed  e\u0301 🌿\n次の行  ";
-  const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  const a = connected.drafts.edit(destination, { text: exact, workstream: "removed", name: "removed" }, null, "ordinary").draft;
-  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, "failed");
-  type("B current");
-  const b = connected.drafts.list().at(-1)!;
-  const clipboard = vi.fn().mockResolvedValue(undefined);
-  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
-
-  try {
-    connected.showView(null);
-    connected.rail.select("ann");
-    flush();
-    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    const copy = await screen.findByRole("button", { name: "Copy" });
-
-    fireEvent.click(copy);
-    expect(clipboard.mock.calls).toEqual([[exact]]);
-    fireEvent.click(within(copy.closest("li")!).getByRole("button", { name: "Discard" }));
-    flush();
-    expect(connected.drafts.list()).toEqual([b]);
-    const path = connected.project.path;
-    mounted.unmount();
-    const other = await mountAskBar(); type("other Project");
-    const otherPath = other.connected.project.path;
-    other.unmount();
-    const reopened = await mountAskBar([], null, undefined, false, path);
-    expect(reopened.connected.drafts.list()).toEqual([b]);
-    expect(sent(app)).toEqual([]);
-    reopened.unmount();
-    await mountAskBar([], null, undefined, false, otherPath);
-    expect(input()!.value).toBe("other Project");
-  } finally {
-    vi.unstubAllGlobals();
-  }
-});
-
-it("u3021c_ask_ordinary_edits_preserve_recovered_work_after_older_settlement", async () => {
-  const mounted = await mountAskBar();
-  const { connected, setRecovery } = mounted;
-  const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  const a = connected.drafts.edit(destination, { text: "A original", workstream: null, name: null }, null, "ordinary").draft;
-  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, "unknown");
-  type("B current");
-  setRecovery({ project: connected.project.path, revision: a.revision });
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  type("A recovered edit");
-  input()!.setSelectionRange(2, 5, "backward"); fireEvent.select(input()!); flush();
-  const edited = connected.drafts.list().at(-1)!;
-  press("Escape", {}, input()!);
-  await reopen();
-  type("B newer edit");
-  await connected.drafts.settle(a.revision, "acknowledged");
-  expect(input()!.value).toBe("B newer edit");
-  expect(connected.drafts.list()).toContainEqual(edited);
-  const path = connected.project.path;
-
-  mounted.unmount();
-  const reopened = await mountClosed([], null, undefined, false, path);
-  reopened.setRecovery({ project: path, revision: edited.revision });
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["A recovered edit", 2, 5, "backward"]);
-});
-
-it.each(["failed", "unknown"] as const)("u3021c_ask_opening_current_work_keeps_its_edits_current_%s", async outcome => {
-  const { connected, setRecovery } = await mountAskBar();
-
-  type("current A");
-  const a = connected.drafts.list()[0]!;
-  await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
-  setRecovery({ project: connected.project.path, revision: a.revision });
-  await waitFor(() => expect(document.activeElement).toBe(input()));
-  type("edited current A");
-  press("Escape", {}, input()!);
-  await reopen();
-  expect(input()!.value).toBe("edited current A");
-});
 
 const published = (revision: number): Deliverable => ({
   id: `publication-${revision}`, project: "project-original", maker: { kind: "agent", id: "gone", parent: null }, maker_name: "Review", home: null,

@@ -32,12 +32,6 @@ type Field = ReturnType<typeof createDraftField<any>>;
 
 type ListedDraft = ReturnType<ConnectedProject["drafts"]["list"]>[number];
 
-/** How a rename opens: on nothing, the current draft, a selected one, or a branch off either. */
-type Restored = "none" | "current" | "selected" | "branch";
-
-const restoredFor = (retained: ListedDraft | undefined, selecting: boolean, otherThanCurrent: boolean): Restored =>
-  retained?.value.recovery === true || (selecting && otherThanCurrent) ? "branch" : selecting ? "selected" : retained ? "current" : "none";
-
 const appliedOrRefused = (failure: string | null): Applied<null> =>
   failure === null ? { kind: "applied", value: null } : { kind: "refused", error: new Error(failure), thrown: failure };
 
@@ -60,10 +54,9 @@ const createFirstFocusSelection = (caret: () => ListedDraft["selection"]) => {
 
 /** Everything a Terminal tab reads from the Bubbles that owns it. */
 export type TabContext = {
-  props: { screens: Screens; recovery?: { project: string; revision: string } | undefined };
+  props: { screens: Screens };
   connected: ConnectedProject;
   schema: v.GenericSchema<any, any>;
-  path: string;
   drafts: ConnectedProject["drafts"];
   records: () => ReturnType<ConnectedProject["drafts"]["list"]>;
   editing: () => { id: string } | null;
@@ -72,7 +65,6 @@ export type TabContext = {
   nameFor: (terminal: TerminalInfo) => string;
   placeOf: (id: string) => { min: boolean };
   toggleMinimised: (id: string, wasMin?: boolean) => void;
-  openRecovery: (target?: () => HTMLElement | null | undefined) => void;
   readOnly: () => boolean;
   rename: (terminal: TerminalInfo, value: string) => string | null;
   setFailure: (value: { message: string; terminal: { id: string; incarnation: string } | null } | null) => void;
@@ -83,7 +75,9 @@ export type TabContext = {
 };
 
 export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
-  const { props, connected, schema, path, drafts, records, editing, setEditing, shown, nameFor, placeOf, toggleMinimised, openRecovery, readOnly, rename, setFailure, clearItemFailure, lastTarget, close, bubbleMenus } = tabProps.ctx;
+  // The context is built once by Bubbles and never replaced.
+  // oxlint-disable-next-line solid/reactivity
+  const { props, connected, schema, drafts, records, editing, setEditing, shown, nameFor, placeOf, toggleMinimised, readOnly, rename, setFailure, clearItemFailure, lastTarget, close, bubbleMenus } = tabProps.ctx;
   const { rail, app } = connected;
   const id = tabProps.id;
   const terminal = () => shown().find((candidate) => candidate.id === id)!;
@@ -94,44 +88,36 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   provideFocusTarget(`bubble.${id}.close`, () => closeButton);
   let destination = Object.freeze({ surface: "bubbles", object: untrack(() => terminal().incarnation), recipient: id });
   createEffect(createMemo(() => editing()?.id === id), editingHere => editingHere ? drafts.editor(destination) : undefined);
-  const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
+  const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft").at(-1);
   let base = "";
   let initial = "";
   let from: { revision: string } | undefined;
   let selection: ListedDraft["selection"] = null;
-  let restored: Restored = "none";
+  let restored: "none" | "current" = "none";
   const [changed, change] = createSignal(false);
   // One draft field per rename: a new session opens a new one over the retained revision it started from.
   /** Whether this rename holds a draft: it opened on a retained one, or the owner has typed. */
   const kept = () => restored !== "none" || changed();
 
-  const requiresConfirmation = () => restored === "selected" || restored === "branch";
-  const submitMode = () => requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both";
+  const submitMode = () => restored === "current" && !changed() ? "enter" : "both";
 
-  const start = (selected?: { project: string; revision: string }) => {
+  const retainedFor = (target: { object: string }) => current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
+
+  const names = (saved?: { name: string; base: string }) => ({ initial: saved?.name ?? name(), base: saved?.base ?? name() });
+  const origin = (retained?: ListedDraft) => ({ from: retained ? { revision: retained.revision } : undefined, selection: retained?.selection ?? null });
+
+  const start = () => {
     const target = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
-
-    const retained = selected ? records().find(draft => draft.revision === selected.revision)
-      : current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
-
+    const retained = retainedFor(target);
     const parsed = retained && v.safeParse(schema, retained.value);
+    const saved = parsed?.success ? parsed.output : undefined;
 
-    if (selected && (selected.project !== path || !retained || retained.status === "pending" || !parsed?.success
-      || retained.destination.object !== target.object || retained.destination.recipient !== id
-      || !terminal().running || readOnly())) return;
-
-    if (!terminal().running || readOnly() || (retained && !parsed?.success)) {
-      openRecovery();
-
-      return;
-    }
+    if (!terminal().running || readOnly() || (retained && !saved)) return;
 
     destination = target;
-    restored = restoredFor(retained, selected !== undefined, retained?.revision !== current()?.revision);
-    initial = parsed?.success ? parsed.output.name : name();
-    base = parsed?.success ? parsed.output.base : name();
-    from = retained ? { revision: retained.revision } : undefined;
-    selection = retained?.selection ?? null;
+    restored = retained ? "current" : "none";
+    ({ initial, base } = names(saved));
+    ({ from, selection } = origin(retained));
     change(false);
     setEditing({ id });
   };
@@ -146,25 +132,19 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
       return;
     }
 
-    // A selected edit is a separate recovery branch; the ordinary current draft stays current.
-    draft.keep(restored === "branch" ? { name: input.value, base, recovery: true } : { name: input.value, base }, caret);
+    draft.keep({ name: input.value, base }, caret);
   };
-
-  createEffect(createMemo(() => props.recovery), selected => { if (selected) untrack(() => start(selected)); });
 
   createEffect(createMemo(() => terminal().incarnation !== destination.object || !terminal().running || readOnly()), stale => {
     if (stale) setEditing(prior => prior?.id === id ? null : prior);
   });
 
-  /** Saves the name; the kept draft is sent with it, and a moved original opens recovery. */
+  /** Saves the name; the kept draft is sent with it. */
   const commit = async (draft: Field, value: string) => {
     const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
 
-    if (!live || readOnly() || base !== nameFor(live)) {
-      openRecovery(tab);
-
-      return;
-    }
+    // A moved original keeps the draft in the field it was typed in.
+    if (!live || readOnly() || base !== nameFor(live)) return;
 
     const renamed = async () => appliedOrRefused(rename(live, value));
 
@@ -179,7 +159,6 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
     }
 
     if (sent.kind === "refused") setFailure({ message: sent.error.message, terminal: live });
-    openRecovery(tab);
   };
 
   const now = useDisplayNow(() => terminal().status !== undefined);

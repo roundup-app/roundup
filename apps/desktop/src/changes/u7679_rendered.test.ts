@@ -137,8 +137,6 @@ it("u7679f_the_lenses_overview_and_find_are_captured_for_the_critic", async () =
     { name: "worst", run: async () => { await opened(WORST); await lens("Modules"); await shot("worst", entries); } },
     { name: "worst-unfolded", run: async () => { await opened(WORST); await lens("Modules"); await unfold(); await shot("worst-unfolded", "!!document.querySelector('.changes-side [data-row=\"file\"]')"); } },
     { name: "empty", run: async () => { await opened(NO_TESTS); await serve([]); await shot("empty", said("No changes against remote main")); } },
-    // Last: the unfinished note stays in the connection's drafts, so every later state would show its mark.
-    { name: "marked", run: async () => { await opened(FOURTEEN); await lens("Modules"); await browser("click", '.changes-side [data-row="module"]'); await until(READY); await read(FOCUS_DIFF); await browser("press", "n"); await until("!!document.querySelector('.note-form')"); await browser("find", "label", "Note", "fill", "Rename this once the callers agree."); await shot("marked", "!!document.querySelector('.changes-side [aria-label*=\"Unfinished work\"]')"); } },
   ];
 
   // Each lane is a session of its own: after `set viewport` this Chrome loads no further page in the session.

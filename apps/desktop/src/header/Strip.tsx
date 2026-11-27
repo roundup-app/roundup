@@ -334,7 +334,7 @@ const createOverflow = (props: { tabs: StripTab[]; active: string | null }) => {
 
       observer = new ResizeObserver((entries) => {
         // Edge slots resize the list while browsing hidden tabs; only a resized
-        // selected tab needs revealing again to keep its recovery action reachable.
+        // selected tab needs revealing again to stay in view.
         const active = props.active;
 
         if (

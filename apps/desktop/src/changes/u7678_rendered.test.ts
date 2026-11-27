@@ -138,16 +138,6 @@ it("u7678e_the_modules_are_captured_for_the_critic", async () => {
       await read(LIST_END);
       await shot("noise-unfolded", "!!document.querySelector('.changes-side [data-row=\"file\"][data-path=\"yarn.lock\"]')");
     } },
-    { name: "unfinished-work", run: async () => {
-      await opened({ files: FOURTEEN });
-      await until(READY);
-      await read(FOCUS_DIFF);
-      await browser("press", "n");
-      await until("!!document.querySelector('.note-form')");
-      await browser("find", "label", "Note", "fill", "Rename this once the callers agree");
-      await browser("press", "Escape");
-      await shot("unfinished-work", `[...document.querySelectorAll('.changes-side [data-row="module"]')].some(row => row.getAttribute('aria-label')?.includes(${JSON.stringify(copy.unfinishedWork)}))`);
-    } },
     { name: "name-120", run: async () => { await opened({ files: [file(`${"m".repeat(120)}/a.ts`)] }); await shot("name-120", READY); } },
     { name: "name-one-letter", run: async () => { await opened({ files: [file("x/a.ts")] }); await shot("name-one-letter", READY); } },
     { name: "name-emoji", run: async () => { await opened({ files: [file("🦊/a.ts")] }); await shot("name-emoji", READY); } },

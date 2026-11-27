@@ -9,7 +9,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
 import { standInReader } from "./moveHarness";
-import { COMPARISON, marked, openChanges, openFirstModule, take } from "./noteHarness";
+import { COMPARISON, openChanges, openFirstModule, take } from "./noteHarness";
 
 class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
 

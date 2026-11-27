@@ -37,13 +37,7 @@ const optionalViews = ["made"];
 
 /** U504, U6244c: the Ask bar and its rows. Only `⌘/` opens it, over whatever the centre shows; Escape closes it and returns focus. Requested lists show while nothing is selected. */
 
-export const AskBar = (props: {
-  /** Change on the mounted owner to open one retained revision without reloading its readers.
-   * Closing returns ordinary editing to the current work; selection never submits or reconciles.
-   */
-  recovery?: { project: string; revision: string } | undefined;
-  viewLabel?: ((id: string) => string | undefined) | undefined;
-}) => {
+export const AskBar = () => {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
@@ -224,16 +218,6 @@ export const AskBar = (props: {
     openingFocus = captureFocus(true);
     setOpening("over");
   };
-
-  // A retained draft opens once, from the drafts and the Project as they are when the recovery arrives.
-  createEffect(createMemo(() => props.recovery), recovery => untrack(() => {
-    if (!recovery || recovery.project !== connected.project.path) return;
-    const draft = records().find(entry => entry.revision === recovery.revision);
-
-    if (!draft || draft.status === "pending" || drafts.availability(draft, connected) !== "available") return;
-    setSelected(draft.revision);
-    open();
-  }));
 
   registerKeys({ kind: "app" }, [{
     action: CHORDS["ask.open"],

@@ -5,7 +5,6 @@ import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
-import { copy } from "../drawer/copy";
 import { ConnectedProjectContext } from "../state/connectedProject";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -31,13 +30,11 @@ it.each(["acknowledged", "failed", "unknown", "transport"])("u2773b_rail_settlem
   else reject(outcome === "failed" ? new RpcError(-32003, "refused") : outcome === "transport" ? new RpcError(-32603, "connection lost") : new Error("disconnected"));
   await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(field().value).toBe(" B\ne\u0301 ");
-  const revisions = screen.queryAllByLabelText<HTMLTextAreaElement>(copy.unfinishedWork);
-  expect(revisions.map((entry) => entry.value)).toEqual(outcome === "acknowledged" ? [] : [" A\n😀 "]);
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 
   if (outcome !== "acknowledged") {
     expect(mounted.connected.drafts.list().find(draft => draft.status === (outcome === "failed" ? "failed" : "unknown"))?.value.text).toBe(" A\n😀 ");
-    fireEvent.click(screen.getAllByRole("button", { name: copy.discardRow, hidden: true })[0]!);
+    mounted.connected.drafts.discard(mounted.connected.drafts.list().find(draft => draft.status !== "draft")!.revision);
   }
 
   cleanup();
@@ -58,7 +55,6 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     await screen.findByRole("button", { name: "Retry storage" });
     expect(field().value).toBe(" memory\n😀 ");
     fireEvent.keyDown(field(), { key: "Escape" });
-    expect(screen.getByLabelText<HTMLTextAreaElement>(copy.unfinishedWork).value).toBe(" memory\n😀 ");
     open();
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
@@ -143,7 +139,6 @@ it.each(["failed", "acknowledged"])("u2773b_rail_name_settlement_keeps_newer_edi
   else refuse(outcome === "failed" ? new RpcError(-32003, "refused") : outcome === "transport" ? new RpcError(-32603, "connection lost") : new Error("disconnected"));
   await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(name.value).toBe(" B 😀 ");
-  expect(screen.queryAllByLabelText<HTMLTextAreaElement>(copy.unfinishedWork).map((field) => field.value)).toEqual(outcome === "acknowledged" ? [] : [" A e\u0301 😀 "]);
   expect(railCallsTo(mounted.app, "rail.rename")).toEqual([{ id: "a", name: "A e\u0301 😀" }]);
   cleanup();
   const reopened = await mountRail([agent("a", "idle", "ready", { name: "Original" })]);
@@ -182,43 +177,10 @@ it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
   refuseA(failure);
   await waitFor(() => expect(notice("alert").textContent).toContain(failure.message));
   expect(newer.value).toBe(" C e\u0301 😀 ");
-  expect(screen.getAllByLabelText<HTMLTextAreaElement>(copy.unfinishedWork).map((entry) => entry.value)).toEqual([" A 😀 "]);
   expect(railCallsTo(mounted.app, "rail.rename")).toEqual([{ id: "a", name: "A 😀" }, { id: "a", name: "B 😀" }]);
 });
 
-it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
-  const { RpcError } = await import("../app/seam");
-  const { message } = await import("../testing/centreFixture");
-  const { copy } = await import("./copy");
-  const { waitFor } = await import("@solidjs/testing-library");
-  const mounted = await mountRail([workstream("w")]);
-  let refuse!: (error: Error) => void;
-  mounted.app.handlers["agent.spawn"] = () => new Promise((_, reject) => { refuse = reject; });
-  open();
-  await waitFor(() => expect(document.activeElement).toBe(field()));
-  fireEvent.input(field(), { target: { value: " A\n😀 " } });
-  fireEvent.keyDown(field(), { key: "Enter" });
-  fireEvent.input(field(), { target: { value: " B\ne\u0301 " } });
-  const older = screen.getAllByLabelText<HTMLTextAreaElement>(copy.railDraftRecovered).find((entry) => entry.value === " A\n😀 ")!;
-  fireEvent.click(older.closest(".rail-recovery")!.querySelector("summary")!);
-  fireEvent.click(older.closest("details")!.querySelector("summary")!);
-  older.focus();
-  older.setSelectionRange(2, 5, "backward");
-  await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
-  const failure = new RpcError(-32003, "original refused");
-  refuse(failure);
-  await waitFor(() => expect(notice("alert").textContent).toContain(failure.message));
-  expect(document.activeElement).toBe(older);
-  expect([older.selectionStart, older.selectionEnd, older.selectionDirection]).toEqual([2, 5, "backward"]);
-  expect(field().value).toBe(" B\ne\u0301 ");
-  expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
-});
-
-
-
-
 it("u2773c_a_recovered_draft_never_sends", async () => {
-  const { copy: railCopy } = await import("./copy");
   const mounted = await mountRail([workstream("w")]);
   mounted.app.handlers["agent.spawn"] = () => { throw new Error("disconnected"); };
 
@@ -227,10 +189,9 @@ it("u2773c_a_recovered_draft_never_sends", async () => {
   fireEvent.keyDown(field(), { key: "Enter" });
   await waitFor(() => expect(mounted.connected.drafts.list().at(-1)?.status).toBe("unknown"));
   fireEvent.keyDown(field(), { key: "Escape" });
-  fireEvent.click(await screen.findByText(railCopy.railDrafts));
-  const unconfirmed = await screen.findByLabelText<HTMLTextAreaElement>(railCopy.railDraftRecovered);
+  open();
 
-  expect(unconfirmed.value).toBe(" A\n😀 ");
+  expect(field().value).toBe(" A\n😀 ");
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 });
 
@@ -249,17 +210,13 @@ it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", asyn
   open();
   fireEvent.input(field(), { target: { value: "new work" } });
   fireEvent.keyDown(field(), { key: "Escape" });
-  fireEvent.click(screen.getByRole("button", { name: copy.discardRow, hidden: true }));
-  expect(connected.drafts.list()).toEqual([]);
   expect(connected.drafts.problem()).toBeNull();
   expect(railCallsTo(app, "agent.spawn")).toEqual([]);
-  cleanup();
-  await mountRail([workstream("w")]);
   open();
-  expect(field().value).toBe("");
+  expect(field().value).toBe("new work");
 });
 
-it.each([null, "a"])("u471_action_labels_describe_the_existing_action_recovery_%s", async parent => {
+it.each([null, "a"])("u471_a_kept_draft_sends_only_on_the_users_own_submit_%s", async parent => {
   const { openTabs, tab, path } = await import("../header/stripFixture");
   const { agent, door } = await import("../testing/nodes");
   const { message } = await import("../testing/centreFixture");
@@ -285,10 +242,6 @@ it.each([null, "a"])("u471_action_labels_describe_the_existing_action_recovery_%
     fireEvent.click(tab("Other"));
     await waitFor(() => expect(tab("Other").getAttribute("aria-selected")).toBe("true"));
     fireEvent.click(tab("Orchard"));
-    const copied: string[] = [];
-    vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
-    fireEvent.click(await screen.findByRole("button", { name: copy.copyDraft, hidden: true }));
-    await waitFor(() => expect(copied).toEqual(["exact draft e\u0301\n🧭"]));
     expect(original.calls.filter(call => call.method === "agent.spawn" || call.method === "message.send")).toEqual([]);
     writes.mockRestore();
     open();
