@@ -176,6 +176,27 @@ it("u7683c_flows_are_named_in_path_order_then_unplaced_then_not_traced_then_nois
   ]);
 });
 
+it("u7923a_a_hunk_outside_every_function_sits_under_unplaced_though_its_functions_are_in_flows", async () => {
+  // Line 12 of run.ts sits in neither `run` (1 to 5) nor `other` (18 to 22).
+  const mounted = await landed(() => ({ files: FLOW_FILES }), path => flowComparison(path, path === RUN.path ? [2, 12] : [2]));
+
+  serve(mounted.app, answers());
+  fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await chooseLens(copy.lenses.flows);
+  await waitFor(() => expect(moduleKeys()).toContain("m:~unplaced"));
+
+  // Counts: run.ts joins types.ts under Unplaced.
+  await waitFor(() => expect(within(moduleRow("~unplaced")).getByText(copy.filesCount(2))).toBeTruthy());
+
+  take(moduleRow("~unplaced"));
+  await waitFor(() => expect(openPaths()).toContain(RUN.path));
+  await waitFor(() => expect(added(RUN.path)).toEqual([12]));
+
+  // Viewed: Unplaced reads viewed once marked.
+  press("v");
+  await waitFor(() => expect(moduleRow("~unplaced").getAttribute("aria-label")).toContain(copy.viewed));
+});
+
 it("u7683d_a_flow_opens_its_sections_in_call_order_each_with_only_the_hunks_that_hold_its_function", async () => {
   await flowsOpen();
   await traced();
@@ -234,10 +255,10 @@ it("u7683e_the_call_tree_marks_added_removed_and_changed_calls_folds_the_rest_an
   take(moduleRow(flowName(RUN.key)));
   await waitFor(() => expect(rows().map(row => row.textContent)).toEqual(["runChanged", "loadChanged", copy.calledBy(3), "legacyRemoved", copy.unchangedCalls(1)]));
 
-  // A call opens the section of the function it calls, once.
-  expect(read(LOAD.path)).toBe(0);
-  fireEvent.click(rows()[1] ?? region());
+  // A call opens the section of the function it calls, once, beside the one read that looks for hunks outside every function (U7923a).
   await waitFor(() => expect(read(LOAD.path)).toBe(1));
+  fireEvent.click(rows()[1] ?? region());
+  await waitFor(() => expect(read(LOAD.path)).toBe(2));
 });
 
 it("u7683f_tracing_shows_after_150_ms_a_failed_trace_says_why_and_retry_asks_again", async () => {

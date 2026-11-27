@@ -132,7 +132,7 @@ impl Agents {
         &self,
         id: &str,
         group: Option<contracts::agent::OwnedGroupKey>,
-    ) -> Result<contracts::agent::ScanHits, RpcError> {
+    ) -> Result<contracts::agent::ScanSpots, RpcError> {
         struct Stop(std::sync::Arc<std::sync::atomic::AtomicBool>);
         impl Drop for Stop {
             fn drop(&mut self) {

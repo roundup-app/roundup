@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
@@ -29,10 +29,12 @@ it("rs5_the_picker_lists_the_agents_skills_and_a_start_carries_the_choice", asyn
   fireEvent.click(await screen.findByRole("combobox", { name: copy.readbackSkill }));
   expect((await screen.findAllByRole("option")).map(option => option.textContent)).toEqual([copy.noSkill, "security-review", "plugin:lint"]);
   fireEvent.click(await screen.findByRole("option", { name: "security-review" }));
+  // The Tree target reads once its switch has landed; a start before then would send the Changes group.
+  await waitFor(() => expect(app.calls.findLast(call => call.method === "agent.readback")?.params).toMatchObject({ to: "tree" }));
   press("r");
   await screen.findByText(copy.readingBack);
   expect(calls(app, "agent.readbackStart")).toBe(1);
-  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toMatchObject({ id: "a", group: expect.any(Object), skill: "security-review" });
+  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toEqual({ id: "a", to: "tree", skill: "security-review" });
 });
 
 it("rs5_a_start_with_no_choice_holds_no_skill_and_an_agent_with_none_shows_no_picker", async () => {

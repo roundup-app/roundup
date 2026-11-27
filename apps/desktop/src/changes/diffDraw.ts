@@ -2,7 +2,7 @@ import type { DiffLineAnnotation, VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Finding } from "@contracts/agent/Finding";
 import type { Gap } from "@contracts/agent/Gap";
-import type { ScanHit } from "@contracts/agent/ScanHit";
+import type { Spot } from "@contracts/agent/Spot";
 import { copy } from "./copy";
 import type { Explaining } from "./explain";
 import type { Moved } from "./moves";
@@ -19,8 +19,8 @@ export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: 
 /** U7677d: the composer drawn under the last line of the range being noted. */
 export type Composer = { composing: true; side: "old" | "new"; start: number; end: number; /** The note whose text this field edits; it is not drawn meanwhile. */ replacing?: number | undefined };
 
-/** U7685a: the mark under the last shown line of a repeat: the other place it names. */
-export type Repeated = { repeating: true; side: "new"; start: number; end: number; hit: ScanHit };
+/** U7685a, U7704a: the mark under the last shown line of a spot: a repeat's other place, or what a tool said. */
+export type Spotted = { spotting: true; side: "new"; start: number; end: number; spot: Spot };
 
 /** U7688e: the mark under the line a gap names: what the Agent said and what the diff holds. */
 export type Gapped = { gapped: true; side: "new"; start: number; end: number; gap: Gap };
@@ -31,10 +31,10 @@ export type Movement = { moving: true; side: "new"; start: number; end: number; 
 /** U7700c: the mark under the last line of a finding's range. */
 export type Found = { found: true; side: "new"; start: number; end: number; finding: Finding };
 
-export type Annotated = LineNote | Mark | Composer | Repeated | Gapped | Movement | Explaining | Found;
+export type Annotated = LineNote | Mark | Composer | Spotted | Gapped | Movement | Explaining | Found;
 
 /** U7676c, U7698b: what the diff draws under a line that is no note and no field; the stamps of noted lines leave these out. */
-export const isMark = (metadata: Annotated): metadata is Mark | Repeated | Gapped | Movement | Explaining | Found => "unfinished" in metadata || "repeating" in metadata || "gapped" in metadata || "moving" in metadata || "explaining" in metadata || "found" in metadata;
+export const isMark = (metadata: Annotated): metadata is Mark | Spotted | Gapped | Movement | Explaining | Found => "unfinished" in metadata || "spotting" in metadata || "gapped" in metadata || "moving" in metadata || "explaining" in metadata || "found" in metadata;
 
 /** U7677a: the lines a note covers on one side, and whether its field holds focus. */
 export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
@@ -45,14 +45,14 @@ export const outdated = (note: LineNote, value: FileComparison | undefined) => n
 /** U7677a: a note draws under its lines while its comparison is the open one, and a Sent note while its lines still read the same. */
 const shown = (note: LineNote, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
-/** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line, each unfinished field as a mark, then the repeats, a gap (U7688e), a move, an explanation (U7699d) and a finding (U7700c): Pierre stacks them under one line in this order. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, repeats: readonly Repeated[] = [], gaps: readonly Gapped[] = [], moves: readonly Movement[] = [], explained: readonly Explaining[] = [], found: readonly Found[] = []): DiffLineAnnotation<Annotated>[] => [
+/** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line, each unfinished field as a mark, then the spots, a gap (U7688e), a move, an explanation (U7699d) and a finding (U7700c): Pierre stacks them under one line in this order. */
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, spots: readonly Spotted[] = [], gaps: readonly Gapped[] = [], moves: readonly Movement[] = [], explained: readonly Explaining[] = [], found: readonly Found[] = []): DiffLineAnnotation<Annotated>[] => [
   ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
   ...notes.flatMap((note): DiffLineAnnotation<LineNote>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
   ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
     ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
     : []),
-  ...repeats.map((repeat): DiffLineAnnotation<Repeated> => ({ side: sideName(repeat.side), lineNumber: repeat.end, metadata: repeat })),
+  ...spots.map((spot): DiffLineAnnotation<Spotted> => ({ side: sideName(spot.side), lineNumber: spot.end, metadata: spot })),
   ...gaps.map((gap): DiffLineAnnotation<Gapped> => ({ side: sideName(gap.side), lineNumber: gap.end, metadata: gap })),
   ...moves.map((move): DiffLineAnnotation<Movement> => ({ side: sideName(move.side), lineNumber: move.end, metadata: move })),
   ...explained.map((each): DiffLineAnnotation<Explaining> => ({ side: sideName(each.side), lineNumber: each.end, metadata: each })),
@@ -213,8 +213,8 @@ type Hooks = {
 const inLineOrder = (range: { side?: "deletions" | "additions"; start: number; end: number }): LineSelection => ({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
 
 /** What the reader holds once the diff of `value` is built in `mount`: the view, its virtualizer and container, and the parsed diff it draws. */
-/** U7677a, U7685a, U7696a: the lines a note marks, the new-side lines a repeat marks and those a move marks. */
-export type Stamped = { noted: readonly Noted[]; repeat: readonly Span[]; move: readonly Span[] };
+/** U7677a, U7704a, U7696a: the lines a note marks, the new-side lines a spot marks and those a move marks. */
+export type Stamped = { noted: readonly Noted[]; spot: readonly Span[]; move: readonly Span[] };
 
 type Span = { start: number; end: number };
 
@@ -263,7 +263,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   mount.append(container);
   const virtualizer = sharedVirtualizer(hooks.shared, Virtualizer) ?? new Virtualizer();
 
-  let stamped: Stamped = { noted: [], repeat: [], move: [] };
+  let stamped: Stamped = { noted: [], spot: [], move: [] };
 
   let functions: readonly (string | undefined)[] = [];
 
@@ -277,7 +277,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
       line.toggleAttribute("data-noted", hit.length > 0);
       line.toggleAttribute("data-focused", hit.some(range => range.focused));
-      line.toggleAttribute("data-repeat", side === "new" && stamped.repeat.some(span => span.start <= number && number <= span.end));
+      line.toggleAttribute("data-spot", side === "new" && stamped.spot.some(span => span.start <= number && number <= span.end));
       line.toggleAttribute("data-moved", side === "new" && stamped.move.some(span => span.start <= number && number <= span.end));
     }
   };

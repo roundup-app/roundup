@@ -27,6 +27,11 @@ impl Git {
         groups
     }
 
+    /// The canonical checkout roots the absolute `edits` sit in.
+    pub fn written_tops(&self, edits: &[String]) -> Vec<PathBuf> {
+        self.sites(edits).into_keys().map(|(_, top)| top).collect()
+    }
+
     /// U7853a: `path` as `agent.compareFile` reads it for an Agent with no Worktree: in the checkout
     /// of the group `group` names, as Changes lists it, so `to` is never `Branch`. A group the
     /// `edits` do not sit in is refused whatever the caller names; no path of the caller is opened.

@@ -930,3 +930,5 @@ pub use hunks::{DiffInput, Hunk};
 mod owned;
 mod remote_main;
 mod repeat;
+mod spots;
+pub use spots::{MAX_SPOTS, PlacedSpot};

@@ -30,7 +30,8 @@ import { noiseOf, type Grouped } from "./modules";
 import { Overview } from "./Overview";
 import { createCallPaths } from "./callPaths";
 import { reachKey, type Reach } from "./owned";
-import { flowName, groupFlows, type Done, type Read } from "./flows";
+import type { Changed } from "./looseStore";
+import { flowFiles, flowName, groupFlows, type Done, type Read } from "./flows";
 import { FlowStates } from "./FlowStates";
 import { createReadback, spanOf } from "./readback";
 import { createReadbackPad } from "./readbackPad";
@@ -40,8 +41,10 @@ import { fileRanks, rankWord, withRisks } from "./rank";
 import { ItemAccount } from "./ReadbackBlock";
 import { ChangedSymbols } from "./ChangedSymbols";
 import { createRepeatScan, placeCounts } from "./repeats";
-import { RepeatStates } from "./RepeatStates";
+import { createSpots, sourceCounts } from "./spots";
+import { RepeatStates, SpotStates } from "./RepeatStates";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
+import { createChangedLines } from "./looseStore";
 import { createMoves } from "./moveStore";
 import { MoveStates } from "./MoveStates";
 import type { DiffKeys } from "./DiffReader";
@@ -248,17 +251,21 @@ const createAnalyses = (input: Analyses) => {
   const calls = createCallPaths({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
   const readback = createReadback({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
   const pad = createReadbackPad({ id: input.id, agent: input.agent, readback, at });
-  const lensed = createLensed(input.files, calls.done, readback.read);
+  const changed = createChangedLines({ app: input.app, id: input.id, to: () => input.own() ?? "tree", group: input.group, files: () => input.lens() === "flows" && !readback.read() ? flowFiles(input.files(), calls.done()) : [] });
+  const lensed = createLensed(input.files, calls.done, readback.read, changed);
   const repeats = createRepeatScan({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "branch" ? null : at(), ready: input.ready });
+  const spots = createSpots({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "tree" || input.group() !== undefined, ready: input.ready, group: input.group });
+  const spotted = createMemo(() => [...repeats.spots(), ...spots.list()]);
   const gapTotals = createMemo(() => placeCounts(lensed()(input.lens()), readback.placed().map(spanOf)));
   // U7696a: the Logic lens's moves; a repeat whose lines moved is not also counted a repeat (U7696e).
   const moves = createMoves({ app: input.app, id: input.id, to: () => input.own() ?? "tree", group: input.group, on: () => input.lens() === "logic" && input.files().length > 0, symbols: () => calls.done().flatMap(answer => answer.symbols) });
-  const repeatTotals = createMemo(() => placeCounts(lensed()(input.lens()), repeats.hits().filter(hit => !moves.covers(hit))));
+  const repeatTotals = createMemo(() => placeCounts(lensed()(input.lens()), repeats.spots().filter(spot => !moves.covers(spot))));
+  const spotTotals = createMemo(() => sourceCounts(lensed()(input.lens()), spots.list()));
   const moveTotals = createMemo(() => placeCounts(lensed()(input.lens()), moves.placed()));
   // U7700a: the defect pass is asked only by the user; its signature is the listing's files and their blob ids (U7700b).
   const findings = createFindings({ app: input.app, id: input.id, at, grouped: () => lensed()(input.lens()), signature: () => input.files().map(file => `${file.path}:${file.blob}`).sort().join("\n"), kept: input.kept, notes: input.notes });
 
-  return { at, calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again: () => { calls.reset(); repeats.again(); readback.again(); } };
+  return { at, calls, lensed, repeats, repeatTotals, spots, spotted, spotTotals, moves, moveTotals, readback, pad, gapTotals, findings, again: () => { calls.reset(); repeats.again(); spots.again(); readback.again(); } };
 };
 
 /** U7675a: the comparison's own answer, whichever read made it: the Daemon's changes for a Tree or Branch target, else the Agent's owned changes. */
@@ -301,15 +308,16 @@ const createComparison = (id: () => string, own: () => "tree" | "branch" | null,
 };
 
 /** U7679a, U7679b, U7683c, U7689: each lens's rows, made once for the listing; Flows draws the finished traces and the readback's names and flows. */
-const createLensed = (files: () => readonly ChangedFile[], traced: () => readonly Done[], read: () => Read | undefined) => createMemo(() => {
+const createLensed = (files: () => readonly ChangedFile[], traced: () => readonly Done[], read: () => Read | undefined, changed: () => ReadonlyMap<string, Changed>) => createMemo(() => {
   const all = files();
   const done = traced();
   const readback = read();
   const ranks = fileRanks(readback?.account);
+  const lines = changed();
   const made = new Map<Lens, Grouped>();
 
   return (each: Lens): Grouped => {
-    const hit = made.get(each) ?? (each === "flows" ? groupFlows(all, done, readback) : withRisks(groupLens(all, each, ranks), readback?.account, readback?.stale ?? false));
+    const hit = made.get(each) ?? (each === "flows" ? groupFlows(all, done, readback, lines) : withRisks(groupLens(all, each, ranks), readback?.account, readback?.stale ?? false));
 
     made.set(each, hit);
 
@@ -351,7 +359,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
-  const { at, calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again } = createAnalyses({ app, events, id: untrack(() => props.id), agent: () => props.name, own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey(), kept: memory.found, notes });
+  const { at, calls, lensed, repeats, repeatTotals, spots, spotted, spotTotals, moves, moveTotals, readback, pad, gapTotals, findings, again } = createAnalyses({ app, events, id: untrack(() => props.id), agent: () => props.name, own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey(), kept: memory.found, notes });
 
   const explain = createExplanations({ app, id: untrack(() => props.id), at, kept: memory.explained, read: () => readback.account()?.explanations ?? [] });
 
@@ -532,10 +540,10 @@ const Surface = (props: { id: string; name: string }) => {
         <Show when={files().length > 0}>
           <SegmentGroup label={copy.lens} segments={lensSegments} value={lens()} onValueChange={switchLens} />
           <Show when={lens() === "flows"}><FlowStates calls={calls} readback={readback} /></Show>
-          <RepeatStates scan={repeats} notAsked={own() === "branch"} />
+          <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set([...notes.unfinished(props.id).map(form => form.comparison.newPath), ...unfinishedItems(notes, props.id).filter(form => form.item.kind === "file").map(form => form.item.name)])} unfinishedItems={new Set(unfinishedItems(notes, props.id).filter(form => form.item.kind !== "file").map(form => form.item.name))} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set([...notes.unfinished(props.id).map(form => form.comparison.newPath), ...unfinishedItems(notes, props.id).filter(form => form.item.kind === "file").map(form => form.item.name)])} unfinishedItems={new Set(unfinishedItems(notes, props.id).filter(form => form.item.kind !== "file").map(form => form.item.name))} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
       </div>
@@ -543,8 +551,8 @@ const Surface = (props: { id: string; name: string }) => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} repeats={repeats.hits()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
-            <Overview lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} pad={pad} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} spots={spotted()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
+            <Overview spots={spots.list()} lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} pad={pad} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;
       }}</For>
