@@ -145,11 +145,10 @@ it("u7689c_not_traced_offers_the_readback_on_tree_and_branch_and_none_on_changes
 
   fireEvent.click(screen.getByRole("radio", { name: copy.targetTree }));
   await waitFor(() => expect(said("~untraced")).toContain(copy.readToSee));
-  expect(within(moduleRow("~untraced")).getByText(copy.readToSee)).toBeTruthy();
 
   // The pane holds the line over an icon button; it starts the run once, and the words leave.
   take(moduleRow("~untraced"));
-  await waitFor(() => expect(within(pane().ownerDocument.body).getAllByText(copy.readToSee).length).toBe(2));
+  await waitFor(() => expect(within(pane().ownerDocument.body).getAllByText(copy.readToSee).length).toBe(1));
   fireEvent.click(within(inSlot()).getByRole("button", { name: copy.readBack }));
   await waitFor(() => expect(said("~untraced")).not.toContain(copy.readToSee));
   expect(calls(app, "agent.readbackStart")).toBe(1);

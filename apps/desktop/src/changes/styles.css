@@ -225,7 +225,7 @@
 .changes-row[data-row="module"] .changes-row-name { flex: 1; font-weight: 500; }
 .changes-row-mark { flex: none; inline-size: var(--space-3); block-size: var(--space-3); }
 .changes-row-folder { flex: none; color: var(--grey); font: var(--text-small) var(--font-ui); }
-.changes-row[data-open="true"] { --row-wash: color-mix(in srgb, var(--accent) 16%, var(--sunken)); position: relative; }
+.changes-row[data-open="true"] { --row-wash: var(--row-open-wash); position: relative; }
 .changes-row[data-open="true"]::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; inline-size: var(--space-1); background: var(--accent); }
 .changes-row[data-open="true"] .changes-row-name { font-weight: 600; }
 .changes-row-bar { flex: none; display: flex; inline-size: calc(var(--space-6) * 2); block-size: var(--space-1); }

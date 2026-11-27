@@ -147,15 +147,9 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   const signalOf = (module: ModuleGroup): DotSignal | undefined => {
     const key = moduleKey(module.name);
 
-    if (findingsOf(key) > 0) return "finding";
+    const held: [number, DotSignal][] = [[findingsOf(key), "finding"], [module.risk ? 1 : 0, "risk"], [repeatsOf(key), "repeat"], [movedOf(key), "moved"], [notesOf(module), "note"]];
 
-    if (module.risk) return "risk";
-
-    if (repeatsOf(key) > 0) return "repeat";
-
-    if (movedOf(key) > 0) return "moved";
-
-    return notesOf(module) > 0 ? "note" : undefined;
+    return held.find(([count]) => count > 0)?.[1];
   };
 
   /** Each file row's module key and path, by the file's tree value. */
