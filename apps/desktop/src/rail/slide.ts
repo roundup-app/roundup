@@ -26,12 +26,12 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
 
   return {
     motion,
-    set: (collapsed: boolean, source: "click" | "key") => {
+    set: (collapsed: boolean, source: "click" | "key", remember = true) => {
       // Without animations (a test DOM) the change is instant and settles at once.
       const animated = document.querySelector(".rail-body") !== null && "getAnimations" in Element.prototype;
 
       setMotion(reducedMotion() ? "fade" : source);
-      widths.setCollapsed(collapsed, animated);
+      widths.setCollapsed(collapsed, animated, remember);
 
       if (animated) queueMicrotask(() => lifetime.retarget(!collapsed, true));
       else lifetime.settle();

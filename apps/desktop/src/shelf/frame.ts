@@ -53,6 +53,8 @@ export type ShelfFrame = {
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
   toggle: (source?: ActivationSource) => void;
+  /** U8005a: close the open Shelf without saving, as a view that needs the room asks; the user's own toggle brings it back. */
+  fold: () => void;
   /** Bind the Shelf whose browser animations retain its content. */
   attach: (element: HTMLElement) => void;
   sliding: Accessor<boolean>;
@@ -225,6 +227,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     tab,
     setTab: createSettled(setTab),
     toggle: createSettled(toggle),
+    fold: createSettled(() => { if (open()) move("closed", !reducedMotion(), false); }),
     attach: setElement,
     sliding: lifetime.sliding,
     settle: lifetime.settle,
