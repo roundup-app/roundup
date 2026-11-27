@@ -29,12 +29,12 @@ it("u7679c_when_the_open_module_leaves_focus_moves_to_its_neighbour_else_the_ove
   await showing("b/x.ts");
   await waitFor(() => expect(treeFocus()).toBe("m:b"));
 
-  // No module is left but a noise file: the lens's Overview row opens and takes focus.
+  // No module is left but a noise file: the lens's empty state opens and focus stays in the view.
   list = [file("yarn.lock")];
   await connected.owned.refresh("a");
   await screen.findByText(copy.fileGone("b", copy.remoteMain));
   await screen.findByRole("region", { name: copy.overview });
-  await waitFor(() => expect(treeFocus()).toBe("o"));
+  await waitFor(() => expect(region().contains(document.activeElement)).toBe(true));
 
   // No file is left: focus stays in the view, so Escape still closes it.
   list = [];
@@ -45,41 +45,42 @@ it("u7679c_when_the_open_module_leaves_focus_moves_to_its_neighbour_else_the_ove
   await gone(() => screen.queryByRole("region", { name: copy.changes }));
 });
 
-it("u7679e_j_and_k_step_the_overview_and_the_modules_and_skip_noise_rows", async () => {
-  // List order: the Overview, the modules by name, then the noise rows.
+it("u8010c_j_from_the_last_item_wraps_to_the_first_and_never_to_the_overview", async () => {
+  // List order: the modules by name, then the noise rows.
   await landed(() => ({ files: ["c/x.ts", "yarn.lock", "a/x.ts", "b/y.ts"].map(file) }));
-  take(overviewRow());
-  pane();
-
-  // K on the Overview does nothing; J steps to each module and stops at the last, K back to the Overview.
-  press("k");
-  pane();
-  press("j");
   await showing("a/x.ts");
   press("j");
   await showing("b/y.ts");
   press("j");
   await showing("c/x.ts");
   press("j");
-  press("k");
-  await showing("b/y.ts");
-  press("k");
   await showing("a/x.ts");
   press("k");
-  await screen.findByRole("region", { name: copy.overview });
+  await showing("c/x.ts");
   press("k");
-  pane();
+  await showing("b/y.ts");
 
-  // A noise file opens alone: J does nothing, K opens the last module.
+  // The Overview open: J opens the first item and K the last.
+  fireEvent.click(overviewRow());
+  pane();
+  press("j");
+  await showing("a/x.ts");
+  fireEvent.click(overviewRow());
+  pane();
+  press("k");
+  await showing("c/x.ts");
+
+  // A noise file opens alone: J opens the first item, K the last module.
   await takeNoise("yarn.lock");
   await showing("yarn.lock");
   press("j");
-  expect(region().querySelectorAll(".module-slot")).toHaveLength(1);
-  isOpen("yarn.lock");
+  await showing("a/x.ts");
+  await takeNoise("yarn.lock");
+  await showing("yarn.lock");
   press("k");
   await showing("c/x.ts");
 
-  // A find holds letters: they step the modules shown, and with the open item hidden J opens the first and K the last.
+  // A find holds letters: they step the modules shown, wrapping, and with the open item hidden J opens the first and K the last.
   take(moduleRow("b"));
   await showing("b/y.ts");
   press("/");
@@ -87,6 +88,8 @@ it("u7679e_j_and_k_step_the_overview_and_the_modules_and_skip_noise_rows", async
   await waitFor(() => expect(moduleKeys()).toEqual(["m:a", "m:c"]));
   press("k");
   await showing("c/x.ts");
+  press("j");
+  await showing("a/x.ts");
   press("Escape");
   await gone(() => screen.queryByRole("textbox", { name: copy.findFile }));
   take(moduleRow("b"));
@@ -129,7 +132,7 @@ it("u7679c_reopening_restores_the_open_item_in_the_lens_last_used", async () => 
   const opener = await icon();
 
   fireEvent.click(opener);
-  await screen.findByRole("region", { name: copy.overview });
+  await showing("a/x.ts");
   take(moduleRow("b"));
   await showing("b/x.ts");
   await switchedTo(copy.lenses.logic);
@@ -158,7 +161,7 @@ it("u7679c_reopening_restores_the_open_item_in_the_lens_last_used", async () => 
   await gone(() => screen.queryByRole("region", { name: copy.changes }));
   fireEvent.click(await within(rowOf("b")).findByRole("button", { name: /changed files?/ }));
   await waitFor(() => expect(lensNow()).toBe(copy.lenses.modules));
-  await screen.findByRole("region", { name: copy.overview });
+  await showing("other.ts");
   fireEvent.click(rowOf("a"));
   await gone(() => screen.queryByRole("region", { name: copy.changes }));
   fireEvent.click(await icon());
@@ -167,13 +170,13 @@ it("u7679c_reopening_restores_the_open_item_in_the_lens_last_used", async () => 
   await marks(at("new", 21));
   expect(written(scroller())[0]).toBe(kept);
 
-  // The open module is restored only while it is still listed: else the lens's Overview.
+  // The open module is restored only while it is still listed: else the lens's first item.
   fireEvent.click(closeButton());
   await gone(() => screen.queryByRole("region", { name: copy.changes }));
   list = [file("a/x.ts"), file("c/x.ts")];
   edited(app, "a");
   fireEvent.click(await icon());
-  await screen.findByRole("region", { name: copy.overview });
+  await showing("a/x.ts");
   expect(lensNow()).toBe(copy.lenses.logic);
 });
 
@@ -193,7 +196,7 @@ const SMALL = [counted("crates/a/src/x.rs", 5, 1), counted("pnpm-lock.yaml", 4, 
 /** The list's rows in order, each by its key (a file by its path: its key is its module's). */
 const listKeys = () => [...region().querySelectorAll<HTMLElement>(".changes-tree [data-row]")].map(row => row.dataset.row === "file" ? row.dataset.path : row.dataset.key);
 
-const overviewRow = () => there(region().querySelector<HTMLElement>('[data-row="overview"]'));
+const overviewRow = () => there(within(region()).getByRole("button", { name: copy.overview }));
 
 const entries = () => [...pane().querySelectorAll<HTMLElement>("[data-entry]")];
 
@@ -220,26 +223,27 @@ it("u7679a_the_switch_names_the_four_lenses_in_order_and_choosing_one_changes_th
   await waitFor(() => expect(moduleKeys()).toEqual(["m:crates/a", "m:crates/b", "m:" + copy.topLevel]));
 });
 
-it("u7679a_switching_keeps_the_open_item_when_the_lens_lists_it_else_opens_the_overview", async () => {
+it("u7679a_switching_keeps_the_open_item_when_the_lens_lists_it_else_opens_its_first_item", async () => {
   await landed(() => ({ files: LENS_FILES }));
   take(moduleRow("crates/b"));
   await showing("crates/b/src/y.rs");
   await switchedTo(copy.lenses.logic);
   isOpen("crates/b/src/y.rs");
 
-  // Tests lacks the module: its Overview opens.
+  // Tests lacks the module: its first item opens.
   await chooseLens(copy.lenses.tests);
-  await screen.findByRole("region", { name: copy.overview });
-  expect(openPaths()).toEqual([]);
+  await showing("crates/a/tests/x.rs");
 
-  // A noise file is the same diff in every lens, and every lens lists the Overview.
+  // A noise file is the same diff in every lens.
   await takeNoise("pnpm-lock.yaml");
   await showing("pnpm-lock.yaml");
   await chooseLens(copy.lenses.modules);
   isOpen("pnpm-lock.yaml");
-  take(overviewRow());
+  fireEvent.click(overviewRow());
   await chooseLens(copy.lenses.logic);
   pane();
+  fireEvent.click(there(entries()[0]));
+  await showing("crates/a/src/x.rs");
 });
 
 it("u7679a_each_lens_keeps_its_own_place_in_a_module", async () => {
@@ -352,37 +356,38 @@ it("u7679b_a_jump_to_a_note_the_open_lens_does_not_list_switches_to_modules", as
   await showing("crates/a/tests/x.rs");
 });
 
-it("u7679c_the_overview_row_is_first_in_every_lens_and_never_takes_a_mark_or_a_place", async () => {
+it("u8010b_no_list_holds_an_overview_row", async () => {
   await landed(() => ({ files: LENS_FILES }));
   const noise = ["k:generated", "k:lockfile"];
 
-  expect(listKeys()).toEqual(["o", "m:crates/a", "m:crates/b", "m:crates/c", "m:" + copy.topLevel, ...noise]);
+  expect(listKeys()).toEqual(["m:crates/a", "m:crates/b", "m:crates/c", "m:" + copy.topLevel, ...noise]);
   await chooseLens(copy.lenses.logic);
-  await waitFor(() => expect(listKeys()).toEqual(["o", "m:crates/a", "m:crates/b", "m:" + copy.topLevel, ...noise]));
+  await waitFor(() => expect(listKeys()).toEqual(["m:crates/a", "m:crates/b", "m:" + copy.topLevel, ...noise]));
   await chooseLens(copy.lenses.tests);
-  await waitFor(() => expect(listKeys()).toEqual(["o", "m:crates/a", "m:crates/c", ...noise]));
+  await waitFor(() => expect(listKeys()).toEqual(["m:crates/a", "m:crates/c", ...noise]));
 
-  // Down onto it, Up from the first module and a click open its pane; it holds no hunk, so it has no fold.
-  take(moduleRow("crates/a"));
-  await showing("crates/a/tests/x.rs");
-  press("ArrowUp", moduleRow("crates/a"));
-  pane();
-  expect(treeFocus()).toBe("o");
-  expect(overviewRow().hasAttribute("aria-expanded")).toBe(false);
+  // Up from the first item stays on it, and a click opens a row's item.
   take(moduleRow("crates/c"));
   await showing("crates/c/tests/z.rs");
-  fireEvent.click(overviewRow());
-  pane();
-  take(moduleRow("crates/c"));
   press("ArrowUp", moduleRow("crates/c"));
   await waitFor(() => expect(treeFocus()).toBe("m:crates/a"));
   press("ArrowUp", moduleRow("crates/a"));
+  expect(treeFocus()).toBe("m:crates/a");
+});
+
+it("u8010b_the_home_icon_opens_the_overview_and_choosing_a_module_opens_it", async () => {
+  await landed(() => ({ files: LENS_FILES }));
+  await showing("crates/a/src/x.rs");
+  fireEvent.click(overviewRow());
   pane();
+  fireEvent.click(there(entries().find(each => each.dataset.entry === "m:crates/b")));
+  await showing("crates/b/src/y.rs");
+  await waitFor(() => expect(treeFocus()).toBe("m:crates/b"));
 });
 
 it("u7679c_the_overview_lists_the_lenses_modules_with_counts_and_a_lens_with_none_says_so", async () => {
   await landed(() => ({ files: LENS_FILES }));
-  take(overviewRow());
+  fireEvent.click(overviewRow());
   const listed = () => entries().map(each => each.dataset.entry);
 
   expect(listed()).toEqual(moduleKeys());
@@ -395,18 +400,10 @@ it("u7679c_the_overview_lists_the_lenses_modules_with_counts_and_a_lens_with_non
   // A change with no test says so in Tests.
   cleanup();
   await landed(() => ({ files: SMALL }));
-  take(overviewRow());
+  fireEvent.click(overviewRow());
   await chooseLens(copy.lenses.tests);
   await screen.findByText(copy.noChangesIn(copy.lenses.tests));
   expect(entries()).toEqual([]);
-});
-
-it("u7679c_choosing_a_module_in_the_overview_opens_it", async () => {
-  await landed(() => ({ files: LENS_FILES }));
-  take(overviewRow());
-  fireEvent.click(there(entries().find(each => each.dataset.entry === "m:crates/b")));
-  await showing("crates/b/src/y.rs");
-  await waitFor(() => expect(treeFocus()).toBe("m:crates/b"));
 });
 
 it("u7679c_each_agent_keeps_its_lens_and_a_new_session_opens_on_modules", async () => {
@@ -414,7 +411,7 @@ it("u7679c_each_agent_keeps_its_lens_and_a_new_session_opens_on_modules", async 
     const mounted = await mountRailWith(() => owning(LENS_FILES));
 
     fireEvent.click(await within(rowOf("a")).findByRole("button", { name: copy.changedFiles(LENS_FILES.length) }));
-    await screen.findByRole("region", { name: copy.overview });
+    await screen.findByRole("region", { name: copy.changes });
 
     return mounted;
   };
@@ -435,13 +432,13 @@ it("u7679c_each_agent_keeps_its_lens_and_a_new_session_opens_on_modules", async 
   expect(lensNow()).toBe(copy.lenses.modules);
 });
 
-it("u7679c_the_view_opens_on_the_overview_of_the_lens_last_used", async () => {
-  const { app } = await landed(() => ({ files: THREE }));
+it("u8010a_the_view_opens_on_the_first_unviewed_items_code_with_no_click", async () => {
+  const { app } = await landed(() => ({ files: MODS }));
 
-  pane();
-  await waitFor(() => expect(treeFocus()).toBe("o"));
-  expect(overviewRow().getAttribute("aria-selected")).toBe("true");
-  expect(calls(app, "agent.compareFile")).toBe(0);
+  await showing("a/x.ts");
+  await waitFor(() => expect(treeFocus()).toBe("m:a"));
+  expect(calls(app, "agent.compareFile")).toBeGreaterThan(0);
+  expect(JSON.stringify(app.calls.filter(call => call.method === "agent.compareFile"))).not.toContain("b/x.ts");
 });
 
 it("u7679d_slash_opens_the_find_and_a_letter_pressed_in_the_list_opens_nothing", async () => {
@@ -514,6 +511,8 @@ it("u7679d_typed_letters_fire_no_key", async () => {
   take(moduleRow("crates/b"));
   await drawn("crates/b/src/y.rs");
   await marks(at("new", 1));
+  const reads = calls(app, "agent.compareFile");
+
   press("/");
   await waitFor(() => expect(document.activeElement).toBe(finder()));
 
@@ -524,7 +523,7 @@ it("u7679d_typed_letters_fire_no_key", async () => {
   expect(lensNow()).toBe(copy.lenses.modules);
   isOpen("crates/b/src/y.rs");
   await marks(at("new", 1));
-  expect(calls(app, "agent.compareFile")).toBe(1);
+  expect(calls(app, "agent.compareFile")).toBe(reads);
 });
 
 it("u7679d_finding_reads_no_file_and_leaves_the_open_scroll_alone", async () => {
@@ -567,31 +566,23 @@ it("u7679d_the_find_follows_a_lens_switch_and_a_closed_view_forgets_it", async (
 it("u7679e_in_the_overview_brackets_do_nothing_and_tab_walks_its_modules", async () => {
   const { app } = await landed(() => ({ files: LENS_FILES }));
 
-  take(overviewRow());
+  await showing("crates/a/src/x.rs");
+  const before = calls(app, "agent.compareFile");
+
+  fireEvent.click(overviewRow());
   pane();
   press("]");
   press("[");
-  press("Enter", overviewRow());
-  expect(calls(app, "agent.compareFile")).toBe(0);
+  press("Enter", pane());
+  expect(calls(app, "agent.compareFile")).toBe(before);
   expect(app.editorCalls).toEqual([]);
 
-  // The entries follow the list in the tab order: Tab from the list goes to the first, Shift-Tab from the first back to the row.
+  // The entries follow the list in the tab order, and Shift-Tab from the first goes back to the header's home button.
   const tree = there(region().querySelector(".changes-tree"));
 
   expect(entries().every(each => each.tabIndex === 0 && tree.compareDocumentPosition(each) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-  press("Tab", overviewRow());
-  expect(document.activeElement).toBe(entries()[0]);
   fireEvent.keyDown(there(entries()[0]), { key: "Tab", shiftKey: true });
-  await waitFor(() => expect(treeFocus()).toBe("o"));
-
-  // A lens with no module holds no entry, and Tab does nothing.
-  cleanup();
-  await landed(() => ({ files: SMALL }));
-  take(overviewRow());
-  await chooseLens(copy.lenses.tests);
-  await screen.findByText(copy.noChangesIn(copy.lenses.tests));
-  press("Tab", overviewRow());
-  expect(document.activeElement).toBe(overviewRow());
+  await waitFor(() => expect(document.activeElement).toBe(overviewRow()));
 });
 
 it("u7679e_the_keys_list_names_the_lens_and_find_keys", async () => {
@@ -601,5 +592,5 @@ it("u7679e_the_keys_list_names_the_lens_and_find_keys", async () => {
 
   expect(items.some(item => /^L\b.*lens/i.test(item))).toBe(true);
   expect(items.some(item => /^\/.*find/i.test(item))).toBe(true);
-  expect(items.some(item => /^J and K\b.*Overview/.test(item))).toBe(true);
+  expect(items.some(item => /^J and K\b.*item/.test(item))).toBe(true);
 });

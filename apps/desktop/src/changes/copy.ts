@@ -123,13 +123,13 @@ export const copy = {
   keys: "Keys",
   keysList: [
     /** @prose */
-    "Up and Down move between the Overview and the modules.",
+    "Up and Down move between the items.",
     /** @prose */
     "Left and Right fold or unfold a module.",
     /** @prose */
     "Tab goes from the list to the diff.",
     /** @prose */
-    "J and K go to the Overview, then each module.",
+    "J and K go to the next and the previous item.",
     /** @prose */
     "L opens the next lens, Shift-L the previous.",
     /** @prose */

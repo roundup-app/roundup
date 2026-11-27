@@ -8,7 +8,7 @@ import { RpcError } from "../app/seam";
 import { agent, event, workstream } from "../testing/nodes";
 import { copy } from "./copy";
 import { mountControl, WORKTREE } from "./harness";
-import { openChanges } from "./noteHarness";
+import { openChanges, openOverview } from "./noteHarness";
 import { readbackText } from "./readbackPad";
 import { counted, edited, fresh, pane, setUpView } from "./viewHarness";
 
@@ -84,6 +84,7 @@ const treeOpen = async (answer: Answering, options: { rooted?: boolean; taken?: 
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await openOverview();
 
   return mounted;
 };

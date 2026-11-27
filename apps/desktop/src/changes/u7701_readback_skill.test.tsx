@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { openChanges } from "./noteHarness";
+import { openChanges, openOverview } from "./noteHarness";
 import { calls, counted, fresh, press, setUpView } from "./viewHarness";
 
 setUpView();
@@ -18,6 +18,7 @@ const treeOpen = async (names: string[]) => {
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await openOverview();
   await screen.findByRole("button", { name: copy.readBack });
 
   return mounted.app;
@@ -43,7 +44,7 @@ it("rs5_a_start_with_no_choice_holds_no_skill_and_an_agent_with_none_shows_no_pi
   expect(screen.queryByRole("combobox", { name: copy.readbackSkill })).toBeNull();
   press("r");
   await screen.findByText(copy.readingBack);
-  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toEqual({ id: "a", group: expect.any(Object) });
+  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toEqual({ id: "a", to: "tree" });
 });
 
 it("rs5_opening_the_view_starts_nothing", async () => {

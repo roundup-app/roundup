@@ -92,7 +92,7 @@ it("u7698f_the_explanation_is_captured_for_the_critic", async () => {
     await serve(blob, answer);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
     await choose("Tree");
     await until("!!document.querySelector('.changes-side [data-row=\"module\"]')");
     await browser("click", '.changes-side [data-row="module"]');

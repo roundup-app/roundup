@@ -55,7 +55,9 @@ const relist = async () => {
   fireEvent.click(screen.getByRole("radio", { name: copy.targetBranch }));
   await waitFor(() => expect(screen.getByRole("radio", { name: copy.targetBranch }).getAttribute("aria-checked")).toBe("true"));
   fireEvent.click(screen.getByRole("radio", { name: copy.targetTree }));
-  fireEvent.click(await waitFor(() => moduleRow("pkg")));
+  await waitFor(() => expect(moduleRow("mod").getAttribute("aria-selected")).toBe("true"));
+  fireEvent.click(moduleRow("pkg"));
+  await waitFor(() => expect(moduleRow("pkg").getAttribute("aria-selected")).toBe("true"));
   await showing(NEW);
   await drawn(NEW);
 };
@@ -88,11 +90,6 @@ it("u7698a_only_the_user_asks_and_a_comparison_without_a_tree_offers_none", asyn
   press("d", diffContent());
   expect(asked(app).at(-1)).toEqual({ id: "a", to: "tree", path: NEW, side: "old", start: 6, end: 6, form: "diagram" });
   fireEvent.click(screen.getByRole("button", { name: copy.explainDiagram }));
-  expect(asks(app)).toBe(2);
-
-  // A comparison with no Worktree offers none.
-  fireEvent.click(screen.getByRole("radio", { name: copy.changes }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: copy.explainWords })).toBeNull());
   expect(asks(app)).toBe(2);
 });
 

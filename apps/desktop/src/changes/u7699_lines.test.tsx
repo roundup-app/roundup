@@ -62,7 +62,9 @@ const relist = async (app: { calls: { method: string }[] }) => {
   fireEvent.click(screen.getByRole("radio", { name: copy.targetBranch }));
   await waitFor(() => expect(screen.getByRole("radio", { name: copy.targetBranch }).getAttribute("aria-checked")).toBe("true"));
   fireEvent.click(screen.getByRole("radio", { name: copy.targetTree }));
-  fireEvent.click(await waitFor(() => moduleRow("pkg")));
+  await waitFor(() => expect(moduleRow("mod").getAttribute("aria-selected")).toBe("true"));
+  fireEvent.click(moduleRow("pkg"));
+  await waitFor(() => expect(moduleRow("pkg").getAttribute("aria-selected")).toBe("true"));
   await showing(NEW);
   await drawn(NEW);
   await waitFor(() => expect(calls(app, "agent.compareFile")).toBeGreaterThan(reads));
@@ -83,7 +85,7 @@ it("u7699a_a_read_draws_its_explanations_under_their_lines_and_the_view_starts_n
   expect(screen.getByText(WIRING.text)).toBeTruthy();
   expect(screen.getAllByText(copy.readbackCredit).length).toBe(2);
   expect(regions().every(each => section(NEW)?.contains(each))).toBe(true);
-  expect(stale()).toEqual(["false", "false"]);
+  await waitFor(() => expect(stale()).toEqual(["false", "false"]));
 
   // Opening the view, a turn that wrote and a wait start nothing.
   await tick();
@@ -101,7 +103,7 @@ it("u7699b_a_write_over_the_lines_greys_an_explanation_and_ask_again_asks_once",
   now.blob = "two";
   now.changed = line => (line === 20 ? "edited 20" : original(line));
   await relist(app);
-  expect(stale()).toEqual(["false", "false"]);
+  await waitFor(() => expect(stale()).toEqual(["false", "false"]));
 
   // A write over the first one's lines greys it alone and offers Ask again.
   now.blob = "three";

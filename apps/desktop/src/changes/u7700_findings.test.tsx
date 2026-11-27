@@ -8,7 +8,7 @@ import { copy } from "./copy";
 import { createFindings, createFound } from "./findings";
 import { mountControl } from "./harness";
 import { message } from "../testing/centreFixture";
-import { openBatch, openChanges } from "./noteHarness";
+import { openBatch, openChanges, openOverview } from "./noteHarness";
 import {
   calls,
   comparison,
@@ -104,6 +104,7 @@ const treeOpen = async (now: Daemon) => {
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await openOverview();
   await waitFor(() => expect(screen.getByRole("radio", { name: copy.targetTree }).getAttribute("aria-checked")).toBe("true"));
   await within(pane()).findByRole("button", { name: copy.findDefects });
 
@@ -125,7 +126,7 @@ const toModule = async () => {
 };
 
 const toOverview = () =>
-  fireEvent.click(there(region().querySelector('[data-row="overview"]')));
+  fireEvent.click(within(region()).getByRole("button", { name: copy.overview }));
 
 const regions = () => screen.getAllByRole("region", { name: copy.finding });
 
@@ -395,7 +396,7 @@ it("u7700e_a_finding_whose_lines_changed_greys_and_a_gone_file_is_listed_unlinke
   now.gone = true;
   now.blob = "three";
   await relist();
-  await waitFor(toOverview);
+  await openOverview();
   await within(pane()).findByText(copy.changedSinceReadback, { exact: false });
   expect(opens().length).toBe(0);
   expect(
@@ -417,7 +418,7 @@ it("u7700f_a_pass_outlives_the_view_for_the_session", async () => {
   );
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
-  await waitFor(toOverview);
+  await openOverview();
 
   expect(await within(pane()).findByText(copy.findingsCount(2))).toBeTruthy();
   expect(asks(app)).toBe(1);

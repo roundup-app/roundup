@@ -7,7 +7,7 @@ import type { Readback } from "@contracts/agent/Readback";
 import { event } from "../testing/nodes";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { openChanges } from "./noteHarness";
+import { openChanges, openOverview } from "./noteHarness";
 import { parseDiagram } from "./diagram";
 import { answers, FLOW_FILES, flowComparison, RUN } from "./flowFixture";
 import { flowName } from "./flows";
@@ -50,6 +50,7 @@ const treeOpen = async (answer: Answering) => {
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await openOverview();
 
   return mounted;
 };

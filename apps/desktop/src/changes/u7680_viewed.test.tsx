@@ -1,11 +1,12 @@
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
+import { message } from "../testing/centreFixture";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { OwnedChanges } from "@contracts/agent/OwnedChanges";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { agent } from "../testing/nodes";
 import { copy } from "./copy";
-import { openChanges, take } from "./noteHarness";
+import { openChanges, saveNote, take } from "./noteHarness";
 import { chooseLens, closeButton, comparison, counted, gone, isOpen, landed, lensNow, moduleKeys, moduleRow, owning, pane, press, region, setUpView, showing, takeNoise, there, treeFocus } from "./viewHarness";
 
 setUpView();
@@ -65,6 +66,7 @@ it("u7680a_v_and_the_button_mark_the_open_item_and_the_same_press_un_marks_it", 
 
 it("u7680a_the_overview_and_a_noise_file_take_no_mark", async () => {
   await landed(() => ({ files: LOGIC }));
+  fireEvent.click(within(region()).getByRole("button", { name: copy.overview }));
   pane();
   expect(marker()).toBeNull();
   press("v");
@@ -84,6 +86,7 @@ it("u7680a_a_mark_blocks_nothing_and_makes_no_call", async () => {
   const others = () => app.calls.map(call => call.method).filter(method => method !== "agent.compareFile");
 
   await choose("crates/a", "crates/a/src/x.rs");
+  await waitFor(() => expect(others()).toContain("agent.repeatScan"));
   const before = others();
 
   press("v");
@@ -305,4 +308,59 @@ it("u7680d_a_file_that_joins_or_leaves_a_viewed_item_says_nothing", async () => 
   await connected.owned.refresh("a");
   await waitFor(() => expect(moduleKeys()).toContain("m:crates/a"));
   silent();
+});
+
+const header = () => within(there(region().querySelector<HTMLElement>(".changes-head")));
+
+it("u8010d_with_every_item_viewed_and_one_note_the_header_sends_one_message", async () => {
+  const { app } = await landed(() => ({ files: [f("crates/a/src/x.rs")] }));
+
+  app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
+  await choose("crates/a", "crates/a/src/x.rs");
+  await saveNote("one note");
+  press("v");
+  await waitFor(() => expect(header().queryByText(/viewed/)).toBeNull());
+  fireEvent.click(header().getByRole("button", { name: copy.sendNotesTo("a") }));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
+});
+
+it("u8010d_with_every_item_viewed_and_no_note_the_header_reads_all_viewed", async () => {
+  await landed(() => ({ files: [f("crates/a/src/x.rs")] }));
+  await choose("crates/a", "crates/a/src/x.rs");
+  press("v");
+  await screen.findByText(copy.viewedProgress(1, 1));
+  expect(header().queryByRole("button", { name: /Send notes/ })).toBeNull();
+});
+
+it("u8010a_with_every_item_viewed_the_view_opens_the_first_item", async () => {
+  await landed(() => ({ files: SPLIT }));
+  await choose("crates/a", "crates/a/src/x.rs");
+  press("v");
+  await showing("crates/b/src/y.rs");
+  press("v");
+  await showing("crates/c/tests/z.rs");
+  press("v");
+  await screen.findByText(copy.viewedProgress(3, 3));
+
+  // Tests lists a and c, both viewed, and not the open b: it opens its first item.
+  await choose("crates/b", "crates/b/src/y.rs");
+  await chooseLens(copy.lenses.tests);
+  await showing("crates/a/tests/x.rs");
+});
+
+it("u8010a_a_changed_comparison_lands_on_its_first_unviewed_item", async () => {
+  const group = (repo: string, branch: string, files: ChangedFile[]) => ({ repo, checkout: repo, branch, base: "main", files });
+
+  await mountOwned(agent("g", "idle", "ready"), { groups: [group("/p", "main", [f("a/x.ts"), f("b/x.ts")]), group("/q", "own/x", [f("a/x.ts"), f("c/y.ts")])] });
+  await openFromRail("g", 4);
+  await showing("a/x.ts");
+  press("v");
+  await showing("b/x.ts");
+
+  // The second group's marks are its own: its first item is not viewed there.
+  const [, second] = within(screen.getByRole("list", { name: copy.changeGroups })).getAllByRole("button");
+
+  fireEvent.click(there(second));
+  await waitFor(() => moduleRow("c"));
+  await showing("a/x.ts");
 });

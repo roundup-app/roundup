@@ -113,7 +113,7 @@ const reopen = async (mode: "done" | "slow") => {
     for (let open = 1; open <= OPENS; open++) {
       try {
         await browser("click", ".changes-icon");
-        await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+        await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
 
         await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
         await browser("click", ".changes-side .app-segment[aria-label^=\"Flows \"]");

@@ -6,7 +6,7 @@ import type { Readback } from "@contracts/agent/Readback";
 import { copy } from "./copy";
 import { answers, FLOW_FILES, flowComparison, OTHER, RUN, SHOUT, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
-import { take } from "./noteHarness";
+import { openOverview, take } from "./noteHarness";
 import { calls, chooseLens, landed, moduleKeys, moduleRow, openPaths, pane, press, region, setUpView, showing, slot } from "./viewHarness";
 
 setUpView();
@@ -108,7 +108,7 @@ it("u7689b_a_read_adds_flows_the_code_cannot_see_replaces_not_traced_and_ends_wi
 
   await flowsRead(answer);
   await waitFor(() => expect(moduleKeys()).toEqual([flowKey(RUN), flowKey(OTHER), "m:~unplaced", "m:~untraced"]));
-
+  await openOverview();
   press("r");
   await waitFor(() => expect(states().textContent).toContain(copy.readingBack));
   answer.state = result("read");
@@ -148,8 +148,8 @@ it("u7689c_not_traced_offers_the_readback_on_tree_and_branch_and_none_on_changes
 
   // The pane holds the line over an icon button; it starts the run once, and the words leave.
   take(moduleRow("~untraced"));
-  await waitFor(() => expect(within(pane().ownerDocument.body).getAllByText(copy.readToSee).length).toBe(1));
-  fireEvent.click(within(inSlot()).getByRole("button", { name: copy.readBack }));
+  await waitFor(() => expect(within(document.body).getAllByText(copy.readToSee).length).toBe(1));
+  fireEvent.click(within(document.body).getByRole("button", { name: copy.readBack }));
   await waitFor(() => expect(said("~untraced")).not.toContain(copy.readToSee));
   expect(calls(app, "agent.readbackStart")).toBe(1);
 });
@@ -159,6 +159,7 @@ it("u7689d_reading_and_failed_leave_the_code_flows_as_they_were_and_retry_reads_
   const { app } = await flowsRead(answer);
 
   await waitFor(() => expect(moduleKeys()).toEqual([flowKey(RUN), flowKey(OTHER), "m:~unplaced", "m:~untraced"]));
+  await openOverview();
   press("r");
   await waitFor(() => expect(states().textContent).toContain(copy.readingBack));
   expect(moduleKeys()).toEqual([flowKey(RUN), flowKey(OTHER), "m:~unplaced", "m:~untraced"]);

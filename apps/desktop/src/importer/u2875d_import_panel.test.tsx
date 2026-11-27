@@ -753,7 +753,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!document.querySelector('.diff-reader [role=alert]') && document.querySelector('diffs-container')?.shadowRoot?.textContent.includes('recovered comparison')");
     expect(await evaluate("document.querySelector('.note-field textarea').value")).toBe("  keep this exact unfinished note 🐝  ");
     await capture("U5558e", "diff-keyboard-recovered");
-    await browser("focus", ".changes-head button");
+    await browser("focus", ".changes-head button[aria-label=\"Close changes\"]");
     await browser("press", "Enter");
     await wait("!document.querySelector('.changes-view')");
     expect(await evaluate("[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Refresh')")).toBe(false);

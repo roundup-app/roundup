@@ -8,8 +8,8 @@ import { answers, FLOW_FILES, flowComparison, RUN, TYPESCRIPT } from "./flowFixt
 import { flowName, groupFlows } from "./flows";
 import { groupLens } from "./lens";
 import { fileRanks, withRisks } from "./rank";
-import { take } from "./noteHarness";
-import { at, chooseLens, counted, landed, marks, moduleRow, multi, openPaths, pane, press, region, setUpView, showing, slot, there } from "./viewHarness";
+import { openOverview, take } from "./noteHarness";
+import { at, chooseLens, counted, drawn, landed, marks, moduleRow, multi, openPaths, pane, press, region, setUpView, showing, slot, there } from "./viewHarness";
 
 setUpView();
 
@@ -123,8 +123,10 @@ it("u7697e_a_stale_readback_dims_the_marks_and_keeps_the_order", async () => {
 
 it("u7697a_keys_and_viewed_follow_the_ranked_order", async () => {
   await opened({ state: "read", ...ACCOUNT });
+  take(moduleRow("crates/b"));
   take(moduleRow("crates/a"));
   await showing("crates/a/src/x.rs");
+  await drawn("crates/a/src/x.rs");
 
   // The scroll holds the ranked order, and ] at the last change of the first file crosses into the next ranked file, not the next path.
   expect(openPaths()).toEqual(["crates/a/src/x.rs", "crates/a/src/a.rs", "crates/a/tests/x.rs", "crates/a/tests/a.rs"]);
@@ -165,6 +167,7 @@ it("u7697c_a_marks_sit_on_the_row_and_the_overview_line_of_its_module_or_flow", 
 
   // A module: its row, its Overview line and the item's header; a low one shows none; the count and the Viewed mark stay as they were.
   await waitFor(() => expect(marksOf(moduleRow("apps/a"))).toEqual([copy.riskMark.high]));
+  await openOverview();
   expect(marksOf(entryOf("apps/a"))).toEqual([copy.riskMark.high]);
   expect(marksOf(moduleRow("crates/b"))).toEqual([]);
   expect(marksOf(entryOf("crates/b"))).toEqual([]);

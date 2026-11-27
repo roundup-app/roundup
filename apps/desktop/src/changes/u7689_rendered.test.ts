@@ -135,7 +135,7 @@ it("u7689g_the_flows_lens_after_a_readback_is_captured_for_the_critic", async ()
     await serve(answer);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
     await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
     await browser("click", ".changes-side .app-segment[aria-label^=\"Flows \"]");
     await until("!!document.querySelector('.changes-side .app-segment[aria-label^=\"Flows \"][data-checked]')");

@@ -103,7 +103,7 @@ it("u7688h_the_readback_is_captured_for_the_critic", async () => {
     await serve(answer);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
     // A script click: at 388 px the header wraps and a pointer click on the segment can miss it.
     await read("document.querySelector('.changes-view .app-segment[aria-label=\"Tree\"]')?.click() ?? false");
   };

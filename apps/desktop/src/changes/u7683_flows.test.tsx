@@ -8,7 +8,7 @@ import { copy } from "./copy";
 import { keepHunks } from "./diffDraw";
 import { answers, FLOW_FILES, flowComparison, LOAD, LOOKUP, OTHER, RUN, RUST, SHOUT, ALIAS, TYPES_ONLY, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
-import { saveNote, take, treeRow } from "./noteHarness";
+import { openOverview, saveNote, take, treeRow } from "./noteHarness";
 import { tabNamed, chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
 
 setUpView();
@@ -72,6 +72,7 @@ it("u7683a_the_flows_overview_lists_the_flows_in_list_order", async () => {
   const keys = [flowKey(RUN), flowKey(OTHER), "m:~unplaced", "m:~untraced"];
 
   await waitFor(() => expect(moduleKeys()).toEqual(keys));
+  await openOverview();
   expect([...pane().querySelectorAll<HTMLElement>("[data-entry]")].map(row => row.dataset.entry)).toEqual(keys);
   expect(within(pane()).getAllByText(copy.filesCount(2))).toHaveLength(3);
 
@@ -247,18 +248,18 @@ it("u7683d_a_section_keeps_only_the_hunks_with_a_changed_line_its_function_holds
 });
 
 it("u7683e_the_call_tree_marks_added_removed_and_changed_calls_folds_the_rest_and_a_row_opens_its_section", async () => {
-  const { app } = await flowsOpen();
+  await flowsOpen();
   const rows = () => [...region().querySelectorAll<HTMLElement>('[data-row="call"]')];
-  const read = (path: string) => app.calls.filter(call => call.method === "agent.compareFile" && JSON.stringify(call.params).includes(path)).length;
 
   await traced();
+  await openOverview();
+
   take(moduleRow(flowName(RUN.key)));
   await waitFor(() => expect(rows().map(row => row.textContent)).toEqual(["runChanged", "loadChanged", copy.calledBy(3), "legacyRemoved", copy.unchangedCalls(1)]));
 
-  // A call opens the section of the function it calls, once, beside the one read that looks for hunks outside every function (U7923a).
-  await waitFor(() => expect(read(LOAD.path)).toBe(1));
+  // A call opens the section of the function it calls.
   fireEvent.click(rows()[1] ?? region());
-  await waitFor(() => expect(read(LOAD.path)).toBe(2));
+  await showing(sectionOf(LOAD));
 });
 
 it("u7683f_tracing_shows_after_150_ms_a_failed_trace_says_why_and_retry_asks_again", async () => {

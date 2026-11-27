@@ -24,6 +24,12 @@ export const openChanges = async () => {
   action.run();
 };
 
+/** U8010: the view lands on the first item, so a test that reads the Overview chooses it by the header's icon, as a user does. */
+export const openOverview = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: copy.overview }));
+  await screen.findByRole("region", { name: copy.overview });
+};
+
 /** The Changes lists a user sees: another Project's view stays mounted, out of the accessibility tree. */
 const visibleTrees = () => [...document.querySelectorAll<HTMLElement>(".changes-tree")].filter(tree => tree.closest('[aria-hidden="true"], [inert]') === null);
 

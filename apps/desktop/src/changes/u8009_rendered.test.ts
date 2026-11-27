@@ -116,7 +116,7 @@ it("u8009d_the_rows_and_tabs_are_captured_for_the_critic", async () => {
     await serve(FILES);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
 
     // The width that leaves the view the centre's minimum: the wide window less what the view has over it.
     const view = await read<number>("document.querySelector('.changes-view').getBoundingClientRect().width");

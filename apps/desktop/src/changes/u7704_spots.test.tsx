@@ -10,7 +10,7 @@ import { mountRail, rowOf } from "../rail/railFixture";
 import { agent, event } from "../testing/nodes";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { COMPARISON, openChanges, openFile, take, treeRow } from "./noteHarness";
+import { COMPARISON, openChanges, openFile, take, treeRow, openOverview } from "./noteHarness";
 import { calls, comparison, counted, drawnIn, fresh, moduleRow, setUpView, text } from "./viewHarness";
 
 setUpView();
@@ -55,6 +55,7 @@ const treeOpen = async (answer: (n: number) => Spots | Promise<Spots>, repeats: 
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await openOverview();
 
   return mounted;
 };

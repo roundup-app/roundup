@@ -11,7 +11,7 @@ import { copy } from "./copy";
 import { answers, FLOW_FILES, flowComparison, OTHER, RUN } from "./flowFixture";
 import { flowName } from "./flows";
 import { mountControl, WORKTREE } from "./harness";
-import { openChanges, openFile, saveNote } from "./noteHarness";
+import { openChanges, openFile, saveNote, take } from "./noteHarness";
 import { calls, chooseLens, comparison, counted, drawn, drawnIn, fresh, landed, moduleKeys, moduleRow, press, setUpView, showing, text } from "./viewHarness";
 
 setUpView();
@@ -165,7 +165,8 @@ it("u7685c_a_flow_counts_the_repeats_of_its_sections_and_a_hunk_counts_under_eac
   expect(said("~unplaced")).not.toMatch(/repeat/);
 
   // A section marks only the repeat lines it shows: `run`'s line 2, and the mark names the other place.
-  press("j");
+  take(moduleRow(flowName(RUN.key)));
+
   const section = `${RUN.path}\0${RUN.key}`;
 
   await showing(section);

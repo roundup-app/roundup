@@ -60,8 +60,6 @@ export const createFind = (around: Around) => {
     const module = grouped().modules[0];
     const noise = grouped().noise[0];
 
-    if (letters() === "") return OVERVIEW;
-
     return module ? moduleKey(module.name) : noise ? kindValue(noise.kind) : undefined;
   };
 

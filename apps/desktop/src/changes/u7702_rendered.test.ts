@@ -105,7 +105,7 @@ it("u7702g_the_save_is_captured_for_the_critic", async () => {
     await serve(creating);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
     await read("document.querySelector('.changes-view .app-segment[aria-label=\"Tree\"]')?.click() ?? false");
     await until(present);
   };
