@@ -12,6 +12,26 @@ export type Changed = { old: number[]; new: number[] };
 /** The most files a listing reads to find hunks outside every flow. */
 const MAX_FILES = 50;
 
+const patchLines = async (path: string, old: string, next: string) => {
+  const { structuredPatch } = await import("diff");
+  const found: Changed = { old: [], new: [] };
+
+  for (const hunk of structuredPatch(path, path, old, next).hunks) {
+    let before = hunk.oldStart;
+    let after = hunk.newStart;
+
+    for (const line of hunk.lines) {
+      if (line.startsWith("+")) found.new.push(after++);
+      else if (line.startsWith("-")) found.old.push(before++);
+      else if (line.startsWith(" ")) { before++; after++; }
+    }
+  }
+
+  return found;
+};
+
+const sideText = (side: { kind: string; text?: string } | undefined) => (side?.kind === "text" ? (side.text ?? "") : side?.kind === "absent" ? "" : null);
+
 /**
  * U7923a: the changed lines of the files a flow holds, read once for each blob, so Unplaced can list a file whose hunk sits in no function. A new comparison target drops every answer; a failed read leaves the file as the flows hold it.
  */
@@ -19,6 +39,16 @@ export const createChangedLines = (input: { app: AppSeam; id: string; to: () => 
   const [lines, setLines] = createSignal<ReadonlyMap<string, Changed>>(new Map());
   const asked = new Set<string>();
   let generation = 0;
+
+  const read = async (file: ChangedFile) => {
+    const result = await reply(() => input.app.rpc("agent.compareFile", compareParams(input.id, file.path, input.to(), input.group())));
+    const old = result.kind === "ok" ? sideText(result.value.old) : null;
+    const next = result.kind === "ok" ? sideText(result.value.new) : null;
+
+    if (old === null || next === null) return null;
+
+    return await patchLines(file.path, old, next);
+  };
 
   createEffect(() => [input.to(), input.group() ?? ""].join("|"), () => {
     generation += 1;
@@ -35,27 +65,9 @@ export const createChangedLines = (input: { app: AppSeam; id: string; to: () => 
       if (asked.has(key)) continue;
       asked.add(key);
 
-      void (async () => {
-        const result = await reply(() => input.app.rpc("agent.compareFile", compareParams(input.id, file.path, input.to(), input.group())));
-        const { old, new: next } = result.kind === "ok" ? result.value : {};
-
-        if (mine !== generation || !old || !next || (old.kind !== "text" && old.kind !== "absent") || (next.kind !== "text" && next.kind !== "absent")) return;
-        const { structuredPatch } = await import("diff");
-        const found: Changed = { old: [], new: [] };
-
-        for (const hunk of structuredPatch(file.path, file.path, old.kind === "text" ? old.text : "", next.kind === "text" ? next.text : "").hunks) {
-          let before = hunk.oldStart;
-          let after = hunk.newStart;
-
-          for (const line of hunk.lines) {
-            if (line.startsWith("+")) found.new.push(after++);
-            else if (line.startsWith("-")) found.old.push(before++);
-            else if (line.startsWith(" ")) { before++; after++; }
-          }
-        }
-
-        if (mine === generation) setLines(map => new Map(map).set(file.path, found));
-      })();
+      void read(file).then(found => {
+        if (found && mine === generation) setLines(map => new Map(map).set(file.path, found));
+      });
     }
   });
 
