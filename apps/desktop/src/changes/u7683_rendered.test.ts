@@ -67,7 +67,7 @@ const READY = "!!document.querySelector('diffs-container')?.shadowRoot?.querySel
 
 const said = (words: string) => "document.querySelector('.changes-view')?.textContent.includes(" + JSON.stringify(words) + ")";
 
-const LENS = (lens: string, checked = "") => "!!document.querySelector('.changes-side .app-segment[aria-label=\"" + lens + "\"]" + checked + "')";
+const LENS = (lens: string, checked = "") => "!!document.querySelector('.changes-side .app-segment[aria-label^=\"" + lens + " \"]" + checked + "')";
 
 // U7683h: `just capture U7683h` writes each state at 1512 by 950 and at the centre's 388 px minimum, dark, over the U26 harness; the design critic judges layout and looks.
 it("u7683h_the_flows_lens_is_captured_for_the_critic", async () => {
@@ -145,7 +145,7 @@ it("u7683h_the_flows_lens_is_captured_for_the_critic", async () => {
     if (!wide) await browser("set", "viewport", String(SIZE.wide - Math.max(0, Math.floor(view) - SIZE.centre)), String(SIZE.height));
 
     await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
-    await browser("click", ".changes-side .app-segment[aria-label=\"Flows\"]");
+    await browser("click", ".changes-side .app-segment[aria-label^=\"Flows \"]");
     await until(LENS("Flows", "[data-checked]"));
   };
 

@@ -85,7 +85,7 @@ it("u7680f_viewed_states_are_captured_for_the_critic", async () => {
     await serve(files);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await browser("click", '.changes-side .app-segment[aria-label="Modules"]');
+    await browser("click", '.changes-side .app-segment[aria-label^="Modules "]');
     await until("!!document.querySelector('.changes-side [data-row=\"module\"]')");
   };
 

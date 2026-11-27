@@ -59,7 +59,7 @@ const LOOKUP = { languages: [found("typescript", 4), found("rust", 14), { langua
 
 type Group = { repo: string; checkout: string; branch: string; base: string; files: ChangedFile[] };
 
-const LENS = (lens: string, checked = "") => `!!document.querySelector('.changes-side .app-segment[aria-label="${lens}"]${checked}')`;
+const LENS = (lens: string, checked = "") => `!!document.querySelector('.changes-side .app-segment[aria-label^="${lens} "]${checked}')`;
 
 const OPENS = 10;
 
@@ -116,7 +116,7 @@ const reopen = async (mode: "done" | "slow") => {
         await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
 
         await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
-        await browser("click", ".changes-side .app-segment[aria-label=\"Flows\"]");
+        await browser("click", ".changes-side .app-segment[aria-label^=\"Flows \"]");
 
         await until(LENS("Flows", "[data-checked]"));
 

@@ -132,7 +132,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   /** U8009a: the longest change among the list's modules; each bar is drawn against it. */
   const longest = createMemo(() => Math.max(1, ...props.grouped.modules.map(module => module.added + module.removed)));
 
-  const share = (lines: number) => lines === 0 ? 0 : Math.max(2, lines / longest() * 100);
+  const share = (lines: number) => lines === 0 ? 0 : Math.max(3, lines / longest() * 100);
 
   /** U8009b: the last segments that more than one module row ends in. */
   const shared = createMemo(() => {
@@ -192,12 +192,18 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
           <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
           <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>
         </span>
-        <Show when={folderOf(module(), shared())}>{folder => <span class="changes-row-folder">{folder()}</span>}</Show>
-        <Name text={module().label ?? leafOf(module())} stale={module().read?.stale} />
-        <Show when={module().function}>{name => <span class="changes-row-function">{name()}</span>}</Show>
-        <Show when={props.selected === moduleKey(module().name) && module().counted}><Counts added={module().added} removed={module().removed} /></Show>
-        <Show when={module().counted}><span class="changes-row-bar" aria-hidden="true"><span class="changes-row-added" style={{ "inline-size": `${share(module().added)}%` }} /><span class="changes-row-removed" style={{ "inline-size": `${share(module().removed)}%` }} /></span></Show>
-        <Show when={signalOf(module())}>{signal => <Show when={signal() === "risk" ? module().risk : undefined} fallback={<span class="changes-row-dot" data-signal={signal()} aria-hidden="true" />}>{risk => <RiskMark risk={risk()} />}</Show>}</Show>
+        <span class="changes-row-text">
+          <Show when={folderOf(module(), shared())}>{folder => <span class="changes-row-folder">{folder()}</span>}</Show>
+          <Name text={module().label ?? leafOf(module())} stale={module().read?.stale} />
+          <Show when={module().function}>{name => <span class="changes-row-function">{name()}</span>}</Show>
+          <Show when={props.selected === moduleKey(module().name) && module().counted}><Counts added={module().added} removed={module().removed} /></Show>
+        </span>
+        <span class="changes-row-bar" aria-hidden="true">
+          <Show when={module().counted}><span class="changes-row-added" style={{ "inline-size": `${share(module().added)}%` }} /><span class="changes-row-removed" style={{ "inline-size": `${share(module().removed)}%` }} /></Show>
+        </span>
+        <span class="changes-row-slot">
+          <Show when={signalOf(module())}>{signal => <Show when={signal() === "risk" ? module().risk : undefined} fallback={<span class="changes-row-dot" data-signal={signal()} aria-hidden="true" />}>{risk => <RiskMark risk={risk()} />}</Show>}</Show>
+        </span>
       </TreeItem>
       <Show when={open(moduleKey(module().name))}>
         <For each={module().files}>{file => <File file={file} value={fileValue(moduleKey(module().name), file.path)} key={moduleKey(module().name)} owner={moduleKey(module().name)} />}</For>

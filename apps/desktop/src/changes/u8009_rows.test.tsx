@@ -1,8 +1,10 @@
-import { waitFor } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
+import type { Spot } from "@contracts/agent/Spot";
 import { copy } from "./copy";
-import { take } from "./noteHarness";
-import { chooseLens, counted, landed, lensGroup, moduleRow, press, region, setUpView, tabNamed } from "./viewHarness";
+import { mountControl } from "./harness";
+import { openChanges, take } from "./noteHarness";
+import { chooseLens, comparison, counted, fresh, landed, lensGroup, moduleRow, press, region, setUpView, tabNamed } from "./viewHarness";
 
 setUpView();
 
@@ -20,8 +22,16 @@ const FILES = [
 
 const rowText = (name: string) => moduleRow(name).textContent ?? "";
 
+const REPEAT: Spot = { source: { kind: "repeats" }, path: "crates/a/src/x.rs", start: 1, end: 3, other: { path: "crates/c/tests/z.rs", start: 1, end: 3 }, stale: false };
+
 it("u8009a_a_rows_accessible_name_says_its_counts_viewed_state_and_each_signal", async () => {
-  await landed(() => ({ files: FILES }));
+  const mounted = await mountControl(() => ({ files: FILES }), fresh());
+
+  mounted.app.handlers["agent.compareFile"] = ({ path }) => comparison(path);
+  mounted.app.handlers["agent.repeatScan"] = () => ({ spots: [REPEAT], complete: true });
+  await openChanges();
+  fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await waitFor(() => expect(moduleRow("crates/a").getAttribute("aria-label")).toContain(copy.repeatsCount(1)));
   const name = moduleRow("crates/a").getAttribute("aria-label") ?? "";
 
   for (const part of ["crates/a", copy.filesCount(2), copy.addedLines(8), copy.removedLines(3)]) expect(name).toContain(part);

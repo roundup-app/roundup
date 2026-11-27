@@ -164,7 +164,7 @@ const placesOf = (memory: Memory, at: (key: string) => string) => ({
 const lensSegmentsOf = (props: { countOf: (lens: Lens) => number }) => LENSES.map(value => {
   const count = createMemo(() => props.countOf(value));
 
-  return { value, get label() { return copy.tabCount(copy.lenses[value], count()); }, content: <>{copy.lenses[value]} <span class="changes-tab-count">{count()}</span></> };
+  return { value, get label() { return copy.tabCount(copy.lenses[value], count()); }, content: <>{copy.lenses[value]}<span class="changes-tab-count">{count()}</span></> };
 });
 
 const LensTabs = (props: { countOf: (lens: Lens) => number; lens: Lens; onSwitch: (lens: Lens) => void }) => {
