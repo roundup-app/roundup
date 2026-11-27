@@ -135,7 +135,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
           await browser("click", icon);
           await until("!!document.querySelector('.changes-view .changes-side .changes-tree [data-row]')");
           await capture(lane, `changes-${count}`);
-          await browser("click", ".changes-head > button");
+          await browser("click", ".changes-head > button[aria-label=\"Close changes\"]");
           await until("!document.querySelector('.changes-view')");
         }
       }

@@ -160,7 +160,7 @@ it("u7691a_the_rows_that_take_a_note_and_the_ones_that_do_not", async () => {
   await open();
 
   for (const row of [
-    present(region().querySelector<HTMLElement>('[data-row="overview"]')),
+    within(region()).getByRole("button", { name: copy.overview }),
     present(region().querySelector<HTMLElement>('[data-row="noise"]')),
   ]) {
     row.focus();

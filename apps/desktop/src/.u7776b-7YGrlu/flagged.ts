@@ -1,0 +1,1 @@
+createSignal(async () => await rpc());

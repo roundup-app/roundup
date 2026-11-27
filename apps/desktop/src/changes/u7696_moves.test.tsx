@@ -83,7 +83,7 @@ it("u7696b_the_row_counts_its_moves_and_none_says_nothing", async () => {
   await waitFor(() => expect(drawnIn("crates/b/src/lib.rs").length).toBeGreaterThan(0));
   expect(said("crates/b")).not.toMatch(/moved/);
   await chooseLens(copy.lenses.flows);
-  expect(region().textContent).not.toMatch(/moved/i);
+  expect(region().textContent).not.toMatch(/\bmoved/i);
   expect(stamped(RUN_PATH)).toEqual([]);
 });
 

@@ -5,7 +5,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Readback } from "@contracts/agent/Readback";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
-import { openChanges } from "./noteHarness";
+import { openChanges, openOverview } from "./noteHarness";
 import {
   calls,
   comparison,
@@ -68,6 +68,7 @@ const treeOpen = async (answer: Answering) => {
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  await openOverview();
 
   return mounted;
 };

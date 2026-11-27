@@ -96,7 +96,7 @@ it("u7685h_the_repeats_are_captured_for_the_critic", async () => {
     await serve(mode);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
     await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
   };
 

@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { copy } from "./copy";
 import { COMPARISON, openChanges, openFirstModule, take, treeRow, startNote, waitDiff } from "./noteHarness";
 import { mountControl, WORKTREE } from "./harness";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
@@ -73,7 +74,7 @@ it("u7674b_the_header_holds_name_from_switch_totals_and_one_close", async () => 
   must(head.querySelector(".changes-from"));
   expect(head.querySelectorAll('[role="radiogroup"]').length).toBe(1);
   expect(head.querySelector(".changes-totals")?.textContent).toMatch(/3 .*16.*4/);
-  expect(head.querySelectorAll("[data-button]").length).toBe(1);
+  expect(within(head).getAllByRole("button").map(each => each.getAttribute("aria-label"))).toEqual([copy.overview, copy.closeChanges]);
   absent(() => screen.queryByRole("heading", { name: /Changes:/ }));
 });
 
@@ -135,8 +136,7 @@ it("u7674e_choosing_a_value_opens_its_first_file", async () => {
 
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "t.ts", status: "modified", line: 1, counts: null, blob: null }] });
   fireEvent.click(await screen.findByRole("radio", { name: "Tree" }));
-  // U7679c: the new value opens the Overview, and no file is read until a module is chosen.
-  await screen.findByRole("region", { name: "Overview" });
+  // U7679c: the new value opens no file until a module is chosen.
   expect(compared(app)).not.toContain("t.ts");
 });
 

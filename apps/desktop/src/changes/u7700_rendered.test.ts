@@ -102,7 +102,7 @@ it("u7700g_the_findings_are_captured_for_the_critic", async () => {
     await serve(answer);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
     await choose("Tree");
     await until(present('.findings button[aria-label="' + copy.findDefects + '"]'));
     await press(copy.findDefects);

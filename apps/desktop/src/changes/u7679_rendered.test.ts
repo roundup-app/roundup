@@ -104,7 +104,7 @@ it("u7679f_the_lenses_overview_and_find_are_captured_for_the_critic", async () =
     await serve(files);
     await until("!!document.querySelector('.changes-icon')");
     await browser("click", ".changes-icon");
-    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
+    await until("!!document.querySelector('.changes-view .changes-side [data-row=\"module\"]')");
   };
 
   const lens = async (name: string) => {
