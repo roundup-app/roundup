@@ -2,7 +2,6 @@ import * as v from "valibot";
 import type { Layout, LayoutGraph, Size } from "../ui/graphLayout";
 import { copy } from "./copy";
 import type { VisualMount } from "./visualBlocks";
-import "./styles.css";
 
 const Block = v.object({
   summary: v.string(),

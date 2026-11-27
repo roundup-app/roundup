@@ -5,6 +5,7 @@ import type { Control, Controls } from "./statechartBlock";
 import { statechartMount } from "./visualKinds";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
+import "./styles.css";
 
 const GLYPH: Record<Control, IconName> = { back: "left", startOver: "rotate-ccw", walk: "route", details: "info" };
 
