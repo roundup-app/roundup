@@ -23,7 +23,7 @@ No Daemon method, Message or contract change. Reuse: the App's menu component, `
 - **Ground.** The list's `--sunken` ground runs from the view's top edge to its bottom and meets the code's ground at one full-height vertical edge; no ground edge starts under a head, and no new border line (D8) is added. Policy; the design critic judges it (U8026d).
 - **Narrow.** In a view under 560 px, where the list stacks above the code (U7854a), both heads join into one line on top, in the order of the sketch. Policy; the critic judges it (U8026d).
 - **Close.** The close icon button and Escape close the view as U7674b's do. Asserted by the tests those ids name.
-- **Totals.** `+<added> −<removed>` follows the listing's totals as U7674b's did (U7675c). Asserted by `u7675c_the_rail_count_and_header_follow_the_new_list`.
+- **Totals.** `+<added> −<removed>` follows the listing's totals as U7674b's did (U7675c). Asserted by `u7675c_the_rail_count_and_header_totals_follow_the_list` in `apps/desktop/src/changes/u7675_states.test.tsx`.
 
 **U8026b one menu button picks the target.** Given the open view for an Agent and the fake App, then:
 - **Button.** The list's head holds one menu button of the current pick's icon, "main" and a chevron. Its accessible name names the current pick and the remote's main (the words come from `copy.ts`; "main" is the remote's main, U7672a). Asserted in `u8026b_the_menu_buttons_name_holds_the_pick_and_remote_main`.
