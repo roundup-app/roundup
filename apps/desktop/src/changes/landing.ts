@@ -11,18 +11,18 @@ type Landing = {
   setPicked: (key: string) => void;
 };
 
-// U8010a: with no item chosen, the landing is the first item not viewed, else the first item, else the lens's empty state (the Overview pane); it is made once for a listing, so marking an item never moves it.
+// U8010a: with no item chosen, the landing is the first item not viewed, else the first item, else the lens's empty state (the Overview pane); it follows the marks until an item is chosen, and a chosen item wins over it.
 export const createLanding = (input: Landing) => {
   const landed = createMemo(() => {
     input.signature();
+    const viewed = input.viewedKeys();
 
     return untrack(() => {
       if (input.rows().length === 0) return undefined;
 
       const keys = input.modules().map(module => moduleKey(module.name));
-      process.stderr.write("LAND " + JSON.stringify([keys, [...input.viewedKeys()], input.signature()]) + "\n");
 
-      return keys.find(key => !input.viewedKeys().has(key)) ?? keys[0] ?? OVERVIEW;
+      return keys.find(key => !viewed.has(key)) ?? keys[0] ?? OVERVIEW;
     });
   });
 
