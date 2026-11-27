@@ -9,7 +9,7 @@ import { keepHunks } from "./diffDraw";
 import { answers, FLOW_FILES, flowComparison, LOAD, LOOKUP, OTHER, RUN, RUST, SHOUT, ALIAS, TYPES_ONLY, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
 import { saveNote, take, treeRow } from "./noteHarness";
-import { chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
+import { tabNamed, chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
 
 setUpView();
 
@@ -186,7 +186,7 @@ it("u7923a_a_hunk_outside_every_function_sits_under_unplaced_though_its_function
   await waitFor(() => expect(moduleKeys()).toContain("m:~unplaced"));
 
   // Counts: run.ts joins types.ts under Unplaced.
-  await waitFor(() => expect(within(moduleRow("~unplaced")).getByText(copy.filesCount(2))).toBeTruthy());
+  await waitFor(() => expect(moduleRow("~unplaced").getAttribute("aria-label")).toContain(copy.filesCount(2)));
 
   take(moduleRow("~unplaced"));
   await waitFor(() => expect(openPaths()).toContain(RUN.path));
@@ -270,7 +270,7 @@ it("u7683f_tracing_shows_after_150_ms_a_failed_trace_says_why_and_retry_asks_aga
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
 
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-  fireEvent.click(lensGroup().getByRole("radio", { name: copy.lenses.flows }));
+  fireEvent.click(lensGroup().getByRole("radio", { name: tabNamed(copy.lenses.flows) }));
   await vi.advanceTimersByTimeAsync(149);
   expect(asked()).toEqual(["lookup", "typescript"]);
   expect(screen.queryByText(copy.tracing("TypeScript"))).toBeNull();

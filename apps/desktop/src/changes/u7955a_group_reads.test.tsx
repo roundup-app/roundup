@@ -30,7 +30,7 @@ it("u7955a_changes_reads_send_the_open_group_and_flows_traces", async () => {
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "1 changed file" }));
   take(await treeRow("own.ts"));
-  fireEvent.click(await screen.findByRole("radio", { name: copy.lenses.flows }));
+  fireEvent.click(await screen.findByRole("radio", { name: new RegExp(`^${copy.lenses.flows} \\d+$`) }));
 
   await waitFor(() => expect(sent("agent.callPaths")).toEqual([{ id: "a", group: GROUP }, { id: "a", group: GROUP, language: "typescript" }]));
   await waitFor(() => expect(sent("agent.repeatScan")).toEqual([{ id: "a", group: GROUP }]));

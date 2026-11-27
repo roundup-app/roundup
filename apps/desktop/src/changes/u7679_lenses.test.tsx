@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { rowOf } from "../rail/railFixture";
 import { copy } from "./copy";
 import { openChanges, saveNote, take, startNote } from "./noteHarness";
-import { MODS, THREE, absent, at, calls, chooseLens, closeButton, content, counted, drawn, edited, file, fileRows, gone, isOpen, landed, lensGroup, lensNow, marks, moduleKeys, moduleRow, mountRailWith, multi, noiseRows, open, openPaths, owning, pane, press, region, scrolled, scrolledTo, scroller, setUpView, showing, slot, switchedTo, takeNoise, there, treeFocus, written } from "./viewHarness";
+import { tabNamed, MODS, THREE, absent, at, calls, chooseLens, closeButton, content, counted, drawn, edited, file, fileRows, gone, isOpen, landed, lensGroup, lensNow, marks, moduleKeys, moduleRow, mountRailWith, multi, noiseRows, open, openPaths, owning, pane, press, region, scrolled, scrolledTo, scroller, setUpView, showing, slot, switchedTo, takeNoise, there, treeFocus, written } from "./viewHarness";
 
 setUpView();
 
@@ -198,7 +198,7 @@ const finder = () => screen.getByRole("textbox", { name: copy.findFile }) as HTM
 const typeIn = (letters: string) => fireEvent.input(finder(), { target: { value: letters } });
 
 /** The row or entry says its module's file count and sums. */
-const holds = (row: Element, files: number, added: number, removed: number) => [copy.filesCount(files), copy.addedLines(added), copy.removedLines(removed)].every(part => row.textContent?.includes(part));
+const holds = (row: Element, files: number, added: number, removed: number) => [copy.filesCount(files), copy.addedLines(added), copy.removedLines(removed)].every(part => (row.getAttribute("aria-label") ?? row.textContent)?.includes(part));
 
 const noiseKeys = () => noiseRows().map(row => row.dataset.key);
 
@@ -206,7 +206,7 @@ const shiftL = () => fireEvent.keyDown(region(), { key: "L", shiftKey: true });
 
 it("u7679a_the_switch_names_the_four_lenses_in_order_and_choosing_one_changes_the_list", async () => {
   await landed(() => ({ files: LENS_FILES }));
-  const radios = Object.values(copy.lenses).map(name => lensGroup().getByRole("radio", { name }));
+  const radios = Object.values(copy.lenses).map(name => lensGroup().getByRole("radio", { name: tabNamed(name) }));
 
   expect(radios.every((each, at) => (radios[at - 1]?.compareDocumentPosition(each) ?? Node.DOCUMENT_POSITION_FOLLOWING) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
   expect(lensNow()).toBe(copy.lenses.modules);

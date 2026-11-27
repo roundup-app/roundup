@@ -40,6 +40,23 @@ const titleOf = (item: ModuleGroup) => item.function ? copy.rowLabel(item.label 
 /** U7689b, U7689c, U7689d: the words a readback adds to an item's row: where it came from, that the diff moved on, and the way to a readback. */
 const readWords = (item: ModuleGroup | undefined, offered: boolean | undefined) => [item?.read?.added ? copy.fromReadback : "", item?.read?.stale ? copy.changedSinceReadback : "", item?.untraced && offered ? copy.readToSee : ""];
 
+type DotSignal = "finding" | "risk" | "repeat" | "moved" | "note";
+
+/** U8009b: a module row named by its folder, not a flow or the readback's words. */
+const plainModule = (module: ModuleGroup) => module.flow === undefined && module.label === undefined;
+
+/** U8009b: a module's own name, the last segment of its folder. */
+const leafOf = (module: ModuleGroup) => plainModule(module) ? module.name.split("/").at(-1) ?? module.name : module.name;
+
+/** U8009b: the folder a row shares its name under, dimmed before the name; none for a row whose name is its own. */
+const folderOf = (module: ModuleGroup, shared: ReadonlySet<string>) => {
+  if (!plainModule(module) || !shared.has(leafOf(module))) return undefined;
+
+  const parent = module.name.split("/").slice(0, -1).join("/");
+
+  return parent === "" ? copy.rootFolder : `${parent}/`;
+};
+
 /** A file row's tree value: its path under the item that holds it; a file two flows hold is two rows. */
 export const fileValue = (owner: string, path: string) => `f:${owner}\0${path}`;
 
@@ -112,6 +129,35 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   /** U7680a, U7680d: a module row's name adds the words it shows: Viewed, and Changed since you viewed it. */
   const label = (text: string, files: readonly ChangedFile[], key?: string, item?: ModuleGroup) => [item !== undefined && notesOf(item) > 0 ? copy.noteCount(notesOf(item)) : "", ...countWords(key), key !== undefined && props.viewed.has(key) ? copy.viewed : "", key !== undefined && props.changed.has(key) ? copy.changedSinceViewed : "", key !== undefined && props.dimmed?.has(key) ? copy.changedSinceTraced : "", ...readWords(item, props.readHint), ...riskWords(item)].filter(Boolean).reduce(copy.rowLabel, text);
 
+  /** U8009a: the longest change among the list's modules; each bar is drawn against it. */
+  const longest = createMemo(() => Math.max(1, ...props.grouped.modules.map(module => module.added + module.removed)));
+
+  const share = (lines: number) => lines === 0 ? 0 : Math.max(2, lines / longest() * 100);
+
+  /** U8009b: the last segments that more than one module row ends in. */
+  const shared = createMemo(() => {
+    const seen = new Map<string, number>();
+
+    for (const module of props.grouped.modules) if (plainModule(module)) seen.set(leafOf(module), (seen.get(leafOf(module)) ?? 0) + 1);
+
+    return new Set([...seen].flatMap(([leaf, count]) => count > 1 ? [leaf] : []));
+  });
+
+  /** U8009a: the one dot's signal, the most urgent the module holds: a finding, a risk mark, a repeat, moved code, a note. */
+  const signalOf = (module: ModuleGroup): DotSignal | undefined => {
+    const key = moduleKey(module.name);
+
+    if (findingsOf(key) > 0) return "finding";
+
+    if (module.risk) return "risk";
+
+    if (repeatsOf(key) > 0) return "repeat";
+
+    if (movedOf(key) > 0) return "moved";
+
+    return notesOf(module) > 0 ? "note" : undefined;
+  };
+
   /** Each file row's module key and path, by the file's tree value. */
   const owners = createMemo(() => new Map(props.grouped.modules.flatMap(module => module.files.map(file => [fileValue(moduleKey(module.name), file.path), { owner: moduleKey(module.name), path: file.path }] as const))));
 
@@ -147,19 +193,17 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
       </TreeItem>
     </Show>
     <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
-      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} data-dim={props.dimmed?.has(moduleKey(module().name)) ? "true" : undefined} aria-label={label(copy.rowLabel(titleOf(module()), copy.filesCount(module().total)), module().files, moduleKey(module().name), module())}>
-        <ItemName item={module()} />
-        <span class="changes-row-files">{copy.filesCount(module().total)}</span>
-        <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
-        <Show when={notesOf(module()) > 0}><span class="changes-row-notes">{copy.noteCount(notesOf(module()))}</span></Show>
-        <Show when={repeatsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.repeatsCount(repeatsOf(moduleKey(module().name)))}</span></Show>
-        <For each={sourcesOf(moduleKey(module().name))}>{([name, count]) => <span class="changes-row-repeats">{copy.fromSource(count, name)}</span>}</For>
-        <Show when={gapsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.gapsCount(gapsOf(moduleKey(module().name)))}</span></Show>
-        <Show when={findingsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.findingsCount(findingsOf(moduleKey(module().name)))}</span></Show>
-        <Show when={movedOf(moduleKey(module().name)) > 0}><span class="changes-row-moved" data-state="moved">{copy.movedCount(movedOf(moduleKey(module().name)))}</span></Show>
-        <Show when={module().untraced && props.readHint}><span class="changes-row-status">{copy.readToSee}</span></Show>
-        <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
-        <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>
+      <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} data-open={props.selected === moduleKey(module().name) ? "true" : undefined} data-dim={props.dimmed?.has(moduleKey(module().name)) ? "true" : undefined} aria-label={label(copy.rowLabel(copy.rowLabel(titleOf(module()), copy.filesCount(module().total)), module().counted ? `${copy.addedLines(module().added)} ${copy.removedLines(module().removed)}` : ""), module().files, moduleKey(module().name), module())}>
+        <span class="changes-row-mark">
+          <Show when={props.viewed.has(moduleKey(module().name))}><Check class="changes-row-state" data-state="viewed" aria-hidden="true" /></Show>
+          <Show when={props.changed.has(moduleKey(module().name))}><RotateCcw class="changes-row-state" data-state="changed" aria-hidden="true" /></Show>
+        </span>
+        <Show when={folderOf(module(), shared())}>{folder => <span class="changes-row-folder">{folder()}</span>}</Show>
+        <Name text={module().label ?? leafOf(module())} stale={module().read?.stale} />
+        <Show when={module().function}>{name => <span class="changes-row-function">{name()}</span>}</Show>
+        <Show when={props.selected === moduleKey(module().name) && module().counted}><Counts added={module().added} removed={module().removed} /></Show>
+        <Show when={module().counted}><span class="changes-row-bar" aria-hidden="true"><span class="changes-row-added" style={`inline-size:${share(module().added)}%`} /><span class="changes-row-removed" style={`inline-size:${share(module().removed)}%`} /></span></Show>
+        <Show when={signalOf(module())}>{signal => <Show when={signal() === "risk" ? module().risk : undefined} fallback={<span class="changes-row-dot" data-signal={signal()} aria-hidden="true" />}>{risk => <RiskMark risk={risk()} />}</Show>}</Show>
       </TreeItem>
       <Show when={open(moduleKey(module().name))}>
         <For each={module().files}>{file => <File file={file} value={fileValue(moduleKey(module().name), file.path)} key={moduleKey(module().name)} owner={moduleKey(module().name)} />}</For>
