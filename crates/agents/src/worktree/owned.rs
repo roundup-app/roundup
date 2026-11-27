@@ -92,6 +92,17 @@ impl Git {
             })
     }
 
+    /// LH25: the top of the linked git worktree holding the newest of `edits` (oldest first) whose
+    /// checkout still exists; a write in a main checkout or outside a repository is passed over.
+    pub fn newest_checkout(&self, edits: &[String]) -> Option<PathBuf> {
+        let mut tops = HashMap::new();
+        edits.iter().rev().find_map(|edit| {
+            let (top, _) = self.locate(Path::new(edit), &mut tops)?;
+            let linked = self.common_root(&top).is_some_and(|common| common != top);
+            (linked && top.is_dir()).then_some(top)
+        })
+    }
+
     /// Where the absolute `edits` sit: per (main checkout, git worktree) the files written there.
     /// Git runs once per folder and per repository, not once per edit.
     fn sites(&self, edits: &[String]) -> Sites {

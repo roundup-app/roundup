@@ -81,6 +81,7 @@ pub fn types() -> specta::Types {
         .register::<crate::agent::OwnedGroup>()
         .register::<crate::agent::OwnedGroupKey>()
         .register::<crate::agent::OwnedChanges>()
+        .register::<crate::agent::AgentDir>()
         .register::<crate::agent::ChangedFilesParams>()
         .register::<crate::agent::ReadbackStartParams>()
         .register::<crate::agent::ExplainParams>()

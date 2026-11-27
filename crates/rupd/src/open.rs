@@ -124,7 +124,6 @@ impl Daemon {
             observers: observers.clone(),
             resources: Default::default(),
             made: Arc::new(crate::made::Made::new(
-                Arc::clone(&todos),
                 Arc::clone(&pads),
                 Arc::clone(&publications),
             )),

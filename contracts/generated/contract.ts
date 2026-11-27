@@ -15,6 +15,7 @@ export const CONTRACT = {
     "agent.context": "5afea722eb616445",
     "agent.createMode": "eab4bbd3d3e14718",
     "agent.digest": "03bc0665308ea78d",
+    "agent.dir": "fa9443b2d57dbc50",
     "agent.discard": "56f6155cde8d424e",
     "agent.explain": "a4705b6e62a881a7",
     "agent.extras": "aecce751dcffa4df",
