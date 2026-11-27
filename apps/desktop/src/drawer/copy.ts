@@ -1,30 +1,11 @@
-import { copy as sharedCopy, clockTime, draftSurfaceLabels, draftProblem } from "../sharedCopy";
+import { copy as sharedCopy, clockTime } from "../sharedCopy";
 
 export { clockTime };
 
 const touch = (name: string, verb: string, time: string) => `${name} ${verb} · ${time}`;
 
 export const copy = {
-  railDraftMissingTarget: sharedCopy.railDraftMissingTarget,
-  draftSurface: sharedCopy.draftSurface,
-  hasDraftSurface: (surface: string) => draftSurfaceLabels.has(surface),
-  recoverDrafts: sharedCopy.recoverDrafts,
-  recoverDraftsCount: (count: number) => `Unfinished work (${count})`,
-  riskCause: { failed: "Failed to save", unknown: "Save unconfirmed", draft: "Unsaved for reload", left: "Left unsent", gone: "Original removed" },
-  draftTitle: (place: string, name: string) => `${place} "${name}"`,
-  riskLine: sharedCopy.draftIdentity,
-  riskTime: sharedCopy.riskTime,
-  openDraft: sharedCopy.openDraft,
-  copyDraft: sharedCopy.copy,
-  discardRow: sharedCopy.discardRevision,
-  discardRevision: sharedCopy.discardRevision,
-  copyProjectName: sharedCopy.copyProjectName,
-  unfinishedWork: sharedCopy.unfinishedWork,
-  noUnfinishedWork: "This Project has no unfinished work.",
-  draftProblem,
   tryAgain: sharedCopy.retryStorage,
-  copyDraftFailure: sharedCopy.copyDraftFailure,
-  emptyDraftsLine: "Unfinished work you keep appears here.",
   pads: sharedCopy.pads,
   close: sharedCopy.close,
   drawer: sharedCopy.drawer,

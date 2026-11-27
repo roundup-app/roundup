@@ -339,7 +339,6 @@ export const copy = {
   editTip: "Edit (E)",
   removeTip: "Remove (Delete)",
   saveHint: "⌘↵ Save · Esc Cancel",
-  unfinishedWork: sharedCopy.unfinishedWork,
   notesNoLongerShown: "Notes for lines no longer shown",
   couldntSend: "Couldn't send",
   sendUnknown: "Send unknown",

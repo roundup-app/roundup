@@ -45,7 +45,7 @@ export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchem
 type Editing = { form: v.InferOutput<typeof formSchema>; text: string; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
 
 /** Leaving toward a Close, recovery or navigation control, or out of the Drawer, keeps the draft without sending it. */
-const keepsDraft = (target: EventTarget | null) => target instanceof Element && (!!target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer"));
+const keepsDraft = (target: EventTarget | null) => target instanceof Element && (!!target.closest(".close, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer"));
 
 /** A failure carries the save count it belongs to and hides once that count moves on. */
 export const createSavedFailure = (count: () => number): [() => string | null, (message: string | null) => void] => {
@@ -65,18 +65,18 @@ export type Unapplied = Extract<Sent<unknown>, { kind: "refused" | "unknown" }>;
 /** What the user reads when a send ends without its change applied. */
 export const sentFailure = (sent: Unapplied) => sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown;
 
-/** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
-export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; saved?: () => number; onDiscard?: (revision: string) => void }) => {
-  const { app, drafts, project, drawer, events } = useConnectedProject();
-  const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
+/** A failed save, or a draft the Project could not keep for a reload, says so in a toast; the text itself stays in its field. */
+export const useTodoDraftFailure = (object: () => string, active: () => boolean, saved?: () => number): void => {
+  const { drafts, project, events } = useConnectedProject();
+  const [failure, setFailure] = createSavedFailure(() => saved?.() ?? 0);
   onCleanup(events.subscribe(event => {
-    if (doesClearTodoFailure(event, Number(props.object))) setFailure(null);
+    if (doesClearTodoFailure(event, Number(object()))) setFailure(null);
   }));
   const surface = copy.draftSurface("todos");
-  const records = () => drafts.recoverable().filter(draft => draft.destination.surface === "todos" && draft.destination.object === props.object);
+  const records = () => drafts.recoverable().filter(draft => draft.destination.surface === "todos" && draft.destination.object === object());
 
   const problem = () => {
-    if (!props.active && records().length === 0) return null;
+    if (!active() && records().length === 0) return null;
 
     const found = drafts.problem();
 
@@ -85,47 +85,12 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
 
   const problemLine = dismissable(() => problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null);
 
-  const label = (draft: ReturnType<typeof drafts.list>[number]) => copy.draftIdentity(
-    draft.destination.recipient === "comment" ? copy.comment : copy.draftField(draft.destination.object === "new" ? "title" : draft.destination.recipient?.startsWith("blockers:") ? "blockers" : draft.destination.recipient ?? "title"),
-    String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
-  );
-
-  const line = {
+  createMessageToast({
     get message() { return failure() ?? problemLine.message(); },
-    get status() { return records().length > 0 ? label(records()[records().length - 1]!) : null; },
     dismiss: () => failure() ? setFailure(null) : problemLine.dismiss(),
     get recover() { return problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined; },
-    get action() { return <>
-    <For each={records().map(draft => draft.revision)}>{revision => {
-      const draft = () => records().find(record => record.revision === revision);
+  });
 
-      return <Show when={draft()}>{record => <div class="todo-draft-revision">
-        <span id={`todo-context-${revision}`} class="todo-draft-label" hidden>{label(record())}</span>
-        <span id={`todo-revision-${revision}`} data-state={record().status}>{copy.draftStatus[record().status]}</span>
-        <div class="todo-draft-actions">
-        <CopyButton app={app} identity={revision} class="word" aria-describedby={`todo-revision-${revision} todo-context-${revision}`}
-          text={(() => {
-            const text = v.safeParse(v.string(), record().value.text ?? record().value.title);
-
-            return !record().destination.recipient?.startsWith("blockers:") && text.success ? text.output : JSON.stringify(record().value);
-          })()} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copyField(surface)}</CopyButton>{" "}
-        <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => { props.onDiscard?.(revision); drafts.discard(revision); }}>{copy.discardRevision}</button>
-        </div>
-      </div>}</Show>;
-    }}</For>
-    </>; },
-  };
-
-  // The failure is a toast; the kept drafts stay a line, a status, in the view.
-  createMessageToast({ get message() { return line.message; }, dismiss: line.dismiss, get recover() { return line.recover; } });
-
-  return <Show when={line.status && (props.inDrawer || !drawer.content())}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
-    if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
-  }}>
-    <Show when={!props.inDrawer && props.object !== "new"} fallback={<MountedStatus when={!!line.status} class="todo-draft-line"><span class="ink">{line.status}</span>{line.action}</MountedStatus>}>
-      <FloatingLine status={line.status} action={line.action} />
-    </Show>
-  </section></Show>;
 };
 
 /** U7310d: a change made elsewhere to the field being edited is a status above it while it holds; a toast holds failures only. */

@@ -19,7 +19,7 @@ import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField } from "../state/draftField";
 import { useTodoList } from "./todoList";
-import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema, sentFailure } from "./EditableText";
+import { EditableText, useTodoDraftFailure, todoDraftSchema, formSchema, blockerSchema, sentFailure } from "./EditableText";
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import type { TodosState } from "./state";
 
@@ -112,6 +112,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const keptText = () => drafts.list().some(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id));
 
   const [saved, setSaved] = createSignal(0);
+  useTodoDraftFailure(() => String(props.id), () => true, saved);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
 
   onCleanup(events.subscribe(event => {
@@ -356,7 +357,6 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
               </>
             )}
           </Show>
-      <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
       </div>
 
 

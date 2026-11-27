@@ -43,7 +43,6 @@ export const openFirstModule = async () => take(await waitFor(() => {
 }));
 
 /** The rows of the newest list whose label says Unfinished work, as "<kind>:<key>". */
-export const marked = () => [...visibleTrees().at(-1)?.querySelectorAll<HTMLElement>("[data-row]") ?? []].flatMap(row => row.getAttribute("aria-label")?.includes(copy.unfinishedWork) ? [`${row.dataset.row}:${row.dataset.key}`] : []);
 
 /** The list's file row for `path` in the newest Changes view: its module unfolds first, by Right, which chooses nothing. */
 export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {

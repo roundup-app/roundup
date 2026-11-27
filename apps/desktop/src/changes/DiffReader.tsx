@@ -253,7 +253,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
     const content = () => {
 
-      if (isMark(metadata)) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} note={openNote} explained={explaining} found={finding} />;
+      if (isMark(metadata)) return <LineMark metadata={metadata} id={props.id} name={props.name} to={props.to ?? "tree"} openAt={props.openAt} explained={explaining} found={finding} />;
 
       if ("composing" in metadata) return draft ? <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} focus={setFocused} /> : undefined;
 
@@ -267,7 +267,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let stamp = (_stamped: Partial<Stamped>) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), spotted(), gapped(), moving(), explaining.marks(), finding.marks()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer(), spotted(), gapped(), moving(), explaining.marks(), finding.marks()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));

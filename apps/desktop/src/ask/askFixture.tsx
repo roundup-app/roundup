@@ -6,7 +6,6 @@ import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { BusyButton } from "../ui/BusyButton";
-import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import type { AskRouting } from "../state/asks";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -26,13 +25,6 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with its registered `⌘/` owner; `asks` seeds `ask.list`. */
-/** Stands in for the Overview menu: the panel opens through the same entry, shown only while work qualifies. */
-const RecoveryEntry = () => {
-  const entries = useRecoveryMenu();
-
-  return <Show when={entries().length > 0}><BusyButton kind={null} busyLabel="Recovering…" onClick={() => entries()[0]!.run?.()}>Recover unfinished work</BusyButton></Show>;
-};
-
 export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false, viewing = () => true, routing?: AskRouting) => {
   const app = createFakeApp();
 
@@ -58,7 +50,6 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   const view = render(() => (
     <ToastHost><ConnectedProjectContext value={connected}>
-      <aside class="rail"><RecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
       <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar recovery={recovery()} /></div>

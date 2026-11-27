@@ -22,7 +22,7 @@ import { createCountMotion, createFinishMotion } from "./finishMotion";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import * as v from "valibot";
-import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
+import { useTodoDraftFailure, todoDraftSchema, creationSchema } from "./EditableText";
 import { registerOpener } from "../shelf/openItem";
 import { createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
@@ -57,15 +57,6 @@ import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
 import { doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeRows, type NestedRow } from "./todoView";
-
-/** U7314f: a kept draft whose Todo is gone says so in a toast, with Retry to read the list again. */
-const UnavailableDraft = (props: { object: string; reload: () => void }) => {
-  const unavailable = dismissable(() => copy.draftIdentity(copy.originalUnavailable, props.object));
-
-  createMessageToast({ get message() { return unavailable.message(); }, dismiss: unavailable.dismiss, recover: { run: () => props.reload() } });
-
-  return <TodoDraftRecovery object={props.object} />;
-};
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS: readonly ChordName[] = ["todo.triage-move", "todo.triage-assign", "todo.triage-done"];
@@ -107,6 +98,7 @@ export const Todos = (props: {
 
   const [typing, setTyping] = createSignal(retained !== undefined);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
+  useTodoDraftFailure(() => "new", typing);
   const shelfFailure = dismissable(() => todos.failure() || (!typing() ? createFailure() : null));
   createMessageToast({ get message() { return shelfFailure.message(); }, dismiss: shelfFailure.dismiss, recover: { run: () => todos.reload() } });
   const [unfolded, setUnfolded] = createSignal(false);
@@ -828,9 +820,6 @@ export const Todos = (props: {
         } else queueFocus(() => rowButtonOf(id)?.focus());
       }} />
       <Show when={typing() ? creationHome() ?? connected.project.path : null} keyed>{_home => field()}</Show>
-      <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
-        if (creation()?.revision === revision) setTyping(false);
-      }} />
       <Show when={foldedDone().length > 0}>
         <div class="shelf-list">
         <Show when={unfolded()}>
@@ -873,10 +862,6 @@ export const Todos = (props: {
           </ShelfRow>
 
         </div>
-      </Show>
-      <Show when={todos.isLoaded()}>
-        <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
-          && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <UnavailableDraft object={object} reload={() => todos.reload()} />}</For>
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>

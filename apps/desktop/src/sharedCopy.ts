@@ -8,7 +8,7 @@ const running = "Running";
 
 const failed = "Failed";
 
-const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
+const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
 
 /** The time of day a line names, as 24-hour hours and minutes whatever the locale. */
 export const clockTime = new Intl.DateTimeFormat("en-GB", {
@@ -81,13 +81,11 @@ export const copy = {
   dismissFailure: dismiss,
   dismissedFailure: (label: string) => `Dismissed: ${label}`,
   retryStorage: "Try again",
-  draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? word.unfinishedWork,
+  draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Input",
   draftField: (field: string) => ({ originalName: "Original name", document: "Editor document", editorSource: "Original editor source", editorCaret: "Editor selection context", source: "Source", base: "Original source", name: word.name, title: word.title, ask: word.ask, done: word.done, password: "Password", body: word.text, text: word.text, content: word.text, limits: "Limits" })[field] ?? "Stored value",
   draftIdentity: (...parts: string[]) => parts.join(" · "),
-  recoverDrafts: "Recover unfinished work",
   riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? new Intl.RelativeTimeFormat("en-GB", { style: "short", numeric: "always" }).format(-minutes, "minute") : `${Math.floor(minutes / 60)} h ago`,
   openDraft: "Open",
-  unfinishedWork: word.unfinishedWork,
   copyProjectName: "Copy name",
   currentDraft: "Current",
   draftStatus: { draft: "Unsubmitted", pending: "Pending", failed, unknown: "Completion unknown" },

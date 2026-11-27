@@ -10,11 +10,8 @@ import { sameRevisions } from "./fileState";
 import { sideName, sourceAt } from "./lines";
 import { hunkFunction, type Takes } from "./modules";
 import type { LineSelection } from "./lines";
-import type { LineNote, NoteFormDraft } from "./notes";
+import type { LineNote } from "./notes";
 import diffStyles from "./diff.styles.css?inline";
-
-/** U7676c: the mark a line draws for a field kept as unfinished work. */
-export type Mark = { unfinished: true; side: "old" | "new"; start: number; end: number; text: string };
 
 /** U7677d: the composer drawn under the last line of the range being noted. */
 export type Composer = { composing: true; side: "old" | "new"; start: number; end: number; /** The note whose text this field edits; it is not drawn meanwhile. */ replacing?: number | undefined };
@@ -31,10 +28,10 @@ export type Movement = { moving: true; side: "new"; start: number; end: number; 
 /** U7700c: the mark under the last line of a finding's range. */
 export type Found = { found: true; side: "new"; start: number; end: number; finding: Finding };
 
-export type Annotated = LineNote | Mark | Composer | Spotted | Gapped | Movement | Explaining | Found;
+export type Annotated = LineNote | Composer | Spotted | Gapped | Movement | Explaining | Found;
 
 /** U7676c, U7698b: what the diff draws under a line that is no note and no field; the stamps of noted lines leave these out. */
-export const isMark = (metadata: Annotated): metadata is Mark | Spotted | Gapped | Movement | Explaining | Found => "unfinished" in metadata || "spotting" in metadata || "gapped" in metadata || "moving" in metadata || "explaining" in metadata || "found" in metadata;
+export const isMark = (metadata: Annotated): metadata is Spotted | Gapped | Movement | Explaining | Found => "spotting" in metadata || "gapped" in metadata || "moving" in metadata || "explaining" in metadata || "found" in metadata;
 
 /** U7677a: the lines a note covers on one side, and whether its field holds focus. */
 export type Noted = { side: "old" | "new"; start: number; end: number; focused: boolean };
@@ -45,13 +42,10 @@ export const outdated = (note: LineNote, value: FileComparison | undefined) => n
 /** U7677a: a note draws under its lines while its comparison is the open one, and a Sent note while its lines still read the same. */
 const shown = (note: LineNote, value: FileComparison) => sameRevisions(note.comparison, value) || (note.sent !== undefined && note.comparison.newPath === value.newPath && !outdated(note, value));
 
-/** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line, each unfinished field as a mark, then the spots, a gap (U7688e), a move, an explanation (U7699d) and a finding (U7700c): Pierre stacks them under one line in this order. */
-export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], unfinished: readonly NoteFormDraft[], composer?: Composer, spots: readonly Spotted[] = [], gaps: readonly Gapped[] = [], moves: readonly Movement[] = [], explained: readonly Explaining[] = [], found: readonly Found[] = []): DiffLineAnnotation<Annotated>[] => [
+/** U7676c: what the diff draws under its lines: the open field first, so no saved note shifts the position Pierre keys its element by; each note of the open comparison under its last line, then the spots, a gap (U7688e), a move, an explanation (U7699d) and a finding (U7700c): Pierre stacks them under one line in this order. */
+export const lineAnnotations = (value: FileComparison | undefined, notes: readonly LineNote[], composer?: Composer, spots: readonly Spotted[] = [], gaps: readonly Gapped[] = [], moves: readonly Movement[] = [], explained: readonly Explaining[] = [], found: readonly Found[] = []): DiffLineAnnotation<Annotated>[] => [
   ...(composer ? [{ side: sideName(composer.side), lineNumber: composer.end, metadata: composer }] : []),
   ...notes.flatMap((note): DiffLineAnnotation<LineNote>[] => value && shown(note, value) && note.id !== composer?.replacing ? [{ side: sideName(note.side), lineNumber: note.end, metadata: note }] : []),
-  ...unfinished.flatMap((draft): DiffLineAnnotation<Mark>[] => value && draft.comparison.newPath === value.newPath && sameRevisions(draft.comparison, value) && Number.isInteger(Number(draft.end)) && Number(draft.end) >= 1
-    ? [{ side: sideName(draft.side), lineNumber: Number(draft.end), metadata: { unfinished: true, side: draft.side, start: Number(draft.start), end: Number(draft.end), text: draft.text } }]
-    : []),
   ...spots.map((spot): DiffLineAnnotation<Spotted> => ({ side: sideName(spot.side), lineNumber: spot.end, metadata: spot })),
   ...gaps.map((gap): DiffLineAnnotation<Gapped> => ({ side: sideName(gap.side), lineNumber: gap.end, metadata: gap })),
   ...moves.map((move): DiffLineAnnotation<Movement> => ({ side: sideName(move.side), lineNumber: move.end, metadata: move })),

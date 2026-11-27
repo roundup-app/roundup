@@ -300,6 +300,14 @@ const unparsable = (drafts: readonly Draft[], parsers: ReadonlyMap<string, v.Gen
   return schema !== undefined && !v.safeParse(schema, draft.value).success;
 });
 
+/** Editors that no longer exist: a surface here has no field to show its drafts. Clear and its `rail-clear` drafts are retired by U350. */
+const retiredSurfaces: ReadonlySet<string> = new Set(["rail-clear", "orders", "terminal_selection"]);
+
+/** U7978c: the saved revisions no field can show: a retired editor's, another Project's name edit, and a failed revision behind a newer one of its destination. */
+const unshown = (saved: readonly Draft[], project: string): Draft[] => saved.filter((draft, index) => retiredSurfaces.has(draft.destination.surface)
+  || (draft.destination.surface === "header" && draft.destination.object !== project)
+  || (draft.status === "failed" && saved.slice(index + 1).some(newer => sameDestination(newer.destination, draft.destination))));
+
 /** The records in memory with those saved ones added that are neither in memory nor retired; work that was sending when saved is unknown. */
 const withRestored = (inMemory: readonly Draft[], saved: readonly Draft[], retired: ReadonlySet<string>): Draft[] => {
   const known = new Set(inMemory.map(draft => draft.revision));
@@ -380,9 +388,7 @@ export const draftStorage = (project: string) => {
     incompatible = false;
     baseline = JSON.stringify(saved);
 
-    for (const draft of saved) {
-      if (draft.destination.surface === "rail-clear") removed.add(draft.revision);
-    }
+    for (const draft of unshown(saved, project)) removed.add(draft.revision);
 
     hold(withRestored(current(), saved, removed));
 
@@ -475,7 +481,7 @@ export const draftStorage = (project: string) => {
       return retain(current().find((draft) => draft.revision === reported?.revision) ?? null);
   };
 
-  // U350 retires these revisions without offering recovery or replay.
+  // U350, U7978c: these revisions are dropped from storage without offering recovery or replay.
   if (removed.size > 0) void retain(null);
 
   return {

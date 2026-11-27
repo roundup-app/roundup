@@ -75,7 +75,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   const close = () => setState(null);
 
   /** U2694g: pointer menus address their row without activating it. */
-  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) => contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
+  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void) => contextMenu(app, entries(node, exit, removed), x, y);
 
   /** One stop path: the menu's item, the Rail's icon and the confirm's answer all end here. */
   const stopNow = (node: RailNode) => {
