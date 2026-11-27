@@ -26,7 +26,7 @@ const connected = await connectProject(app, { path: '/fixture', name: 'Fixture' 
 const Fixture = () => {
   const [tabs, setTabs] = createSignal<StripTab[]>(Array.from({ length: 8 }, (_, at) => ({
     path: `/project ${at} 雪`, name: `Project number ${at}`, base: `Project number ${at}`, busy: false, exitText: null,
-    needsYou: at === 1 ? 1 : 0, error: at === 7 ? 1 : 0, running: ['Authored Agent'],
+    causes: [], needsYou: at === 1 ? 1 : 0, error: at === 7 ? 1 : 0, running: ['Authored Agent'],
   })));
 
   const [active, setActive] = createSignal(tabs()[0]!.path);

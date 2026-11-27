@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent } from "../testing/nodes";
-import { openTabs, path, tab } from "./stripFixture";
+import { openTabs, path, renderTabs, tab } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -47,8 +47,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    expect(tab("web").querySelector(".tab-mark")).toBeNull();
-    ;
+    expect(tab("web").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("needs-you");
   });
 
   it("u185_reopen_calls_open_project_and_clears_the_mark", async () => {
@@ -88,5 +87,29 @@ describe("u185 a Daemon gone, in a tab", () => {
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("u185_a_project_started_without_its_daemon_names_it_and_clears_on_reopen", async () => {
+    const { app } = renderTabs({ api: [], web: [] }, false, undefined, ["web"]);
+
+    const subscribe = app.of(path("web")).subscribe;
+
+    app.of(path("web")).subscribe = async () => { throw new Error("no Daemon to answer"); };
+
+    await waitFor(() => expect(tab("web").getAttribute("aria-busy")).toBe("false"));
+
+    const mark = tab("web").querySelector(".tab-mark")!;
+
+    expect(mark.getAttribute("data-kind")).toBe("error");
+
+    fireEvent.pointerEnter(mark, { pointerType: "mouse", clientX: 0, clientY: 0 });
+
+    expect((await screen.findByRole("tooltip")).textContent).toBeTruthy();
+
+    fireEvent.click(mark);
+    app.of(path("web")).subscribe = subscribe;
+    fireEvent.click(await within(screen.getByRole("region", { name: "Updates" })).findByRole("button", { name: windowCopy.reopen }));
+
+    await waitFor(() => expect(tab("web").querySelector(".tab-mark")).toBeNull());
   });
 });

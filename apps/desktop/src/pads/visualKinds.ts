@@ -4,7 +4,7 @@ import type { CanvasApi } from "./drawingBlock";
 import { mountDrawing } from "./drawingBlock";
 import type { MermaidApi } from "./mermaidBlock";
 import { mountMermaid } from "./mermaidBlock";
-import type { StatechartApi } from "./statechartBlock";
+import type { Controls, StatechartApi } from "./statechartBlock";
 import { mountStatechart } from "./statechartBlock";
 import type { VisualKind, VisualMount } from "./visualBlocks";
 
@@ -90,6 +90,9 @@ export const emptyDrawing = { language: "excalidraw", body: '{"type":"excalidraw
 
 /** The renderers in use, for the export of a Pad's blocks. */
 export const currentRenderers = () => renderers;
+
+/** The statechart viewer for a surface that draws its own controls, requested as a Pad's is. */
+export const statechartMount = (controls: Controls): VisualMount => lazy(renderers.statechart, (api) => mountStatechart(api, controls));
 
 export const visualKinds = () =>
   new Map<string, VisualKind>([

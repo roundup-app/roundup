@@ -49,6 +49,7 @@ import { createMoves } from "./moveStore";
 import { MoveStates } from "./MoveStates";
 import type { DiffKeys } from "./DiffReader";
 import { createJump } from "./NoteBatch";
+import { ChartContext, type ChartView, noChart } from "./chart";
 import "./styles.css";
 
 const ModuleScroll = lazy(() => loadReader().then(module => ({ default: module.ModuleScroll })));
@@ -561,7 +562,7 @@ const Surface = (props: { id: string; name: string }) => {
 };
 
 /** U7186c: mounted over the centre while the Changes view is open for the selected Agent. */
-export const ChangesView = () => {
+export const ChangesView = (props: { chart?: ChartView }) => {
   const { rail, hasView } = useConnectedProject();
 
   const agent = createMemo(() => {
@@ -570,5 +571,7 @@ export const ChangesView = () => {
     return node?.kind === "agent" ? { id: node.id, name: node.name } : null;
   }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name });
 
-  return <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>;
+  return <ChartContext value={props.chart ?? noChart}>
+    <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>
+  </ChartContext>;
 };

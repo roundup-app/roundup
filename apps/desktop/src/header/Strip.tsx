@@ -507,7 +507,6 @@ export const Strip = (props: {
                           sort={sort}
                           tab={tab()}
                           selected={path === props.active}
-                          suppressed={path === props.active}
                           closeFocus={
                             !asking() &&
                             closeOpener()

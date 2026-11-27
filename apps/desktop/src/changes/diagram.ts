@@ -1,3 +1,4 @@
+import { lexer } from "marked";
 import type { Account } from "@contracts/agent/Account";
 import type { DiagramStop } from "@contracts/agent/DiagramStop";
 import { copy } from "./copy";
@@ -14,11 +15,28 @@ const HEADING = /^(before|after)(?:\s*:\s*(.*))?$/i;
 
 const bare = (part: string) => part.replace(/^[-*•\s[(`]+|[\])`\s]+$/g, "");
 
+/** U7709: the diagram's text outside its fenced `statechart` blocks, and the blocks' own text. */
+const split = (text: string) => {
+  const charts: string[] = [];
+
+  const rest = lexer(text).map(token => {
+    if (token.type !== "code" || token.lang?.trim().toLowerCase() !== "statechart") return token.raw;
+    charts.push(token.text);
+
+    return "";
+  });
+
+  return { text: rest.join(""), charts };
+};
+
+/** U7709: the statechart blocks the diagram holds, in the order written. */
+export const chartsOf = (text: string) => split(text).charts;
+
 /** U7688c: `Account.diagram` is free text (RB3): a line of the form `A -> B` (chained or not) is a call, a line "Before" or "After" starts a panel, and every other line stays as words. */
 export const parseDiagram = (text: string): Panel[] => {
   const panels: Panel[] = [];
 
-  for (const raw of text.split("\n")) {
+  for (const raw of split(text).text.split("\n")) {
     const heading = HEADING.exec(raw.trim());
     const line = heading ? heading[2] ?? "" : raw.trim();
 
