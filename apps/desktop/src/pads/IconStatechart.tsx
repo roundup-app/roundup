@@ -4,6 +4,7 @@ import { Icon, type IconName } from "../ink/Icon";
 import type { Control, Controls } from "./statechartBlock";
 import { statechartMount } from "./visualKinds";
 import { IconButton } from "../ui/IconButton";
+import { copy } from "./copy";
 
 const GLYPH: Record<Control, IconName> = { back: "left", startOver: "rotate-ccw", walk: "route", details: "info" };
 
@@ -21,7 +22,7 @@ export const IconStatechart = (props: { text: string }) => {
 
       const button = slot.querySelector("button");
 
-      if (!button) throw new Error("the icon button did not render");
+      if (!button) throw new Error(copy.statechartControlMissing);
 
       return button;
     };
