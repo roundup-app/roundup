@@ -117,7 +117,10 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
         model
             .journal()
             .iter()
-            .filter(|entry| entry["body"]["tools"].is_array())
+            .filter(|entry| entry["body"]["tools"].is_array()
+                && !entry["body"]["system"]
+                    .to_string()
+                    .contains("You list the links"))
             .count(),
         2,
         "both real Claude programs reached the model boundary"

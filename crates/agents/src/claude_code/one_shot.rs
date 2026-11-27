@@ -180,8 +180,13 @@ pub(super) async fn run_on<T: DeserializeOwned>(
     };
     let result = tokio::time::timeout(bound, async {
         let write = async move {
-            stdin.write_all(input).await?;
-            stdin.shutdown().await?;
+            // A CLI that answers without reading its input closes the pipe; its exit says why.
+            for outcome in [stdin.write_all(input).await, stdin.shutdown().await] {
+                match outcome {
+                    Err(e) if e.kind() != std::io::ErrorKind::BrokenPipe => return Err(e),
+                    _ => {}
+                }
+            }
             drop(stdin);
             Ok::<_, std::io::Error>(())
         };
