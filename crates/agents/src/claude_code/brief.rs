@@ -259,7 +259,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "agent_postSpots",
-        "place spots on lines of your files, each tagged with the tool that found it; a source's next post replaces its spots",
+        "place spots on lines of your files, each tagged with its tool; a source's next post replaces its spots",
     ),
     (
         "route_list",

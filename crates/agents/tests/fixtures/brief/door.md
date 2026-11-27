@@ -82,7 +82,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_discard`: discard the Worktree of an Agent in your Reach with its changes.
 - `agent_land`: land the Worktree of an Agent in your Reach on the Base branch.
 - `agent_worktreeState`: read what a Worktree holds and whether it can land; yours or one in your Reach.
-- `agent_postSpots`: place spots on lines of your files, each tagged with the tool that found it; a source's next post replaces its spots.
+- `agent_postSpots`: place spots on lines of your files, each tagged with its tool; a source's next post replaces its spots.
 - `route_list`: see the Routes: whom each Agent's questions go to.
 - `project_get`: read the Project's settings.
 - `project_setWorktrees`: turn Worktrees on or off for the Project and set the command Landing runs.
