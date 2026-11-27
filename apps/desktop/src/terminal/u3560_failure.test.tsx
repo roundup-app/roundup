@@ -1,4 +1,4 @@
-import { cleanup, screen } from "@solidjs/testing-library";
+import { cleanup } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";

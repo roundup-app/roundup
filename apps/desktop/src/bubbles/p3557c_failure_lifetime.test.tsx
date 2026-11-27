@@ -134,7 +134,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
   });
 
 it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbles_open: %s", async transition => {
-  const { app, connected, setListed } = await mountBubbles();
+  const { app, setListed } = await mountBubbles();
   const open = app.handlers["terminal.open"]!;
   app.handlers["terminal.open"] = () => { throw new Error("Cannot open Terminal"); };
 

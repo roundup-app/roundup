@@ -16,7 +16,6 @@ export const copy = {
   draftIdentity: sharedCopy.draftIdentity,
   openDraft: sharedCopy.openDraft,
   draftStatus: sharedCopy.draftStatus,
-  originalUnavailable: sharedCopy.originalUnavailable,
   originalUnverified: "Original availability is unverified.",
   storageRetry: sharedCopy.storageRetry,
   discardRevision: sharedCopy.discardRevision,

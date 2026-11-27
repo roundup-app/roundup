@@ -7,7 +7,6 @@ export const copy = {
   dismissFailure: sharedCopy.dismissFailure,
   draftIdentity: sharedCopy.draftIdentity,
   draftStatus: sharedCopy.draftStatus,
-  originalUnavailable: sharedCopy.originalUnavailable,
   storageRetry: sharedCopy.storageRetry,
   draftRetention: sharedCopy.draftRetention,
   minimise: sharedCopy.minimise,

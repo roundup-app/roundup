@@ -108,11 +108,11 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   const requiresConfirmation = () => restored === "selected" || restored === "branch";
   const submitMode = () => requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both";
 
+  const retainedFor = (target: { object: string }) => current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
+
   const start = () => {
     const target = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
-
-    const retained = current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
-
+    const retained = retainedFor(target);
     const parsed = retained && v.safeParse(schema, retained.value);
 
     if (!terminal().running || readOnly() || (retained && !parsed?.success)) return;
