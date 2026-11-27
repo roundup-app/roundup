@@ -297,7 +297,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     expect(notices("alert")[0]!.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
-  it("u103_a_resolved_newer_resize_failure_reveals_the_older_snapshot_failure", async () => {
+  it("u103_a_resize_failure_the_user_did_not_start_leaves_the_snapshot_failure_shown", async () => {
     const resizes: ((reply: Error | null) => void)[] = [];
 
     const { pending, snapshots } = await mount(undefined, undefined, (app) => {
@@ -311,7 +311,6 @@ describe("u103 a reloaded pane shows the screen", () => {
     await exhaust(pending, 0, "snapshot failed");
     const snapshotFailure = await screen.findByRole("alert", { name: /snapshot failed/ });
     resizes[0]?.(new Error("resize failed"));
-    await screen.findByRole("alert", { name: "resize failed" });
 
     window.dispatchEvent(new Event("resize"));
     await vi.waitFor(() => expect(resizes).toHaveLength(2));

@@ -39,10 +39,10 @@ it.each(["agents-10", "tree-40", "bubbles"])("u3560e_intervention_paste_failure_
   await capture("U3560e", `${seed}-text`);
   await read(`(() => {
     const data = new DataTransfer(); data.items.add(new File([new Uint8Array([137,80,78,71])], 'screenshot.png', { type:'image/png' }));
-    window.__fake.app.saveImageFailure = new Error('Image cache unavailable. Drop a file on the pane.');
+    window.__fake.app.saveImageFailure = new Error('Image cache unavailable');
     document.querySelector('.pane-screen .xterm-helper-textarea').dispatchEvent(new ClipboardEvent('paste', { bubbles:true, cancelable:true, clipboardData:data }));
   })()`);
-  await wait("document.querySelector('.app-toast')?.textContent.includes('Image cache unavailable')");
+  await wait("document.querySelector('.app-toast')?.textContent.includes('Try again, or copy the content in its source app again.')");
   await capture("U3560e", `${seed}-failure`);
   await read(`(() => {
     window.__fake.app.saveImageFailure = null;

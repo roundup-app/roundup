@@ -56,7 +56,7 @@ export const copy = {
   askProjectOf: (text: string) => `Project for ${text}`,
   askAnotherWorkstream: "Another Workstream",
   askNewWorkstream: sharedCopy.newWorkstreamTitle,
-  askDrop: "Drop",
+  askDrop: sharedCopy.drop,
   askNotSent: "Not sent: ",
   askUnknownState: "Send status unknown",
   askUnknown: "Send status unknown: ",

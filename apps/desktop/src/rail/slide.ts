@@ -1,6 +1,8 @@
 import { createEffect, createSignal, type Accessor } from "solid-js";
 import { createSlideLifetime } from "../ui/slideLifetime";
 import type { Widths } from "../resize/widths";
+import type { ActivationSource } from "../keys/registry";
+import type { ShelfFrame } from "../shelf/frame";
 import { railSliding, setRailSliding } from "./sliding";
 
 /** U6228g: how the Rail's section reads while it folds or opens: the strip shows through a slide, and an opening Rail is drawn as a peek over the centre until the column widens. */
@@ -26,15 +28,43 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
 
   return {
     motion,
-    set: (collapsed: boolean, source: "click" | "key") => {
+    set: (collapsed: boolean, source: "click" | "key", remember = true) => {
       // Without animations (a test DOM) the change is instant and settles at once.
       const animated = document.querySelector(".rail-body") !== null && "getAnimations" in Element.prototype;
 
       setMotion(reducedMotion() ? "fade" : source);
-      widths.setCollapsed(collapsed, animated);
+      widths.setCollapsed(collapsed, animated, remember);
 
       if (animated) queueMicrotask(() => lifetime.retarget(!collapsed, true));
       else lifetime.settle();
     },
   };
+};
+
+const motionOf = (source: ActivationSource) => source === "key" ? "key" : "click";
+
+/** U8005a: Changes folds the Rail and closes the Bench without saving; closing it restores each one the user has not touched since. */
+export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Widths, railSlide: ReturnType<typeof createRailSlide>, frame: ShelfFrame, source: Accessor<ActivationSource>) => {
+  let before: { rail: boolean; bench: boolean } | null = null;
+
+  createEffect(changesOpen, open => {
+    if (open) {
+      before = { rail: widths.collapsed(), bench: frame.open() };
+
+      if (!before.rail) railSlide.set(true, motionOf(source()), false);
+      frame.fold(source());
+
+      return;
+    }
+
+    const kept = before;
+
+    before = null;
+
+    if (!kept) return;
+
+    if (!kept.rail && widths.collapsed()) railSlide.set(false, motionOf(source()));
+
+    if (kept.bench && !frame.open()) frame.toggle(source());
+  });
 };

@@ -201,10 +201,10 @@ export const createBulkDelete = <Id,>(props: {
 
   const clearFailure = (failure: { target: Target<Id> }) => failures.clear(failure.target.id);
 
-  createMessageToast({ get message() { return readFailure(); }, dismiss: () => setReadFailure(null), recover: { run: () => readback?.() } });
+  createMessageToast({ started: true, get message() { return readFailure(); }, dismiss: () => setReadFailure(null), recover: { run: () => readback?.() } });
 
   // One toast per failed row, each living as long as its failure shows.
-  createMessageToasts(shown, failure => ({ message: failureText(failure), dismiss: () => clearFailure(failure) }));
+  createMessageToasts(shown, failure => ({ started: true, message: failureText(failure), dismiss: () => clearFailure(failure) }));
 
   const bar = () => (
     <Show when={props.selected().length > 1 || failed().length > 0 || question()?.kind === "pending" || readFailure() !== null}>

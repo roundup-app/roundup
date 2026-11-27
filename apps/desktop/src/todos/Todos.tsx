@@ -84,7 +84,7 @@ export const Todos = () => {
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   useTodoDraftFailure(() => "new", typing);
   const shelfFailure = dismissable(() => todos.failure() || (!typing() ? createFailure() : null));
-  createMessageToast({ get message() { return shelfFailure.message(); }, dismiss: shelfFailure.dismiss, recover: { run: () => todos.reload() } });
+  createMessageToast({ started: true, get message() { return shelfFailure.message(); }, dismiss: shelfFailure.dismiss, recover: { run: () => todos.reload() } });
   const [unfolded, setUnfolded] = createSignal(false);
   const scope = shelfScope(connected);
   const selectedWorkstream = scope.home;

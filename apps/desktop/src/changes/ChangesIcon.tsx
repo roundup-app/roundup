@@ -1,5 +1,6 @@
 import { createEffect, Show, untrack } from "solid-js";
 import { provideFocusTarget } from "../keys/focus";
+import { activationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
@@ -33,7 +34,7 @@ export const ChangesIcon = (props: { id: string }) => {
       click.stopPropagation();
 
       if (rail.selected() !== id) rail.select(id);
-      showView("changes");
+      showView("changes", activationSource(click));
     }}>
       <Icon name="branch" /><span class="changes-count">{count()}</span>
     </IconButton>

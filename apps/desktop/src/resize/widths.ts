@@ -45,7 +45,7 @@ export type Widths = {
   /** U6228g: the Rail's column is a strip. It follows `collapsed` at once, or after a slide when `setCollapsed` kept it. */
   laidOut: Accessor<boolean>;
   /** U6228: collapse or expand the Rail, keeping its last width for the expand. With `slide`, the column keeps its width until `settleLayout`, so the centre changes once (U6228g). */
-  setCollapsed: (collapsed: boolean, slide?: boolean) => void;
+  setCollapsed: (collapsed: boolean, slide?: boolean, remember?: boolean) => void;
   /** U6228g: the slide is over; the column takes the collapsed state's width. */
   settleLayout: () => void;
   shelf: Side;
@@ -89,11 +89,11 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
   return {
     collapsed,
     laidOut,
-    setCollapsed: (next, slide = false) => {
+    setCollapsed: (next, slide = false, remember = true) => {
       if (slide) setCollapsedSignal(next);
       else setBoth(next);
 
-      save({ collapsed: next });
+      if (remember) save({ collapsed: next });
     },
     settleLayout: () => setLaidOut(untrack(collapsed)),
     rail: {

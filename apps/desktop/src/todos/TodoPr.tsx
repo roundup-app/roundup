@@ -80,7 +80,7 @@ export const TodoPr = (props: { id: number; pr: number | null; done: boolean; on
     return save(number);
   };
 
-  createMessageToast({ get message() { return failure(); }, recover: { run: () => save(props.pr === null ? Number(typed().trim()) : null), label: copy.prRetry }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return failure(); }, recover: { run: () => save(props.pr === null ? Number(typed().trim()) : null), label: copy.prRetry }, dismiss: () => setFailure(null) });
 
   const stateLabel = (check: PrCheck) => (check.state === "unknown" ? copy.prUnknown(check.cause ?? "") : copy.prState[check.state]);
 

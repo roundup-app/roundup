@@ -5,6 +5,7 @@ import { createMemo, createSignal, getOwner, runWithOwner, type Accessor } from 
 import type { MessageCard } from "../ink/messageToast";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "./copy";
+import { logFailure } from "../app/log";
 import { createToast } from "../ui/Toast";
 import { KindGlyph } from "../ink/KindGlyph";
 import type { Chime } from "./chime";
@@ -18,6 +19,13 @@ const NO_TIME = Number.POSITIVE_INFINITY;
 
 /** The failure line's card identity; like the summary, no Candidate owns it. */
 const FAILURE = "failure";
+
+/** U8004d: a message of work the user did not start shows nothing; the App log keeps it. */
+const unstarted = (id: string): (() => void) => {
+  logFailure(copy.unstartedLog, id);
+
+  return () => {};
+};
 
 /** The summary card's identity; it is the one Toast no Candidate owns. */
 const MORE = "more";
@@ -234,7 +242,9 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     notify: (candidate) => {
       show(candidate);
     },
-    message: ({ id, body, closed }) => {
+    message: ({ id, body, closed, started }) => {
+      if (!started) return unstarted(id);
+
       toast.remove(id);
       messages.set(id, closed);
       toast.show({ id, name: "", content: "", body, extra: true, duration: NO_TIME });

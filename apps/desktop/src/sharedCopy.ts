@@ -219,6 +219,7 @@ export const copy = {
   linkNote: (link: string) => `${link}\nrup link read ${link}`,
   renameChord: "F2",
   copyLink: "Copy link",
+  drop: "Drop",
   failed: (value1: CopyValue, value2: CopyValue) => `${value1} failed: ${value2}`,
   changedTodo: (value1: CopyValue) => `Changed Todo "${value1}"`,
   blocks: "Blocks",

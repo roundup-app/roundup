@@ -118,7 +118,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const notice = createMemo(() => paneNotice({ given: givenNotice, retry: props.retryNotice, rail, screens, terminal: terminalId() }));
 
   // U7314b: the pane's failure shows as a toast, so the Terminal keeps its size and place.
-  createMessageToast({ get message() { return notice()?.message; }, dismiss: () => notice()?.recovery.dismiss?.(), get recover() { return notice()?.recovery.recover; }, get notice() { return notice()?.kind === "command" && notice()?.notice === true; } });
+  createMessageToast({ started: true, get message() { return notice()?.message; }, dismiss: () => notice()?.recovery.dismiss?.(), get recover() { return notice()?.recovery.recover; }, get notice() { return notice()?.kind === "command" && notice()?.notice === true; } });
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   const [preparing, setPreparing] = createSignal(false);

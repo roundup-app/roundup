@@ -7,7 +7,7 @@ import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
 import { BlockedFailure, StatusNote } from "../ink/MountedLine";
 import { captureFocus, focusTarget, returnFocus } from "../keys/focus";
-import { registerKeys } from "../keys/registry";
+import { activationSource, registerKeys, type ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { SegmentGroup } from "../ui/SegmentGroup";
 import { isDoor } from "../state/doorNode";
@@ -199,10 +199,10 @@ const createPanes = (opened: () => string | undefined, lens: () => Lens, source:
 };
 
 /** Escape closes the keys list first, then the find, else the view unless a note field holds it. */
-const escapeKey = (event: KeyboardEvent, help: boolean, setHelp: (on: boolean) => void, finding: boolean, closeFind: () => void, close: () => void) => {
+const escapeKey = (event: KeyboardEvent, help: boolean, setHelp: (on: boolean) => void, finding: boolean, closeFind: () => void, close: (source: ActivationSource) => void) => {
   if (event.key !== "Escape" || event.defaultPrevented || typing(event)) return;
 
-  if (help) setHelp(false); else if (finding) closeFind(); else close();
+  if (help) setHelp(false); else if (finding) closeFind(); else close("key");
 };
 
 /** U7672d: the Agent's Worktree and the compare target its remembered pick names. */
@@ -507,8 +507,8 @@ const Surface = (props: { id: string; name: string }) => {
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
 
-  const close = () => {
-    hideView("changes");
+  const close = (source: ActivationSource = "pointer") => {
+    hideView("changes", source);
     returnFocus(focusTarget(`changes.icon.${iconId}`) ?? null);
   };
 
@@ -534,7 +534,7 @@ const Surface = (props: { id: string; name: string }) => {
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
       <Show when={viewed.progress().total > 0}><span class="changes-progress">{copy.viewedProgress(viewed.progress().viewed, viewed.progress().total)}</span></Show>
-      <IconButton aria-label={copy.closeChanges} onClick={close}><Icon name="x" /></IconButton>
+      <IconButton aria-label={copy.closeChanges} onClick={event => close(activationSource(event))}><Icon name="x" /></IconButton>
     </header>
     <Show when={remote.chip()}>{chip => <Show when={causeOf(chip()) !== ""}><p class="changes-remote-cause">{causeOf(chip())}</p></Show>}</Show>
     <Show when={failure() !== null}>

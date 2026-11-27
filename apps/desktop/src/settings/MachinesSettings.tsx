@@ -53,6 +53,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   const [rowFailure, setRowFailure] = createSignal<{ name: string; sentence: string } | null>(null);
 
   createMessageToast({
+    started: true,
     get message() { return rowFailure()?.sentence; },
     dismiss: () => setRowFailure(null),
   });

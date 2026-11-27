@@ -1,7 +1,8 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { createRoot, getOwner, runWithOwner } from "solid-js";
+import { logFailure } from "../app/log";
 import { captureFocus } from "../keys/focus";
-import { clipboardFailure, readPaste } from "../app/clipboard";
+import { clipboardFailure, plainMessage, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { Emulator } from "./emulator";
@@ -9,6 +10,8 @@ import type { Failures } from "./failures";
 
 export type Clipboard = {
   copy(id: string, text?: string): Promise<void>;
+  /** U8004a: a Terminal program's OSC 52 write; its failure goes to the App log only, and an empty text never reaches the clipboard. */
+  program(id: string, text: string): Promise<void>;
   paste(id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void>;
   /** Pastes dropped paths as one shell line fragment (U162); an exited Terminal or Daemon, or no path, takes nothing. */
   pastePaths(id: string, paths: string[]): void;
@@ -43,7 +46,17 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      failures.set(id, "clipboard", clipboardFailure("copy", thrown));
+      failures.set(id, "clipboard", clipboardFailure("copy", thrown), { started: true });
+    }
+  };
+
+  const program: Clipboard["program"] = async (_id, text) => {
+    if (text === "") return;
+
+    try {
+      await app.writeClipboardText(text);
+    } catch (thrown) {
+      logFailure(appCopy.clipboardWriteLog, thrown);
     }
   };
 
@@ -73,7 +86,8 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
 
       if (reason !== undefined && !(reason instanceof Error)) throw reason;
 
-      failures.set(id, "clipboard", reason instanceof Error ? clipboardFailure("drop", reason) : null);
+      if (reason instanceof Error) failures.set(id, "clipboard", clipboardFailure("drop", reason), { started: true });
+      else failures.set(id, "clipboard", null);
       pastePaths(id, settled.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])));
     });
   };
@@ -85,7 +99,7 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     const signal = focus.signal();
 
     const check = () => {
-      if (signal.aborted || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged);
+      if (signal.aborted || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged, { cause: plainMessage });
     };
 
     try {
@@ -103,7 +117,7 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      failures.set(id, "clipboard", clipboardFailure("paste", thrown));
+      failures.set(id, "clipboard", clipboardFailure("paste", thrown), { started: true });
     } finally {
       // Release the pending focus request without moving focus after the paste settles.
       focus(() => {});
@@ -155,5 +169,5 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     }));
   };
 
-  return { copy, paste, pastePaths, pasteDropped, listen };
+  return { copy, program, paste, pastePaths, pasteDropped, listen };
 };

@@ -1,4 +1,5 @@
 import { createSignal, type Accessor } from "solid-js";
+import type { ActivationSource } from "../keys/registry";
 
 type Creation = { kind: "todo" | "pad" | "terminal"; home: string };
 
@@ -20,8 +21,10 @@ export type ProjectView = {
   finishPadsRequest: () => void;
   view: Accessor<string | null>;
   hasView: (view: string) => boolean;
-  hideView: (view: string) => void;
-  showView: (view: string | null) => void;
+  /** U8005a: how the latest view change was asked for, so what it moves slides at the key or the pointer duration. */
+  viewSource: () => ActivationSource;
+  hideView: (view: string, source?: ActivationSource) => void;
+  showView: (view: string | null, source?: ActivationSource) => void;
   /** U6249c2: the published Deliverable the Made panel marks as chosen; a link sets it, and the panel's own opens do. */
   madeSelected: Accessor<string | null>;
   selectMade: (id: string | null) => void;
@@ -32,6 +35,7 @@ export const createProjectView = (selected: Accessor<string | null>, openShelf: 
   const [padsRequest, setPadsRequest] = createSignal<string | null>(null);
   const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "todos" } | null>(null);
   const [views, setViews] = createSignal<readonly string[]>([]);
+  let viewSource: ActivationSource = "pointer";
   const [madeSelected, selectMade] = createSignal<string | null>(null);
 
   const createIn = (kind: Creation["kind"], home: string) => {
@@ -57,8 +61,9 @@ export const createProjectView = (selected: Accessor<string | null>, openShelf: 
       return destination?.selection === selected() ? destination.agent : null;
     },
     view, hasView: name => views().includes(name),
-    showView: name => { setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]); },
-    hideView: name => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); },
+    viewSource: () => viewSource,
+    showView: (name, source = "pointer") => { viewSource = source; setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]); },
+    hideView: (name, source = "pointer") => { viewSource = source; setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); },
     madeSelected, selectMade,
   };
 };

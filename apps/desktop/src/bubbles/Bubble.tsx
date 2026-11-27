@@ -62,7 +62,7 @@ export const Bubble = (props: {
   const place = () => props.place;
   const retry = () => props.screens.retry(id());
   // U7314b: a Bubble's failure shows as a toast, so the Bubble keeps its size and place.
-  createMessageToast({ get message() { return props.screens.failure(id()); }, dismiss: () => props.screens.dismiss(id()), get recover() { return retry() ? { run: () => retry()?.() } : undefined; } });
+  createMessageToast({ started: true, get message() { return props.screens.failure(id()); }, dismiss: () => props.screens.dismiss(id()), get recover() { return retry() ? { run: () => retry()?.() } : undefined; } });
   const dropOver = createFileDrop(useConnectedProject(), () => props.screens, () => props.preparing ? null : id(), () => body);
 
   const refit = () => {

@@ -476,7 +476,7 @@ const PadBody = (props: {
   };
 
   // U7310d: the Pad's failures and conflicts show as toasts.
-  createMessageToast({
+  createMessageToast({ started: true,
     get message() { return actionFailure.message() ?? note.message(); }, dismiss: () => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); },
     get recover() { return retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined; },
     get action() { return <>

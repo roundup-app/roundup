@@ -44,6 +44,7 @@ export const createTodoCreation = (inputs: {
 
   // While the field is open the failure names the action; beside a closed field the shelf's own line shows it.
   createMessageToast({
+    started: true,
     get message() { return typing() && createFailure(); },
     dismiss: () => setCreateFailure(null),
     get content() { return failedLabel(copy.addTodo, createFailure()); },

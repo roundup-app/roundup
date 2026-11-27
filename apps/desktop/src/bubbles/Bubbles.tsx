@@ -66,7 +66,7 @@ export const Bubbles = (props: {
     return failure?.destination && failure.destination.surface !== "bubbles" ? null : failure;
   };
 
-  createMessageToast({
+  createMessageToast({ started: true,
     get message() { return recoveryLine.message(); },
     dismiss: recoveryLine.dismiss,
     get recover() { return problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined; },

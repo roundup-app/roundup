@@ -1,11 +1,14 @@
 //! Native shell diagnostics: content stays with its owner, not in the log.
+//! The webview logs the raw cause of a failure the user did not start (U8004a) through the plugin's `webview` targets.
 
 use tauri::{Runtime, plugin::TauriPlugin};
 
 pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri_plugin_log::Builder::new()
         .level(log::LevelFilter::Info)
-        .filter(|metadata| metadata.target() == "roundup::shell")
+        .filter(|metadata| {
+            metadata.target() == "roundup::shell" || metadata.target().starts_with("webview")
+        })
         .targets([tauri_plugin_log::Target::new(
             tauri_plugin_log::TargetKind::LogDir {
                 file_name: Some("shell".into()),

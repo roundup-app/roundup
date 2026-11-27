@@ -105,7 +105,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
   });
 
   // U7310d: a failed read or unlink shows as a toast.
-  createMessageToast({ get message() { return actionFailure() ?? failure(); }, recover: { run: () => refresh(), label: copy.padRefRetry }, dismiss: () => { setActionFailure(null); setFailure(null); } });
+  createMessageToast({ started: true, get message() { return actionFailure() ?? failure(); }, recover: { run: () => refresh(), label: copy.padRefRetry }, dismiss: () => { setActionFailure(null); setFailure(null); } });
 
   return <Show when={refs().length > 0}>
     <section class="todo-refs" aria-label={copy.padRefsHeading(refs().length)} ref={section} onContextMenu={refMenu}>

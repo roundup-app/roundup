@@ -117,6 +117,7 @@ it("u7704c_changes_reads_send_the_open_group_and_branch_asks_none", async () => 
 
   // The Branch target ends on HEAD's commit, not on the working copy the spots name: it asks none.
   fireEvent.click(rowOf("b"));
+  fireEvent.click(await within(rowOf("b")).findByRole("button", { name: "2 changed files" }));
   await screen.findByText("b", { selector: ".changes-name" });
   await waitFor(() => expect(asked().at(-1)).toEqual({ id: "b", group: { repo: "/p", branch: "main" } }));
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetBranch }));

@@ -40,12 +40,14 @@ type FakeEmulator = Emulator & {
   /** U7889a: the text of each view row; `frame()` then reports a drawn frame. */
   screenLines: string[];
   frame(): void;
+  /** U8004a: the program in the Terminal writes `text` to the clipboard through OSC 52. */
+  programCopy(text: string): Promise<void>;
 };
 
 export const fakeEmulators = () => {
   const made = new Map<string, FakeEmulator>();
 
-  const factory: EmulatorFactory = (id) => {
+  const factory: EmulatorFactory = (id, copy) => {
     let inputListener: (bytes: Uint8Array) => void = () => {};
 
     let linkListener: (printed: Printed) => void = () => {};
@@ -99,6 +101,7 @@ export const fakeEmulators = () => {
       selection: () => emulator.selectedText,
       turns: () => [],
       screenLines: [],
+      programCopy: async (text) => { await copy?.(text); },
       playLines: (printed) => emulator.screenLines.flatMap((text, row) => printed.includes(text.trim()) ? [{ row, span: 1, command: text.trim() }] : []),
       onFrame: (next) => { frameListener = next; },
       frame: () => frameListener(),

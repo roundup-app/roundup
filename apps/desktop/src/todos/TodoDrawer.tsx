@@ -236,9 +236,9 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
 
   // U7310d: a failed change, an unconfirmed delete and a failed title save show as toasts; each refused press repeats the refusal.
   const refusalPress = <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show>;
-  createMessageToast({ dismiss: () => { setDeleteRefused(0); setFailure(null); }, get message() { return deletionRefusal() && drafts.undo.uncertain() ? deletionRefusal() : failure(); },
+  createMessageToast({ started: true, dismiss: () => { setDeleteRefused(0); setFailure(null); }, get message() { return deletionRefusal() && drafts.undo.uncertain() ? deletionRefusal() : failure(); },
     get content() { return deletionRefusal() && drafts.undo.uncertain() ? refusalPress : undefined; }, get recover() { return deletionRefusal() && drafts.undo.uncertain() ? { run: () => drafts.undo.retryDelete(), label: copy.todoDeleteRetry } : undefined; } });
-  createMessageToast({ get message() { return titleFailure(); }, dismiss: () => dismissTitle?.() });
+  createMessageToast({ started: true, get message() { return titleFailure(); }, dismiss: () => dismissTitle?.() });
 
   return (
     <>

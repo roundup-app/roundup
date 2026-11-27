@@ -9,6 +9,7 @@
     "store:allow-save",
     "core:resources:allow-close",
     "clipboard-manager:allow-write-text",
+    "log:allow-log",
     "dialog:allow-open",
     "dialog:allow-save",
     "dialog:allow-message",

@@ -63,7 +63,8 @@ it("u7693c_opening_reads_once_waits_for_no_key_and_a_late_answer_never_crosses_a
 
   mounted.app.handlers["agent.remoteMain"] = () => second.promise;
   mounted.connected.rail.select("plain");
-  void mounted.connected.owned.refresh("plain");
+  await mounted.connected.owned.refresh("plain");
+  await openChanges();
   await waitFor(() => expect(mounted.calls("agent.remoteMain")).toBe(2));
   first.resolve({ kind: "moved" });
   await new Promise(resolve => setTimeout(resolve, 50));

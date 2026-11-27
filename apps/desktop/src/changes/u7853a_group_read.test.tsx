@@ -44,7 +44,9 @@ it("u7853a_changes_reads_send_the_open_group", async () => {
   take(await treeRow("other.ts"));
   await waitFor(() => expect(reads(app).at(-1)).toEqual({ id: "a", path: "other.ts", group: { repo: "/q", branch: "own/x" } }));
 
+  // U8005b: selecting another Agent closes Changes; its own icon opens the view again.
   fireEvent.click(rowOf("b"));
+  fireEvent.click(await within(rowOf("b")).findByRole("button", { name: "2 changed files" }));
   await screen.findByText("b", { selector: ".changes-name" });
   take(await treeRow("own.ts"));
   await waitFor(() => expect(reads(app).at(-1)).toEqual({ id: "b", path: "own.ts", group: { repo: "/p", branch: "main" } }));

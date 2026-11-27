@@ -59,6 +59,8 @@ const longestBlock = async (engine: Browser) => {
 
     await page.click(".changes-icon");
     await page.waitForSelector(".changes-side .changes-tree [data-row]");
+    // U8005a: opening folds the Rail and the Bench; the beat draws the diff once that slide has settled, as a user's click follows it.
+    await page.waitForTimeout(500);
     // The view opens on the Overview and draws no diff (U7679c): the beat chooses the module that holds the big file.
     await page.click('.changes-side .changes-tree [data-row="module"]');
     await page.waitForTimeout(500);

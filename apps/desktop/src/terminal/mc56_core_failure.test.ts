@@ -41,9 +41,9 @@ describe("MC56", () => {
   it("mc56_a_coded_core_failure_shows_its_label", async () => {
     const failures = createFailures();
 
-    await failures.attempt("t", Promise.reject(new Error("m1: core_closed: connection to herdr-core closed")));
+    await failures.attempt("t", Promise.reject(new Error("m1: core_closed: connection to herdr-core closed")), true);
     expect(failures.shown("t")?.entry.message).toBe(coreFailureLabel("core_closed"));
-    failures.set("t", "live", "disk full");
+    failures.set("t", "live", "disk full", { started: true });
     flush();
     expect(failures.shown("t")?.entry.message).toBe("disk full");
     expect(coreFailureText("core_io: io: broken pipe")).toBe(coreFailureLabel("core_io"));

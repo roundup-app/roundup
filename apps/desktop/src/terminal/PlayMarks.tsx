@@ -76,7 +76,7 @@ export const PlayMarks = (props: { connected: ConnectedProject; agent: string; e
   makeEventListener(region, "mouseleave", () => setHover(null));
   onCleanup(() => setHover(null));
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => setFailure(null) });
 
   const run = async (command: string): Promise<void> => {
     try {
