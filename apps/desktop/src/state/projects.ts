@@ -13,6 +13,8 @@ export type OpenTab = {
   project: Project;
   /** Set once the Project's Daemon has ended; `reopenFailure` is why the last reopen failed and replaces the exit text until one succeeds. */
   exit: DaemonExit | null;
+  /** #7970: the Daemon was not running when the App opened, until an exit event or a reopen says otherwise. */
+  notRunning?: boolean;
   reopenFailure: string | null;
   generation: number;
 };
@@ -120,7 +122,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
       listed.map(({ name, path, running }) => {
         const known = tabs().find(tab => tab.project.path === path);
 
-        return known ?? { project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 };
+        return known ?? { project: { name, path }, exit: running ? null : { code: null }, ...(running ? {} : { notRunning: true }), reopenFailure: null, generation: 0 };
       }),
       order.read() ?? [],
     ));
@@ -140,7 +142,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
   void reload();
 
-  onCleanup(app.onDaemonExited(({ path, ...exit }) => update(path, (tab) => ({
+  onCleanup(app.onDaemonExited(({ path, ...exit }) => update(path, ({ notRunning: _, ...tab }) => ({
     ...tab, exit, reopenFailure: null,
     generation: exit.recovery === "connecting" ? tab.generation + 1 : tab.generation,
   }))));
@@ -228,7 +230,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     readFailure,
     reload,
     reopening,
-    connected: (path, generation) => update(path, tab => tab.generation === generation && tab.exit?.recovery !== "waiting" ? { ...tab, exit: null, reopenFailure: null } : tab),
+    connected: (path, generation) => update(path, tab => tab.generation === generation && tab.exit?.recovery !== "waiting" ? { project: tab.project, exit: null, reopenFailure: null, generation: tab.generation } : tab),
     arrival: (path) => {
       if (arriving?.path !== path) return undefined;
 

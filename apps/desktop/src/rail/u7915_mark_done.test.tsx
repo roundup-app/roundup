@@ -86,3 +86,25 @@ it("u7915c_a_native_prompt_stays_after_mark_done", async () => {
   expect(doorOf(rail.nodes.find(node => node.id === "a"))?.status?.label).toBe("Allow Bash?");
   expect(turns(app)).toEqual([]);
 });
+
+const unstamped = { attempt: null, status_revision: null } as const;
+
+it("u7915b_an_error_agent_with_a_null_status_revision_can_be_dismissed", async () => {
+  const { app, rail } = await mountRail([agent("a", "error", "x", unstamped)]);
+
+  await chooseAction(app, "a", "Dismiss error");
+  await settled();
+
+  expect(rail.dismissed(rail.nodes[0]!)).toBe(true);
+  expect(rowOf("a").getAttribute("data-kind")).toBe("idle");
+});
+
+it("u7915b_a_null_revision_needs_you_marks_done_and_returns_on_a_new_status", async () => {
+  const { app, rail } = await mountRail([agent("a", "needs-you", "x", unstamped)]);
+
+  await chooseAction(app, "a", "Mark done");
+  await settled();
+
+  expect(rail.dismissed(rail.nodes[0]!)).toBe(true);
+  expect(rail.dismissed(agent("a", "needs-you", "x", { ...unstamped, status: { kind: "needs-you", label: "x", since: 9, finished: "0" } }))).toBe(false);
+});
