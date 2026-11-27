@@ -1,9 +1,10 @@
-import { createEffect, createSignal, createUniqueId, For, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, Show, useContext } from "solid-js";
 import { failureOf } from "../app/failureOf";
 import { loadLayout, type Layout, type LayoutGraph } from "../ui/graphLayout";
+import { ChartContext } from "./chart";
 import { copy } from "./copy";
 import { DiagramStepper } from "./DiagramStepper";
-import { panelLabel, parseDiagram, partsOf, type Call } from "./diagram";
+import { chartsOf, panelLabel, parseDiagram, partsOf, type Call } from "./diagram";
 import type { Stepper } from "./readback";
 
 const BOX = { height: 32, pad: 14, char: 7, label: { width: 0, height: 0 } };
@@ -60,10 +61,16 @@ export const ReadbackDiagram = (props: { text: string; stepper?: Stepper | undef
   const stepping = () => props.stepper !== undefined && props.stepper.stops().length > 0;
   const lit = () => props.stepper?.stops()[props.stepper.at()]?.part;
 
+  const Chart = useContext(ChartContext);
+  const charts = () => chartsOf(props.text);
+  const panels = () => parseDiagram(props.text);
+
   return <>
   <Show when={stepping() && props.stepper}>{stepper => <DiagramStepper stepper={stepper()} />}</Show>
+  <For each={charts()}>{chart => <Chart text={chart} />}</For>
+  <Show when={panels().length > 0 || charts().length === 0}>
   <figure class="readback-diagram" aria-label={copy.diagram} tabindex={stepping() ? 0 : undefined}>
-  <For each={parseDiagram(props.text)}>{panel => <div class="readback-panel">
+  <For each={panels()}>{panel => <div class="readback-panel">
     <Show when={panelLabel(panel)}>{label => <p class="readback-panel-label">{label()}</p>}</Show>
     <Show when={panel.calls.length > 0}><Figure calls={panel.calls} lit={lit()} /></Show>
     <ul class="readback-words">
@@ -72,5 +79,6 @@ export const ReadbackDiagram = (props: { text: string; stepper?: Stepper | undef
     </ul>
   </div>}</For>
   </figure>
+  </Show>
   </>;
 };

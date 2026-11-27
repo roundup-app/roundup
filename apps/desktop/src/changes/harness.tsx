@@ -6,6 +6,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, NOW } from "../testing/nodes";
 import { ToastHost } from "../testing/toastHost";
+import { type ChartView, noChart } from "./chart";
 import { ChangesView } from "./ChangesView";
 import { WorktreeControl } from "./WorktreeControl";
 
@@ -22,7 +23,7 @@ const FILES: ChangedFiles = {
 };
 
 /** Mounts the bottom bar's Worktree control for selected Agent `a` (with a Worktree) and `plain` (without) over the fake App. */
-export const mountControl = async (changed: () => ChangedFiles | Promise<ChangedFiles> = () => FILES, project = "/p", drafts?: ConnectedProject["drafts"]) => {
+export const mountControl = async (changed: () => ChangedFiles | Promise<ChangedFiles> = () => FILES, project = "/p", drafts?: ConnectedProject["drafts"], chart: ChartView = noChart) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("plain", "working", "building")];
@@ -43,7 +44,7 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
       <ToastHost>
         <ConnectedProjectContext value={connected}>
           <WorktreeControl />
-          <ChangesView />
+          <ChangesView chart={chart} />
         </ConnectedProjectContext>
       </ToastHost>
     );

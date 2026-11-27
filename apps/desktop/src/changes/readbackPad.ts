@@ -7,7 +7,7 @@ import { RpcError, type AppSeam } from "../app/seam";
 import { useConnectedProject } from "../state/connectedProject";
 import { resolvedWorkstream } from "../state/railTopology";
 import { copy } from "./copy";
-import { type Call, panelLabel, parseDiagram, partsOf } from "./diagram";
+import { type Call, chartsOf, panelLabel, parseDiagram, partsOf } from "./diagram";
 import { gapsOf, type ReadbackState } from "./readback";
 
 /** The Daemon's answer to a Pad name that is taken (P1). */
@@ -39,11 +39,15 @@ const heading = (title: string, blocks: readonly string[]) => blocks.length > 0 
 export const readbackText = (input: { agent: string; day: string; from: string; to: string; account: Account; stale: boolean }) => {
   const { account, agent } = input;
 
-  const diagram = parseDiagram(account.diagram).flatMap(panel => [
+  const charts = chartsOf(account.diagram).map(chart => ["```statechart", chart, "```"].join("\n"));
+
+  const panels = parseDiagram(account.diagram).flatMap(panel => [
     ...panelLabel(panel) ? [`**${panelLabel(panel)}**`] : [],
     ...panel.calls.length > 0 ? [flowchart(panel.calls)] : [],
     ...panel.words.length > 0 ? [panel.words.map(words => `- ${words}`).join("\n")] : [],
   ]);
+
+  const diagram = [...charts, ...panels];
 
   const modules = account.modules.length > 0 ? [account.modules.map(each => `- **${each.module}**: ${each.account}`).join("\n")] : [];
   const flows = account.flows.map(flow => `### ${flow.name}\n\n${flow.steps.map((step, at) => `${at + 1}. ${step.note}`).join("\n")}`);

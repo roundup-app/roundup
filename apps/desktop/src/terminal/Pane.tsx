@@ -9,7 +9,7 @@ import { copy } from "./copy";
 import { BusyButton } from "../ui/BusyButton";
 import { layoutMoving } from "../resize/motion";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, For, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, onCleanup, onSettled, Show, For, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
@@ -34,6 +34,7 @@ import { doorTerminalId } from "../state/doorNode";
 import { centreState } from "./centreState";
 import { StoppedBar } from "./StoppedBar";
 
+const IconStatechart = lazy(() => import("../pads/IconStatechart").then(module => ({ default: module.IconStatechart })));
 
 type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; notice?: boolean; recovery: Recovery };
 
@@ -291,7 +292,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   });
 
   return (
-    <div class="pane"><ChangesView />
+    <div class="pane"><ChangesView chart={IconStatechart} />
       <div class="pane-origin">
 
       <div

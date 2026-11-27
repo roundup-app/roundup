@@ -51,6 +51,13 @@ JSON: `hunks` (each {id, path, text}) and `flows` (call paths already read from 
 {id, entry, hunks}: hunk ids in call order). Reply with one JSON object and nothing else: \
 {\"overview\": two or three sentences, \"diagram\": a small text diagram, ",
     diagram_format!(),
+    "; when the hunks hold the committed dump of a TLA+ model's checked states and steps (a \
+`.dump` file) and the changed code of the flow it checks, give that flow a fenced `statechart` \
+block inside `diagram` in place of call lines: a JSON object {summary: one sentence, writtenBy: \
+\"the readback\", rules: [{id, name, verdict: \"holds\" or \"broken\"}], states: [{id, label, values: \
+{a plain-word name: a plain-word value}, breaks: [rule ids]}] with states that show, read and allow \
+the same moves merged into one, start: a state id, steps: [{from, to, label}], stopped: where the \
+check stopped, in words}, never writing a model or running a check",
     ", \"flows\": [{\"id\", \"name\", \"steps\": [{\"note\", \
 \"hunks\": [hunk ids]}]}], \"modules\": [{\"module\", \"account\"}], \"ranks\": [{\"hunk\": hunk id, \"rank\": \"core\" \
 (the change itself), \"forced\" (what it forces elsewhere: a caller, a type, a migration) or \

@@ -104,6 +104,7 @@ export const copy = {
   statechartStartOver: "Start over",
   statechartWalk: "Walk to the break",
   statechartDetails: "Details",
+  statechartControlMissing: "The control did not draw.",
   statechartBreaks: (rules: string) => `You are on a state that breaks ${rules}.`,
   statechartAlreadyBroken: "You are on a state that breaks a rule.",
   statechartNoBreakReachable: "No state that breaks a rule can be reached from here.",
