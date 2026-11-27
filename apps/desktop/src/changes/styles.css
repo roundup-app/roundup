@@ -225,7 +225,7 @@
 .changes-tree .changes-row[data-row="module"] { align-items: center; gap: var(--space-1); padding-inline-start: var(--space-2); }
 .changes-row-bar, .changes-row-slot { margin-inline-start: var(--space-1); }
 .changes-row-text { flex: 1; min-width: 0; display: flex; align-items: baseline; }
-.changes-row-text .changes-row-name ~ * { margin-inline-start: var(--space-2); }
+.changes-row-text .changes-row-function, .changes-row-text .changes-row-counts { margin-inline-start: var(--space-2); }
 .changes-row[data-row="module"] .changes-row-name { flex: 0 1 auto; font-weight: 500; }
 .changes-row-mark { flex: none; inline-size: var(--space-3); block-size: var(--space-3); }
 .changes-row-folder { flex: none; color: var(--grey); font: var(--text-small) var(--font-ui); }
