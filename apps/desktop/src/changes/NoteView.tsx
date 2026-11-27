@@ -9,12 +9,23 @@ import type { LineNote, Note, Notes } from "./notes";
 const FOLD = 6;
 
 /** What a saved note says of itself beside its range. */
-export type NoteStatus = "unsent" | "sending" | "unknown" | "failed" | "sent" | "outdated";
+export type NoteStatus = "unsent" | "sending" | "unknown" | "failed" | "waiting" | "sent" | "outdated";
 
-/** A note's state: its store state while unsent, else Sent, or Outdated once its target moved (U7677e, U7691c). */
-export const statusOf = (notes: Notes, id: string, note: Note, outdated: () => boolean): NoteStatus => note.sent === undefined ? notes.noteState(id, note) : outdated() ? "outdated" : "sent";
+/** U7956a: an accepted note reads Waiting until its Message lands; a note kept before the Message was recorded reads Sent. */
+export const acceptedAs = (note: Pick<Note, "message" | "landed">): "waiting" | "sent" => note.message !== undefined && note.landed === undefined ? "waiting" : "sent";
 
-export const words = (status: NoteStatus, note: Pick<Note, "sent">) => status === "sent" ? copy.sentAt(note.sent) : status === "outdated" ? copy.outdated : status === "sending" ? copy.sending : status === "unknown" ? copy.sendUnknown : status === "failed" ? copy.couldntSend : copy.notSent;
+/** A note's state: its store state while unsent, else Waiting or Sent, or Outdated once its target moved (U7677e, U7691c, U7956a). */
+export const statusOf = (notes: Notes, id: string, note: Note, outdated: () => boolean): NoteStatus => note.sent === undefined ? notes.noteState(id, note) : outdated() ? "outdated" : acceptedAs(note);
+
+const statusWords: Partial<Record<NoteStatus, string>> = {
+  waiting: copy.waiting,
+  outdated: copy.outdated,
+  sending: copy.sending,
+  unknown: copy.sendUnknown,
+  failed: copy.couldntSend,
+};
+
+export const words = (status: NoteStatus, note: Pick<Note, "sent" | "landed">) => status === "sent" ? copy.sentAt(note.landed ?? note.sent) : statusWords[status] ?? copy.notSent;
 
 export const range = (note: LineNote) => note.start === note.end ? (note.side === "old" ? copy.oldLine(note.start) : copy.newLine(note.start)) : note.side === "old" ? copy.oldLines(note.start, note.end) : copy.newLines(note.start, note.end);
 

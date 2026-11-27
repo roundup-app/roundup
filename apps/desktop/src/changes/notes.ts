@@ -9,6 +9,7 @@ import { draftStorage } from "../state/storage";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Message } from "@contracts/message/Message";
 import type { AppSeam } from "../app/seam";
+import type { Events } from "../app/events";
 
 const content = v.variant("kind", [
   v.strictObject({ kind: v.literal("absent"), revision: v.string() }),
@@ -41,6 +42,8 @@ const lineSchema = v.strictObject({
   start: line, end: line, source: v.string(), text: v.string(), selection: v.optional(caret),
   // U7677e: when the Agent accepted the note (ms); a note without it is unsent.
   sent: v.optional(offset),
+  // U7956a: the Message that carried it, and when it landed (ms); a note with a `message` and no `landed` is Waiting.
+  message: v.optional(offset), landed: v.optional(offset),
   // U7690a, U7690b: the label and the replacement text, each only when set.
   label: v.optional(label), replacement: v.optional(v.string()),
 });
@@ -48,7 +51,7 @@ const lineSchema = v.strictObject({
 /** U7691: the item a note names, a file, module or flow of the Changes list, by the item's `name`; `blobs` holds each file's `blob` when the note was made, `title` the words it was made under. */
 const itemSchema = v.strictObject({ kind: v.picklist(["file", "module", "flow"]), name: v.string(), title: v.string(), blobs: v.record(v.string(), v.nullable(v.string())) });
 
-const itemNoteSchema = v.strictObject({ id: line, revision: v.string(), item: itemSchema, text: v.string(), sent: v.optional(offset), label: v.optional(label) });
+const itemNoteSchema = v.strictObject({ id: line, revision: v.string(), item: itemSchema, text: v.string(), sent: v.optional(offset), message: v.optional(offset), landed: v.optional(offset), label: v.optional(label) });
 
 const noteSchema = v.union([lineSchema, itemNoteSchema]);
 
@@ -205,6 +208,36 @@ const highestId = (value: Recipient) => {
   return highest;
 };
 
+/** U7956a: a note the Agent accepted carries its Message; it is Sent once that Message lands. */
+const stamped = (note: Note, message: Message): Note => {
+  const marked = { ...note, sent: Date.now(), message: message.id };
+
+  if (message.status === "delivered") marked.landed = Date.now();
+
+  return marked;
+};
+
+/** U7956a: a Message landing turns the notes it carried Sent; one folded into a later delivery (`merged`) lands with the next delivery to its Agent. */
+const createLanding = <R extends { notes: Note[] }>(recipients: () => ReadonlyMap<string, R>, retain: (key: string, value: R) => Promise<void> | void) => {
+  const merged = new Map<number, string>();
+  const waiting = (note: Note, ids: Set<number>) => note.message !== undefined && note.landed === undefined && ids.has(note.message);
+
+  const land = (message: Message): [string, R][] => {
+    if (message.status === "dropped" && message.reason === "merged") merged.set(message.id, message.to);
+
+    if (message.status !== "delivered") return [];
+
+    const folded = [...merged].flatMap(([id, to]) => to === message.to && id < message.id ? [id] : []);
+    const ids = new Set([message.id, ...folded]);
+
+    for (const id of folded) merged.delete(id);
+
+    return [...recipients()].flatMap(([key, value]): [string, R][] => value.notes.some(note => waiting(note, ids)) ? [[key, { ...value, notes: value.notes.map(note => waiting(note, ids) ? { ...note, landed: Date.now() } : note) }]] : []);
+  };
+
+  return (events: Events) => events.subscribe(event => { if (event.name === "message.delivered" || event.name === "message.dropped") for (const [key, value] of land(event.data)) retain(key, value); }, { replay: true });
+};
+
 const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typeof draftStorage>) => {
   let app = firstApp;
   const records = () => storage.list().filter(draft => draft.destination.surface === "changes" && draft.policy === "ordinary");
@@ -253,7 +286,6 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
   const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 
-
   const clearItem = (id: string, note: number) => {
     const failed = sent().get(id);
 
@@ -266,10 +298,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const retain = async (id: string, value: Recipient) => {
     const empty = !value.notes.length && !value.forms.length && !value.submissions.length && !value.recovered.length;
 
-    const next = new Map(recipients());
-
-    if (empty) next.delete(id); else next.set(id, value);
-    holdRecipients(next);
+    holdRecipients(empty ? new Map([...recipients()].filter(([key]) => key !== id)) : new Map(recipients()).set(id, value));
 
     // Invalid records are recoverable evidence, never overwritten by a fresh edit.
     if (invalid.size) return;
@@ -283,7 +312,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     const revisions = new Set(submission.notes.map(note => note.revision));
     const current = recipient(id);
 
-    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? { ...note, sent: Date.now() } : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
+    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? stamped(note, message) : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
     putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 
@@ -310,6 +339,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
     removed: (id: string) => gone(id).length > 0,
     undo,
+    follow: createLanding(recipients, retain),
     noteState: (id: string, note: Note) => noteStateOf(recipient(id).submissions, sent().get(id), note),
     project,
     entries: () => [...recipients().entries()],

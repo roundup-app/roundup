@@ -216,12 +216,33 @@ it("u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_
 
   // Scanning: quiet until 150 ms, then the line; done with none leaves no word and no mark.
   const slow = deferred<ScanSpots>();
-  const { app } = await treeOpen(() => slow.promise);
+  const mounted = await mountControl(() => ({ files: FILES }), fresh());
 
-  await waitFor(() => expect(calls(app, "agent.repeatScan")).toBe(1));
+  mounted.app.handlers["agent.compareFile"] = ({ path }) => read(path);
+  let asked = 0;
+
+  mounted.app.handlers["agent.repeatScan"] = () => ++asked === 1 ? found() : slow.promise;
+  await openChanges();
+  await screen.findByRole("region", { name: copy.changes });
+
+  fireEvent.click(await screen.findByRole("radio", { name: copy.targetBranch }));
+  await screen.findByText(copy.repeatsNeedTree);
+  await waitFor(() => expect(screen.queryByText(copy.checkingRepeats)).toBeNull());
+  const tree = await screen.findByRole("radio", { name: copy.targetTree });
+  vi.stubGlobal("requestAnimationFrame", (run: FrameRequestCallback) => { run(0);
+
+ return 0; });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.click(tree);
+  await vi.advanceTimersByTimeAsync(1);
+  await vi.advanceTimersByTimeAsync(149);
   expect(screen.queryByText(copy.checkingRepeats)).toBeNull();
-  await screen.findByText(copy.checkingRepeats);
+  await vi.advanceTimersByTimeAsync(1);
+  screen.getByText(copy.checkingRepeats);
+  expect(calls(mounted.app, "agent.repeatScan")).toBe(2);
   slow.resolve(found());
+  await vi.advanceTimersByTimeAsync(0);
+  vi.useRealTimers();
   await waitFor(() => expect(screen.queryByText(copy.checkingRepeats)).toBeNull());
   expect(screen.queryByText(/repeat/i)).toBeNull();
 });

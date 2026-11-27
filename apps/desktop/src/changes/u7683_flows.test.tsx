@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import * as diff from "diff";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import type { CallPaths } from "@contracts/agent/CallPaths";
 import type { Kind } from "@contracts/Kind";
 import { event } from "../testing/nodes";
@@ -9,7 +9,7 @@ import { keepHunks } from "./diffDraw";
 import { answers, FLOW_FILES, flowComparison, LOAD, LOOKUP, OTHER, RUN, RUST, SHOUT, ALIAS, TYPES_ONLY, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
 import { saveNote, take, treeRow } from "./noteHarness";
-import { chooseLens, drawnIn, edited, landed, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
+import { chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
 
 setUpView();
 
@@ -264,11 +264,19 @@ it("u7683e_the_call_tree_marks_added_removed_and_changed_calls_folds_the_rest_an
 it("u7683f_tracing_shows_after_150_ms_a_failed_trace_says_why_and_retry_asks_again", async () => {
   const slow = deferred<CallPaths>();
 
-  await flowsOpen(({ language }) => language === "typescript" ? slow.promise : LOOKUP);
+  const mounted = await landed(() => ({ files: FLOW_FILES }), flowComparison);
 
-  await waitFor(() => expect(asked()).toEqual(["lookup", "typescript"]));
+  serve(mounted.app, ({ language }) => language === "typescript" ? slow.promise : LOOKUP);
+  fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.click(lensGroup().getByRole("radio", { name: copy.lenses.flows }));
+  await vi.advanceTimersByTimeAsync(149);
+  expect(asked()).toEqual(["lookup", "typescript"]);
   expect(screen.queryByText(copy.tracing("TypeScript"))).toBeNull();
-  await screen.findByText(copy.tracing("TypeScript"));
+  await vi.advanceTimersByTimeAsync(1);
+  screen.getByText(copy.tracing("TypeScript"));
+  vi.useRealTimers();
 
   // Keys work while it runs.
   press("j");
