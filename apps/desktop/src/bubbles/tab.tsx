@@ -110,19 +110,21 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
 
   const retainedFor = (target: { object: string }) => current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
 
+  const names = (saved?: { name: string; base: string }) => ({ initial: saved?.name ?? name(), base: saved?.base ?? name() });
+  const origin = (retained?: ListedDraft) => ({ from: retained ? { revision: retained.revision } : undefined, selection: retained?.selection ?? null });
+
   const start = () => {
     const target = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
     const retained = retainedFor(target);
     const parsed = retained && v.safeParse(schema, retained.value);
+    const saved = parsed?.success ? parsed.output : undefined;
 
-    if (!terminal().running || readOnly() || (retained && !parsed?.success)) return;
+    if (!terminal().running || readOnly() || (retained && !saved)) return;
 
     destination = target;
     restored = restoredFor(retained, false, retained?.revision !== current()?.revision);
-    initial = parsed?.success ? parsed.output.name : name();
-    base = parsed?.success ? parsed.output.base : name();
-    from = retained ? { revision: retained.revision } : undefined;
-    selection = retained?.selection ?? null;
+    ({ initial, base } = names(saved));
+    ({ from, selection } = origin(retained));
     change(false);
     setEditing({ id });
   };
