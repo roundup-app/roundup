@@ -2,6 +2,7 @@ import * as v from "valibot";
 import type { Layout, LayoutGraph, Size } from "../ui/graphLayout";
 import { copy } from "./copy";
 import type { VisualMount } from "./visualBlocks";
+import "./styles.css";
 
 const Block = v.object({
   summary: v.string(),
@@ -188,8 +189,15 @@ const edgesSvg = (layout: Layout, moves: Move[]) => {
   return svg;
 };
 
+/** The four actions of the viewer: a Pad draws each as its words, the Changes view as an icon button named by them. */
+export type Control = "back" | "startOver" | "walk" | "details";
+
+export type Controls = (control: Control, label: string, run: () => void) => HTMLButtonElement;
+
+const wordControls: Controls = (_, label, run) => button(label, run);
+
 /** SC1 to SC5: the block as a chart the user steps, run by an XState machine. */
-export const mountStatechart = (api: StatechartApi): VisualMount => (host, { text }) => {
+export const mountStatechart = (api: StatechartApi, draw: Controls = wordControls): VisualMount => (host, { text }) => {
   host.classList.add("visual-statechart");
   const read = readStatechart(text);
 
@@ -257,12 +265,12 @@ export const mountStatechart = (api: StatechartApi): VisualMount => (host, { tex
   const group = element("div", "statechart-moves");
   const heading = element("p", "statechart-moves-title", copy.statechartMoves);
   const list = element("div", "statechart-move-list");
-  const back = button(copy.walkBack, () => restart(taken.slice(0, -1)));
-  const startOver = button(copy.statechartStartOver, () => restart([]));
-  const walk = button(copy.statechartWalk, () => play(wayToBreak(chart, moves, lit())));
+  const back = draw("back", copy.walkBack, () => restart(taken.slice(0, -1)));
+  const startOver = draw("startOver", copy.statechartStartOver, () => restart([]));
+  const walk = draw("walk", copy.statechartWalk, () => play(wayToBreak(chart, moves, lit())));
   const reason = element("span", "statechart-reason");
 
-  const toggle = button(copy.statechartDetails, () => {
+  const toggle = draw("details", copy.statechartDetails, () => {
     opened = !opened;
     update();
   });
