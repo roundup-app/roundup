@@ -249,12 +249,36 @@ impl Agents {
         &self,
         ctx: &Ctx,
         p: contracts::agent::ChangedFilesParams,
-    ) -> Result<contracts::agent::ScanHits, RpcError> {
+    ) -> Result<contracts::agent::ScanSpots, RpcError> {
         if ctx.actor.kind == contracts::ActorKind::Agent {
             return Err(RpcError::forbidden("only the user scans for repeats"));
         }
         self.shared.guard_reach(&ctx.actor, &p.id, true)?;
         self.repeat_scan(&p.id, p.group).await
+    }
+
+    async fn agent_post_spots(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::PostSpotsParams,
+    ) -> Result<(), RpcError> {
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        if ctx.actor.kind == contracts::ActorKind::Agent && ctx.actor.id != p.id {
+            return Err(RpcError::forbidden("an Agent posts only its own spots"));
+        }
+        self.post_spots(p).await
+    }
+
+    async fn agent_spots(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::SpotsParams,
+    ) -> Result<contracts::agent::Spots, RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user reads the spots"));
+        }
+        self.shared.guard_reach(&ctx.actor, &p.id, true)?;
+        self.spots(&p.id, p.group).await
     }
 
     async fn agent_dir(

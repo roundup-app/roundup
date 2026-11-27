@@ -9,6 +9,7 @@ mod a26;
 mod a33;
 mod a34;
 mod c7684_repeat_scan;
+mod c7704_spots;
 mod common;
 mod cp_call_paths;
 mod dcl9;

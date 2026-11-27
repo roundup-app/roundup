@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Kind } from "@contracts/Kind";
-import type { ScanHit } from "@contracts/agent/ScanHit";
-import type { ScanHits } from "@contracts/agent/ScanHits";
+import type { ScanSpots } from "@contracts/agent/ScanSpots";
+import type { Spot } from "@contracts/agent/Spot";
 import { RpcError } from "../app/seam";
 import { event } from "../testing/nodes";
 import { copy } from "./copy";
@@ -22,7 +22,7 @@ const NEW = "pkg/src/new.ts";
 
 const OWNED = "pkg/src/owned.ts";
 
-const hit: ScanHit = { path: NEW, start: 6, end: 22, other: { path: OWNED, start: 12, end: 30 } };
+const hit: Spot = { source: { kind: "repeats" }, path: NEW, start: 6, end: 22, other: { path: OWNED, start: 12, end: 30 }, stale: false };
 
 const FILES = [NEW, "mod/b.ts", "tools/d.ts"].map(path => counted(path, 17, 17));
 
@@ -33,7 +33,7 @@ const read = (path: string): FileComparison => path === OWNED
   ? comparison(path, { status: null, old: text("o", lines(line => `owned ${line}`)), new: text("o", lines(line => `owned ${line}`)) })
   : comparison(path, { old: text("old", lines(line => `line ${line}`)), new: text("new", lines(line => line >= 6 && line <= 22 ? `line ${line} new` : `line ${line}`)) });
 
-const found = (...hits: ScanHit[]): ScanHits => ({ hits, complete: true });
+const found = (...spots: Spot[]): ScanSpots => ({ spots, complete: true });
 
 const tick = (ms = 80) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -45,7 +45,7 @@ const deferred = <T,>() => {
 };
 
 /** The view over the Tree target, whose scan `scan` answers. */
-const treeOpen = async (scan: (n: number) => ScanHits | Promise<ScanHits> = () => found(hit), files = FILES, prepare: (app: Awaited<ReturnType<typeof landed>>["app"]) => void = () => undefined) => {
+const treeOpen = async (scan: (n: number) => ScanSpots | Promise<ScanSpots> = () => found(hit), files = FILES, prepare: (app: Awaited<ReturnType<typeof landed>>["app"]) => void = () => undefined) => {
   const mounted = await mountControl(() => ({ files }), fresh());
   let asked = 0;
 
@@ -60,7 +60,7 @@ const treeOpen = async (scan: (n: number) => ScanHits | Promise<ScanHits> = () =
 };
 
 /** The new-side lines of `path` that carry the repeat stamp. */
-const stamped = (path: string) => drawnIn(path).flatMap(each => [...each.shadowRoot?.querySelectorAll('[data-line][data-repeat]') ?? []]).map(line => Number(line.getAttribute("data-line")));
+const stamped = (path: string) => drawnIn(path).flatMap(each => [...each.shadowRoot?.querySelectorAll('[data-line][data-spot]') ?? []]).map(line => Number(line.getAttribute("data-line")));
 
 const range = (start: number, end: number) => Array.from({ length: end - start + 1 }, (_, index) => start + index);
 
@@ -135,7 +135,7 @@ it("u7685b_a_place_that_is_not_text_says_there_is_no_text_to_show", async () => 
 });
 
 it("u7685c_the_row_counts_its_repeats_and_none_says_nothing", async () => {
-  await treeOpen(() => found(hit, { path: NEW, start: 30, end: 32, other: { path: "mod/b.ts", start: 1, end: 3 } }, { path: "mod/b.ts", start: 3, end: 4, other: { path: NEW, start: 6, end: 7 } }));
+  await treeOpen(() => found(hit, { source: { kind: "repeats" }, path: NEW, start: 30, end: 32, other: { path: "mod/b.ts", start: 1, end: 3 }, stale: false }, { source: { kind: "repeats" }, path: "mod/b.ts", start: 3, end: 4, other: { path: NEW, start: 6, end: 7 }, stale: false }));
 
   await waitFor(() => expect(moduleKeys().map(key => key?.slice(2))).toEqual(["mod", "pkg", "tools"]));
   await waitFor(() => expect(said("pkg")).toContain(copy.repeatsCount(2)));
@@ -150,9 +150,9 @@ it("u7685c_a_flow_counts_the_repeats_of_its_sections_and_a_hunk_counts_under_eac
 
   mounted.app.handlers["agent.callPaths"] = lookup;
   mounted.app.handlers["agent.repeatScan"] = () => found(
-    { path: "apps/a/src/run.ts", start: 2, end: 2, other: { path: "apps/a/src/load.ts", start: 1, end: 1 } },
-    { path: "apps/a/src/load.ts", start: 2, end: 2, other: { path: "apps/a/src/run.ts", start: 1, end: 1 } },
-    { path: "crates/b/src/lib.rs", start: 2, end: 2, other: { path: "apps/a/src/run.ts", start: 1, end: 1 } },
+    { source: { kind: "repeats" }, path: "apps/a/src/run.ts", start: 2, end: 2, other: { path: "apps/a/src/load.ts", start: 1, end: 1 }, stale: false },
+    { source: { kind: "repeats" }, path: "apps/a/src/load.ts", start: 2, end: 2, other: { path: "apps/a/src/run.ts", start: 1, end: 1 }, stale: false },
+    { source: { kind: "repeats" }, path: "crates/b/src/lib.rs", start: 2, end: 2, other: { path: "apps/a/src/run.ts", start: 1, end: 1 }, stale: false },
   );
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
   await chooseLens(copy.lenses.flows);
@@ -176,7 +176,7 @@ it("u7685c_a_flow_counts_the_repeats_of_its_sections_and_a_hunk_counts_under_eac
 
 it("u7685d_the_scan_is_asked_after_the_first_paint_on_tree_only_and_never_delays_a_key", async () => {
   const frames: FrameRequestCallback[] = [];
-  const never = new Promise<ScanHits>(() => undefined);
+  const never = new Promise<ScanSpots>(() => undefined);
   const mounted = await landed(() => ({ files: [counted("a/x.ts", 1, 1), counted("b/x.ts", 1, 1)] }), read);
 
   let asked = 0;
@@ -215,7 +215,7 @@ it("u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_
   cleanup();
 
   // Scanning: quiet until 150 ms, then the line; done with none leaves no word and no mark.
-  const slow = deferred<ScanHits>();
+  const slow = deferred<ScanSpots>();
   const { app } = await treeOpen(() => slow.promise);
 
   await waitFor(() => expect(calls(app, "agent.repeatScan")).toBe(1));
@@ -232,7 +232,7 @@ it("u7685e_a_failed_scan_shows_its_cause_and_retry_asks_again_and_a_partial_one_
   const { app } = await treeOpen(() => {
     if (failing) throw new RpcError(-32603, "failed: the scan could not read the Worktree");
 
-    return { hits: [hit], complete: false };
+    return { spots: [hit], complete: false };
   });
 
   await screen.findByText(copy.repeatsFailed);
@@ -249,7 +249,7 @@ it("u7685e_a_failed_scan_shows_its_cause_and_retry_asks_again_and_a_partial_one_
 const status = (kind: Kind) => ({ id: "a", attempt: "1", status_revision: "2", status: { kind, label: kind, since: 0, finished: "1" } });
 
 it("u7685f_a_changed_diff_scans_again_once_and_keeps_the_marks_meanwhile", async () => {
-  const second = deferred<ScanHits>();
+  const second = deferred<ScanSpots>();
 
   const { app } = await treeOpen(n => n === 2 ? second.promise : found(hit), FILES, ready => {
     ready.handlers["agent.remoteMain"] = () => ({ kind: "moved" });
