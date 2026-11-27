@@ -56,7 +56,7 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     try {
       await app.writeClipboardText(text);
     } catch (thrown) {
-      logFailure("Terminal clipboard write failed", thrown);
+      logFailure(appCopy.clipboardWriteLog, thrown);
     }
   };
 

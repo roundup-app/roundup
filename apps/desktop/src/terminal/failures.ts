@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { logFailure } from "../app/log";
+import { copy } from "./copy";
 import { coreFailureText } from "../coreFailure";
 
 type FailureEntry = { message: string; order: number; retry: (() => void) | null };
@@ -42,7 +43,7 @@ export const createFailures = (): Failures => {
 
   const set = (id: string, kind: FailureKind, message: string | null, origin?: FailureOrigin): void => {
     if (message !== null && origin?.started !== true) {
-      logFailure(`Terminal ${kind} failed without a user start`, message);
+      logFailure(copy.unstartedLog(kind), message);
 
       return;
     }

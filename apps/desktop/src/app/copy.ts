@@ -58,4 +58,5 @@ export const copy = {
 
     return address === "none" ? `${sentence}. Agent ${agent} was affected.` : `${sentence}. Agent ${agent} was on Terminal ${address}.`;
   },
+  clipboardLog: (verb: string) => `${verb} failed`,
 } as const;

@@ -36,7 +36,7 @@ export const clipboardFailure = (verb: "copy" | "paste" | "drop", thrown: Error)
   if (thrown.cause === unsupportedImage) return thrown.message;
 
   // U8004b: the raw cause (platform internals) goes to the App log, the notice names the action and one step.
-  logFailure(`${verb} failed`, thrown);
+  logFailure(copy.clipboardLog(verb), thrown);
 
   const retry = { copy: copy.clipboardCopyRetry, paste: copy.clipboardRetry, drop: copy.dropRetry }[verb];
 

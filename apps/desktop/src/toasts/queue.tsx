@@ -22,7 +22,7 @@ const FAILURE = "failure";
 
 /** U8004d: a message of work the user did not start shows nothing; the App log keeps it. */
 const unstarted = (id: string): (() => void) => {
-  logFailure("Message of work the user did not start", id);
+  logFailure(copy.unstartedLog, id);
 
   return () => {};
 };

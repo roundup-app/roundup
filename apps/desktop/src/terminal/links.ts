@@ -115,7 +115,7 @@ const homesOf = (path: string, bases: readonly string[]): string[] => {
 const openFailure = (thrown: Error, printed: Printed): string => {
   if (thrown instanceof RpcError && thrown.code === REFUSED) return thrown.message;
 
-  logFailure("open link failed", thrown);
+  logFailure(copy.openLinkLog, thrown);
 
   return copy.openFailed(printed.kind === "url" ? printed.url : printed.path);
 };

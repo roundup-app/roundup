@@ -61,4 +61,7 @@ export const copy = {
   linkNotOpened: (cause: string) => `link not opened: ${cause}`,
   /** @prose */
   pathNotFound: (path: string, tried: string) => `path not found: ${path} (tried ${tried})`,
+  clipboardWriteLog: "Terminal clipboard write failed",
+  unstartedLog: (kind: string) => `Terminal ${kind} failed without a user start`,
+  openLinkLog: "open link failed",
 } as const;
