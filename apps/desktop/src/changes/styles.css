@@ -259,7 +259,7 @@
 .changes-nomatch { margin: 0; padding-inline: var(--space-3); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 /* U8032a: an open item's call rows step in one space step with each level under the item's row; D2 reads the depth from --flow-depth. The `←N` mark follows the name, the +/− mark closes the row. */
 .changes-tree .changes-row[data-row="call"] { padding-inline-start: calc(var(--space-6) + var(--flow-depth, 0) * var(--space-2)); }
-.changes-tree .changes-row[data-row="call"] .changes-row-name { flex: 0 1 auto; }
+[data-row="call"] .changes-row-name { flex: 0 1 auto; }
 .changes-row-called { flex: none; margin-inline-start: var(--space-2); color: var(--grey); font-variant-numeric: tabular-nums; }
 .changes-row-status[data-mark] { margin-inline-start: auto; }
 .changes-row-status[data-mark="+"] { color: var(--green-11); }
