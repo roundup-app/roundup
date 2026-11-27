@@ -240,10 +240,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
   });
 });
 
-it.each([
-  ["u2773a_pads_drawing_restores_exact_work_without_resuming_autosave", false],
-  ["u3021c_open_restores_exact_revision_without_rpc_pad_rich_document", true],
-] as const)("%s", async (_name, selected) => {
+it("u2773a_pads_drawing_restores_exact_work_without_resuming_autosave", async () => {
   const source = `before\n\n${block}\nafter\n`;
   const { app, connected, state } = await openShelf([padOf("drawing-draft", USER, source)]);
   await openEditorAfterWalk("drawing-draft");
@@ -258,25 +255,16 @@ it.each([
   expect(retained.value.base).toBe(source);
   expect(retained.value.source).toBe('before\n\n```excalidraw\n{"type":"excalidraw","version":2,"elements":[{"id":"a","version":2,"type":"rectangle"},{"id":"t","version":1,"type":"text"},{"id":"e2","version":1,"type":"arrow"}]}\n```\n\nafter\n');
 
-  if (selected) {
-    connected.drafts.submit(retained.revision);
-    connected.drafts.edit(retained.destination, { originalName: "drawing-draft", source: "newer B", base: source, baseRevision: 1 }, null, "ordinary");
-    connected.drafts.settle(retained.revision, "failed");
-  }
-
   state.pads = [{ ...state.pads[0]!, text: "external", revision: 2 }];
   app.emit({ actor: AGENT, name: "pad.changed", data: { name: "drawing-draft" } });
   await screen.findByText(/Changed by/);
   connected.drawer.close("key");
   await waitFor(() => expect(screen.queryByTestId("canvas")).toBeNull());
-  const before = [...app.calls];
   const revisions = structuredClone(connected.drafts.list());
-  await openPad("drawing-draft", selected ? { connected, pads: state.pads, revision: retained.revision } : undefined);
+  await openPad("drawing-draft");
   await screen.findByTestId("canvas");
   expect(current().initialData.elements).toEqual([{ id: "a", version: 2 }, { id: "t", version: 1 }, { id: "e2", version: 1 }]);
-  expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: copy.resume })).toBeTruthy();
   expect(writes(app.calls)).toEqual([]);
   expect(connected.drafts.list()).toEqual(revisions);
-
-  if (selected) expect(app.calls).toEqual(before);
 });

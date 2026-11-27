@@ -1,5 +1,4 @@
 import { createEffect, createMemo, createSignal, untrack, type Accessor, type Setter } from "solid-js";
-import * as v from "valibot";
 import type { Actor } from "@contracts/Actor";
 import { applied, applying } from "../app/pending";
 import { failureOf } from "../app/failureOf";
@@ -15,9 +14,6 @@ import { creationSchema, sentFailure } from "./EditableText";
 
 /** The Todo creation form of the Todos tab: its draft, its submission and the field that edits it. */
 export const createTodoCreation = (inputs: {
-  form: v.SafeParseResult<typeof creationSchema>;
-  /** The retained revision a recovery opens; without it the tab creates as usual. */
-  retained: { revision: string } | undefined;
   homeExists: (home: string | null) => boolean;
   typing: Accessor<boolean>;
   setTyping: Setter<boolean>;
@@ -31,25 +27,17 @@ export const createTodoCreation = (inputs: {
   section: () => HTMLElement | undefined;
 }) => {
   const connected = useConnectedProject();
-  const { form, retained, homeExists, typing, setTyping, createFailure, setCreateFailure, setFiled, active, scope, selectedWorkstream, plusButton, section } = inputs;
+  const { homeExists, typing, setTyping, createFailure, setCreateFailure, setFiled, active, scope, selectedWorkstream, plusButton, section } = inputs;
 
-  const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
-  const [creationOwner, setCreationOwner] = createSignal<string | null>(form.success ? form.output.owner : null);
+  const [creationHome, setCreationHome] = createSignal<string | null>(null);
+  const [creationOwner, setCreationOwner] = createSignal<string | null>(null);
   const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationHome() });
-  // A recovery reopens its retained revision in its own home; any other home follows that home's newest draft.
-  const recoveredHome = form.success ? form.output.home : null;
-  const draft = createMemo(() => createDraftField(connected.drafts, creationTarget(), creationSchema, untrack(creationHome) === recoveredHome ? retained : undefined));
+  const draft = createMemo(() => createDraftField(connected.drafts, creationTarget(), creationSchema));
   const creation = () => draft().draft();
 
   createEffect(
     () => typing() ? creationTarget() : null,
     target => target === null ? undefined : connected.drafts.editor(target),
-  );
-
-  // The recovered revision discarded from another control closes its editor.
-  createEffect(
-    () => typing() && retained && draft().recovered() && !connected.drafts.list().some(each => each.revision === retained.revision),
-    discarded => { if (discarded) setTyping(false); },
   );
 
   let creationRow: HTMLDivElement | undefined;
@@ -72,7 +60,7 @@ export const createTodoCreation = (inputs: {
     const kept = draft().value();
 
     if (kept.success && kept.output.title === field.value) {
-      if (!retained || document.activeElement === field) draft().select(caret);
+      draft().select(caret);
 
       return;
     }

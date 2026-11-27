@@ -46,7 +46,7 @@ it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting
     const restored = await app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation });
     expect(restored.pad).toEqual(pad);
     render(() => <ToastHost><ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext></ToastHost>);
-    await openPad(pad.name, { connected, pads: [restored.pad], revision: draft.revision });
+    await openPad(pad.name, { connected, pads: [restored.pad] });
     expect(connected.drafts.list().find(item => item.revision === draft.revision)).toMatchObject({ destination, value: { source: text, originalName: "notes" } });
     expect(await app.rpc("pad.read", { name: "notes" })).toEqual(pad);
     fireEvent.click(screen.getByRole("button", { name: "Resume" }));

@@ -44,7 +44,6 @@ import { createFolds, type FoldedPads } from "./padFolds";
 import { FoldContent } from "../ui/FoldRow";
 import { Trunks } from "../ui/TreeView";
 import { createRowReveal } from "../ui/rowReveal";
-import type { PadList } from "./padList";
 
 /** The Pad name a retention failure keeps: Copy it, or discard it. */
 const NameRecovery = (props: { app: Pick<App, "writeClipboardText">; text: string; failure: Failure; label: string; discard: () => void }) => <>
@@ -82,16 +81,11 @@ const createPadFailure = (pads: () => readonly Pad[]) => {
 };
 
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
-export const Pads = (props: {
-  /** Open this Project's retained creation revision without submitting it. */
-  recovery?: { project: string; revision: string; list: PadList };
-}) => {
+export const Pads = () => {
   const connected = useConnectedProject();
   const shelf = useContext(ShelfActions);
 
-  if (props.recovery && props.recovery.project !== connected.project.path) return null;
-
-  const list = props.recovery?.list ?? usePadList();
+  const list = usePadList();
   const pads = list.pads;
   const creation = { surface: "pads", object: "creation", recipient: null };
 
@@ -102,8 +96,8 @@ export const Pads = (props: {
   };
 
   const nameLabel = copy.copyField(copy.draftField("name").toLowerCase());
-  const restored = untrack(() => connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation" && draft.destination.recipient === null && (props.recovery?.revision === undefined || draft.revision === props.recovery?.revision)).at(-1));
-  const [naming, setNaming] = createSignal(props.recovery?.revision !== undefined && restored !== undefined);
+  const restored = untrack(() => connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation" && draft.destination.recipient === null).at(-1));
+  const [naming, setNaming] = createSignal(false);
   createEffect(naming, (active) => active ? connected.drafts.editor(creation) : undefined);
   const parsed = restored ? v.safeParse(v.object({ name: v.string(), home: v.nullable(v.string()) }), restored.value) : null;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));

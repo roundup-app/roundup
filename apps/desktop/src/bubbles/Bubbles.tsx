@@ -40,7 +40,7 @@ import "./styles.css";
 
 const ESCAPE = "Escape".split(" ");
 
-const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
+const schema = v.strictObject({ name: v.string(), base: v.string() });
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 

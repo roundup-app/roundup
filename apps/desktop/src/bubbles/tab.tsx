@@ -32,12 +32,6 @@ type Field = ReturnType<typeof createDraftField<any>>;
 
 type ListedDraft = ReturnType<ConnectedProject["drafts"]["list"]>[number];
 
-/** How a rename opens: on nothing, the current draft, a selected one, or a branch off either. */
-type Restored = "none" | "current" | "selected" | "branch";
-
-const restoredFor = (retained: ListedDraft | undefined, selecting: boolean, otherThanCurrent: boolean): Restored =>
-  retained?.value.recovery === true || (selecting && otherThanCurrent) ? "branch" : selecting ? "selected" : retained ? "current" : "none";
-
 const appliedOrRefused = (failure: string | null): Applied<null> =>
   failure === null ? { kind: "applied", value: null } : { kind: "refused", error: new Error(failure), thrown: failure };
 
@@ -94,19 +88,18 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   provideFocusTarget(`bubble.${id}.close`, () => closeButton);
   let destination = Object.freeze({ surface: "bubbles", object: untrack(() => terminal().incarnation), recipient: id });
   createEffect(createMemo(() => editing()?.id === id), editingHere => editingHere ? drafts.editor(destination) : undefined);
-  const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
+  const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft").at(-1);
   let base = "";
   let initial = "";
   let from: { revision: string } | undefined;
   let selection: ListedDraft["selection"] = null;
-  let restored: Restored = "none";
+  let restored: "none" | "current" = "none";
   const [changed, change] = createSignal(false);
   // One draft field per rename: a new session opens a new one over the retained revision it started from.
   /** Whether this rename holds a draft: it opened on a retained one, or the owner has typed. */
   const kept = () => restored !== "none" || changed();
 
-  const requiresConfirmation = () => restored === "selected" || restored === "branch";
-  const submitMode = () => requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both";
+  const submitMode = () => restored === "current" && !changed() ? "enter" : "both";
 
   const retainedFor = (target: { object: string }) => current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
 
@@ -122,7 +115,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
     if (!terminal().running || readOnly() || (retained && !saved)) return;
 
     destination = target;
-    restored = restoredFor(retained, false, retained?.revision !== current()?.revision);
+    restored = retained ? "current" : "none";
     ({ initial, base } = names(saved));
     ({ from, selection } = origin(retained));
     change(false);
@@ -139,15 +132,14 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
       return;
     }
 
-    // A selected edit is a separate recovery branch; the ordinary current draft stays current.
-    draft.keep(restored === "branch" ? { name: input.value, base, recovery: true } : { name: input.value, base }, caret);
+    draft.keep({ name: input.value, base }, caret);
   };
 
   createEffect(createMemo(() => terminal().incarnation !== destination.object || !terminal().running || readOnly()), stale => {
     if (stale) setEditing(prior => prior?.id === id ? null : prior);
   });
 
-  /** Saves the name; the kept draft is sent with it, and a moved original opens recovery. */
+  /** Saves the name; the kept draft is sent with it. */
   const commit = async (draft: Field, value: string) => {
     const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
 
