@@ -1,5 +1,6 @@
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
+import { BusyButton } from "../ui/BusyButton";
 import { createEffect, createMemo, createSignal, flush, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { Events } from "../app/events";
@@ -382,16 +383,34 @@ const Surface = (props: { id: string; name: string }) => {
 
   const listing = () => lensed()(lens());
 
-  // U7678a, U7679c: the rows that open something, in list order: the Overview, each module, then each noise file; none with no file listed.
-  const rowsOf = (each: Grouped) => files().length === 0 ? [] : [OVERVIEW, ...each.modules.map(module => moduleKey(module.name)), ...each.noise.flatMap(noise => noise.files.map(file => noiseKey(file.path)))];
+  // U7678a, U8010b: the rows that open something, in list order: each module, then each noise file; none with no file listed.
+  const rowsOf = (each: Grouped) => files().length === 0 ? [] : [...each.modules.map(module => moduleKey(module.name)), ...each.noise.flatMap(noise => noise.files.map(file => noiseKey(file.path)))];
 
   const rows = () => rowsOf(listing());
 
-  // U7674a, U7679c: what shows is the chosen item still listed, else the lens's Overview.
+  // U7680: the marks the landing and the header read; its callbacks run only after the view has made `opened` and the list.
+  const viewed = createViewed({ memory, comparison: () => comparisonOf(target(), own() ? undefined : groupKey()), files, settled: () => !pending() && failure() === null, lensed, lens, opened: () => opened(), open: next => { setLens(next.lens); choosePath(next.key); flush(); focusTree(next.key); } });
+
+  // U8010a: with no item chosen, the landing is the first item not viewed, else the first item, else the lens's empty state (the Overview pane); it is made once for a listing, so marking an item never moves it.
+  const signature = createMemo(() => `${target()}|${active()}|${lens()}|${rows().join("\0")}`);
+
+  const landed = createMemo(() => {
+    signature();
+
+    return untrack(() => {
+      if (rows().length === 0) return undefined;
+
+      const modules = listing().modules.map(module => moduleKey(module.name));
+
+      return modules.find(key => !viewed.viewedKeys().has(key)) ?? modules[0] ?? OVERVIEW;
+    });
+  });
+
+  // U7674a, U8010a: what shows is the chosen item still listed, or the Overview pane, else the landing.
   const opened = () => {
     const chosen = picked();
 
-    return chosen !== undefined && rows().includes(chosen) ? chosen : rows()[0];
+    return chosen !== undefined && (chosen === OVERVIEW ? rows().length > 0 : rows().includes(chosen)) ? chosen : landed();
   };
 
   const { panes, ready } = createPanes(opened, lens, () => `${target()}|${active()}`);
@@ -453,20 +472,20 @@ const Surface = (props: { id: string; name: string }) => {
   // U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card.
   const openAt = createOpenAt(app, () => own() ? worktree() ?? undefined : group()?.checkout, files);
 
-  // U7675e, U7679e: J and K step the Overview and the modules from anywhere, ] and [ step changes, Tab crosses from the list to the diff or the Overview's entries, ? lists them.
+  // U7675e, U8010c: J and K step the items from anywhere, wrapping, ] and [ step changes, Tab crosses from the list to the diff or the Overview's entries, ? lists them.
   const [help, setHelp] = createSignal(false);
 
   const step = (direction: 1 | -1) => {
-    const order = [...find.letters() === "" ? [OVERVIEW] : [], ...find.grouped().modules.map(module => moduleKey(module.name))];
+    const order = find.grouped().modules.map(module => moduleKey(module.name));
     const at = order.indexOf(opened() ?? "");
-    const next = at !== -1 ? order[at + direction] : find.letters() !== "" || direction === -1 ? order[direction === 1 ? 0 : order.length - 1] : undefined;
+    const next = at !== -1 ? order[(at + direction + order.length) % order.length] : order[direction === 1 ? 0 : order.length - 1];
 
     if (next === undefined) return;
     choosePath(next);
     focusTree(next);
   };
 
-  // U7679a: a lens keeps the open item it lists and else opens its own Overview.
+  // U7679a, U8010a: a lens keeps the open item it lists and else lands on its own.
   const switchLens = (next: Lens) => {
     if (next === lens()) return;
 
@@ -497,8 +516,6 @@ const Surface = (props: { id: string; name: string }) => {
 
     if (rowsOf(lensed()(lens())).includes(key)) choosePath(key, path);
   };
-
-  const viewed = createViewed({ memory, comparison: () => comparisonOf(target(), own() ? undefined : groupKey()), files, settled: () => !pending() && failure() === null, lensed, lens, opened, open: next => { setLens(next.lens); choosePath(next.key); flush(); focusTree(next.key); } });
 
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, itemOutdated: note => outdatedItem(note, files(), item => flowListed(item, { traced: calls.done().length > 0, read: readback.read() !== undefined }, () => lensed()("flows").modules)), section: () => section, open: openPath });
 
@@ -533,7 +550,12 @@ const Surface = (props: { id: string; name: string }) => {
         <SegmentGroup label={copy.compareTo} segments={segmentsOf(worktree() !== null)} value={target()} onValueChange={choose} />
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
-      <Show when={viewed.progress().total > 0}><span class="changes-progress">{copy.viewedProgress(viewed.progress().viewed, viewed.progress().total)}</span></Show>
+      <Show when={viewed.progress().total > 0}>
+        <Show when={viewed.progress().viewed === viewed.progress().total && notes.list(props.id).length > 0 && notes.state(props.id).kind !== "unknown"} fallback={<span class="changes-progress">{copy.viewedProgress(viewed.progress().viewed, viewed.progress().total)}</span>}>
+          <BusyButton kind="icon" aria-label={notes.failure(props.id) !== null ? copy.retry : copy.sendNotesTo(props.name)} busy={notes.state(props.id).kind === "pending"} busyLabel={copy.sending} onClick={() => notes.send(props.id)}><Icon name={notes.failure(props.id) !== null ? "rotate-cw" : "send"} /></BusyButton>
+        </Show>
+      </Show>
+      <IconButton aria-label={copy.overview} data-home="true" aria-pressed={opened() === OVERVIEW ? "true" : "false"} onClick={() => { choosePath(OVERVIEW); flush(); section?.querySelector<HTMLElement>(".changes-overview [data-entry]")?.focus(); }}><Icon name="home" /></IconButton>
       <IconButton aria-label={copy.closeChanges} onClick={event => close(activationSource(event))}><Icon name="x" /></IconButton>
     </header>
     <Show when={remote.chip()}>{chip => <Show when={causeOf(chip()) !== ""}><p class="changes-remote-cause">{causeOf(chip())}</p></Show>}</Show>
@@ -567,7 +589,7 @@ const Surface = (props: { id: string; name: string }) => {
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
           <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} spots={spotted()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
-            <Overview spots={spots.list()} lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} pad={pad} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => focusTree(OVERVIEW)} ready={() => { diffKeys = undefined; ready(pane); }} />
+            <Overview spots={spots.list()} lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} pad={pad} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => section?.querySelector<HTMLElement>("[data-home]")?.focus()} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;
       }}</For>

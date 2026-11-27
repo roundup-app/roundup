@@ -39,6 +39,7 @@ import Plus from "@lucide/solid/icons/plus";
 import RotateCw from "@lucide/solid/icons/rotate-cw";
 import RotateCcw from "@lucide/solid/icons/rotate-ccw";
 import Route from "@lucide/solid/icons/route";
+import House from "@lucide/solid/icons/house";
 import Info from "@lucide/solid/icons/info";
 import Trash from "@lucide/solid/icons/trash";
 import X from "@lucide/solid/icons/x";
@@ -51,7 +52,7 @@ import Unlink from "@lucide/solid/icons/unlink";
 import BookOpenText from "@lucide/solid/icons/book-open-text";
 import "./styles.css";
 
-const icons = { bug: Bug, bot: Bot, workflow: Workflow, "layout-dashboard": LayoutDashboard, play: Play, "rotate-cw": RotateCw, check: Check, down: ChevronDown, left: ChevronLeft, "panel-left-close": PanelLeftClose, "panel-left-open": PanelLeftOpen, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, "note-plus": MessageSquarePlus, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, "file-plus": FilePlus, "sticky-note": StickyNote, messages: MessagesSquare, folder: FolderOpen, editor: Code, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil, branch: GitBranch, server: Server, copy: Copy, reply: Reply, send: Send, unlink: Unlink, read: BookOpenText, "arrow-down": ArrowDown, equal: Equal, "arrow-up": ArrowUp, "chevrons-up": ChevronsUp, "rotate-ccw": RotateCcw, route: Route, info: Info };
+const icons = { bug: Bug, bot: Bot, workflow: Workflow, "layout-dashboard": LayoutDashboard, play: Play, "rotate-cw": RotateCw, check: Check, down: ChevronDown, left: ChevronLeft, "panel-left-close": PanelLeftClose, "panel-left-open": PanelLeftOpen, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, "note-plus": MessageSquarePlus, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, "file-plus": FilePlus, "sticky-note": StickyNote, messages: MessagesSquare, folder: FolderOpen, editor: Code, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil, branch: GitBranch, server: Server, copy: Copy, reply: Reply, send: Send, unlink: Unlink, read: BookOpenText, "arrow-down": ArrowDown, equal: Equal, "arrow-up": ArrowUp, "chevrons-up": ChevronsUp, "rotate-ccw": RotateCcw, route: Route, info: Info, home: House };
 
 export type IconName = keyof typeof icons;
 

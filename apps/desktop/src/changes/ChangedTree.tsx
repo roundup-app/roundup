@@ -62,8 +62,7 @@ export const fileValue = (owner: string, path: string) => `f:${owner}\0${path}`;
 
 export const kindValue = (kind: NoiseKind) => `k:${kind}`;
 
-const treeItems = (grouped: Grouped, overview: boolean): TreeItemData[] => [
-  ...overview ? [{ value: OVERVIEW, label: copy.overview }] : [],
+const treeItems = (grouped: Grouped): TreeItemData[] => [
   ...grouped.modules.map(module => ({ value: moduleKey(module.name), label: module.label ?? module.name, children: module.files.map(file => ({ value: fileValue(moduleKey(module.name), file.path), label: file.path })) })),
   ...grouped.noise.map(noise => ({ value: kindValue(noise.kind), label: noiseName[noise.kind], children: noise.files.map(file => ({ value: noiseKey(file.path), label: file.path })) })),
 ];
@@ -100,7 +99,7 @@ const focusedValue = (): string | undefined => {
   return kind === "file" && path !== undefined && key !== undefined && !key.startsWith("n:") ? fileValue(key, path) : key;
 };
 
-/** U7678a, U7678b, U7679c: the Overview row, then the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, the Overview row gone. */
+/** U7678a, U7678b, U7679c: the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, narrowed to the matches. */
 export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; /** U7691a: the names of the modules and flows holding an and U7691d: the item notes each row counts. */ itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7704c: each item's tool spots, by its name, one entry for each source. */ sources?: ReadonlyMap<string, readonly (readonly [string, number])[]> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7700c: each item's findings still to keep or drop, by its name. */ findings?: ReadonlyMap<string, number> | undefined; /** U7696c: each item's moved and renamed code, by its name. */ moved?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
@@ -159,8 +158,6 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   const choose = (value: string | null) => {
     if (value === null) return;
 
-    if (value === OVERVIEW) return props.onChoose(OVERVIEW);
-
     const owner = owners().get(value);
 
     if (owner !== undefined) props.onChoose(owner.owner, owner.path);
@@ -168,10 +165,10 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
     else if (value.startsWith("n:")) props.onChoose(value, value.slice(2));
   };
 
-  createEffect(() => props.controls, controls => controls?.({ focus: key => controller.focus(key), focused: focusedValue }));
+  createEffect(() => props.controls, controls => controls?.({ focus: key => { if (key !== OVERVIEW) controller.focus(key); }, focused: focusedValue }));
 
   // Opening lands focus on the open row, so Escape and the keys act from the list.
-  onSettled(() => { if (props.selected) controller.focus(props.selected); });
+  onSettled(() => { if (props.selected && props.selected !== OVERVIEW) controller.focus(props.selected); });
 
   const File = (each: { file: ChangedFile; value: string; key: string; owner: string; noise?: true }) => <TreeItem value={each.value} class={each.noise ? "changes-row changes-noise row-wash" : "changes-row row-wash"} data-row="file" data-key={each.key} data-owner={each.owner} data-path={each.file.path} aria-label={copy.rowLabel(each.file.path, statusText[each.file.status])}
     onDblClick={() => props.onEdit(each.file.path)} onKeyDown={event => { if (event.key === "Enter") props.onEdit(each.file.path); }}>
@@ -180,12 +177,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
     <Show when={each.file.counts}>{counts => <Counts added={counts().added} removed={counts().removed} />}</Show>
   </TreeItem>;
 
-  return <AppTree class="changes-tree" aria-label={copy.lenses[props.lens]} items={treeItems(props.grouped, !props.finding)} controller={controller} activation="automatic" expanded={props.finding ? treeItems(props.grouped, false).map(item => item.value) : expanded()} onExpandedChange={next => { if (!props.finding) setExpanded(next); }} value={props.selected ?? null} onValueChange={choose}>
-    <Show when={!props.finding}>
-      <TreeItem value={OVERVIEW} class="changes-row row-wash" data-row="overview" data-key={OVERVIEW} aria-label={copy.overview}>
-        <Name text={copy.overview} />
-      </TreeItem>
-    </Show>
+  return <AppTree class="changes-tree" aria-label={copy.lenses[props.lens]} items={treeItems(props.grouped)} controller={controller} activation="automatic" expanded={props.finding ? treeItems(props.grouped).map(item => item.value) : expanded()} onExpandedChange={next => { if (!props.finding) setExpanded(next); }} value={props.selected === OVERVIEW ? null : props.selected ?? null} onValueChange={choose}>
     <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
       <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} data-open={props.selected === moduleKey(module().name) ? "true" : undefined} data-dim={props.dimmed?.has(moduleKey(module().name)) ? "true" : undefined} aria-label={label(copy.rowLabel(copy.rowLabel(titleOf(module()), copy.filesCount(module().total)), module().counted ? `${copy.addedLines(module().added)} ${copy.removedLines(module().removed)}` : ""), module().files, moduleKey(module().name), module())}>
         <span class="changes-row-mark">
