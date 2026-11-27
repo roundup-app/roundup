@@ -4,7 +4,7 @@ import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
 import { ProjectDraftsContext, type createProjectDrafts } from "../state/connectedProject";
-import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, Show, untrack, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, For, Show, untrack, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
@@ -298,7 +298,7 @@ export const ProjectTab = (props: {
             }
           }}>
           <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
-          <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <Tip kind="changing" lazy content={<>{props.tab.causes.map(cause => <div>{cause.text}</div>)}</>}>{trigger => <span {...trigger()} class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Tip>}</Show></span>
+          <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <Tip kind="changing" lazy content={<><For each={props.tab.causes}>{(cause) => <div>{cause.text}</div>}</For></>}>{trigger => <span {...trigger()} class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Tip>}</Show></span>
         </Tabs.Trigger>
         <div class="tab-actions">
         <IconButton icon="close" chord={TAB_CLOSE} class="tab-close" aria-hidden="true" tabindex={-1} aria-label={copy.closeProject(props.tab.name)} data-visible={String(near() || props.selected || props.closeFocus === true)} onClick={() => props.onClose()}><Icon name="x" /></IconButton>

@@ -8,7 +8,7 @@ export type StripTab = {
   name: string;
   /** Last authoritative name, distinct from an optimistic display name. */
   base?: string | undefined;
-  /** `daemon exited <code>` once the Project's Daemon ended (U185). */
+  /** `disconnected` once the Project's Daemon ended (U185). */
   exitText: string | null;
   /** #7970: each cause of the mark, error first and the Daemon's exit before all, as the tooltip lists them and a click on the mark reaches them. */
   causes: Cause[];

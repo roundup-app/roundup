@@ -19,6 +19,7 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
   const names = Object.keys(trees);
 
   for (const name of names) app.add(path(name));
+
   for (const name of stopped) app.exitDaemon({ code: null }, path(name));
 
   // U7499b: an empty read record, so each Project's Pads are unread and list above the folds.

@@ -95,7 +95,7 @@ it("u7915b_an_error_agent_with_a_null_status_revision_can_be_dismissed", async (
   await chooseAction(app, "a", "Dismiss error");
   await settled();
 
-  expect(rail.dismissed(rail.nodes[0]!)).toBe(true);
+  expect(rail.nodes.every(node => rail.dismissed(node))).toBe(true);
   expect(rowOf("a").getAttribute("data-kind")).toBe("idle");
 });
 
@@ -105,6 +105,6 @@ it("u7915b_a_null_revision_needs_you_marks_done_and_returns_on_a_new_status", as
   await chooseAction(app, "a", "Mark done");
   await settled();
 
-  expect(rail.dismissed(rail.nodes[0]!)).toBe(true);
+  expect(rail.nodes.every(node => rail.dismissed(node))).toBe(true);
   expect(rail.dismissed(agent("a", "needs-you", "x", { ...unstamped, status: { kind: "needs-you", label: "x", since: 9, finished: "0" } }))).toBe(false);
 });

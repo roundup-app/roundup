@@ -59,7 +59,7 @@ import type { LinkContent } from "@contracts/link/LinkContent";
 import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
-import { createProjectsState } from "./state/projects";
+import { createProjectsState, type OpenTab } from "./state/projects";
 import { createProjectDrafts, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
 import { connectedEntries, connectedOf, createConnections, failedOf } from "./state/connections";
@@ -93,8 +93,30 @@ const WalkHost = lazy(() => import("./pads/WalkHost").then(module => ({ default:
 
 const PadHost = lazy(() => import("./pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
+const revealCause = (rail: ConnectedProject["rail"], path: string, id: string) => {
+  const terminal = rail.terminals().find(each => each.id === id);
+
+  if (terminal) queueMicrotask(() => revealTerminal(rail, path, terminal));
+};
+
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
+
+const stripTabOf = (tab: OpenTab, rail: ConnectedProject["rail"] | undefined, base: StripTab["base"], busy: boolean): StripTab => {
+  const nodes = rail?.nodes ?? [];
+  const terminals = rail?.terminals() ?? [];
+
+  return {
+    path: tab.project.path,
+    name: tab.project.name,
+    base,
+    exitText: tab.exit ? daemonExitText(tab.exit) : null,
+    causes: causesOf(tab.exit ? tab.notRunning ? headerCopy.daemonNotRunning : headerCopy.daemonExited : null, attentionOrder(nodes, terminals, rail?.dismissed), nameOf),
+    busy,
+    ...attentionCounts(attentionHolders(nodes, terminals, rail?.dismissed)),
+    running: nodes.flatMap((node) => (isDoor(node) && node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
+  };
+};
 
 const linkedItem = (content: LinkContent, onLateFailure: (message: string) => void) =>
   content.kind === "pad" ? <PadHost name={content.id} heading={content.section?.heading} onLateFailure={onLateFailure} />
@@ -276,23 +298,7 @@ export const App = (props: {
   }));
 
   const stripTabs = createMemo<StripTab[]>(() =>
-    projects.tabs().map((tab) => {
-      const rail = railOf(tab.project.path);
-      const nodes = rail?.nodes ?? [];
-      const terminals = rail?.terminals() ?? [];
-      const exit = tab.exit ? daemonExitText(tab.exit) : null;
-
-      return {
-        path: tab.project.path,
-        name: tab.project.name,
-        base: projects.base(tab.project.path),
-        exitText: exit,
-        causes: causesOf(tab.exit ? tab.notRunning ? headerCopy.daemonNotRunning : headerCopy.daemonExited : null, attentionOrder(nodes, terminals, rail?.dismissed), nameOf),
-        busy: connections().get(tab.project.path)?.kind === "connecting",
-        ...attentionCounts(attentionHolders(nodes, terminals, rail?.dismissed)),
-        running: nodes.flatMap((node) => (isDoor(node) && node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
-      };
-    }),
+    projects.tabs().map((tab) => stripTabOf(tab, railOf(tab.project.path), projects.base(tab.project.path), connections().get(tab.project.path)?.kind === "connecting")),
   );
 
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
@@ -413,12 +419,9 @@ export const App = (props: {
     const first = stripTabs().find(tab => tab.path === path)?.causes[0];
 
     if (first?.kind === "agent") rail?.select(first.id);
-
     projects.select(path);
 
-    const terminal = first?.kind === "terminal" ? rail?.terminals().find(each => each.id === first.id) : undefined;
-
-    if (rail && terminal) queueMicrotask(() => revealTerminal(rail, path, terminal));
+    if (rail && first?.kind === "terminal") revealCause(rail, path, first.id);
   };
 
 
