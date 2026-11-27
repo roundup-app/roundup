@@ -209,8 +209,11 @@
 .module-pane { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; min-width: 0; }
 /* U7543c: no `position` here; the scroll bars' sheet makes this host the offset parent of its files, which DiffReader reads as `offsetTop`. */
 .module-scroll { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overflow-anchor: none; overscroll-behavior: contain; }
-.module-file { background: var(--diff-ground); display: flex; flex-direction: column; border-block-end: var(--hairline-width) solid var(--hairline); }
+.module-file { display: flex; flex-direction: column; border-block-end: var(--hairline-width) solid var(--hairline); }
 .module-file .diff-reader { flex: none; }
+/* U8031b: a waiting file's block is the library's own ground (white, not --diff-ground), so the ground does not change when its lines arrive; no text sits on it. */
+.module-file .diff-reader[data-waiting] { flex: 1; gap: 0; }
+.diff-waiting { flex: 1; background: var(--form-thumb); }
 /* U7854c: a file's header and the lines under it sit inside the diff's edges. */
 .module-file .diff-header { padding: var(--space-1) var(--space-3); }
 .module-file .mounted-line { padding-inline: var(--space-3); }

@@ -420,7 +420,7 @@ export const DiffReader = (props: { waiting?: boolean | undefined; shared?: Shar
 
   const reload = () => { setShown(undefined); reread(); };
 
-  return <section class="diff-reader" aria-label={copy.diff}>
+  return <section class="diff-reader" aria-label={copy.diff} data-waiting={props.waiting || undefined}>
     <header class="diff-header">
       <DiffIdentity read={read()} path={props.path} rank={props.rank} />
       <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show><Show when={props.explain?.offered() && drawableOf(read(), hidden())}><IconButton aria-label={copy.explainWords} onClick={() => explaining.ask("words")}><Icon name="read" /></IconButton><IconButton aria-label={copy.explainDiagram} onClick={() => explaining.ask("diagram")}><Icon name="workflow" /></IconButton></Show><Show when={props.onNote}>{note => <IconButton aria-label={copy.noteOn.file} onClick={event => note()(event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
@@ -429,6 +429,7 @@ export const DiffReader = (props: { waiting?: boolean | undefined; shared?: Shar
     <StatusNote text={failure() || props.waiting ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <IconButton aria-label={copy.reload} onClick={reload}><Icon name="rotate-cw" /></IconButton></div></Show>
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><IconButton aria-label={hidden() === "large" ? copy.showAnyway : copy.showWhitespace} onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}><Icon name="down" /></IconButton></div></Show>
+    <Show when={props.waiting}><div class="diff-waiting" /></Show>
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <Unshown id={props.id} notes={props.notes} gathered={gathered()} read={read()} spots={props.spots ?? []} drawable={drawableOf(read(), hidden())} only={props.only} />
