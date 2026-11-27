@@ -51,8 +51,7 @@ import { createProjectAlerts } from "./state/projectAlerts";
 import { createStateAlerts } from "./rail/stateAlerts";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
-import { createRailSlide } from "./rail/slide";
-import { createChangesFold } from "./changesFold";
+import { createRailSlide, createChangesFold } from "./rail/slide";
 import { Help } from "./keys/Help";
 import { createLeader } from "./keys/Leader";
 import type { LinkContent } from "@contracts/link/LinkContent";
@@ -368,11 +367,9 @@ export const App = (props: {
   const railSlide = createRailSlide(widths, () => props.reducedMotion());
 
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.rail"], capture: () => ({
-    available: () => activeConnection() != null,
-    invoke: () => railSlide.set(!widths.collapsed(), "key"),
+    available: () => activeConnection() != null, invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
   createChangesFold(() => activeConnection()?.hasView("changes") === true, widths, railSlide, frame);
-
   const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
