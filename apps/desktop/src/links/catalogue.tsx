@@ -20,9 +20,11 @@ import { IconButton } from "../ui/IconButton";
 import { Popover } from "../ui/Popover";
 import { copy } from "./copy";
 
-export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void; made: (item: Pick<MadeItem, "kind" | "id">) => void };
+export type Env = { editor: () => void; terminal: () => void; open: (url: string) => void; file: (path: string, line?: number) => void; made: (item: Pick<MadeItem, "kind" | "id">) => void };
 
 const icon = { props: z.object({ tooltip: z.string(), url: z.string().optional() }) };
+
+const fileIcon = { props: z.object({ tooltip: z.string(), path: z.string(), line: z.number().optional() }) };
 
 const madeIcon = { props: z.object({ tooltip: z.string(), id: z.string(), first: z.boolean() }) };
 
@@ -36,6 +38,8 @@ const catalog = defineCatalog(schema, {
     tracker: icon,
     "dev-server": icon,
     asked: icon,
+    // LH28: a file the Agent named; `file` below is a made file, so the entry's element is `named-file`.
+    "named-file": fileIcon,
     pad: madeIcon,
     file: madeIcon,
     more: { props: z.object({ count: z.number() }) },
@@ -56,7 +60,11 @@ export const specOf = (set: LinkSet | undefined, made: readonly MadeItem[] = [])
     terminal: { type: "terminal", props: { tooltip: copy.terminal }, children: [] },
   };
 
-  entries.forEach((entry, index) => { elements[`link${index}`] = { type: entry.kind, props: { url: entry.url, tooltip: entry.tooltip }, children: [] }; });
+  entries.forEach((entry, index) => {
+    elements[`link${index}`] = entry.kind === "file"
+      ? { type: "named-file", props: { path: entry.path ?? "", ...(entry.line != null && { line: entry.line }), tooltip: entry.tooltip }, children: [] }
+      : { type: entry.kind, props: { url: entry.url, tooltip: entry.tooltip }, children: [] };
+  });
 
   made.forEach((item, index) => { elements[`made${index}`] = { type: item.kind, props: { id: item.id, tooltip: copy.madeTooltip(item), first: index === 0 }, children: [] }; });
 
@@ -102,6 +110,8 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
 
   type Ctx = { props: { tooltip: string; url?: string | undefined } };
 
+  type FileCtx = { props: { tooltip: string; path: string; line?: number | undefined } };
+
   type MadeCtx = { props: { tooltip: string; id: string; first: boolean } };
 
   // LH21: a made icon sits after the links, set off by a space step on the first, so the Agent's links and its work read apart.
@@ -110,6 +120,9 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
 
   const iconOf = (Icon: Icon, run: (env: Env, url: string) => void, action?: ChordName) => (ctx: Ctx) =>
     <IconButton aria-label={ctx.props.tooltip} action={action} onClick={() => run(props.env, ctx.props.url ?? "")}><Icon size={16} aria-hidden="true" /></IconButton>;
+
+  const namedFile = (ctx: FileCtx) =>
+    <IconButton aria-label={ctx.props.tooltip} onClick={() => props.env.file(ctx.props.path, ctx.props.line)}><FileText size={16} aria-hidden="true" /></IconButton>;
 
   const { registry } = defineRegistry(catalog, {
     components: {
@@ -120,6 +133,7 @@ export const LinksView = (props: { spec: Spec; env: Env; shown?: number }) => {
       tracker: iconOf(Ticket, (env, url) => env.open(url)),
       "dev-server": iconOf(Server, (env, url) => env.open(url)),
       asked: iconOf(Link, (env, url) => env.open(url)),
+      "named-file": namedFile,
       pad: madeOf(NotebookText, "pad"),
       file: madeOf(FileText, "file"),
       more: ctx => (

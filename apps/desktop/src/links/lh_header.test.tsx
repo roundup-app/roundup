@@ -129,7 +129,7 @@ it("lh8_an_unknown_component_renders_nothing", () => {
 
   spec.elements.header?.children?.push("chat");
   spec.elements.chat = { type: "Chat", props: { tooltip: "talk" }, children: [] };
-  render(() => <LinksView spec={spec} env={{ editor: () => {}, terminal: () => {}, open: () => {}, made: () => {} }} />);
+  render(() => <LinksView spec={spec} env={{ editor: () => {}, terminal: () => {}, open: () => {}, file: () => {}, made: () => {} }} />);
   expect(screen.getAllByRole("button").map(each => each.getAttribute("aria-label"))).toEqual([copy.editor, copy.terminal, "pr 0"]);
 });
 
@@ -303,4 +303,14 @@ it("lh27_a_pad_shows_only_while_unread_and_comes_back_when_it_changes", async ()
   revision = 2;
   app.emit(event({ name: "pad.changed", data: { name: "plan" } }));
   await waitFor(() => expect(names()).toContain("Pad: Plan"));
+});
+
+it("lh28_a_file_entry_opens_the_editor_at_its_line", async () => {
+  const file: LinkEntry = { kind: "file", url: "", path: "/p/src/a.ts", line: 12, tooltip: "a.ts" };
+  const { app } = await mount({ set: { entries: [file] } });
+
+  await waitFor(() => expect(names()).toEqual([copy.editor, copy.terminal, "a.ts", copy.collapse]));
+  fireEvent.click(screen.getByRole("button", { name: "a.ts" }));
+  await waitFor(() => expect(app.editorCalls).toEqual([{ path: "/p/src/a.ts", line: 12 }]));
+  expect(app.openedTargets).toEqual([]);
 });

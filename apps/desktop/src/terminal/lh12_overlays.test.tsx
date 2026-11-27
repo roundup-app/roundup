@@ -66,7 +66,7 @@ it("lh13_the_plus_n_reveal_is_one_row_beside_the_count_inside_the_inset", async 
 
   const entries = Array.from({ length: 6 }, (_, n) => ({ kind: "asked" as const, url: `https://example.test/${n}`, tooltip: `asked ${n}` }));
 
-  render(() => <div class="links-header"><LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {}, made() {} }} shown={0} /></div>);
+  render(() => <div class="links-header"><LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {}, file() {}, made() {} }} shown={0} /></div>);
   const count = screen.getByRole("button", { name: copy.moreName(8) });
   const header = count.closest<HTMLElement>(".links-header");
   const box = (left: number, width: number) => new DOMRect(left, 38, width, 32);
@@ -109,7 +109,7 @@ it("lh14_the_open_reveal_intersects_no_text_row", async () => {
   expect(top).toBeGreaterThanOrEqual(0);
   expect(top + height).toBeLessThanOrEqual(inset);
 
-  render(() => <div class="links-header"><LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {}, made() {} }} shown={0} /></div>);
+  render(() => <div class="links-header"><LinksView spec={specOf({ entries })} env={{ editor() {}, terminal() {}, open() {}, file() {}, made() {} }} shown={0} /></div>);
   fireEvent.click(screen.getByRole("button", { name: copy.moreName(8) }));
 
   const open = await waitFor(() => {
