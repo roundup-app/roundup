@@ -322,16 +322,16 @@ export const AppSettings = (props: { app: App; project: () => string | null; con
   });
 
   // U7314e: every failure of this screen is a Toast, whichever page or search result holds its field.
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
-  createMessageToast({ get message() { return offeredLine.message(); }, dismiss: offeredLine.dismiss, recover: { run: () => refresh(offered), label: copy.storageRetry } });
-  createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
-  createMessageToast({ get message() { return conflictLine.message(); }, dismiss: conflictLine.dismiss, action: <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => { const draft = current(name);
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return offeredLine.message(); }, dismiss: offeredLine.dismiss, recover: { run: () => refresh(offered), label: copy.storageRetry } });
+  createMessageToast({ started: true, get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
+  createMessageToast({ started: true, get message() { return conflictLine.message(); }, dismiss: conflictLine.dismiss, action: <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => { const draft = current(name);
 
  return draft ? drafts.discard(draft.revision) : undefined; }}>{copy.discardSettingsEdit(label)}</BusyButton>}</For> });
 
-  for (const { name } of numericFields) createMessageToast({ get message() { return numericFailure()[name]; }, dismiss: () => setNumericFailure(previous => ({ ...previous, [name]: null })) });
+  for (const { name } of numericFields) createMessageToast({ started: true, get message() { return numericFailure()[name]; }, dismiss: () => setNumericFailure(previous => ({ ...previous, [name]: null })) });
 
-  for (const program of ["roundup", "core", "check"] as const) createMessageToast({ get message() { return program === "check" ? (updates.checkFailed() ? copy.updateCheckFailed : null) : updateFailure(updates, program); }, dismiss: () => program === "check" ? updates.dismissCheck() : updates.dismiss(program) });
+  for (const program of ["roundup", "core", "check"] as const) createMessageToast({ started: true, get message() { return program === "check" ? (updates.checkFailed() ? copy.updateCheckFailed : null) : updateFailure(updates, program); }, dismiss: () => program === "check" ? updates.dismissCheck() : updates.dismiss(program) });
 
   const entries = (path: string | null = viewed()) => settingsEntries({ project: props.project, viewed: () => path, updates, numericFields });
   const { query, setQuery, searching, results } = createSettingsSearch(entries, { setProject: setNamed, setSection, show: () => show() });

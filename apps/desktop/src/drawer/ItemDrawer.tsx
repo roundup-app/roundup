@@ -64,7 +64,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
 
   const historyLine = dismissable(failure);
   // U7310d: a failed history refresh shows as a toast.
-  createMessageToast({ get message() { return historyLine.message(); }, dismiss: historyLine.dismiss, recover: { run: () => refreshHistory(), label: copy.tryAgain } });
+  createMessageToast({ started: true, get message() { return historyLine.message(); }, dismiss: historyLine.dismiss, recover: { run: () => refreshHistory(), label: copy.tryAgain } });
 
   return (
     <Errored fallback={(error, reset) => {

@@ -153,7 +153,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
         if (!(thrown instanceof Error)) throw thrown;
 
         stream.parsing = false;
-        failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message));
+        failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message), { started: true });
       }
 
       if (stream.parsing) return;
@@ -201,8 +201,11 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
   };
 
   const restoreFailed = (id: string, holder: H, stream: Stream, thrown: Error): void => {
-    failures.set(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), () => {
-      if (isOpen(stream) && !stream.restoring) void restore(id, holder, stream);
+    failures.set(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), {
+      started: true,
+      retry: () => {
+        if (isOpen(stream) && !stream.restoring) void restore(id, holder, stream);
+      },
     });
 
     if (!holder.complete) stream.after = stream.queue[0]?.offset ?? (stream.phase.kind === "placed" ? stream.phase.start : 0);
@@ -299,8 +302,11 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
 
       if (!isOpen(stream)) return;
 
-      failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message), () => {
-        if (isOpen(stream)) void attach(id, holder, stream);
+      failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message), {
+        started: true,
+        retry: () => {
+          if (isOpen(stream)) void attach(id, holder, stream);
+        },
       });
     }
 

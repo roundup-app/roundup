@@ -1,6 +1,7 @@
 import { cleanup } from "@solidjs/testing-library";
 import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
+import { copy as appCopy } from "../app/copy";
 import { RpcError } from "../app/seam";
 import { imageFile, pasteEvent } from "../testing/clipboard";
 import { info, terminal } from "../testing/nodes";
@@ -24,8 +25,8 @@ it.each(["read", "write", "save"])("u3560d_clipboard_failure_preserves_input_%s"
   else pasteEvent(target, "", [], cause);
   await vi.waitFor(() => expect(notices("alert")).toHaveLength(1));
   const alert = notices("alert")[0]!;
-  expect(alert.textContent).toContain(`${operation === "write" ? "Copy" : "Paste"} failed: pasteboard disconnected`);
-  expect(alert.textContent).toContain("Try again");
+  expect(alert.textContent).toContain(operation === "write" ? appCopy.clipboardCopyRetry : appCopy.clipboardRetry);
+  expect(alert.textContent).not.toContain(cause.message);
   expect(alert.closest(".app-toasts")).not.toBeNull();
   expect(emulator.selectedText).toBe("original unsent 雪");
   expect(emulator.pasted).toEqual([]);
@@ -35,7 +36,7 @@ it.each(["read", "write", "save"])("u3560d_clipboard_failure_preserves_input_%s"
   expect(notices("alert")).toHaveLength(0);
   connected.rail.select("a");
   flush();
-  expect(notices("alert")[0]!.textContent).toContain(cause.message);
+  expect(notices("alert")[0]!.textContent).toContain(operation === "write" ? appCopy.clipboardCopyRetry : appCopy.clipboardRetry);
   app.clipboardFailure = null;
   app.saveImageFailure = null;
 
@@ -56,5 +57,5 @@ it("u3560d_a_terminal_in_an_open_bubble_shows_its_failure_there_and_not_in_the_p
   await vi.waitFor(() => expect(notices("alert")).toHaveLength(0));
   screens().viewing("t-a", false);
   await vi.waitFor(() => expect(notices("alert")).toHaveLength(1));
-  expect(notices("alert")[0]!.textContent).toContain(cause.message);
+  expect(notices("alert")[0]!.textContent).toContain(appCopy.clipboardRetry);
 });

@@ -37,6 +37,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const failure = (at: string) => (message: string | null) => setFailed(message === null ? null : { at, message });
 
   createMessageToast({
+    started: true,
     get message() { return failed()?.message; },
     dismiss: () => setFailed(null),
   });
@@ -148,6 +149,7 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
   const [failure, setFailure] = createSignal<string | null>(null);
 
   createMessageToast({
+    started: true,
     get message() { return failure(); },
     dismiss: () => setFailure(null),
   });

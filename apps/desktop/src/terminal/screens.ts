@@ -114,7 +114,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (holder) holder.resizeSize = size;
 
     // A refused size was never delivered; the next host notification can retry it without hiding its failure.
-    void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => { if (!delivered && holder?.resizeSize === size) holder.resizeSize = null; });
+    void attempt(id, app.rpc("terminal.resize", { id, ...size }), false).then((delivered) => { if (!delivered && holder?.resizeSize === size) holder.resizeSize = null; });
   };
 
   const reflow = (id: string, holder: Holder): void => {
@@ -186,11 +186,11 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = prepared ?? runWithOwner(emulatorOwner, () => createEmulator(id, (text) => clipboard.copy(id, text)));
+    const emulator = prepared ?? runWithOwner(emulatorOwner, () => createEmulator(id, (text) => clipboard.program(id, text)));
 
     const [atBottom, setAtBottom] = createSignal(true);
     const [rows, setRows] = createSignal<ViewRows | null>(null);
-    const type = createTyping(emulator, (data) => attempt(id, app.rpc("terminal.write", { id, data })));
+    const type = createTyping(emulator, (data) => attempt(id, app.rpc("terminal.write", { id, data }), true));
 
     const returnToBottom = () => { emulator.scrollToBottom(); setAtBottom(true); };
 
@@ -270,7 +270,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   return {
-    prepare: createPrepare({ createEmulator, copy: clipboard.copy, adopt: (id, emulator) => void holderFor(id, emulator) }),
+    prepare: createPrepare({ createEmulator, copy: clipboard.program, adopt: (id, emulator) => void holderFor(id, emulator) }),
     emulatorFor,
     show,
     hide,

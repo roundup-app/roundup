@@ -1,8 +1,10 @@
 import { copy } from "./copy";
-import { PASTED_IMAGE_TYPES } from "./seam";
+import { logFailure } from "./log";
+import { PASTED_IMAGE_TYPES, RpcError, outcomeOf } from "./seam";
 import type { App, PastedImage } from "./seam";
 
-const unsupportedImage = Symbol();
+/** An Error whose message is already plain words for the user, so it shows as written. */
+export const plainMessage = Symbol();
 
 /** App-authored writes use the native pasteboard; editor copy retains its default selection/undo behavior. */
 export const writeText = (app: Pick<App, "writeClipboardText">, text: string): Promise<void> => app.writeClipboardText(text);
@@ -25,16 +27,19 @@ export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): P
     if (type) return { kind: "image", image: { type, bytes: new Uint8Array(await file.arrayBuffer()) } };
   }
 
-  if (images.length) throw new Error(copy.pasteFailedTheClipboardHoldsAnImageWhich, { cause: unsupportedImage });
+  if (images.length) throw new Error(copy.pasteFailedTheClipboardHoldsAnImageWhich, { cause: plainMessage });
 
   return { kind: "empty" };
 };
 
 /** Keep real platform causes and an available recovery action; permission-refusal advice has no producer. */
 export const clipboardFailure = (verb: "copy" | "paste" | "drop", thrown: Error): string => {
-  if (thrown.cause === unsupportedImage) return thrown.message;
+  if (thrown.cause === plainMessage || (thrown instanceof RpcError && outcomeOf(thrown) === "failed")) return thrown.message;
+
+  // U8004b: the raw cause (platform internals) goes to the App log, the notice names the action and one step.
+  logFailure(copy.clipboardLog(verb), thrown);
 
   const retry = { copy: copy.clipboardCopyRetry, paste: copy.clipboardRetry, drop: copy.dropRetry }[verb];
 
-  return copy.failed(verb === "copy" ? copy.copy : copy.paste, `${thrown.message} — ${retry}`);
+  return copy.failed({ copy: copy.copy, paste: copy.paste, drop: copy.drop }[verb], retry);
 };

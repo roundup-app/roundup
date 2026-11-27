@@ -56,7 +56,7 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
     if (untrack(props.active) && was && !now && document.activeElement === document.body) queueFocus(() => void focusCentre());
   });
 
-  createMessageToast({ get message() { return message(); }, dismiss, get recover() { return recover(); } });
+  createMessageToast({ started: true, get message() { return message(); }, dismiss, get recover() { return recover(); } });
 
   return (
     <FloatingLine

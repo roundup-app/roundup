@@ -44,6 +44,7 @@ export const copy = {
   noOutputKeptFromAnEarlierRun: "No output kept from an earlier run.",
   /** The first line is the failure; the cause follows it for the tooltip. */
   terminalRestoreFailed: (cause: string) => `Could not restore Terminal output.\n${cause}`,
+  openFailed: (target: string) => `Opening ${target} failed.\nClick the link again to retry.`,
   terminalOutputStopped: (cause: string) => `Terminal output stopped.\n${cause}`,
   /** @prose */
   terminalOutputNotKept: (cause: string) => `Terminal output not kept: ${cause}`,
@@ -60,4 +61,9 @@ export const copy = {
   linkNotOpened: (cause: string) => `link not opened: ${cause}`,
   /** @prose */
   pathNotFound: (path: string, tried: string) => `path not found: ${path} (tried ${tried})`,
+  /** @prose */
+  clipboardWriteLog: "Terminal clipboard write failed",
+  /** @prose */
+  unstartedLog: (kind: string) => `Terminal ${kind} failed without a user start`,
+  openLinkLog: "open link failed",
 } as const;

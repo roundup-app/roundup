@@ -21,6 +21,7 @@ export const createOpener = (connected: ConnectedProject, failures: Failures, op
     const worktree = node?.kind === "agent" ? node.worktree?.path : undefined;
     const failure = await openPrinted((target) => app.openTarget(target), printed, [worktree ?? project.path, project.path, ...worktree ? [worktree] : []]);
 
-    failures.set(id, "link", failure);
+    if (failure === null) failures.set(id, "link", null);
+    else failures.set(id, "link", failure, { started: true });
   };
 };

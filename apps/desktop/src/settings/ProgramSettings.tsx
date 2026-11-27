@@ -150,7 +150,7 @@ export const ProgramSettings = () => {
 
   const clear = () => run(() => app.rpc("project.clearProgram", null), () => { setRefusal(null); show(null); });
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => setFailure(null) });
 
   const keys = (event: KeyboardEvent) => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } };
 

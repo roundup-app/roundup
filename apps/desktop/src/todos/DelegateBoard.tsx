@@ -32,7 +32,7 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   const [failure, setFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal(false);
   createEffect(createMemo(() => current()?.id), () => { setFailure(null); });
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => setFailure(null) });
   onCleanup(connected.events.subscribe(event => {
     if (event.name === "workstream.updated") {
       if (event.data.id === current()?.id) setFailure(null);

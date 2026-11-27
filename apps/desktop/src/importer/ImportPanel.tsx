@@ -39,18 +39,19 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const line = dismissable(() => failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null));
   const pending = state.pending;
 
-  createMessageToast({ get message() { return state.startFailure(); }, dismiss: state.dismissStartFailure });
+  createMessageToast({ started: true, get message() { return state.startFailure(); }, dismiss: state.dismissStartFailure });
 
   createMessageToast({
+    started: true,
     get message() { return line.message(); },
     dismiss: line.dismiss,
     get recover() { return failure() ? { run: () => state.refresh() } : state.restoreFailure() || state.retentionFailure() ? { run: state.retryStorage, label: copy.retryStorage } : undefined; },
   });
 
-  createMessageToast({ get message() { return copyFailure(); }, dismiss: () => failCopy(null) });
+  createMessageToast({ started: true, get message() { return copyFailure(); }, dismiss: () => failCopy(null) });
 
   const conflict = dismissable(() => state.hasConflict() ? copy.importConflictExplanation : null);
-  createMessageToast({ get message() { return conflict.message(); }, dismiss: conflict.dismiss });
+  createMessageToast({ started: true, get message() { return conflict.message(); }, dismiss: conflict.dismiss });
 
   const choose = state.setPeriod;
   const confirm = state.confirm;

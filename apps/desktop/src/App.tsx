@@ -454,7 +454,7 @@ export const App = (props: {
   });
 
   // U7314g: the window's failures show in the Toast queue this component provides, so the queue is passed, not read from context.
-  createMessageToast({ get message() { return railLine.message(); }, dismiss: railLine.dismiss, get recover() { return projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => projects.reload() } : undefined; },
+  createMessageToast({ started: true, get message() { return railLine.message(); }, dismiss: railLine.dismiss, get recover() { return projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => projects.reload() } : undefined; },
     get action() { return <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>; } }, toasts);
 
   createMessageToasts(keys, path => {
@@ -462,11 +462,11 @@ export const App = (props: {
     const name = () => tabOf(path)()?.project.name ?? "";
     const text = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
 
-    return { get message() { return text() && `${name()}: ${text()}`; }, dismiss: () => failure()?.clear(), action: <button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button> };
+    return { started: true, get message() { return text() && `${name()}: ${text()}`; }, dismiss: () => failure()?.clear(), action: <button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button> };
   }, toasts);
 
-  createMessageToast({ get message() { return nativeFailure()?.message; }, dismiss: () => setNativeFailure(null), get recover() { return nativeFailure()?.action; } }, toasts);
-  createMessageToast({ get message() { return storageLine.message(); }, dismiss: storageLine.dismiss, recover: { run: () => Promise.all(storageFailures().map(problem => problem.retry())), label: storageCopy.saveRetry } }, toasts);
+  createMessageToast({ started: true, get message() { return nativeFailure()?.message; }, dismiss: () => setNativeFailure(null), get recover() { return nativeFailure()?.action; } }, toasts);
+  createMessageToast({ started: true, get message() { return storageLine.message(); }, dismiss: storageLine.dismiss, recover: { run: () => Promise.all(storageFailures().map(problem => problem.retry())), label: storageCopy.saveRetry } }, toasts);
 
   return (
     <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><ToastQueueContext value={toasts}><Show when={projects.loaded()}>

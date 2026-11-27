@@ -105,8 +105,8 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
   };
 
   // U7314b: the list's failure and each row's failure show as toasts, so no row moves.
-  createMessageToast({ get message() { return line.message(); }, dismiss: line.dismiss, recover: { run: () => props.state.reload() } });
-  createMessageToasts(() => [...failures().keys()], id => ({ get message() { return failure(id); }, dismiss: () => clear(id) }));
+  createMessageToast({ started: true, get message() { return line.message(); }, dismiss: line.dismiss, recover: { run: () => props.state.reload() } });
+  createMessageToasts(() => [...failures().keys()], id => ({ started: true, get message() { return failure(id); }, dismiss: () => clear(id) }));
 
   const copied = createCopyLabels(() => records().map(record => record.id));
 

@@ -152,7 +152,7 @@ it("u6418b_a_fit_that_changes_the_columns_renders_the_rows_before_it_returns", (
   emulator.dispose();
 });
 
-it("z3788a_osc52_copies_once_and_reports_failure", async () => {
+it("z3788a_osc52_copies_once_and_logs_failure", async () => {
   const { connectFakeProject, callsTo } = await import("./paneHarness");
   const { terminal, info } = await import("../testing/nodes");
   const { createScreens } = await import("./screens");
@@ -166,9 +166,13 @@ it("z3788a_osc52_copies_once_and_reports_failure", async () => {
   expect(app.clipboardWrites).toEqual(["café 世界"]);
   app.clipboardWrite = async () => { throw new Error("pasteboard unavailable"); };
 
+  const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
   await output();
-  expect(screens.failure("t-a")).toContain("pasteboard unavailable");
+  await vi.waitFor(() => expect(logged).toHaveBeenCalledWith(expect.stringContaining("pasteboard unavailable")));
+  expect(screens.failure("t-a")).toBeNull();
   expect(screens.failure("t-b")).toBeNull();
+  logged.mockRestore();
   app.clipboardWrite = async text => { app.clipboardWrites.push(text); };
 
   await output();

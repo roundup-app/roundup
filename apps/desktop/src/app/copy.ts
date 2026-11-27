@@ -37,6 +37,7 @@ export const copy = {
   pasteFailedTheClipboardHoldsAnImageWhich: "Paste failed: The clipboard contains an image instead of text. Save the image, then drop its file on the pane.",
   failed: sharedCopy.failed,
   paste: "Paste",
+  drop: sharedCopy.drop,
   clipboardDataUnavailable: "Clipboard data is unavailable.",
   clipboardRetry: "Try again, or copy the content in its source app again.",
   dropRetry: "Drop a PNG, JPEG, GIF or WebP image under 20 MiB.",
@@ -57,4 +58,5 @@ export const copy = {
 
     return address === "none" ? `${sentence}. Agent ${agent} was affected.` : `${sentence}. Agent ${agent} was on Terminal ${address}.`;
   },
+  clipboardLog: (verb: string) => `${verb} failed`,
 } as const;
