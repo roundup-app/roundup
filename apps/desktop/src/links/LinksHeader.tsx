@@ -88,6 +88,8 @@ export const LinksHeader = (props: { active: () => boolean }) => {
       // LH22: a file opens as Made opens a Deliverable (DV5); a gone one shows no error and the list is read again.
       else void openDeliverable(app, project.path, item.id).then(cause => { if (cause && agent) made.refresh(agent); }, error => console.error(error));
     },
+    // LH28: the path is the Daemon's resolved one; the editor opens at its line as the Changes view's E key does.
+    file: (path: string, line?: number) => void app.openInEditor(path, line).catch(error => console.error(error)),
     open: (url: string) => void app.openTarget({ kind: "url", url }).catch(error => console.error(error)),
   };
 

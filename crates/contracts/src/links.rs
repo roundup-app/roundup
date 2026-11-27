@@ -26,14 +26,25 @@ pub enum LinkKind {
     DevServer,
     #[serde(rename = "asked")]
     Asked,
+    #[serde(rename = "file")]
+    File,
 }
 
-/// One link of the header: a full URL and a tooltip of a few words.
+/// One link of the header: a full URL and a tooltip of a few words. A `file` entry (LH28) holds
+/// `path` and an optional `line` in place of the URL: as the turn names it when the call answers,
+/// the resolved absolute path once the Daemon keeps it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct LinkEntry {
     pub kind: LinkKind,
+    #[serde(default)]
     pub url: String,
     pub tooltip: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub line: Option<u32>,
 }
 
 /// An Agent's link set, the shape the side call answers and `agent.links` returns.

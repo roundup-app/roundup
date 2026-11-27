@@ -25,12 +25,16 @@ fn lh2_the_schema_and_the_catalogue_come_from_one_definition() {
     )
     .unwrap();
     let fields: Vec<_> = entry.as_object().unwrap().keys().cloned().collect();
-    assert_eq!(fields.len(), 3);
+    assert_eq!(fields.len(), 5);
     for field in fields {
-        assert!(generated.contains(&format!("\t{field}:")), "{field}");
+        assert!(
+            generated.contains(&format!("\t{field}:"))
+                || generated.contains(&format!("\t{field}?:")),
+            "{field}"
+        );
     }
     let kinds_in_schema = defs["LinkKind"]["enum"].as_array().unwrap();
-    assert_eq!(kinds_in_schema.len(), 4);
+    assert_eq!(kinds_in_schema.len(), 5);
     for kind in kinds_in_schema {
         let kind = kind.as_str().unwrap();
         assert!(kinds.contains(&format!("\"{kind}\"")), "{kind}");

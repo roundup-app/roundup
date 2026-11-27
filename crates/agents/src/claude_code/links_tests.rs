@@ -29,6 +29,8 @@ fn entry(kind: LinkKind, url: &str) -> LinkEntry {
     LinkEntry {
         kind,
         url: url.into(),
+        path: None,
+        line: None,
         tooltip: "a tooltip".into(),
     }
 }
@@ -51,7 +53,7 @@ async fn lh1_link_like_text_calls_the_model() {
         "see roundup://agent/1?project=p".to_owned(),
     ] {
         let model = model(Ok(LinkSet::default()));
-        let got = answer(&model, &text, &LinkSet::default()).await;
+        let got = answer(&model, &text, &LinkSet::default(), None).await;
         assert_eq!(got, Ok(Some(LinkSet::default())), "{text}");
         assert_eq!(model.calls.load(Ordering::SeqCst), 1, "{text}");
     }
@@ -63,7 +65,7 @@ async fn lh1_text_without_a_link_calls_no_model_and_keeps_the_set() {
     let last = set([entry(LinkKind::Pr, PR)]);
     // Lower case, no hyphen-digits, no port: nothing link-like.
     for text in ["plain prose, abc-123 and localhost only", "a blinker"] {
-        assert_eq!(answer(&model, text, &last).await, Ok(None), "{text}");
+        assert_eq!(answer(&model, text, &last, None).await, Ok(None), "{text}");
     }
     assert_eq!(model.calls.load(Ordering::SeqCst), 0);
 }
@@ -99,7 +101,7 @@ async fn lh2_an_answer_becomes_the_agents_set() {
     ]);
     let model = model(Ok(wanted.clone()));
     assert_eq!(
-        answer(&model, &text, &LinkSet::default()).await,
+        answer(&model, &text, &LinkSet::default(), None).await,
         Ok(Some(wanted))
     );
 }
@@ -107,7 +109,7 @@ async fn lh2_an_answer_becomes_the_agents_set() {
 #[tokio::test]
 async fn lh2_a_bad_or_failed_answer_keeps_the_set_and_logs() {
     let model = model(Err("absent or invalid structured output: eof".into()));
-    let got = answer(&model, PR, &set([entry(LinkKind::Pr, PR)])).await;
+    let got = answer(&model, PR, &set([entry(LinkKind::Pr, PR)]), None).await;
     // The cause reaches the caller, which logs it and changes nothing.
     assert_eq!(
         got,
@@ -117,7 +119,7 @@ async fn lh2_a_bad_or_failed_answer_keeps_the_set_and_logs() {
     let mut long = entry(LinkKind::Asked, PR);
     long.tooltip = "one two three four five six".into();
     assert_eq!(
-        accept(set([long]), PR, &LinkSet::default()).entries[0].tooltip,
+        accept(set([long]), PR, &LinkSet::default(), None).entries[0].tooltip,
         "one two three four five"
     );
     let many: Vec<_> = (0..20)
@@ -128,7 +130,7 @@ async fn lh2_a_bad_or_failed_answer_keeps_the_set_and_logs() {
         .map(|e| format!("{} ", e.url))
         .collect::<String>();
     assert_eq!(
-        accept(LinkSet { entries: many }, &text, &LinkSet::default())
+        accept(LinkSet { entries: many }, &text, &LinkSet::default(), None)
             .entries
             .len(),
         12
@@ -140,13 +142,13 @@ fn lh3_a_url_not_in_the_text_never_reaches_the_set() {
     let wanted = entry(LinkKind::Pr, PR);
     let text = format!("see {PR}, then more");
     assert_eq!(
-        accept(set([wanted.clone()]), &text, &LinkSet::default()).entries,
+        accept(set([wanted.clone()]), &text, &LinkSet::default(), None).entries,
         vec![wanted.clone()]
     );
     // A rewritten URL, or one that is only the start of a longer one, is dropped.
     let longer = format!("see {PR}9");
     assert!(
-        accept(set([wanted.clone()]), &longer, &LinkSet::default())
+        accept(set([wanted.clone()]), &longer, &LinkSet::default(), None)
             .entries
             .is_empty()
     );
@@ -155,6 +157,7 @@ fn lh3_a_url_not_in_the_text_never_reaches_the_set() {
         set([other.clone(), wanted.clone()]),
         &text,
         &LinkSet::default(),
+        None,
     );
     assert_eq!(
         kept.entries,
@@ -164,7 +167,7 @@ fn lh3_a_url_not_in_the_text_never_reaches_the_set() {
     // A URL the Agent already holds stands without being in this turn's text.
     let last = set([other.clone()]);
     assert_eq!(
-        accept(set([other.clone()]), "nothing", &last).entries,
+        accept(set([other.clone()]), "nothing", &last, None).entries,
         [other]
     );
 }
@@ -183,7 +186,7 @@ fn lh3_only_http_https_and_roundup_urls_are_kept() {
     ];
     let text = urls.join(" ");
     let all: Vec<_> = urls.iter().map(|u| entry(LinkKind::Asked, u)).collect();
-    let kept: Vec<_> = accept(LinkSet { entries: all }, &text, &LinkSet::default())
+    let kept: Vec<_> = accept(LinkSet { entries: all }, &text, &LinkSet::default(), None)
         .entries
         .into_iter()
         .map(|e| e.url)
@@ -198,9 +201,14 @@ fn lh3_a_key_alone_builds_no_url() {
         "https://acme.atlassian.net/browse/ABC-123",
     );
     assert!(
-        accept(set([built]), "tracked as ABC-123", &LinkSet::default())
-            .entries
-            .is_empty()
+        accept(
+            set([built]),
+            "tracked as ABC-123",
+            &LinkSet::default(),
+            None
+        )
+        .entries
+        .is_empty()
     );
 }
 
@@ -218,14 +226,14 @@ impl LinksModel for Slow {
 #[tokio::test(start_paused = true)]
 async fn lh16_a_slow_answer_within_the_limit_becomes_the_set() {
     let model = Slow(std::time::Duration::from_secs(4));
-    let got = answer(&model, &format!("opened {PR}"), &LinkSet::default()).await;
+    let got = answer(&model, &format!("opened {PR}"), &LinkSet::default(), None).await;
     assert_eq!(got, Ok(Some(set([entry(LinkKind::Pr, PR)]))));
 }
 
 #[tokio::test(start_paused = true)]
 async fn lh16_a_call_past_the_limit_is_killed() {
     let model = Slow(std::time::Duration::from_secs(16 + 60));
-    let got = answer(&model, &format!("opened {PR}"), &LinkSet::default()).await;
+    let got = answer(&model, &format!("opened {PR}"), &LinkSet::default(), None).await;
     assert_eq!(got, Err("timed out after 15 s".to_owned()));
 }
 
@@ -241,4 +249,60 @@ fn lh17_the_log_keeps_its_last_200_lines() {
     assert_eq!(lines.len(), 200);
     assert_eq!(lines.first(), Some(&"line 50"));
     assert_eq!(lines.last(), Some(&"line 249"));
+}
+
+fn file_entry(path: &str) -> LinkEntry {
+    LinkEntry {
+        kind: LinkKind::File,
+        url: String::new(),
+        tooltip: "ignored".into(),
+        path: Some(path.into()),
+        line: None,
+    }
+}
+
+#[test]
+fn lh28_a_named_file_in_the_folder_becomes_a_file_entry() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("src")).unwrap();
+    std::fs::write(dir.path().join("src/a.ts"), "x").unwrap();
+    let root = dir.path().canonicalize().unwrap();
+    let text = "I changed src/a.ts:12 for you";
+    let got = accept(
+        set([file_entry("src/a.ts:12")]),
+        text,
+        &LinkSet::default(),
+        Some(dir.path()),
+    );
+    assert_eq!(got.entries.len(), 1);
+    assert_eq!(got.entries[0].kind, LinkKind::File);
+    assert_eq!(
+        got.entries[0].path.as_deref(),
+        Some(root.join("src/a.ts").to_str().unwrap())
+    );
+    assert_eq!(got.entries[0].line, Some(12));
+    assert_eq!(got.entries[0].tooltip, "a.ts");
+}
+
+#[test]
+fn lh28_a_path_outside_the_folder_or_a_missing_file_is_dropped() {
+    let dir = tempfile::tempdir().unwrap();
+    let inside = dir.path().join("work");
+    std::fs::create_dir(&inside).unwrap();
+    std::fs::write(dir.path().join("secret.txt"), "x").unwrap();
+    let outside = dir.path().join("secret.txt");
+    let outside = outside.to_str().unwrap();
+    let text = format!("see {outside} and ../secret.txt and gone.ts and {PR}");
+    let got = accept(
+        set([
+            file_entry(outside),
+            file_entry("../secret.txt"),
+            file_entry("gone.ts"),
+            entry(LinkKind::Pr, PR),
+        ]),
+        &text,
+        &LinkSet::default(),
+        Some(&inside),
+    );
+    assert_eq!(got.entries, vec![entry(LinkKind::Pr, PR)]);
 }

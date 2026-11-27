@@ -39,6 +39,8 @@ impl agents::LinksModel for Model {
                 kind: LinkKind::Pr,
                 url: PR.into(),
                 tooltip: "the pull request".into(),
+                path: None,
+                line: None,
             }],
         })
     }
