@@ -222,7 +222,7 @@
 .changes-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* U7704c: a module row's name keeps its own text's width; the counts wrap to a second line when the row runs out of space. */
 .changes-tree .changes-row[data-row="module"] { flex-wrap: wrap; }
-.changes-tree .changes-row[data-row="module"] .changes-row-name { flex: 1 0 auto; max-inline-size: 100%; }
+.changes-row[data-row="module"] .changes-row-name { flex: 1 0 auto; max-inline-size: 100%; }
 .changes-row-name[data-stale="true"], .flow-account[data-stale="true"] .readback-text { opacity: 0.6; }
 .changes-row-function { flex: none; max-inline-size: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--grey); font: var(--text-small) var(--font-ui); }
 .flow-account { padding: var(--space-3); font: var(--text-small) var(--font-ui); }
