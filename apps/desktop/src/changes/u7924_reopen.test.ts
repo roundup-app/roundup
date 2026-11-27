@@ -122,7 +122,7 @@ const reopen = async (mode: "done" | "slow") => {
 
         if (mode === "done") {
           await browser("click", `.changes-side [data-row="module"]`);
-          await until(`!!document.querySelector('.flow-tree [data-row="call"]')`);
+          await until(`!!document.querySelector('.changes-side [data-row="call"]')`);
         }
 
         const started = Date.now();

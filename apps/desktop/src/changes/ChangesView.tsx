@@ -41,7 +41,8 @@ import { createExplanations } from "./explain";
 import { createFindings } from "./findings";
 import { fileRanks, rankWord, withRisks } from "./rank";
 import { ItemAccount } from "./ReadbackBlock";
-import { ChangedSymbols } from "./ChangedSymbols";
+import { SymbolStates } from "./ChangedSymbols";
+import { aimAt, unfoldedRows } from "./unfold";
 import { createRepeatScan, placeCounts } from "./repeats";
 import { createSpots, sourceCounts } from "./spots";
 import { RepeatStates, SpotStates } from "./RepeatStates";
@@ -557,7 +558,7 @@ const Surface = (props: { id: string; name: string }) => {
           <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} unfolded={item => unfoldedRows(lens(), item, calls.done(), moves)} states={item => lens() === "logic" ? <SymbolStates item={item} calls={calls} /> : undefined} onAim={aim => aimAt(aim, openSection, jump.aimAt)} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
       </div>
@@ -565,7 +566,7 @@ const Surface = (props: { id: string; name: string }) => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} spots={spotted()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <ItemAccount item={item} lens={lensOf(pane)} readback={readback} />}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} spots={spotted()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
             <Overview spots={spots.list()} lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} pad={pad} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => section?.querySelector<HTMLElement>("[data-home]")?.focus()} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;

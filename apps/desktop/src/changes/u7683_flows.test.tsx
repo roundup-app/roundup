@@ -9,7 +9,7 @@ import { keepHunks } from "./diffDraw";
 import { answers, FLOW_FILES, flowComparison, LOAD, LOOKUP, OTHER, RUN, RUST, SHOUT, ALIAS, TYPES_ONLY, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
 import { openOverview, saveNote, take, treeRow } from "./noteHarness";
-import { tabNamed, chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
+import { calls, tabNamed, chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
 
 setUpView();
 
@@ -255,11 +255,70 @@ it("u7683e_the_call_tree_marks_added_removed_and_changed_calls_folds_the_rest_an
   await openOverview();
 
   take(moduleRow(flowName(RUN.key)));
-  await waitFor(() => expect(rows().map(row => row.textContent)).toEqual(["runChanged", "loadChanged", copy.calledBy(3), "legacyRemoved", copy.unchangedCalls(1)]));
+  await waitFor(() => expect(rows().map(row => row.textContent)).toEqual(["run", "load←3", "legacy−", copy.unchangedCalls(1)]));
+});
+
+it("u8032a_the_open_flows_row_unfolds_into_its_calls_and_a_closed_flow_holds_none", async () => {
+  const { app } = await flowsOpen();
+  const rows = () => [...region().querySelectorAll<HTMLElement>('[data-row="call"]')];
+
+  await traced();
+  await openOverview();
+  expect(rows()).toEqual([]);
+
+  const asked = calls(app, "agent.callPaths");
+
+  take(moduleRow(flowName(RUN.key)));
+  await waitFor(() => expect(rows()).toHaveLength(4));
+
+  // The rows sit under the flow's row and above its file rows; the list asks nothing.
+  const all = [...region().querySelectorAll<HTMLElement>('.changes-tree [data-row]')].map(row => row.dataset.row);
+
+  expect(all.slice(all.indexOf("call"), all.indexOf("call") + 4)).toEqual(["call", "call", "call", "call"]);
+  expect(all.indexOf("module")).toBeLessThan(all.indexOf("call"));
+  expect(calls(app, "agent.callPaths")).toBe(asked);
+
+});
+
+it("u8032a_the_centre_of_a_flow_holds_no_call_tree", async () => {
+  await flowsOpen();
+
+  await traced();
+  take(moduleRow(flowName(RUN.key)));
+  await showing(sectionOf(RUN));
+  expect(region().querySelector(".module-pane [data-row=\"call\"]")).toBeNull();
+});
+
+it("u8032b_a_call_rows_mark_and_accessible_name_say_its_status_and_called_by", async () => {
+  await flowsOpen();
+  const rows = () => [...region().querySelectorAll<HTMLElement>('[data-row="call"]')];
+
+  await traced();
+  take(moduleRow(flowName(RUN.key)));
+  await waitFor(() => expect(rows()).toHaveLength(4));
+
+  const [, load, legacy] = rows();
+
+  expect(load?.getAttribute("aria-label")).toContain(copy.callStatus.changed);
+  expect(load?.getAttribute("aria-label")).toContain(copy.calledBy(3));
+  expect(legacy?.getAttribute("aria-label")).toContain(copy.callStatus.removed);
+  expect(load?.textContent).not.toContain(copy.callStatus.changed);
+});
+
+it("u8032b_a_click_or_enter_on_a_call_row_aims_the_scroll_at_that_function", async () => {
+  await flowsOpen();
+  const rows = () => [...region().querySelectorAll<HTMLElement>('[data-row="call"]')];
+
+  await traced();
+  take(moduleRow(flowName(RUN.key)));
+  await waitFor(() => expect(rows()).toHaveLength(4));
 
   // A call opens the section of the function it calls.
   fireEvent.click(rows()[1] ?? region());
   await showing(sectionOf(LOAD));
+
+  fireEvent.keyDown(rows()[0] ?? region(), { key: "Enter" });
+  await showing(sectionOf(RUN));
 });
 
 it("u7683f_tracing_shows_after_150_ms_a_failed_trace_says_why_and_retry_asks_again", async () => {
@@ -310,7 +369,7 @@ it("u7683f_rust_and_a_language_with_no_server_say_so_and_trace_moves_the_rust_fi
 
   // A function that makes no call ends its tree there.
   take(moduleRow(flowName(SHOUT.key)));
-  await waitFor(() => expect([...region().querySelectorAll('[data-row="call"]')].map(row => row.textContent)).toEqual(["shoutChanged", copy.endsHere]));
+  await waitFor(() => expect([...region().querySelectorAll('[data-row="call"]')].map(row => row.textContent)).toEqual(["shout", copy.endsHere]));
 });
 
 it("u7683g_marking_a_flow_viewed_opens_the_next_unviewed_flow_and_a_shared_file_reads_viewed_in_both", async () => {

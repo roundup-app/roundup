@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import Check from "@lucide/solid/icons/check";
 import RotateCcw from "@lucide/solid/icons/rotate-ccw";
 import { createTreeController, TreeItem, type TreeItemData } from "@ui-sdk/solid/tree";
@@ -11,6 +12,8 @@ import { isNew, statusText } from "./paths";
 import { RiskMark } from "./RiskMark";
 import { countFor, groupTarget } from "./itemNotes";
 import type { ItemNote } from "./notes";
+import { Tip } from "../ui/Tip";
+import type { Aim, Unfold } from "./unfold";
 
 /** U7678a: a row's key in the open view: a module by its name, a noise file by its path. */
 export const moduleKey = (name: string) => `m:${name}`;
@@ -62,8 +65,24 @@ export const fileValue = (owner: string, path: string) => `f:${owner}\0${path}`;
 
 export const kindValue = (kind: NoiseKind) => `k:${kind}`;
 
-const treeItems = (grouped: Grouped): TreeItemData[] => [
-  ...grouped.modules.map(module => ({ value: moduleKey(module.name), label: module.label ?? module.name, children: module.files.map(file => ({ value: fileValue(moduleKey(module.name), file.path), label: file.path })) })),
+/** U8032a: an unfolded row's tree value under its item. */
+export const unfoldValue = (owner: string, row: string) => `c:${owner}\0${row}`;
+
+const unfoldData = (owner: string, rows: readonly Unfold[]): TreeItemData[] => rows.map(row => {
+  const item: TreeItemData = { value: unfoldValue(owner, row.value), label: row.name };
+
+  if (row.children.length > 0) item.children = unfoldData(owner, row.children);
+
+  return item;
+});
+
+/** An unfolded row and how deep it sits, the rows below a folded one left out. */
+const flatten = (rows: readonly Unfold[], open: (row: Unfold) => boolean, depth = 0): { row: Unfold; depth: number }[] => rows.flatMap(row => [{ row, depth }, ...open(row) ? flatten(row.children, open, depth + 1) : []]);
+
+const foldable = (rows: readonly Unfold[]): Unfold[] => rows.flatMap(row => [...row.children.length > 0 ? [row] : [], ...foldable(row.children)]);
+
+const treeItems = (grouped: Grouped, unfolded: (module: ModuleGroup) => readonly Unfold[]): TreeItemData[] => [
+  ...grouped.modules.map(module => ({ value: moduleKey(module.name), label: module.label ?? module.name, children: [...unfoldData(moduleKey(module.name), unfolded(module)), ...module.files.map(file => ({ value: fileValue(moduleKey(module.name), file.path), label: file.path }))] })),
   ...grouped.noise.map(noise => ({ value: kindValue(noise.kind), label: noiseName[noise.kind], children: noise.files.map(file => ({ value: noiseKey(file.path), label: file.path })) })),
 ];
 
@@ -100,10 +119,19 @@ const focusedValue = (): string | undefined => {
 };
 
 /** U7678a, U7678b, U7679c: the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, narrowed to the matches. */
-export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; /** U7691a: the names of the modules and flows holding an and U7691d: the item notes each row counts. */ itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7704c: each item's tool spots, by its name, one entry for each source. */ sources?: ReadonlyMap<string, readonly (readonly [string, number])[]> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7700c: each item's findings still to keep or drop, by its name. */ findings?: ReadonlyMap<string, number> | undefined; /** U7696c: each item's moved and renamed code, by its name. */ moved?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
+export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; /** U7691a: the names of the modules and flows holding an and U7691d: the item notes each row counts. */ itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7704c: each item's tool spots, by its name, one entry for each source. */ sources?: ReadonlyMap<string, readonly (readonly [string, number])[]> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7700c: each item's findings still to keep or drop, by its name. */ findings?: ReadonlyMap<string, number> | undefined; /** U7696c: each item's moved and renamed code, by its name. */ moved?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; /** U8032a, U8032c: the rows the open item unfolds into, and the lines above them; none for an item that is not open. */ unfolded?: ((module: ModuleGroup) => readonly Unfold[]) | undefined; states?: ((module: ModuleGroup) => JSX.Element) | undefined; onAim?: ((aim: Aim) => void) | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
-  const open = (value: string) => props.finding || expanded().includes(value);
+  const [folded, setFolded] = createSignal<string[]>([]);
+
+  /** U8032a: only the open item unfolds, and it holds its rows open with its files below. */
+  const unfoldOf = (module: ModuleGroup) => props.selected === moduleKey(module.name) ? props.unfolded?.(module) ?? [] : [];
+  const unfoldedRows = createMemo(() => props.grouped.modules.map(module => [moduleKey(module.name), unfoldOf(module)] as const).filter(([, rows]) => rows.length > 0));
+  const open = (value: string) => props.finding || expanded().includes(value) || unfoldedRows().some(([key]) => key === value);
+  const callOpen = (owner: string, row: Unfold) => !folded().includes(unfoldValue(owner, row.value));
+  const items = createMemo(() => treeItems(props.grouped, unfoldOf));
+  const opened = () => [...props.finding ? items().map(item => item.value) : expanded(), ...unfoldedRows().flatMap(([owner, rows]) => [owner, ...foldable(rows).filter(row => callOpen(owner, row)).map(row => unfoldValue(owner, row.value))])];
+  const aims = createMemo(() => new Map(unfoldedRows().flatMap(([owner, rows]) => flatten(rows, () => true).map(({ row }) => [unfoldValue(owner, row.value), row.aim] as const))));
 
   /** U7685c: the repeats an item holds, by its row's key. */
   const repeatsOf = (key: string) => props.repeats?.get(key.slice(2)) ?? 0;
@@ -156,7 +184,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
 
   /** A module row chooses itself, a file row its module at that file; a noise row (`k:`) chooses nothing, so the open scroll stays. */
   const choose = (value: string | null) => {
-    if (value === null) return;
+    if (value === null || value.startsWith("c:")) return;
 
     const owner = owners().get(value);
 
@@ -177,7 +205,29 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
     <Show when={each.file.counts}>{counts => <Counts added={counts().added} removed={counts().removed} />}</Show>
   </TreeItem>;
 
-  return <AppTree class="changes-tree" aria-label={copy.lenses[props.lens]} items={treeItems(props.grouped)} controller={controller} activation="automatic" expanded={props.finding ? treeItems(props.grouped).map(item => item.value) : expanded()} onExpandedChange={next => { if (!props.finding) setExpanded(next); }} value={props.selected === OVERVIEW ? null : props.selected ?? null} onValueChange={choose}>
+  const aim = (value: string) => {
+    const at = aims().get(value);
+
+    if (at) props.onAim?.(at);
+  };
+
+  /** U8032a, U8032b: a row unfolded under the open item: its name and its mark, then `←N` when callers are counted; a click or Enter aims the scroll. */
+  const Call = (each: { row: Unfold; depth: number; owner: string }) => {
+    const value = () => unfoldValue(each.owner, each.row.value);
+
+    return <TreeItem value={value()} class="changes-row row-wash" data-row="call" data-key={each.owner} style={{ "--flow-depth": each.depth }} aria-label={each.row.words}
+      onClick={() => aim(value())} onKeyDown={event => { if (event.key === "Enter") aim(value()); }}>
+      <Name text={each.row.name} />
+      <Show when={each.row.mark}>{mark => <span class="changes-row-status" data-mark={mark()} aria-hidden="true">{mark()}</span>}</Show>
+      <Show when={each.row.callers}>{callers => <Tip kind="changing" lazy content={<><div>{copy.calledBy(callers().total)}</div><For each={callers().names}>{name => <div>{name}</div>}</For></>}>{trigger => <span {...trigger()} class="changes-row-called" aria-hidden="true">{`←${callers().total}`}</span>}</Tip>}</Show>
+    </TreeItem>;
+  };
+
+  return <AppTree class="changes-tree" aria-label={copy.lenses[props.lens]} items={items()} controller={controller} activation="automatic" expanded={opened()} onExpandedChange={next => {
+    setFolded(unfoldedRows().flatMap(([owner, rows]) => foldable(rows).map(row => unfoldValue(owner, row.value))).filter(value => !next.includes(value)));
+
+    if (!props.finding) setExpanded(next.filter(value => !value.startsWith("c:") && (expanded().includes(value) || !unfoldedRows().some(([key]) => key === value))));
+  }} value={props.selected === OVERVIEW ? null : props.selected ?? null} onValueChange={choose}>
     <For each={props.grouped.modules} keyed={each => each.name}>{module => <>
       <TreeItem value={moduleKey(module().name)} class="changes-row row-wash" data-row="module" data-key={moduleKey(module().name)} data-open={props.selected === moduleKey(module().name) ? "true" : undefined} data-dim={props.dimmed?.has(moduleKey(module().name)) ? "true" : undefined} aria-label={label(copy.rowLabel(copy.rowLabel(titleOf(module()), copy.filesCount(module().total)), module().counted ? `${copy.addedLines(module().added)} ${copy.removedLines(module().removed)}` : ""), module().files, moduleKey(module().name), module())}>
         <span class="changes-row-mark">
@@ -197,6 +247,10 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
           <Show when={signalOf(module())}>{signal => <Show when={signal() === "risk" ? module().risk : undefined} fallback={<span class="changes-row-dot" data-signal={signal()} aria-hidden="true" />}>{risk => <RiskMark risk={risk()} />}</Show>}</Show>
         </span>
       </TreeItem>
+      <Show when={props.selected === moduleKey(module().name)}>
+        {props.states?.(module())}
+        <For each={flatten(unfoldOf(module()), row => callOpen(moduleKey(module().name), row))}>{({ row, depth }) => <Call row={row} depth={depth} owner={moduleKey(module().name)} />}</For>
+      </Show>
       <Show when={open(moduleKey(module().name))}>
         <For each={module().files}>{file => <File file={file} value={fileValue(moduleKey(module().name), file.path)} key={moduleKey(module().name)} owner={moduleKey(module().name)} />}</For>
       </Show>

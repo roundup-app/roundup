@@ -7,7 +7,7 @@ import { copy } from "./copy";
 import { answers, FLOW_FILES, flowComparison, OTHER, RUN, SHOUT, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
 import { openOverview, take } from "./noteHarness";
-import { calls, chooseLens, landed, moduleKeys, moduleRow, openPaths, pane, press, region, setUpView, showing, slot } from "./viewHarness";
+import { calls, chooseLens, landed, moduleKeys, moduleRow, openPaths, press, region, setUpView, showing, slot } from "./viewHarness";
 
 setUpView();
 
@@ -90,7 +90,7 @@ it("u7689a_a_code_flow_gains_the_readbacks_name_and_explanation_and_keeps_what_t
   await waitFor(() => expect(labels()).toEqual(["run", "load"]));
   expect(inSlot().querySelector(".flow-account .readback-credit")?.textContent).toBe(copy.readbackCredit);
   expect([...inSlot().querySelectorAll(".flow-account li")].map(each => each.textContent)).toEqual(RUN_FLOW.steps.map(each => each.note));
-  expect(within(inSlot()).getByRole("tree", { name: copy.callTree })).toBeTruthy();
+  expect(region().querySelectorAll('.changes-tree [data-row="call"]').length).toBeGreaterThan(0);
 });
 
 it("u7689a_a_name_applies_only_when_the_readbacks_hunks_name_the_flows_files", () => {

@@ -151,7 +151,7 @@ it("u7683h_the_flows_lens_is_captured_for_the_critic", async () => {
 
   const states: { name: string; mode: "done" | "slow" | "failed"; run: () => Promise<void> }[] = [
     { name: "flows", mode: "done", run: () => shot("flows", "!!document.querySelector('.changes-overview [data-entry]') && " + said("Rust not traced")) },
-    { name: "flow-open", mode: "done", run: async () => { await browser("click", '.changes-side [data-row="module"]'); await shot("flow-open", READY + " && !!document.querySelector('.flow-tree [data-row=\"call\"]')"); } },
+    { name: "flow-open", mode: "done", run: async () => { await browser("click", '.changes-side [data-row="module"]'); await shot("flow-open", READY + " && !!document.querySelector('.changes-side [data-row=\"call\"]')"); } },
     { name: "tracing", mode: "slow", run: () => shot("tracing", said("Tracing TypeScript calls")) },
     { name: "failed", mode: "failed", run: () => shot("failed", said("Couldn't trace TypeScript calls")) },
   ];
