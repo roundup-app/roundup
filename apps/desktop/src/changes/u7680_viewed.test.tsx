@@ -65,6 +65,7 @@ it("u7680a_v_and_the_button_mark_the_open_item_and_the_same_press_un_marks_it", 
 
 it("u7680a_the_overview_and_a_noise_file_take_no_mark", async () => {
   await landed(() => ({ files: LOGIC }));
+  fireEvent.click(within(region()).getByRole("button", { name: copy.overview }));
   pane();
   expect(marker()).toBeNull();
   press("v");
@@ -84,6 +85,7 @@ it("u7680a_a_mark_blocks_nothing_and_makes_no_call", async () => {
   const others = () => app.calls.map(call => call.method).filter(method => method !== "agent.compareFile");
 
   await choose("crates/a", "crates/a/src/x.rs");
+  await waitFor(() => expect(others()).toContain("agent.repeatScan"));
   const before = others();
 
   press("v");

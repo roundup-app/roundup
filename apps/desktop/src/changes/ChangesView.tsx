@@ -406,6 +406,9 @@ const Surface = (props: { id: string; name: string }) => {
     });
   });
 
+  // U7675c: the landing becomes the chosen item, so one that leaves the listing is told as it is.
+  createEffect(() => ({ chosen: picked(), landing: landed() }), ({ chosen, landing }) => { if (chosen === undefined && landing !== undefined && landing !== OVERVIEW) setPicked(landing); });
+
   // U7674a, U8010a: what shows is the chosen item still listed, or the Overview pane, else the landing.
   const opened = () => {
     const chosen = picked();
@@ -492,7 +495,7 @@ const Surface = (props: { id: string; name: string }) => {
     const inList = document.activeElement?.closest(".changes-tree") != null;
     const chosen = picked();
 
-    if (chosen !== undefined && !rowsOf(lensed()(next)).includes(chosen)) setPicked(undefined);
+    if (chosen !== undefined && chosen !== OVERVIEW && !rowsOf(lensed()(next)).includes(chosen)) setPicked(undefined);
     setStart(undefined);
     setLens(next);
     flush();
