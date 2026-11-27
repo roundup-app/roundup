@@ -108,12 +108,6 @@ p {
   overflow: clip;
 }
 
-.rail .rail-recovery {
-  box-sizing: border-box;
-  padding-right: var(--space-4);
-  padding-left: var(--space-4);
-}
-
 /* U6228: the Rail's content in one box, so a collapsed Rail can hide it whole while it stays mounted and keeps its keys. */
 .rail-body {
   display: flex;
@@ -471,8 +465,6 @@ p {
   margin: 0;
 }
 
-
-
 /* U3800b: the one file target under the pointer (a Rail row, a Project tab, or the Terminal pane or Bubble as it reports `drop-over`) takes the drop look of a Sortable slot, a dashed --accent edge inside its rectangle; other targets paint nothing, and no size changes (U5, U46). */
 .project-tab[data-drop="hover"]::after,
 .pane-body.drop-over::after,
@@ -531,87 +523,6 @@ code {
   -webkit-user-select: text;
   user-select: text;
 }
-
-.draft-recovery:has(.empty-state) {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.draft-recovery {
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-4);
-}
-
-.draft-identity {
-  overflow-wrap: anywhere;
-}
-
-.draft-revisions {
-  margin: var(--space-4) 0;
-  padding: 0;
-  list-style: none;
-}
-
-.draft-revisions li {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  margin-block: var(--space-4);
-}
-
-.draft-value {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono);
-  user-select: text;
-}
-
-.draft-recovery h2 {
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-title);
-}
-
-.draft-recovery h3 {
-  margin: var(--space-4) 0 var(--space-2);
-  font-size: var(--text-body);
-}
-
-.draft-recovery p, .draft-value {
-  margin: var(--space-3) 0;
-}
-
-.draft-destination {
-  display: flex;
-  flex: 1;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.draft-text .draft-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.draft-revisions button {
-  flex-shrink: 0;
-}
-
-.draft-identity { color: var(--grey); }
-li:has([aria-pressed="true"]) .draft-name,
-.draft-revisions button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
-.draft-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
-.draft-destination .icon { flex-shrink: 0; }
-
-.draft-revisions li { align-items: baseline; }
-.draft-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-.draft-cause { color: var(--grey); }
-.draft-destination { align-items: baseline; }
 
 ::selection {
   background-color: var(--text-selection);

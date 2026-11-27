@@ -96,19 +96,6 @@ it("u6578a_multi_close_asks_each_running_tab_in_turn", async () => {
   expect([...app.closed].sort()).toEqual([path("a"), path("c")]);
 });
 
-it("u6544c_recover_drafts_in_menu", async () => {
-  keepDraft("api");
-  const { app } = await openTabs({ api: [], web: [] }, true);
-
-  open("web");
-  expect(app.menuLabels()).not.toContain("Recover unfinished work");
-  await app.closeMenu();
-
-  open("api");
-  await app.pickMenu("Recover unfinished work");
-  await waitFor(() => expect(document.querySelector(".header-recovery")).not.toBeNull());
-});
-
 it("u6544b_backspace_on_a_focused_tab_closes_exactly_that_project", async () => {
   const { app } = await openTabs({ a: [], b: [], c: [] });
 

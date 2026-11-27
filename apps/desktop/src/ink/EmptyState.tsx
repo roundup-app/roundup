@@ -50,7 +50,7 @@ export const EmptyState = (props: { art: keyof typeof scenes; title: string; lin
   if (typeof ResizeObserver !== "undefined") createResizeObserver(targets, measure);
 
   onSettled(() => {
-    const surface = box.closest<HTMLElement>(".choose-project,.shelf-area,.pane-body,.note-recovery,.draft-recovery") ?? box;
+    const surface = box.closest<HTMLElement>(".choose-project,.shelf-area,.pane-body,.note-recovery") ?? box;
     setRoom(surface);
     const observer = new MutationObserver(measure);
     observer.observe(surface, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["data-terminal-content"] });

@@ -1,5 +1,6 @@
 import { flush } from "solid-js";
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { copy as sharedCopy } from "../sharedCopy";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { event } from "../testing/nodes";
 import { answerQuestion, questionClosed, questionDialog } from "../shelf/bulkQuestionHarness";
@@ -44,7 +45,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     fireEvent.click(document.querySelector(".bubble:not([hidden]) [aria-label=Minimise]")!);
     flush();
     const remove = app.handlers["terminal.close"]!;
-    const refusal = "Close refused\nTry again";
+    const refusal = source === "context" ? sharedCopy.copyDraftFailure("Close refused\nTry again") : "Close refused\nTry again";
 
     if (source === "close") {
       app.handlers["terminal.close"] = () => { throw new Error("Close refused\nTry again"); };
@@ -66,11 +67,8 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       flush();
       fireEvent.keyDown(field(), { key: "Enter" });
       flush();
-      const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+      await screen.findByRole("alert", { name: refusal });
       storage.mockRestore();
-      fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-      flush();
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(tab("2")));
     } else {
       app.handlers["daemon.ping"] = () => { throw new Error("Close refused\nTry again"); };

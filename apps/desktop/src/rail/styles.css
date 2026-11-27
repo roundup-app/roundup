@@ -250,7 +250,6 @@
   user-select: text;
 }
 
-
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
 .rail-tree [role="tree"][aria-disabled="true"] {
   filter: grayscale(1);
@@ -526,89 +525,10 @@
   color: var(--grey);
 }
 
-.rail-recovery {
-  padding: var(--space-2);
-  max-height: var(--pad-menu-max-height);
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.rail-recovery p,
-.rail-recovery summary {
-  overflow-wrap: anywhere;
-}
-
-.rail-recovery textarea {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.rail-recovery summary {
-  min-height: var(--space-6);
-  cursor: pointer;
-}
-
-.rail-recovery summary:hover {
-  color: var(--accent);
-}
-
-.rail-recovery summary[data-pressed="true"] {
-  color: var(--text);
-  transition-duration: var(--duration-instant);
-}
-
-.rail-recovery textarea {
-  padding: var(--space-1);
-  appearance: none;
-  border: 0;
-  font: inherit;
-  font-size: var(--text-body);
-  color: var(--text);
-  background: var(--ground);
-}
-
 /* The field ends before the row's icons, which stay inert while the name is edited. */
 .rail-row[data-editing="true"] .row-tail {
   visibility: hidden;
   pointer-events: none;
-}
-
-.rail-recovery summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  list-style: none;
-  font-size: var(--text-row);
-  color: var(--grey);
-}
-
-.rail-recovery summary::-webkit-details-marker {
-  display: none;
-}
-
-.rail-recovery-detail[open] svg,
-.rail-recovery[open] svg {
-  transform: rotate(90deg);
-}
-
-.rail-recovery svg {
-  flex: none;
-}
-
-.rail-recovery textarea {
-  resize: none;
-  margin-block: var(--space-3);
-}
-
-.rail-recovery p {
-  margin-bottom: var(--space-2);
-}
-
-.rail-recovery-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-block: var(--space-3);
 }
 
 .rail-leaf[role="treeitem"] { cursor: pointer; }

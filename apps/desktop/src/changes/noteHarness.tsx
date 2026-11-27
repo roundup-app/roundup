@@ -42,8 +42,6 @@ export const openFirstModule = async () => take(await waitFor(() => {
   return row;
 }));
 
-/** The rows of the newest list whose label says Unfinished work, as "<kind>:<key>". */
-
 /** The list's file row for `path` in the newest Changes view: its module unfolds first, by Right, which chooses nothing. */
 export const treeRow = async (path: string): Promise<HTMLElement> => waitFor(() => {
   const list = visibleTrees().at(-1);

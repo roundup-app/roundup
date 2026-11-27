@@ -7,8 +7,6 @@ const work = "Work";
 
 const railDraftLabels = new Map([["rail-task", work], ["rail-name", sharedCopy.name]]);
 
-const railDraftStatuses = new Map([["draft", sharedCopy.draftStatus.draft], ["pending", "Submitting…"], ["unknown", "Unconfirmed"], ["failed", "Unsent"]]);
-
 const dash = "—";
 
 const removalPlurals = new Intl.PluralRules("en");

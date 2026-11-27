@@ -207,7 +207,6 @@ input.todo-tick {
   white-space: nowrap;
 }
 
-
 /* U3720: the owner list floats over the Shelf: opaque, lifted, and as tall as the window leaves room for. */
 .owner-picker {
   box-sizing: border-box;
@@ -351,14 +350,6 @@ input.todo-tick {
 .row-control-slot { display: inline-flex; }
 .row-control-slot[inert] { opacity: 0; pointer-events: none; }
 
-/* Creation feedback stays beside its field; retained revisions wrap below it. */
-.todo-draft-recovery .todo-draft-line { flex-wrap: wrap; }
-.todo-draft-recovery .floating-actions {
-  flex-wrap: wrap;
-  max-inline-size: 100%;
-}
-.todo-draft-recovery .todo-draft-revision { flex-wrap: wrap; }
-
 /* U4335a: glyph and name share the tree depth; notices keep their row target. */
 .shelf-row.todo-row {
   --todo-depth: 0;
@@ -386,7 +377,6 @@ input.todo-tick {
   display: grid;
   grid-template-columns: 0 minmax(0, 1fr);
 }
-
 
 /* Todo names keep their existing ink tones inside the shared row paint. */
 .shelf-row.todo-row {

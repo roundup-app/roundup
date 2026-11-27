@@ -5,14 +5,11 @@ import { captureFocus, focusTarget, provideFocusTarget } from "../keys/focus";
 import { createTerminalClose } from "./close";
 import { dismissable } from "../ink/recovery";
 import { createMessageToast } from "../ink/messageToast";
-import { StatusNote } from "../ink/MountedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
-import { Editable } from "../ui/Editable";
-import { FlatAdd, FlatTab } from "../ui/FlatTab";
-import { IconButton } from "../ui/IconButton";
-import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
+import { FlatAdd } from "../ui/FlatTab";
+import { textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
 import { idle, step } from "./pull";
 import type { Pull, Pressed, Pulling } from "./pull";
@@ -22,14 +19,13 @@ import type { TabContext } from "./tab";
 import { copy } from "./copy";
 import { createBubbleFailure } from "./failures";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, flush, For, onCleanup, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, For, onCleanup, onSettled, untrack } from "solid-js";
 import { Portal } from "@solidjs/web";
 import { createBubblesModel, samePlaces } from "./model";
 import type { Arrival } from "./model";
 import { HintLine } from "../keys/HintLine";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Icon } from "../ink/Icon";
-import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopology";
@@ -694,7 +690,7 @@ export const Bubbles = (props: {
   const onFocusLeave = (event: FocusEvent): void => {
     const { target } = event;
 
-    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, .terminal-recover, [role=menu], [role=menuitem]")) return;
+    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
 
     const unfolded = shown().filter(({ id }) => !placeOf(id).min);
 

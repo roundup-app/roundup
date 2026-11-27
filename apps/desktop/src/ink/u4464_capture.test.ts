@@ -40,7 +40,7 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
     const scenes = await read(`(() => {
       const box = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right}; };
       return [...document.querySelectorAll('.empty-state')].map(el => {
-        const room = el.closest('.choose-project,.shelf-area,.pane-body,.note-recovery,.draft-recovery') ?? el;
+        const room = el.closest('.choose-project,.shelf-area,.pane-body,.note-recovery') ?? el;
         const scene = room.querySelector('.empty-state-ground svg,.empty-state-art svg');
         const content = [...room.querySelectorAll('h3,p,button,li,[role=alert],.empty-state-actions')].filter(node => node.getBoundingClientRect().height > 0);
         const lowestContentBottom = Math.max(...content.map(node => box(node).bottom));
@@ -180,16 +180,6 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
       await read(`(async () => { const {openProjectPage} = await import('/src/testing/menuProbe.ts'); openProjectPage('view:notes', window.__fake.app.opened.project.path); })()`);
       await wait(`!!document.querySelector('.note-recovery .empty-state')`);
       await snap(`${theme}-note-drafts`);
-      await load("empty-project");
-      await read(`(async () => { const {draftStorage} = await import('/src/state/storage.ts'); draftStorage(window.__fake.app.opened.project.path).edit({surface:'terminal_selection', object:'missing', recipient:'missing'}, {note:'Unfinished selection', excerpt:'Earlier output', source:'gone'}, null, 'ordinary'); })()`);
-      await browser("reload");
-      await wait(`!!window.__fake && !!window.__select`);
-      await read(`document.querySelector('.rail-scroll').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
-      await read(`(async () => { const {menuProbe} = await import('/src/testing/menuProbe.ts'); const item = menuProbe.shown.find(item => item.id === 'recover'); if (!item) throw new Error('Recovery menu unavailable'); menuProbe.answer(item.id); })()`);
-      await wait(`!!document.querySelector('.draft-recovery')`);
-      await read(`[...document.querySelectorAll('.draft-recovery button')].find(button => button.textContent === 'Discard').click()`);
-      await wait(`!!document.querySelector('.draft-recovery .empty-state')`);
-      await snap(`${theme}-draft-recovery`);
       await load("tree-40");
       await browser("click", '[aria-label="Create"]');
       await wait(`!!document.querySelector('[role="menuitem"][data-value="workstream"]')`);

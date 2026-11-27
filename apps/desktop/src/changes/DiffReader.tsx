@@ -26,7 +26,7 @@ import { compareParams, firstLine, hiddenKind, noticeFor, revisionOf, sameRead }
 import { annotate, drawDiff, gatheredNotes, lineAnnotations, renderedApart } from "./diffDraw";
 import { outdated } from "./diffDraw";
 import { isMark } from "./diffDraw";
-import type { Annotated, Composer, Noted, Shared, Stamped } from "./diffDraw";
+import type { Annotated, Composer, Shared, Stamped } from "./diffDraw";
 import { LineMark } from "./LineMark";
 import { createExplaining } from "./explain";
 import type { Explanations } from "./explain";

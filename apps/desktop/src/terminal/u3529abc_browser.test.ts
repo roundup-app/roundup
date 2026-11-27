@@ -209,17 +209,5 @@ it.skipIf(!/U3529|U5515|U5549/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c
   await snap("pad-selected");
   await browser("dblclick", ".ProseMirror p");
   await read("window.__checks()");
-
-  if (!option && !process.env.ROUNDUP_CAPTURES?.includes("U5515")) {
-  const saved = { version: 1, drafts: [{ revision: "retired-selection-note", destination: { surface: "terminal_selection", object: "retired", recipient: "migrate" }, value: { note: "Retained note é 🪁", excerpt: "Original output\nexact Unicode 👩🏽‍💻", source: "retired", terminal: "retired", attempt: null, command: null, cwd: null, exit: null, x: 800, y: 300 }, selection: null, status: "draft", policy: "ordinary" }] };
-
-  await read(`localStorage.setItem('roundup:drafts:/Users/you/harness', ${JSON.stringify(JSON.stringify(saved))})`);
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
-  await wait("!!window.__fake && !!document.querySelector('.rail-row')");
-  await read("[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label')?.startsWith('Overview')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2}))");
-  await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover ')))");
-  await wait("!!document.querySelector('.draft-recovery')");
-  await snap("retired-note-recovery");
-  }
   }
 }, 300_000);

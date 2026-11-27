@@ -422,7 +422,7 @@ export const Todos = (props: {
     );
   });
 
-  const { creationHome, creation, openField, field } = createTodoCreation({
+  const { creationHome, openField, field } = createTodoCreation({
     form, retained, homeExists, typing, setTyping, createFailure, setCreateFailure,
     setFiled, active, scope, selectedWorkstream, plusButton: () => plusButton, section: () => section,
   });

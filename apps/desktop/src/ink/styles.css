@@ -253,7 +253,7 @@ p.ink[data-kind="notice"] {
   gap: var(--space-3);
 }
 
-:is(.choose-project, .shelf-area, .note-recovery, .draft-recovery):has(.empty-state) {
+:is(.choose-project, .shelf-area, .note-recovery):has(.empty-state) {
   position: relative;
 }
 

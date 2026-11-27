@@ -117,7 +117,7 @@ const closeOnKey = (close: () => void) => (press: KeyboardEvent) => {
   }
 };
 
-/** U2694a: the Project tab's system menu; */
+/** U2694a: the Project tab's system menu. */
 const tabMenu = (tab: { edit: () => void; alerts: ProjectAlerts; onAlerts: (level: ProjectAlerts) => void; close: () => void; closing: BulkCloses | undefined }): MenuEntry[] => [
   { id: "rename", label: copy.rename, shortcut: "F2", run: tab.edit },
   { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: tab.alerts === level, run: () => tab.onAlerts(level) })) },

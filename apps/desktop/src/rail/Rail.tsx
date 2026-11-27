@@ -21,7 +21,7 @@ import { Sortable, type SortableMove } from "../ui/sortable";
 import { keyMove, type DropRules, type RowKey, type TreeRow } from "../ui/treeDrop";
 import { AppTree, tabStop, Trunks } from "../ui/TreeView";
 import { TreeItem, TreeItemIndicator, createTreeController } from "@ui-sdk/solid/tree";
-import { useConnectedProject, type ConnectedProject } from "../state/connectedProject";
+import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailDialogs, type RailDialog } from "./dialogs";
 import { RailConfirm } from "./menu/RailConfirm";

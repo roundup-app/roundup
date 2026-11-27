@@ -1,7 +1,7 @@
 import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -40,8 +40,8 @@ afterAll(async () => {
   try { await browser("close"); } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
 });
 
-it.skipIf(!captureDir("P3557c"))("p3557c_header_rendered_failure_before_and_after_clearing", async () => {
-  const output = captureDir("P3557c")!;
+it.skipIf(!captureDir("U7978a"))("u7978a_header_name_returns_in_its_field_after_reload", async () => {
+  const output = captureDir("U7978a")!;
   mkdirSync(output, { recursive: true });
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
@@ -52,31 +52,14 @@ it.skipIf(!captureDir("P3557c"))("p3557c_header_rendered_failure_before_and_afte
   await browser("wait", "--fn", "!!document.querySelector('.tab-name') && !!document.querySelector('.rail-row')");
   await browser("eval", "document.querySelector('.tab-name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))");
   await browser("wait", "--fn", "!!document.querySelector('.tab-rename')");
-  await browser("fill", ".tab-rename", "  retained é 🧭 雪  ");
+  await browser("fill", ".tab-rename", "  retained é 🧭 雪  ");
   await browser("eval", "document.querySelector('.tab-rename').dispatchEvent(new KeyboardEvent('keydown', {key:'Escape',code:'Escape',bubbles:true,cancelable:true}))");
   await browser("wait", "--fn", "!document.querySelector('.tab-rename')");
-  await browser("eval", "window.__fake.app.menuChoice = 'recover'; document.querySelector('.project-tab[data-selected=true], .project-tab').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, cancelable:true}));");
-  await browser("wait", "--fn", "!!document.querySelector('.header-recovery')");
-  await browser("eval", "window.__fake.app.clipboardWrite = async () => { throw new Error('Clipboard access denied'); }; [...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Copy name').click()");
-  await browser("wait", "--fn", "!!document.querySelector('.header-recovery [role=alert]')");
-
-  const capture = async (step: string) => {
-    // Wait for the DOM update to reach a painted frame before recording its pixels.
-    await browser("eval", "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
-    await browser("screenshot", join(output, `header-${step}.png`));
-    writeFileSync(join(output, `header-${step}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
-  };
-
-  await capture("failure");
-  await browser("click", '[aria-label="Close · Copy name"]');
-  await browser("wait", "--fn", "!document.querySelector('.header-recovery [role=alert]')");
-  await capture("dismissed");
-
-  await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Copy name').click()");
-  await browser("wait", "--fn", "!!document.querySelector('.header-recovery [role=alert]')");
-  await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Discard').click()");
-  await browser("wait", "--fn", "!document.querySelector('.header-recovery [role=alert]') && !document.querySelector('.draft-value')");
-  await capture("discarded");
-  await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Close').click()");
-  await browser("wait", "--fn", "!document.querySelector('.header-recovery')");
+  await browser("reload");
+  await browser("wait", "--fn", "!!document.querySelector('.tab-name') && !!window.__fake");
+  await browser("eval", "document.querySelector('.tab-name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))");
+  await browser("wait", "--fn", "!!document.querySelector('.tab-rename')");
+  expect(await read("document.querySelector('.tab-rename').value")).toBe("  retained é 🧭 雪  ");
+  await browser("eval", "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  await browser("screenshot", join(output, "header-name-returned.png"));
 }, 60_000);

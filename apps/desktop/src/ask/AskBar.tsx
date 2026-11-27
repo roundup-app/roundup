@@ -37,9 +37,7 @@ const optionalViews = ["made"];
 
 /** U504, U6244c: the Ask bar and its rows. Only `⌘/` opens it, over whatever the centre shows; Escape closes it and returns focus. Requested lists show while nothing is selected. */
 
-export const AskBar = (props: {
-  viewLabel?: ((id: string) => string | undefined) | undefined;
-}) => {
+export const AskBar = () => {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
