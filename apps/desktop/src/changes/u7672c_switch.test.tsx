@@ -126,10 +126,13 @@ it("u7672d_one_agents_choice_never_changes_another", async () => {
 
   fireEvent.click(await screen.findByRole("radio", { name: "Branch" }));
   await treeRow("branch.ts");
+  // U8005b: selecting another Agent closes Changes; each Agent's own view opens from its icon.
   fireEvent.click(rowOf("b"));
+  fireEvent.click(await within(rowOf("b")).findByRole("button", { name: "2 changed files" }));
   await screen.findByText("b", { selector: ".changes-name" });
   expect(selected()).toBe("Changes");
   fireEvent.click(rowOf("a"));
+  fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "2 changed files" }));
   await screen.findByText("a", { selector: ".changes-name" });
   expect(selected()).toBe("Branch");
 });
