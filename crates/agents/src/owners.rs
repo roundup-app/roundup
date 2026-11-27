@@ -101,6 +101,7 @@ impl Agents {
         }
         if !forked {
             self.reconcile_core().await;
+            self.shared.rearm_first_prompt_bounds();
         }
         kept
     }

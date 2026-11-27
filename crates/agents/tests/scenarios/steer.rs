@@ -921,3 +921,18 @@ async fn a7498a_no_enter_is_written_to_a_working_agent() {
     assert_eq!(err.code, code::UNKNOWN_OUTCOME);
     assert_eq!(read(&typed(&f)), verbatim("audit the parser"));
 }
+
+#[tokio::test]
+async fn u7951b_agent_prompt_after_the_bound_leaves_the_first_text_in_the_inbox_once() {
+    let (f, id) = past_the_bound().await;
+    let f = Arc::new(f);
+    let _prompt = steer(&f, &id, "build it");
+    start_late(&f, &id).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let copies = f
+        .inbox()
+        .iter()
+        .filter(|(_, body)| body.contains("build it"))
+        .count();
+    assert_eq!(copies, 1);
+}
