@@ -92,7 +92,7 @@ export const useTodoDraftFailure = (object: () => string, active: () => boolean,
 };
 
 /** U7310d: a change made elsewhere to the field being edited is a status above it while it holds; a toast holds failures only. */
-const ChangedElsewhere = (props: { editing: Editing | null; saving: Saving | null; captured: Change | undefined; revision: string | undefined; todo: Todo; name: "title" | "body" }) => {
+const ChangedElsewhere = (props: { editing: Editing | null; saving: Saving | null; captured: Change | undefined; todo: Todo }) => {
   // The edit's own saves are not changes made elsewhere, and a line that came and went with each keystroke would move the body.
   const moved = (started: Editing) => {
     const own = props.saving?.of === started.form ? props.saving : null;
@@ -100,8 +100,7 @@ const ChangedElsewhere = (props: { editing: Editing | null; saving: Saving | nul
     if (own?.busy) return false;
     const known = own ? own.expected : started.form.expected_change;
 
-    return (props.captured !== undefined && (known === null || props.captured.seq > known))
-      || (props.revision !== undefined && own === null && props.todo[props.name] !== started.form.base);
+    return props.captured !== undefined && (known === null || props.captured.seq > known);
   };
 
   return <Show when={props.editing}>{started => <Show when={moved(started())}><StatusNote text={copy.changedTodo(props.todo.title)} /></Show>}</Show>;
@@ -132,8 +131,6 @@ const formFrom = (todo: Todo, name: "title" | "body", change: Change | undefined
 export const EditableText = (props: {
   todo: Todo;
   captured: () => Change | undefined;
-  /** A validated retained revision in this original Todo and field. */
-  revision?: string | undefined;
   multiline: boolean;
   name: "title" | "body";
   saved?: () => number;
@@ -145,18 +142,18 @@ export const EditableText = (props: {
   latest?: () => Promise<number | null>;
 }) => {
   const connected = useConnectedProject();
-  // The Drawer keys its body by Todo, so the field's destination and retained revision never change.
+  // The Drawer keys its body by Todo, so the field's destination never changes.
   const draftDestination = untrack(() => ({ surface: "todos", object: String(props.todo.id), recipient: props.name }));
-  const draft = createDraftField(connected.drafts, draftDestination, formSchema, untrack(() => props.revision === undefined ? undefined : { revision: props.revision }));
+  const draft = createDraftField(connected.drafts, draftDestination, formSchema);
   const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
 
   /** What opening an edit now gives: the form to edit, or why the retained work cannot be reopened. */
   const opening = (): { failure: string; editing: null } | { failure: null; editing: Editing } => {
     captureFocus(true);
 
-    // A selected revision reopens whatever its status; otherwise only work still the user's to edit.
+    // Only work still the user's to edit reopens.
     const followed = draft.draft();
-    const saved = props.revision !== undefined || followed?.status === "draft" || followed?.status === "failed" ? followed : undefined;
+    const saved = followed?.status === "draft" || followed?.status === "failed" ? followed : undefined;
     const parsed = draft.value();
 
     if (saved && !parsed.success) return { failure: copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"), editing: null };
@@ -165,16 +162,15 @@ export const EditableText = (props: {
     return { failure: null, editing: { form, text: form.text, recovered: saved !== undefined, selection: saved?.selection ?? null } };
   };
 
-  const opened = untrack(() => props.revision === undefined ? undefined : opening());
-  const [retentionFailure, setRetentionFailure] = createSignal<string | null>(opened?.failure ?? null);
+  const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
   onCleanup(connected.events.subscribe(event => {
     if (doesClearTodoFailure(event, props.todo.id)) setFailure(null);
   }));
   const content = untrack(connected.drawer.content);
   let alive = true;
   onCleanup(() => { alive = false; });
-  const [editing, setEditing] = createSignal<Editing | null>(opened?.editing ?? null);
-  const [typed, setTyped] = createSignal(opened?.editing?.form.text ?? "");
+  const [editing, setEditing] = createSignal<Editing | null>(null);
+  const [typed, setTyped] = createSignal("");
   const [saving, setSaving] = createSignal<Saving | null>(null);
 
   createEffect(createMemo(() => editing() !== null && connected.drawer.content() === content), active => active ? connected.drafts.editor(draftDestination) : undefined);
@@ -234,13 +230,12 @@ export const EditableText = (props: {
     const focus = captureFocus();
     queueMicrotask(() => { if (alive && !focus(focusField)) yieldFocus?.(); });
 
-    const retain = (selectionChanged = false) => {
+    const retain = () => {
       const selected = selection();
 
       const kept = draft.keep({ ...started.form, text: read() }, selected);
 
-      // A selected revision takes a moved caret only from the selection itself.
-      if (props.revision === undefined || selectionChanged) draft.select(selected);
+      draft.select(selected);
 
       return kept;
     };
@@ -248,7 +243,7 @@ export const EditableText = (props: {
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
     const saver = createBodySaver({ form: started.form, read, props, draft, retain, open: () => !left, alive: () => alive, report: setFailure, track: setSaving, recovered: started.recovered });
-    const select = () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); };
+    const select = () => { if (!left && element.isConnected && (read() !== started.form.base || started.recovered)) retain(); };
 
     const input = () => { if (!left) retain(); };
 
@@ -429,7 +424,7 @@ export const EditableText = (props: {
     }}><Loading><PadRichEditor item="todo" text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
       onChange={() => binding?.change()}
       onText={() => binding?.change()}
-      onSelection={() => binding?.retain(true)}
+      onSelection={() => binding?.retain()}
       onBlur={target => { if (!(target instanceof Node && host?.contains(target))) binding?.blur(target); }}
       onReady={editor => {
         handle = editor;
@@ -459,7 +454,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable" ref={container}>
-    <ChangedElsewhere editing={editing()} saving={saving()} captured={props.captured()} revision={props.revision} todo={props.todo} name={props.name} />
+    <ChangedElsewhere editing={editing()} saving={saving()} captured={props.captured()} todo={props.todo} />
     <Show when={props.multiline} fallback={<TitleField />}>
       <Show
         when={editing()}
