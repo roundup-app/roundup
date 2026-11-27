@@ -1,9 +1,16 @@
 import { createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { OwnedGroup } from "@contracts/agent/OwnedGroup";
+import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
 import type { AppSeam } from "../app/seam";
 import type { Events } from "../app/events";
 import { failureOf } from "../app/failureOf";
+
+/** U7955a: what a read of the Daemon names: a Worktree's `to` (Tree or Branch), or the open Changes group, which is how an Agent with no Worktree is read. Spread into the call's params. */
+export type Reach = { to: "tree" | "branch" } | { group: OwnedGroupKey };
+
+/** The identity of a reach: another one is another comparison. */
+export const reachKey = (reach: Reach | null): string | null => !reach ? null : "group" in reach ? `${reach.group.repo}\0${reach.group.branch}` : reach.to;
 
 export type OwnedRead = { failure: null; groups: OwnedGroup[] } | { failure: string };
 

@@ -120,10 +120,10 @@ async fn lh19_only_shown_pads_the_agent_made_are_listed() {
 }
 
 #[tokio::test]
-async fn lh19_open_todos_and_published_files_it_made_are_listed() {
+async fn lh19_published_files_it_made_are_listed_and_no_todo_is() {
     let w = world().await;
     let (a, agent) = w.agent("a").await;
-    let open = agent
+    agent
         .request("todo.create", json!({"title":"Review the plan"}))
         .await
         .unwrap();
@@ -155,10 +155,7 @@ async fn lh19_open_todos_and_published_files_it_made_are_listed() {
         .unwrap();
     assert_eq!(
         w.made(&a).await,
-        vec![
-            row("todo", &open["id"].to_string(), "Review the plan"),
-            row("file", file["id"].as_str().unwrap(), "Result"),
-        ]
+        vec![row("file", file["id"].as_str().unwrap(), "Result"),]
     );
 }
 
@@ -189,7 +186,7 @@ async fn lh19_edited_files_and_others_items_are_not_listed() {
         .await
         .unwrap();
     assert!(w.made(&a).await.is_empty());
-    assert_eq!(w.made(&b).await.len(), 2);
+    assert_eq!(w.made(&b).await.len(), 1);
 }
 
 /// The next `agent.made` event of `agent`, or `None` when none comes.
@@ -215,13 +212,6 @@ async fn lh20_a_change_to_the_list_emits_one_event() {
     events.request("events.subscribe", json!({})).await.unwrap();
     assert!(w.made(&a).await.is_empty());
 
-    let todo = agent
-        .request("todo.create", json!({"title":"Read me"}))
-        .await
-        .unwrap();
-    assert_eq!(told(&mut events).await.as_deref(), Some(a.as_str()));
-    assert_eq!(told(&mut events).await, None, "one event for one change");
-
     agent
         .request(
             "pad.create",
@@ -230,16 +220,12 @@ async fn lh20_a_change_to_the_list_emits_one_event() {
         .await
         .unwrap();
     assert_eq!(told(&mut events).await.as_deref(), Some(a.as_str()));
+    assert_eq!(told(&mut events).await, None, "one event for one change");
     w.user
         .request(
             "pad.setVisibility",
             json!({"name":"report","visibility":"internal"}),
         )
-        .await
-        .unwrap();
-    assert_eq!(told(&mut events).await.as_deref(), Some(a.as_str()));
-    agent
-        .request("todo.complete", json!({"id":todo["id"]}))
         .await
         .unwrap();
     assert_eq!(told(&mut events).await.as_deref(), Some(a.as_str()));

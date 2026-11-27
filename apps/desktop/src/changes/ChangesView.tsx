@@ -29,6 +29,7 @@ import { comparisonOf } from "./viewed";
 import { noiseOf, type Grouped } from "./modules";
 import { Overview } from "./Overview";
 import { createCallPaths } from "./callPaths";
+import { reachKey, type Reach } from "./owned";
 import { flowName, groupFlows, type Done, type Read } from "./flows";
 import { FlowStates } from "./FlowStates";
 import { createReadback, spanOf } from "./readback";
@@ -237,20 +238,27 @@ type Analyses = { app: AppSeam; events: Events; id: string; agent: () => string;
 
 /** U7683b, U7685c, U7685d: what the Daemon reads out of the listing once it is ready: the call paths, which a new `to` asks again; and the repeat scan, which compares the working tree, so only the Tree target asks, after a frame has painted. Each item's repeats come from the lens's own listing, never as a find narrows it. */
 const createAnalyses = (input: Analyses) => {
-  const calls = createCallPaths({ app: input.app, events: input.events, id: input.id, to: input.own, ready: input.ready });
-  const readback = createReadback({ app: input.app, events: input.events, id: input.id, to: input.own, ready: input.ready });
-  const pad = createReadbackPad({ id: input.id, agent: input.agent, readback, to: input.own });
+  const at = createMemo((): Reach | null => {
+    const own = input.own();
+    const group = input.group();
+
+    return own ? { to: own } : group ? { group } : null;
+  }, { equals: (a, b) => reachKey(a) === reachKey(b) });
+
+  const calls = createCallPaths({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
+  const readback = createReadback({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
+  const pad = createReadbackPad({ id: input.id, agent: input.agent, readback, at });
   const lensed = createLensed(input.files, calls.done, readback.read);
-  const repeats = createRepeatScan({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "tree", ready: input.ready });
+  const repeats = createRepeatScan({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "branch" ? null : at(), ready: input.ready });
   const gapTotals = createMemo(() => placeCounts(lensed()(input.lens()), readback.placed().map(spanOf)));
   // U7696a: the Logic lens's moves; a repeat whose lines moved is not also counted a repeat (U7696e).
   const moves = createMoves({ app: input.app, id: input.id, to: () => input.own() ?? "tree", group: input.group, on: () => input.lens() === "logic" && input.files().length > 0, symbols: () => calls.done().flatMap(answer => answer.symbols) });
   const repeatTotals = createMemo(() => placeCounts(lensed()(input.lens()), repeats.hits().filter(hit => !moves.covers(hit))));
   const moveTotals = createMemo(() => placeCounts(lensed()(input.lens()), moves.placed()));
   // U7700a: the defect pass is asked only by the user; its signature is the listing's files and their blob ids (U7700b).
-  const findings = createFindings({ app: input.app, id: input.id, to: input.own, grouped: () => lensed()(input.lens()), signature: () => input.files().map(file => `${file.path}:${file.blob}`).sort().join("\n"), kept: input.kept, notes: input.notes });
+  const findings = createFindings({ app: input.app, id: input.id, at, grouped: () => lensed()(input.lens()), signature: () => input.files().map(file => `${file.path}:${file.blob}`).sort().join("\n"), kept: input.kept, notes: input.notes });
 
-  return { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again: () => { calls.reset(); repeats.again(); readback.again(); } };
+  return { at, calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again: () => { calls.reset(); repeats.again(); readback.again(); } };
 };
 
 /** U7675a: the comparison's own answer, whichever read made it: the Daemon's changes for a Tree or Branch target, else the Agent's owned changes. */
@@ -343,9 +351,9 @@ const Surface = (props: { id: string; name: string }) => {
 
   const { files, pending, failure, late, missing, checked, retry, reload } = createComparison(() => props.id, own, () => group()?.files);
 
-  const { calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again } = createAnalyses({ app, events, id: untrack(() => props.id), agent: () => props.name, own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey(), kept: memory.found, notes });
+  const { at, calls, lensed, repeats, repeatTotals, moves, moveTotals, readback, pad, gapTotals, findings, again } = createAnalyses({ app, events, id: untrack(() => props.id), agent: () => props.name, own, files, ready: () => !pending() && failure() === null && files().length > 0, lens, group: () => own() ? undefined : groupKey(), kept: memory.found, notes });
 
-  const explain = createExplanations({ app, id: untrack(() => props.id), to: own, kept: memory.explained, read: () => readback.account()?.explanations ?? [] });
+  const explain = createExplanations({ app, id: untrack(() => props.id), at, kept: memory.explained, read: () => readback.account()?.explanations ?? [] });
 
   const dimmed = createMemo(() => new Set(calls.dim().flatMap(answer => answer.flows.map(flow => moduleKey(flowName(flow.entry))))));
 
@@ -523,8 +531,8 @@ const Surface = (props: { id: string; name: string }) => {
         </Show>
         <Show when={files().length > 0}>
           <SegmentGroup label={copy.lens} segments={lensSegments} value={lens()} onValueChange={switchLens} />
-          <Show when={lens() === "flows"}><FlowStates calls={calls} readback={readback} worktree={own() !== null} /></Show>
-          <RepeatStates scan={repeats} notAsked={worktree() !== null && own() !== "tree"} />
+          <Show when={lens() === "flows"}><FlowStates calls={calls} readback={readback} /></Show>
+          <RepeatStates scan={repeats} notAsked={own() === "branch"} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
           <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} unfinished={new Set([...notes.unfinished(props.id).map(form => form.comparison.newPath), ...unfinishedItems(notes, props.id).filter(form => form.item.kind === "file").map(form => form.item.name)])} unfinishedItems={new Set(unfinishedItems(notes, props.id).filter(form => form.item.kind !== "file").map(form => form.item.name))} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />

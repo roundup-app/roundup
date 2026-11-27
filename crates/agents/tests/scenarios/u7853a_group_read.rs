@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 use crate::common::Fixture;
 
-fn git(dir: &Path, args: &[&str]) -> String {
+pub(crate) fn git(dir: &Path, args: &[&str]) -> String {
     let output = std::process::Command::new("git")
         .current_dir(dir)
         .args(args)
@@ -25,7 +25,7 @@ fn git(dir: &Path, args: &[&str]) -> String {
         .to_owned()
 }
 
-fn write(dir: &Path, name: &str, text: &str) -> String {
+pub(crate) fn write(dir: &Path, name: &str, text: &str) -> String {
     let path = dir.join(name);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, text).unwrap();
@@ -33,7 +33,7 @@ fn write(dir: &Path, name: &str, text: &str) -> String {
 }
 
 /// A project on `main` with an origin, no Worktree setting and one Agent in the shared folder.
-async fn shared_checkout() -> (Fixture, String, PathBuf, tempfile::TempDir) {
+pub(crate) async fn shared_checkout() -> (Fixture, String, PathBuf, tempfile::TempDir) {
     let f = Fixture::in_git_project("sleep 30", Git::from_env());
     let project = std::fs::canonicalize(f.dir.path()).unwrap();
     write(&project, "seed.txt", "a\nb\n");
@@ -52,7 +52,7 @@ async fn shared_checkout() -> (Fixture, String, PathBuf, tempfile::TempDir) {
 }
 
 /// The Agent's file-writing tool call ends, as the vendor's hook reports it.
-async fn wrote(f: &Fixture, id: &str, path: &str) {
+pub(crate) async fn wrote(f: &Fixture, id: &str, path: &str) {
     let payload = json!({"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": path}});
     f.call(
         "agent.signal",
@@ -76,7 +76,7 @@ async fn read(
     f.call("agent.compareFile", params).await
 }
 
-fn key(group: &Value) -> Value {
+pub(crate) fn key(group: &Value) -> Value {
     json!({"repo": group["repo"], "branch": group["branch"]})
 }
 

@@ -3,7 +3,7 @@
 import type * as links$MadeKind from "./MadeKind";
 /**
  *  LH19: one item an Agent made for the user to read. `id` is what the App opens it by: a Pad's
- *  name, a Todo's number or a Deliverable's id.
+ *  name or a Deliverable's id.
  */
 export type MadeItem = {
 	kind: links$MadeKind.MadeKind,

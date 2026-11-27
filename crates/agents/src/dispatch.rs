@@ -151,7 +151,13 @@ impl Agents {
         ctx: &Ctx,
         p: contracts::agent::ChangedFilesParams,
     ) -> Result<contracts::agent::ChangedFiles, RpcError> {
-        let contracts::agent::ChangedFilesParams { id, to } = p;
+        let contracts::agent::ChangedFilesParams { id, to, group } = p;
+        if group.is_some() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "group_target: the file list is read through agent.ownedChanges",
+            ));
+        }
         self.shared.guard_reach(&ctx.actor, &id, true)?;
         self.changed_files(&id, to).await
     }
@@ -165,7 +171,7 @@ impl Agents {
             return Err(RpcError::forbidden("only the user traces call paths"));
         }
         self.shared.guard_reach(&ctx.actor, &p.id, true)?;
-        self.call_paths(&p.id, p.to, p.language).await
+        self.call_paths(&p.id, p.group, p.to, p.language).await
     }
 
     async fn agent_readback_start(
@@ -177,7 +183,8 @@ impl Agents {
             return Err(RpcError::forbidden("only the user starts a readback"));
         }
         self.shared.guard_reach(&ctx.actor, &p.id, true)?;
-        self.readback_start(&p.id, p.to, p.skill.as_deref()).await
+        self.readback_start(&p.id, p.group, p.to, p.skill.as_deref())
+            .await
     }
 
     async fn agent_explain(
@@ -235,7 +242,7 @@ impl Agents {
         p: contracts::agent::ChangedFilesParams,
     ) -> Result<contracts::agent::Readback, RpcError> {
         self.shared.guard_reach(&ctx.actor, &p.id, true)?;
-        self.readback(&p.id, p.to).await
+        self.readback(&p.id, p.group, p.to).await
     }
 
     async fn agent_repeat_scan(
@@ -247,7 +254,19 @@ impl Agents {
             return Err(RpcError::forbidden("only the user scans for repeats"));
         }
         self.shared.guard_reach(&ctx.actor, &p.id, true)?;
-        self.repeat_scan(&p.id).await
+        self.repeat_scan(&p.id, p.group).await
+    }
+
+    async fn agent_dir(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::AgentDir, RpcError> {
+        let NodeId { id } = p;
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
+        Ok(contracts::agent::AgentDir {
+            path: self.dir_of(&id).await?,
+        })
     }
 
     async fn agent_owned_changes(

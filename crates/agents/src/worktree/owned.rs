@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use contracts::agent::{CompareTarget, FileComparison, OwnedGroup, OwnedGroupKey};
 use rpc::RpcError;
 
-use super::{Git, invalid};
+use super::{Git, Worktree, failed, invalid};
 
 /// A repository's main checkout and the checkout of one of its git worktrees (`top`), keyed to the
 /// files of `top` the Agent wrote, relative to it.
@@ -37,14 +37,45 @@ impl Git {
         path: &str,
         to: CompareTarget,
     ) -> Result<FileComparison, RpcError> {
+        let top = self.group_top(edits, group, to)?;
+        self.compare_file(&top, path, to)
+    }
+
+    /// U7955a: the checkout of the group `group` names, as a Worktree the reads that take one run
+    /// on: its HEAD's branch, and the remote's main (else the local default branch) as its base.
+    /// Refused as `compare_group_file` refuses; no path of the caller is opened.
+    pub fn group_worktree(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        to: CompareTarget,
+    ) -> Result<Worktree, RpcError> {
+        let path = self.group_top(edits, group, to)?;
+        let (_, base) = self
+            .default_branch(&path)
+            .ok_or_else(|| failed("no default branch"))?;
+        Ok(Worktree {
+            path,
+            branch: group.branch.clone(),
+            base,
+            adopted: true,
+        })
+    }
+
+    /// The checkout the `edits` sit in that `group` names: a group is read as Changes, not Branch.
+    fn group_top(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        to: CompareTarget,
+    ) -> Result<PathBuf, RpcError> {
         if to == CompareTarget::Branch {
             return Err(invalid(
                 "group_target",
                 "a group is read as Changes, not Branch",
             ));
         }
-        let top = self
-            .sites(edits)
+        self.sites(edits)
             .into_keys()
             .find(|(repo, top)| {
                 repo == Path::new(&group.repo)
@@ -58,8 +89,18 @@ impl Git {
                     "unsafe_path",
                     "not a repository and branch the Agent wrote in",
                 )
-            })?;
-        self.compare_file(&top, path, to)
+            })
+    }
+
+    /// LH25: the top of the linked git worktree holding the newest of `edits` (oldest first) whose
+    /// checkout still exists; a write in a main checkout or outside a repository is passed over.
+    pub fn newest_checkout(&self, edits: &[String]) -> Option<PathBuf> {
+        let mut tops = HashMap::new();
+        edits.iter().rev().find_map(|edit| {
+            let (top, _) = self.locate(Path::new(edit), &mut tops)?;
+            let linked = self.common_root(&top).is_some_and(|common| common != top);
+            (linked && top.is_dir()).then_some(top)
+        })
     }
 
     /// Where the absolute `edits` sit: per (main checkout, git worktree) the files written there.

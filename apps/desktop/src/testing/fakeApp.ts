@@ -53,6 +53,7 @@ const emptyReads: Handlers = {
   "agent.links": () => ({ entries: [] }),
   "agent.printedCommands": () => ({ commands: [] }),
   "agent.made": () => [],
+  "agent.dir": () => ({ path: "/p" }),
   "terminal.list": () => [],
   "project.programRun": () => ({ state: "none" }),
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),
@@ -184,8 +185,10 @@ export type FakeApp = AppSeam & {
 
 const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
-/** U7873a: the Daemon refuses a `agent.compareFile` read with no `group` for an Agent with no Worktree; a fake's handler calls this first, so a caller that omits `group` fails its own test. */
-export const refuseUngroupedRead = (app: FakeApp, params: RpcMethods["agent.compareFile"]["params"]): void => {
+/** U7873a, U7955a: the Daemon refuses a `agent.compareFile` read, and each of `GROUPED`, with no `group` for an Agent with no Worktree; a fake's handler calls this first, so a caller that omits `group` fails its own test. */
+const GROUPED = new Set(["agent.callPaths", "agent.repeatScan", "agent.readback", "agent.readbackStart", "agent.explain", "agent.findDefects"]);
+
+export const refuseUngroupedRead = (app: FakeApp, params: { id: string; group?: object }): void => {
   const nodes = app.handlers["rail.tree"]?.(null);
 
   if (params.group || !Array.isArray(nodes)) return;
@@ -503,6 +506,11 @@ export const createFakeApp = (): FakeApp => {
       const handler = app.handlers[method];
 
       if (!handler) throw new RpcError(METHOD_NOT_FOUND, `no handler for ${method}`);
+
+      // SAFETY: every GROUPED method takes an `id` and an optional `group` object.
+      const grouped = params as { id: string; group?: object };
+
+      if (GROUPED.has(method)) refuseUngroupedRead(app, grouped);
 
       return handler(params);
     },

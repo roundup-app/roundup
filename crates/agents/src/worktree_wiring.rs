@@ -82,6 +82,7 @@ impl Agents {
     pub(super) async fn call_paths(
         &self,
         id: &str,
+        group: Option<contracts::agent::OwnedGroupKey>,
         to: CompareTarget,
         language: Option<String>,
     ) -> Result<contracts::agent::CallPaths, RpcError> {
@@ -91,19 +92,15 @@ impl Agents {
                 self.0.store(true, std::sync::atomic::Ordering::Relaxed);
             }
         }
-        let record = self.shared.node(id)?.worktree();
-        let Some(record) = record else {
-            return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
-        };
+        let worktree = self.readback_worktree(id, group.clone(), to).await?;
         let git = self.shared.git.clone();
         let cache = self.shared.rail_view.data_dir.join("cache");
-        let worktree = worktree::Worktree::from(&record);
         let stop = Stop(Default::default());
         let cancel = stop.0.clone();
         // RB9: a trace in flight hides the kept one, and a kept one names the diff it started on.
         let running = language
             .is_some()
-            .then(|| self.shared.readbacks.trace_started(id, to));
+            .then(|| self.shared.readbacks.trace_started(id, group.as_ref(), to));
         let marked = running.is_some();
         let (signature, answer) = tokio::task::spawn_blocking(move || {
             let signature = if marked {
@@ -121,7 +118,9 @@ impl Agents {
         .await
         .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))??;
         if let contracts::agent::CallPaths::Answer(done) = &answer {
-            self.shared.readbacks.traced(id, to, signature, done);
+            self.shared
+                .readbacks
+                .traced(id, group.as_ref(), to, signature, done);
         }
         drop(running);
         Ok(answer)
@@ -132,6 +131,7 @@ impl Agents {
     pub(super) async fn repeat_scan(
         &self,
         id: &str,
+        group: Option<contracts::agent::OwnedGroupKey>,
     ) -> Result<contracts::agent::ScanHits, RpcError> {
         struct Stop(std::sync::Arc<std::sync::atomic::AtomicBool>);
         impl Drop for Stop {
@@ -139,12 +139,10 @@ impl Agents {
                 self.0.store(true, std::sync::atomic::Ordering::Relaxed);
             }
         }
-        let record = self.shared.node(id)?.worktree();
-        let Some(record) = record else {
-            return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
-        };
+        let worktree = self
+            .readback_worktree(id, group, CompareTarget::Tree)
+            .await?;
         let git = self.shared.git.clone();
-        let worktree = worktree::Worktree::from(&record);
         let stop = Stop(Default::default());
         let cancel = stop.0.clone();
         tokio::task::spawn_blocking(move || git.repeat_scan(&worktree, &cancel))
