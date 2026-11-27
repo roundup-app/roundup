@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import type { Account } from "@contracts/agent/Account";
 import type { DiagramStop } from "@contracts/agent/DiagramStop";
 import type { Gap } from "@contracts/agent/Gap";
@@ -9,7 +9,7 @@ import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
 import { stopsOf } from "./diagram";
 import type { Read } from "./flows";
-import { watchTurns } from "./owned";
+import { reachKey, watchTurns, type Reach } from "./owned";
 import type { Span } from "./repeats";
 
 /** U7688b: how long a running readback waits before the App reads its state again: the Daemon emits no event when a run ends. */
@@ -37,9 +37,9 @@ export type Stepper = { stops: () => readonly DiagramStop[]; at: () => number; g
 
 /**
  * U7688a, U7688b: the readback of the open comparison. `agent.readback` is read once the listing is ready, every second while it reads, when a turn that wrote ends and when the listing is read again; `agent.readbackStart` is asked only by `start`, the user's action (P9), and never while one reads.
- * A new `to` ends what ran: its answers are dropped. A comparison with no Worktree (`to` null) has no readback.
+ * A new `at` ends what ran: its answers are dropped. A comparison with no Worktree (`to` null) has no readback.
  */
-export const createReadback = (input: { app: AppSeam; events: Events; id: string; to: () => "tree" | "branch" | null; ready: () => boolean }) => {
+export const createReadback = (input: { app: AppSeam; events: Events; id: string; at: () => Reach | null; ready: () => boolean }) => {
   const [state, setState] = createSignal<Readback>({ state: "notRead" });
   let generation = 0;
   let wrote = false;
@@ -50,13 +50,13 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
   const [stop, setStop] = createSignal(0);
 
   const ask = async (method: "agent.readback" | "agent.readbackStart") => {
-    const to = input.to();
+    const at = untrack(input.at);
     const mine = generation;
     let answer: Readback | undefined;
 
-    if (!to) return;
+    if (!at) return;
 
-    const params: ReadbackStartParams = { id: input.id, to };
+    const params: ReadbackStartParams = { id: input.id, ...at };
     const chosen = method === "agent.readbackStart" ? skill() : null;
 
     if (chosen !== null) params.skill = chosen;
@@ -73,13 +73,18 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     await failureOf(async () => { setSkills((await input.app.rpc("agent.skills", { id: input.id })).skills.map(each => each.name)); });
   };
 
-  createEffect(() => ({ to: input.to(), ready: input.ready() }), ({ to, ready }) => {
-    if (!to) {
+  let reached: string | null = null;
+
+  createEffect(() => ({ to: reachKey(input.at()), ready: input.ready() }), ({ to, ready }) => {
+    if (to !== reached) {
+      reached = to;
       generation += 1;
       begun = false;
       setStop(0);
       setState({ state: "notRead" });
-    } else if (ready && !begun) {
+    }
+
+    if (to && ready && !begun) {
       begun = true;
       void ask("agent.readback");
       void listSkills();
@@ -132,12 +137,12 @@ export const createReadback = (input: { app: AppSeam; events: Events; id: string
     placed,
     /** U7703b: the diagram's stepper: it opens on the first stop, a new run starts there again and no step is a call. */
     stepper,
-    available: () => input.to() !== null,
+    available: () => input.at() !== null,
     /** U7689c: the user may start one: a comparison with a Worktree and no run yet. */
-    offered: () => input.to() !== null && state().state === "notRead",
+    offered: () => input.at() !== null && state().state === "notRead",
     /** The user asked: one run at a time, however many ask. */
     start: () => {
-      if (!input.to() || state().state === "reading") return;
+      if (!untrack(input.at) || state().state === "reading") return;
       generation += 1;
       setStop(0);
       setState({ state: "reading" });

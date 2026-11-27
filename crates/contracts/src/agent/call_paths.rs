@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::CompareTarget;
+use super::{CompareTarget, OwnedGroupKey};
 
 /// `agent.callPaths` params (CP1): without `language` the reply lists the languages.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
@@ -14,6 +14,10 @@ pub struct CallPathsParams {
     #[serde(default)]
     #[specta(optional, type = CompareTarget)]
     pub to: CompareTarget,
+    /// U7955a: read the checkout of this owned group instead of the Worktree (see `CompareFileParams`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = OwnedGroupKey)]
+    pub group: Option<OwnedGroupKey>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = String)]
     pub language: Option<String>,

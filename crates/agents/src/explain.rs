@@ -86,7 +86,7 @@ pub(crate) fn selected(
 impl Agents {
     /// RB13 to RB15: one call, started by the user's, answered with its result.
     pub(super) async fn explain(&self, p: ExplainParams) -> Result<Explanation, RpcError> {
-        let worktree = self.readback_worktree(&p.id)?;
+        let worktree = self.readback_worktree(&p.id, p.group.clone(), p.to).await?;
         let input = self.readback_diff(worktree, p.to).await?;
         if let Some(cause) = over_cap(&input.hunks) {
             return Ok(failed("tooLarge", cause));

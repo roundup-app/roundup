@@ -32,7 +32,7 @@ it("rs5_the_picker_lists_the_agents_skills_and_a_start_carries_the_choice", asyn
   press("r");
   await screen.findByText(copy.readingBack);
   expect(calls(app, "agent.readbackStart")).toBe(1);
-  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toMatchObject({ id: "a", to: "tree", skill: "security-review" });
+  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toMatchObject({ id: "a", group: expect.any(Object), skill: "security-review" });
 });
 
 it("rs5_a_start_with_no_choice_holds_no_skill_and_an_agent_with_none_shows_no_picker", async () => {
@@ -41,7 +41,7 @@ it("rs5_a_start_with_no_choice_holds_no_skill_and_an_agent_with_none_shows_no_pi
   expect(screen.queryByRole("combobox", { name: copy.readbackSkill })).toBeNull();
   press("r");
   await screen.findByText(copy.readingBack);
-  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toEqual({ id: "a", to: "tree" });
+  expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toEqual({ id: "a", group: expect.any(Object) });
 });
 
 it("rs5_opening_the_view_starts_nothing", async () => {

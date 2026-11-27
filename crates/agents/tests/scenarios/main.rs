@@ -46,6 +46,7 @@ mod u7672a_remote_main;
 mod u7673_blob;
 mod u7693_remote_moved;
 mod u7853a_group_read;
+mod u7955a_group_reads;
 mod u7960_open_cost;
 mod worktree_state;
 mod worktrees;

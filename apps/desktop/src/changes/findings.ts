@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Finding } from "@contracts/agent/Finding";
 import type { DefectFindings } from "@contracts/agent/DefectFindings";
@@ -10,9 +10,10 @@ import type { Found } from "./diffDraw";
 import type { Grouped } from "./modules";
 import type { Notes } from "./notes";
 import { placeCounts } from "./repeats";
+import { reachKey, type Reach } from "./owned";
 
 /** U7700b: one pass of the user's: the comparison and the listing's signature it was asked on (U7700b's stale), and its answer or the wait for one. Its findings are the ones not yet kept or dropped. */
-type Run = { to: "tree" | "branch"; signature: string; answer: DefectFindings | { state: "running" } };
+type Run = { at: string; signature: string; answer: DefectFindings | { state: "running" } };
 
 /** U7700f: an Agent's pass, kept in the connection's memory for its session (U7675f): closing the view loses none, and a restart drops it. */
 export const createFound = () => createSignal<Run | undefined>(undefined);
@@ -24,14 +25,14 @@ type Kept = ReturnType<typeof createFound>;
  * The Daemon keeps nothing of an answer: it lives in `kept` until the connection ends, and a pass that lands after the user asked again is dropped.
  * `totals` counts each listed item's findings for its row (U7700c).
  */
-export const createFindings = (input: { app: AppSeam; id: string; to: () => "tree" | "branch" | null; grouped: () => Grouped; signature: () => string; kept: Kept; notes: Notes }) => {
+export const createFindings = (input: { app: AppSeam; id: string; at: () => Reach | null; grouped: () => Grouped; signature: () => string; kept: Kept; notes: Notes }) => {
   const [kept, setKept] = input.kept;
 
-  /** The pass of the open comparison; another `to` shows none. */
+  /** The pass of the open comparison; another `at` shows none. */
   const pass = createMemo(() => {
     const run = kept();
 
-    return run?.to === input.to() ? run : undefined;
+    return run?.at === reachKey(input.at()) ? run : undefined;
   });
 
   const answer = () => pass()?.answer;
@@ -48,20 +49,20 @@ export const createFindings = (input: { app: AppSeam; id: string; to: () => "tre
   const drop = (finding: Finding) => setKept(run => run?.answer.state === "found" ? { ...run, answer: { ...run.answer, findings: run.answer.findings.filter(each => each !== finding) } } : run);
 
   const ask = () => {
-    const to = input.to();
+    const at = untrack(input.at);
 
-    if (!to || answer()?.state === "running") return;
-    const asked: Run = { to, signature: input.signature(), answer: { state: "running" } };
+    if (!at || answer()?.state === "running") return;
+    const asked: Run = { at: reachKey(at) ?? "", signature: input.signature(), answer: { state: "running" } };
 
     setKept(asked);
     let landed: DefectFindings | undefined;
 
-    void failureOf(async () => { landed = await input.app.rpc("agent.findDefects", { id: input.id, to }); })
+    void failureOf(async () => { landed = await input.app.rpc("agent.findDefects", { id: input.id, ...at }); })
       .then(failure => setKept(run => run === asked ? { ...asked, answer: failure !== null || !landed ? { state: "failed", kind: "call", cause: failure ?? "no_answer" } : landed } : run));
   };
 
   return {
-    offered: () => input.to() !== null,
+    offered: () => input.at() !== null,
     /** Not run, running, done or failed. */
     state: () => {
       const run = answer();

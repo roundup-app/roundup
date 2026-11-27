@@ -139,10 +139,9 @@ it("u7689c_not_traced_offers_the_readback_on_tree_and_branch_and_none_on_changes
   const answer: Answering = { state: { state: "notRead" } };
   const { app } = await flowsRead(answer, "changes");
 
-  // Changes: every file is Not traced, and a readback is not offered.
+  // U7955a: Changes reads as Tree does, so Not traced offers the readback there too.
   await waitFor(() => expect(moduleKeys()).toEqual(["m:~untraced"]));
-  expect(said("~untraced")).not.toContain(copy.readToSee);
-  expect(screen.queryByText(copy.readToSee)).toBeNull();
+  await waitFor(() => expect(said("~untraced")).toContain(copy.readToSee));
 
   fireEvent.click(screen.getByRole("radio", { name: copy.targetTree }));
   await waitFor(() => expect(said("~untraced")).toContain(copy.readToSee));
