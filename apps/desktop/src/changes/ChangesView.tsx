@@ -30,7 +30,8 @@ import { noiseOf, type Grouped } from "./modules";
 import { Overview } from "./Overview";
 import { createCallPaths } from "./callPaths";
 import { reachKey, type Reach } from "./owned";
-import { flowName, groupFlows, type Done, type Read } from "./flows";
+import type { Changed } from "./looseStore";
+import { flowFiles, flowName, groupFlows, type Done, type Read } from "./flows";
 import { FlowStates } from "./FlowStates";
 import { createReadback, spanOf } from "./readback";
 import { createReadbackPad } from "./readbackPad";
@@ -42,6 +43,7 @@ import { ChangedSymbols } from "./ChangedSymbols";
 import { createRepeatScan, placeCounts } from "./repeats";
 import { RepeatStates } from "./RepeatStates";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
+import { createChangedLines } from "./looseStore";
 import { createMoves } from "./moveStore";
 import { MoveStates } from "./MoveStates";
 import type { DiffKeys } from "./DiffReader";
@@ -248,7 +250,8 @@ const createAnalyses = (input: Analyses) => {
   const calls = createCallPaths({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
   const readback = createReadback({ app: input.app, events: input.events, id: input.id, at, ready: input.ready });
   const pad = createReadbackPad({ id: input.id, agent: input.agent, readback, at });
-  const lensed = createLensed(input.files, calls.done, readback.read);
+  const changed = createChangedLines({ app: input.app, id: input.id, to: () => input.own() ?? "tree", group: input.group, files: () => input.lens() === "flows" && !readback.read() ? flowFiles(input.files(), calls.done()) : [] });
+  const lensed = createLensed(input.files, calls.done, readback.read, changed);
   const repeats = createRepeatScan({ app: input.app, events: input.events, id: input.id, on: () => input.own() === "branch" ? null : at(), ready: input.ready });
   const gapTotals = createMemo(() => placeCounts(lensed()(input.lens()), readback.placed().map(spanOf)));
   // U7696a: the Logic lens's moves; a repeat whose lines moved is not also counted a repeat (U7696e).
@@ -301,15 +304,16 @@ const createComparison = (id: () => string, own: () => "tree" | "branch" | null,
 };
 
 /** U7679a, U7679b, U7683c, U7689: each lens's rows, made once for the listing; Flows draws the finished traces and the readback's names and flows. */
-const createLensed = (files: () => readonly ChangedFile[], traced: () => readonly Done[], read: () => Read | undefined) => createMemo(() => {
+const createLensed = (files: () => readonly ChangedFile[], traced: () => readonly Done[], read: () => Read | undefined, changed: () => ReadonlyMap<string, Changed>) => createMemo(() => {
   const all = files();
   const done = traced();
   const readback = read();
   const ranks = fileRanks(readback?.account);
+  const lines = changed();
   const made = new Map<Lens, Grouped>();
 
   return (each: Lens): Grouped => {
-    const hit = made.get(each) ?? (each === "flows" ? groupFlows(all, done, readback) : withRisks(groupLens(all, each, ranks), readback?.account, readback?.stale ?? false));
+    const hit = made.get(each) ?? (each === "flows" ? groupFlows(all, done, readback, lines) : withRisks(groupLens(all, each, ranks), readback?.account, readback?.stale ?? false));
 
     made.set(each, hit);
 
