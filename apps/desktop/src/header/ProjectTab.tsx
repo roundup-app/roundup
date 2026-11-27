@@ -288,7 +288,7 @@ export const ProjectTab = (props: {
         return <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={field => capture(draft, field)} onDone={(saved, refocus) => finishRename(draft, saved, refocus)} />;
       }}</Show>}>
         <Tabs.Trigger value={props.tab.path} class="tab-name-button"
-          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy ? "true" : "false"} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
+          aria-description={[records().length || problem() || copyFailure() ? copy.unfinishedWork : "", ...(mark() ? props.tab.causes.map(cause => cause.text) : [])].filter(Boolean).join(", ") || undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy ? "true" : "false"} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
           onKeyDown={closeOnKey(() => props.onClose())}
           ref={dragHandleRef()}
           onClick={(click) => {
