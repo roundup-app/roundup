@@ -324,12 +324,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   };
 
   const landing = createLanding(recipients, retain);
-
   const accepted = async (id: string, submission: Submission, message: Message) => {
-    const revisions = new Set(submission.notes.map(note => note.revision));
     const current = recipient(id);
 
-    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? stamped(note, message, landing.landedAt(message)) : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
+    await retain(id, { ...current, notes: current.notes.map(note => submission.notes.some(sent => sent.revision === note.revision) ? stamped(note, message, landing.landedAt(message)) : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
     putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 
