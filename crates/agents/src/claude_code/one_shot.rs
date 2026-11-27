@@ -14,6 +14,21 @@ use super::Launcher;
 
 const OUTPUT_CAP: u64 = 1024 * 1024;
 
+/// The most stderr the cause reads.
+const STDERR_CAP: u64 = 8 * 1024;
+
+/// LH16: Claude Code refuses schemars' draft 2020-12 `$schema` key before any model call, so every
+/// schema loses it here; `$defs`, `$ref` and `title` stay.
+fn accepted(schema: &str) -> String {
+    match serde_json::from_str::<serde_json::Value>(schema) {
+        Ok(serde_json::Value::Object(mut root)) => {
+            root.remove("$schema");
+            serde_json::Value::Object(root).to_string()
+        }
+        _ => schema.to_owned(),
+    }
+}
+
 /// What the one-shot Claude Code prints: the answer, shaped by the call's JSON schema.
 #[derive(Deserialize)]
 struct Envelope<T> {
@@ -94,7 +109,7 @@ pub(super) fn command_on(
             "--output-format",
             "json",
             "--json-schema",
-            schema,
+            &accepted(schema),
             "--tools",
             "",
             "--strict-mcp-config",
@@ -107,7 +122,7 @@ pub(super) fn command_on(
         .current_dir(cwd)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .kill_on_drop(true);
     for name in super::MARKERS {
         command.env_remove(name);
@@ -158,7 +173,9 @@ pub(super) async fn run_on<T: DeserializeOwned>(
         .map_err(|e| format!("working folder: {e}"))?;
     let (mut command, _settings) = command_on(launcher, project, dir.path(), system, schema, on)?;
     let mut child = command.spawn().map_err(|e| format!("start: {e}"))?;
-    let (Some(mut stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
+    let (Some(mut stdin), Some(stdout), Some(stderr)) =
+        (child.stdin.take(), child.stdout.take(), child.stderr.take())
+    else {
         return Err("start: child pipes missing".into());
     };
     let result = tokio::time::timeout(bound, async {
@@ -173,13 +190,23 @@ pub(super) async fn run_on<T: DeserializeOwned>(
             stdout.take(OUTPUT_CAP + 1).read_to_end(&mut bytes).await?;
             Ok::<_, std::io::Error>(bytes)
         };
-        let ((), bytes) = tokio::try_join!(write, read).map_err(|e| format!("output: {e}"))?;
+        let first_line = async {
+            let mut bytes = Vec::new();
+            let _ = stderr.take(STDERR_CAP).read_to_end(&mut bytes).await;
+            Ok::<_, std::io::Error>(bytes)
+        };
+        let ((), bytes, errors) =
+            tokio::try_join!(write, read, first_line).map_err(|e| format!("output: {e}"))?;
         if u64::try_from(bytes.len()).map_or(true, |len| len > OUTPUT_CAP) {
             return Err("output exceeds bound".into());
         }
         let status = child.wait().await.map_err(|e| format!("wait: {e}"))?;
         if !status.success() {
-            return Err(format!("exit: {status}"));
+            let line = String::from_utf8_lossy(&errors);
+            return Err(match line.lines().find(|line| !line.trim().is_empty()) {
+                Some(line) => format!("exit: {status}: {}", line.trim()),
+                None => format!("exit: {status}"),
+            });
         }
         serde_json::from_slice::<Envelope<T>>(&bytes)
             .map(|answer| answer.structured_output)
@@ -197,4 +224,70 @@ pub(super) async fn run_on<T: DeserializeOwned>(
         .await
         .map_err(|e| format!("kill and reap: {e}"))?;
     Err(cause)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn launcher(dir: &Path, body: &str) -> Launcher {
+        let bin = dir.join("claude");
+        std::fs::write(&bin, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        Launcher::new(
+            bin.to_str().unwrap(),
+            dir.join("config.json"),
+            "rup".into(),
+            None,
+        )
+    }
+
+    async fn call(dir: &Path, body: &str, schema: &str) -> Result<String, String> {
+        let launcher = launcher(dir, body);
+        run(
+            &launcher,
+            None,
+            "sys",
+            schema,
+            b"in",
+            Duration::from_secs(10),
+        )
+        .await
+    }
+
+    /// LH16: the schema reaches the CLI without `$schema`, the rest kept.
+    #[tokio::test]
+    async fn lh16_the_schema_reaches_the_cli_without_its_dollar_schema_key() {
+        let schema = r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"T","$defs":{"a":{}},"properties":{"x":{"$ref":"#/$defs/a"}}}"##;
+        let dir = tempfile::tempdir().unwrap();
+        let body = format!(
+            r#"while [ $# -gt 0 ]; do [ "$1" = --json-schema ] && printf '%s' "$2" > {}/schema; shift; done
+printf '{{"structured_output":"ok"}}'"#,
+            dir.path().display()
+        );
+        call(dir.path(), &body, schema).await.unwrap();
+        let echoed = std::fs::read_to_string(dir.path().join("schema")).unwrap();
+        let echoed: serde_json::Value = serde_json::from_str(&echoed).unwrap();
+        assert!(echoed.get("$schema").is_none());
+        assert_eq!(echoed["title"], "T");
+        assert!(echoed.get("$defs").is_some());
+        assert_eq!(echoed["properties"]["x"]["$ref"], "#/$defs/a");
+    }
+
+    /// LH17: a failed exit carries the CLI's first stderr line.
+    #[tokio::test]
+    async fn lh17_a_failed_exit_carries_the_first_stderr_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = call(
+            dir.path(),
+            "echo 'Error: bad schema' >&2\necho second >&2\nexit 1",
+            "{}",
+        )
+        .await
+        .err()
+        .unwrap();
+        assert!(err.ends_with(": Error: bad schema"), "{err}");
+        assert!(err.starts_with("exit: exit status: 1"), "{err}");
+    }
 }

@@ -77,12 +77,12 @@ impl Links {
 /// LH17: the most lines `links.log` keeps.
 const LOG_LINES: usize = 200;
 
-/// LH17: append `line` to the file at `path`, keeping its last `LOG_LINES` lines.
-pub(crate) fn append_log(path: &Path, line: &str) -> std::io::Result<()> {
+/// LH17: append `line` to the file at `path`, keeping its last `keep` lines.
+pub(crate) fn append_log(path: &Path, line: &str, keep: usize) -> std::io::Result<()> {
     let old = std::fs::read_to_string(path).unwrap_or_default();
     let mut lines: Vec<&str> = old.lines().collect();
     lines.push(line);
-    let kept = lines.split_at(lines.len().saturating_sub(LOG_LINES)).1;
+    let kept = lines.split_at(lines.len().saturating_sub(keep)).1;
     std::fs::write(path, format!("{}\n", kept.join("\n")))
 }
 
@@ -143,6 +143,6 @@ impl Shared {
                 .unwrap_or_default()
         );
         eprintln!("agents: {line}");
-        let _ = append_log(&self.rail_view.data_dir.join("links.log"), &line);
+        let _ = append_log(&self.rail_view.data_dir.join("links.log"), &line, LOG_LINES);
     }
 }

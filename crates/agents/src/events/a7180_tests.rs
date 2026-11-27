@@ -172,11 +172,44 @@ async fn a7180b_a_late_answer_leaves_the_agent_idle() {
     let fixture = fixture(Ok(Some("Which format do you want?")), Some(&gate));
     fixture.turn("Here is what you asked for.");
     fixture.settle(1).await;
-    tokio::time::advance(Duration::from_secs(4)).await;
+    tokio::time::advance(Duration::from_secs(21)).await;
     fixture.settle(1).await;
     gate.notify_one();
     fixture.settle(1).await;
     assert_eq!(fixture.status()["kind"], "idle");
+}
+
+#[tokio::test(start_paused = true)]
+async fn a7180b_an_answer_after_3_s_and_within_the_limit_shows_needs_you() {
+    let gate = Arc::new(Notify::new());
+    let fixture = fixture(Ok(Some("Which format do you want?")), Some(&gate));
+    fixture.turn("Here is what you asked for.");
+    fixture.settle(1).await;
+    tokio::time::advance(Duration::from_secs(8)).await;
+    fixture.settle(1).await;
+    assert_eq!(fixture.status()["kind"], "idle");
+    gate.notify_one();
+    fixture.until("needs-you").await;
+    assert_eq!(fixture.status()["label"], "asks: Which format do you want?");
+}
+
+#[tokio::test]
+async fn a7180b_a_failure_is_written_to_the_stop_check_log() {
+    let fixture = fixture(Err("no network"), None);
+    fixture.turn("Here is what you asked for.");
+    fixture.settle(1).await;
+    let log = fixture.shared.rail_view.data_dir.join("stop-check.log");
+    let text = loop {
+        if let Ok(text) = std::fs::read_to_string(&log) {
+            break text;
+        }
+        tokio::task::yield_now().await;
+    };
+    assert!(
+        text.contains(&fixture.id) && text.contains("no network"),
+        "{text}"
+    );
+    assert!(!text.contains("Here is what"), "{text}");
 }
 
 #[tokio::test]
