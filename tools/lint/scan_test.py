@@ -211,6 +211,19 @@ class Lints(unittest.TestCase):
         self.write('big', 'x\n' * 1000)
         self.scan('size', 0)
 
+    def test_t8001a_findings_end_combined_output(self):
+        for name in 'abc':
+            self.write(name, 'x\n' * 1001)
+        self.baseline('size')
+        self.write('new', 'x\n' * 1001)
+        result = subprocess.run([sys.executable, HERE / 'scan.py', 'size', '--root', self.root, '--base', 'HEAD'],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=180)
+        lines = result.stdout.splitlines()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(len([line for line in lines if line.startswith('baseline debt:')]), 3)
+        self.assertIn('size: new exception/match', lines[-2])
+        self.assertEqual(lines[-1], 'lint failed: 1 finding')
+
     def test_t3797a_baseline_ratchet_stale(self):
         self.write('loop/a.py', 'import os\n')
         self.baseline('ruff')
