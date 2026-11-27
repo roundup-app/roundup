@@ -209,10 +209,11 @@ const highestId = (value: Recipient) => {
 };
 
 /** U7956a: a note the Agent accepted carries its Message; it is Sent once that Message lands. */
-const stamped = (note: Note, message: Message): Note => {
+const stamped = (note: Note, message: Message, landedAt: number | null): Note => {
   const marked = { ...note, sent: Date.now(), message: message.id };
 
   if (message.status === "delivered") marked.landed = Date.now();
+  else if (landedAt !== null) marked.landed = landedAt;
 
   return marked;
 };
@@ -220,6 +221,8 @@ const stamped = (note: Note, message: Message): Note => {
 /** U7956a: a Message landing turns the notes it carried Sent; one folded into a later delivery (`merged`) lands with the next delivery to its Agent. */
 const createLanding = <R extends { notes: Note[] }>(recipients: () => ReadonlyMap<string, R>, retain: (key: string, value: R) => Promise<void> | void) => {
   const merged = new Map<number, string>();
+  const delivered = new Map<number, number>();
+  const latest = new Map<string, { id: number; at: number }>();
   const waiting = (note: Note, ids: Set<number>) => note.message !== undefined && note.landed === undefined && ids.has(note.message);
 
   const land = (message: Message): [string, R][] => {
@@ -227,15 +230,27 @@ const createLanding = <R extends { notes: Note[] }>(recipients: () => ReadonlyMa
 
     if (message.status !== "delivered") return [];
 
+    delivered.set(message.id, Date.now());
+    latest.set(message.to, { id: message.id, at: Date.now() });
+
     const folded = [...merged].flatMap(([id, to]) => to === message.to && id < message.id ? [id] : []);
     const ids = new Set([message.id, ...folded]);
-
-    for (const id of folded) merged.delete(id);
 
     return [...recipients()].flatMap(([key, value]): [string, R][] => value.notes.some(note => waiting(note, ids)) ? [[key, { ...value, notes: value.notes.map(note => waiting(note, ids) ? { ...note, landed: Date.now() } : note) }]] : []);
   };
 
-  return (events: Events) => events.subscribe(event => { if (event.name === "message.delivered" || event.name === "message.dropped") for (const [key, value] of land(event.data)) retain(key, value); }, { replay: true });
+  const follow = (events: Events) => events.subscribe(event => { if (event.name === "message.delivered" || event.name === "message.dropped") for (const [key, value] of land(event.data)) retain(key, value); }, { replay: true });
+
+  /** When the Message landed before its send reply was stamped, directly or through a merging delivery; null while it has not. */
+  const landedAt = (message: Message) => {
+    const own = delivered.get(message.id);
+    const to = merged.get(message.id);
+    const next = to === undefined ? undefined : latest.get(to);
+
+    return own ?? (next && next.id > message.id ? next.at : null);
+  };
+
+  return { follow, landedAt };
 };
 
 const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typeof draftStorage>) => {
@@ -308,11 +323,12 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     } else setProblem(await storage.edit({ surface: "changes", object: id, recipient: id }, { data: stringify(value) }, null, "ordinary").retained);
   };
 
+  const landing = createLanding(recipients, retain);
+
   const accepted = async (id: string, submission: Submission, message: Message) => {
-    const revisions = new Set(submission.notes.map(note => note.revision));
     const current = recipient(id);
 
-    await retain(id, { ...current, notes: current.notes.map(note => revisions.has(note.revision) ? stamped(note, message) : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
+    await retain(id, { ...current, notes: current.notes.map(note => submission.notes.some(sent => sent.revision === note.revision) ? stamped(note, message, landing.landedAt(message)) : note), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
     putState(id, { kind: "idle", text: "", sent: submission.notes.length });
   };
 
@@ -339,7 +355,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     dismissSent: (id: string) => { if (sent().get(id)?.kind === "idle") putState(id, { kind: "idle", text: "" }); },
     removed: (id: string) => gone(id).length > 0,
     undo,
-    follow: createLanding(recipients, retain),
+    follow: landing.follow,
     noteState: (id: string, note: Note) => noteStateOf(recipient(id).submissions, sent().get(id), note),
     project,
     entries: () => [...recipients().entries()],
