@@ -75,13 +75,17 @@ impl Shared {
 
     /// U7946a: `FIRST_PROMPT_BOUND` after a spawn, a first prompt without a receipt leaves `prepared`
     /// for `uncertain`, with the cause its parent reads on `agent.instructions`.
-    pub(super) fn bound_first_prompt(&self, id: &str, attempt: &str) {
+    /// U7951a: `started` is the delivery's own start time on `clock`, so a re-armed bound counts
+    /// only what is left of it.
+    pub(super) fn bound_first_prompt(&self, id: &str, attempt: &str, started: i64) {
         let Some(shared) = self.me.upgrade() else {
             return;
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
-            tokio::time::sleep(shared.first_prompt_bound).await;
+            let spent =
+                Duration::from_millis((shared.clock)().saturating_sub(started).max(0) as u64);
+            tokio::time::sleep(shared.first_prompt_bound.saturating_sub(spent)).await;
             let cause = format!(
                 "no receipt within {} s of the spawn",
                 shared.first_prompt_bound.as_secs_f64()
@@ -96,6 +100,21 @@ impl Shared {
                 Err(err) => eprintln!("agents: delivery bound of {id}: {err}"),
             }
         });
+    }
+
+    /// U7951a: a Daemon reopen drops the timers of `bound_first_prompt`, so arm each delivery still
+    /// `prepared` again from its saved start time.
+    pub(super) fn rearm_first_prompt_bounds(&self) {
+        let prepared = match self.rail().prepared_first_instructions() {
+            Ok(prepared) => prepared,
+            Err(err) => {
+                eprintln!("agents: delivery bounds not re-armed: {err}");
+                return;
+            }
+        };
+        for (agent, attempt, started) in prepared {
+            self.bound_first_prompt(&agent, &attempt, started);
+        }
     }
 
     /// A4452a, A4452d: roundup's own text reaches `id` as a Message to its Claude inbox and writes
