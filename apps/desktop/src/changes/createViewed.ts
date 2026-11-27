@@ -41,8 +41,12 @@ export const createViewed = (input: { memory: { seen: Seen }; comparison: () => 
     const marked = mark(seen(), at, module.files);
 
     remember(marked);
+    openNext(key, each, marked);
+  };
 
-    const next = nextUnviewed(each, key, other => modules(other).map(entry => ({ key: moduleKey(entry.name), viewed: isViewed(marked, at, entry.files) })));
+  const openNext = (key: string, each: Lens, state: Seen) => {
+    const at = input.comparison();
+    const next = nextUnviewed(each, key, other => modules(other).map(entry => ({ key: moduleKey(entry.name), viewed: isViewed(state, at, entry.files) })));
 
     if (next) input.open(next);
   };
@@ -54,6 +58,16 @@ export const createViewed = (input: { memory: { seen: Seen }; comparison: () => 
     if (key !== undefined) toggle(key, input.lens());
   };
 
+  /** U8011a: Space at the open module's end marks it as V does, and on a viewed one only opens the next item, never un-marking. */
+  const readOn = () => {
+    const key = input.opened();
+    const module = key === undefined ? undefined : find(key, input.lens());
+
+    if (key === undefined || !module) return;
+
+    if (isViewed(seen(), input.comparison(), module.files)) openNext(key, input.lens(), seen()); else toggle(key, input.lens());
+  };
+
   /** The open module's header: its state and the button's press. */
   const head = (key: string, each: Lens) => {
     const module = find(key, each);
@@ -61,5 +75,5 @@ export const createViewed = (input: { memory: { seen: Seen }; comparison: () => 
     return module && { on: isViewed(seen(), input.comparison(), module.files), changed: isChanged(seen(), input.comparison(), module.files), toggle: () => toggle(key, each) };
   };
 
-  return { viewedKeys, changedKeys, progress, markOpen, head };
+  return { viewedKeys, changedKeys, progress, markOpen, readOn, head };
 };

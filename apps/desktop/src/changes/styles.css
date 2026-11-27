@@ -235,7 +235,8 @@
 .changes-row-added, .changes-row-removed { block-size: 100%; }
 .changes-row-added { background: var(--green-11); }
 .changes-row-removed { background: var(--red-11); }
-.changes-row-slot { flex: none; display: flex; align-items: center; justify-content: center; inline-size: var(--space-2); }
+.changes-viewed-toggle { align-self: flex-end; margin-inline: var(--space-3); }
+.changes-row-slot { flex: none; cursor: pointer; display: flex; align-items: center; justify-content: center; inline-size: var(--space-2); }
 .changes-row-dot { inline-size: var(--space-2); block-size: var(--space-2); border-radius: var(--radius-round); background: var(--grey); }
 .changes-row-dot[data-signal="finding"] { background: var(--red); }
 .changes-row-dot[data-signal="repeat"] { background: var(--amber); }

@@ -16,7 +16,8 @@ import { copy } from "./copy";
 import { causeOf, createRemoteMain } from "./remote";
 import { RemoteChip } from "./RemoteChip";
 import { loadReader } from "./chunks";
-import { notesFor, type Notes } from "./notes";
+import { isItem, notesFor, type Note, type Notes } from "./notes";
+import type { DiffTarget } from "./NoteBatch";
 import { flowListed, itemNotes, outdatedItem, paneTarget } from "./itemNotes";
 import type { ScrollKeys } from "./ModuleScroll";
 import { createOpenAt } from "./editor";
@@ -42,7 +43,7 @@ import { createFindings } from "./findings";
 import { fileRanks, rankWord, withRisks } from "./rank";
 import { ItemAccount } from "./ReadbackBlock";
 import { ChangedSymbols } from "./ChangedSymbols";
-import { createRepeatScan, placeCounts } from "./repeats";
+import { createRepeatScan, placeCounts, type Span } from "./repeats";
 import { createSpots, sourceCounts } from "./spots";
 import { RepeatStates, SpotStates } from "./RepeatStates";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
@@ -91,7 +92,7 @@ const createLeaving = (watch: () => { list: string[]; key: string }, open: () =>
   return [left, setLeft] as const;
 };
 
-type KeyActions = { jump: () => void; stop: (direction: 1 | -1) => void; readback: () => void; viewed: () => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; noteRow: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
+type KeyActions = { jump: () => void; stop: (direction: 1 | -1) => void; readback: () => void; viewed: () => void; read: (direction: 1 | -1) => void; step: (direction: 1 | -1) => void; lens: (step: 1 | -1) => void; find: () => void; enter: () => void; noteRow: () => void; diff: () => DiffKeys | undefined; toggleHelp: () => void; open: (path: string, at: { side: "old" | "new"; line: number }) => void };
 
 const registerChangesKeys = (section: () => HTMLElement | undefined, actions: KeyActions) => registerKeys({ kind: "region", element: section }, [
   { chords: ["j"], when: event => !typing(event), run: event => { event.preventDefault(); actions.step(1); } },
@@ -102,6 +103,8 @@ const registerChangesKeys = (section: () => HTMLElement | undefined, actions: Ke
   { chords: ["]"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(1); } },
   { chords: ["["], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.step(-1); } },
   { chords: ["v"], when: event => !typing(event), run: event => { event.preventDefault(); actions.viewed(); } },
+  { chords: ["Space"], when: event => readsOn(event), run: event => { event.preventDefault(); actions.read(1); } },
+  { chords: ["Shift+Space"], when: event => readsOn(event), run: event => { event.preventDefault(); actions.read(-1); } },
   { chords: ["x"], when: event => !typing(event), run: event => { event.preventDefault(); actions.diff()?.reveal(); } },
   { chords: ["n"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.note(); } },
   { chords: ["w"], when: event => inDiff(event), run: event => { event.preventDefault(); actions.diff()?.explain("words"); } },
@@ -144,6 +147,9 @@ const inTree = (event: KeyboardEvent) => !typing(event) && event.target instance
 
 /** U7678c: Enter acts on the diff's own text, never on a field, button or link inside the reader. */
 const onContent = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest(".diff-content") !== null && event.target.closest("button, a") === null;
+
+/** U8011a: Space reads on from the list, the diff or the view itself, never from a field, the editor or a control that takes Space for itself. */
+const readsOn = (event: KeyboardEvent) => !typing(event) && event.target instanceof Element && event.target.closest("button, a, input, select, textarea, [role=radio], [role=switch]") === null && (event.target.closest(".changes-tree, .module-pane") !== null || event.target.matches(".changes-view"));
 
 const typing = (event: KeyboardEvent) => event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])") !== null;
 
@@ -360,6 +366,50 @@ const rankWords = (account: Parameters<typeof fileRanks>[0], listed: readonly Ch
   }));
 };
 
+/** U8011b: the rows the list shows: a viewed item's row leaves unless the toggle shows it or the item is open. */
+const createListed = (input: { grouped: () => Grouped; viewed: () => ReadonlySet<string>; opened: () => string | undefined }) => {
+  const [shown, setShown] = createSignal(false);
+
+  const grouped = createMemo((): Grouped => {
+    const all = input.grouped();
+
+    if (shown()) return all;
+    const hidden = input.viewed();
+    const open = input.opened();
+
+    return { ...all, modules: all.modules.filter(module => !hidden.has(moduleKey(module.name)) || moduleKey(module.name) === open) };
+  });
+
+  return { grouped, shown, toggle: () => setShown(on => !on) };
+};
+
+/** U8011c: a click on a row's dot opens its item at the first flagged line (a line note, repeat, tool spot, finding or moved block) in scroll order, else at its top. */
+const createDots = (input: { files: (key: string) => readonly string[]; spans: () => readonly Span[]; notes: () => readonly Note[]; open: (key: string, file?: string) => void; focusRow: (key: string) => void }) => {
+  const [aim, setAim] = createSignal<DiffTarget>();
+
+  const open = (key: string) => {
+    const paths = input.files(key);
+    const lines = input.spans().map(span => ({ path: span.path, side: "new" as const, line: span.start }));
+    const noted = input.notes().flatMap(note => isItem(note) ? [] : [{ path: note.comparison.newPath, side: note.side, line: note.start }]);
+    const target = [...noted, ...lines].filter(place => paths.includes(place.path)).sort((a, b) => paths.indexOf(a.path) - paths.indexOf(b.path) || a.line - b.line)[0];
+
+    input.open(key, target?.path);
+    setAim(target);
+    flush();
+
+    if (!target) input.focusRow(key);
+  };
+
+  return { aim, open, arrived: () => setAim(undefined) };
+};
+
+const createSteps = (input: Parameters<typeof createListed>[0] & Parameters<typeof createDots>[0]) => ({ list: createListed(input), dots: createDots(input) });
+
+/** U8011a: Space scrolls the open item a pane, and at its end marks it and opens the next unviewed item; Shift-Space only scrolls back. */
+const readOn = (direction: 1 | -1, opened: string | undefined, diff: ScrollKeys | undefined, mark: () => void) => {
+  if (opened !== undefined && opened !== OVERVIEW && diff?.page(direction) === "end") mark();
+};
+
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
   const { app, events, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
@@ -453,11 +503,13 @@ const Surface = (props: { id: string; name: string }) => {
   // U2539d: a file that still exists opens in the editor at its line, from the checkout the comparison ends on; a failed open shows as one card.
   const openAt = createOpenAt(app, () => own() ? worktree() ?? undefined : group()?.checkout, files);
 
+  const { list, dots } = createSteps({ grouped: () => find.grouped(), viewed: () => viewed.viewedKeys(), opened, files: key => openFiles(key, lens()).map(file => file.path), spans: () => [...repeats.spots().filter(spot => !moves.covers(spot)), ...spots.list(), ...findings.list(), ...moves.placed()], notes: () => notes.all(props.id), open: choosePath, focusRow: key => focusTree(key) });
+
   // U7675e, U8010c: J and K step the items from anywhere, wrapping, ] and [ step changes, Tab crosses from the list to the diff or the Overview's entries, ? lists them.
   const [help, setHelp] = createSignal(false);
 
   const step = (direction: 1 | -1) => {
-    const order = find.grouped().modules.map(module => moduleKey(module.name));
+    const order = list.grouped().modules.map(module => moduleKey(module.name));
     const at = order.indexOf(opened() ?? "");
     const next = at !== -1 ? order[(at + direction + order.length) % order.length] : order[direction === 1 ? 0 : order.length - 1];
 
@@ -500,7 +552,7 @@ const Surface = (props: { id: string; name: string }) => {
 
   const jump = createJump({ id: untrack(() => props.id), notes, files, keys: () => diffKeys, itemOutdated: note => outdatedItem(note, files(), item => flowListed(item, { traced: calls.done().length > 0, read: readback.read() !== undefined }, () => lensed()("flows").modules)), section: () => section, open: openPath });
 
-  registerChangesKeys(() => section, { jump: jump.open, stop: readback.stepper.go, readback: readback.start, viewed: viewed.markOpen, step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, noteRow: () => noteOnRow(treeFocus(), listing().modules, opened(), diffKeys), diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
+  registerChangesKeys(() => section, { jump: jump.open, stop: readback.stepper.go, readback: readback.start, viewed: viewed.markOpen, read: direction => readOn(direction, opened(), diffKeys, viewed.readOn), step, lens: change => switchLens(lensAfter(lens(), change)), find: find.open, enter, noteRow: () => noteOnRow(treeFocus(), listing().modules, opened(), diffKeys), diff: () => diffKeys, toggleHelp: () => setHelp(on => !on), open: openAt });
 
   // U7675f: closing returns focus to the Rail icon.
   const iconId = untrack(() => props.id);
@@ -557,7 +609,8 @@ const Surface = (props: { id: string; name: string }) => {
           <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <ChangedTree grouped={find.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} />
+          <Show when={viewed.viewedKeys().size > 0}><IconButton aria-label={copy.showViewed} tooltip={copy.showViewed} aria-pressed={list.shown() ? "true" : "false"} class="changes-viewed-toggle" onClick={list.toggle}><Icon name="check" /></IconButton></Show>
+          <ChangedTree grouped={list.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} onDot={dots.open} />
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
       </div>
@@ -565,7 +618,7 @@ const Surface = (props: { id: string; name: string }) => {
         const { places, scroll } = placesOf(memory, placeAt(lensOf(pane)));
 
         return <div class="module-slot" data-pending={panes().length > 1 && panes().at(-1) === pane ? "true" : "false"}>
-          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim()} arrived={jump.arrived} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} spots={spotted()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
+          <Show when={pane.key === OVERVIEW} fallback={<Loading><ModuleScroll id={props.id} name={props.name} files={openFiles(pane.key, lensOf(pane))} sections={itemOf(pane.key, lensOf(pane))?.sections} above={<Show when={itemOf(pane.key, lensOf(pane))} keyed>{item => <><ItemAccount item={item} lens={lensOf(pane)} readback={readback} open={openSection} /><Show when={lensOf(pane) === "logic"}><ChangedSymbols item={item} calls={calls} moves={moves} aim={jump.aimAt} /></Show></>}</Show>} start={start()} item={paneTarget(itemOf(pane.key, lensOf(pane)), openFiles(pane.key, lensOf(pane))[0])} itemOutdated={jump.itemOutdated} target={jump.aim() ?? dots.aim()} arrived={() => { jump.arrived(); dots.arrived(); }} scroll={scroll(pane.key)} places={places} keys={api => { if (panes().at(-1) === pane) diffKeys = api; }} onReady={() => ready(pane)} to={own() ?? "tree"} group={own() ? undefined : groupKey()} viewed={viewed.head(pane.key, lensOf(pane))} notes={notes} recover={() => showView("notes")} open={openAt} spots={spotted()} gaps={readback.placed()} explain={explain} findings={findings} ranks={lensOf(pane) === "flows" ? undefined : rankWords(readback.account(), files())} moves={lensOf(pane) === "logic" ? moves : undefined} /></Loading>}>
             <Overview spots={spots.list()} lens={lensOf(pane)} grouped={lensed()(lensOf(pane))} readback={readback} pad={pad} agent={props.name} listed={path => files().some(file => file.path === path)} go={gap => openPath(gap.path)} findings={findings} goFile={openPath} choose={key => { choosePath(key); flush(); focusTree(key); }} back={() => section?.querySelector<HTMLElement>("[data-home]")?.focus()} ready={() => { diffKeys = undefined; ready(pane); }} />
           </Show>
         </div>;

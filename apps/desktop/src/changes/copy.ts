@@ -56,6 +56,8 @@ export const copy = {
   viewedProgress: (viewed: number, total: number) => viewed === total ? `All ${total} viewed` : `${viewed} of ${total} viewed`,
   /** @prose */
   changedSinceViewed: "Changed since you viewed it",
+  /** U8011b: the list header's toggle: its name and tooltip, pressed while the viewed items show. */
+  showViewed: "Show viewed items",
   findFile: "Find a file",
   /** @prose */
   noChangesIn: (lens: string) => `No changes in ${lens}`,
@@ -144,6 +146,8 @@ export const copy = {
     "Square brackets jump to the next or previous change.",
     /** @prose */
     "V marks the open item viewed and opens the next one.",
+    /** @prose */
+    "Space reads on: scroll, then mark viewed and open the next item.",
     /** @prose */
     "X shows more of the nearest hidden lines.",
     /** @prose */

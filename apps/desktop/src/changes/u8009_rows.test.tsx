@@ -4,7 +4,7 @@ import type { Spot } from "@contracts/agent/Spot";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
 import { openChanges, take } from "./noteHarness";
-import { chooseLens, comparison, counted, fresh, landed, lensGroup, moduleRow, press, region, setUpView, tabNamed } from "./viewHarness";
+import { chooseLens, comparison, counted, fresh, landed, lensGroup, moduleRow, press, region, setUpView, showViewedRows, tabNamed } from "./viewHarness";
 
 setUpView();
 
@@ -38,7 +38,7 @@ it("u8009a_a_rows_accessible_name_says_its_counts_viewed_state_and_each_signal",
   expect(name).not.toContain(copy.viewed);
   take(moduleRow("crates/a"));
   press("v");
-  await waitFor(() => expect(moduleRow("crates/a").getAttribute("aria-label")).toContain(copy.viewed));
+  await waitFor(() => { showViewedRows(); expect(moduleRow("crates/a").getAttribute("aria-label")).toContain(copy.viewed); });
 });
 
 it("u8009a_only_the_open_row_shows_its_exact_counts", async () => {

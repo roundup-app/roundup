@@ -42,7 +42,7 @@ const createComposer = (fallback: () => void) => {
 };
 
 /** The reader's keys, and U7691a's: N on a list row opens the form of that item. */
-export type ScrollKeys = DiffKeys & { noteItem: (item: Pick<Item, "kind" | "name">) => void };
+export type ScrollKeys = DiffKeys & { noteItem: (item: Pick<Item, "kind" | "name">) => void; /** U8011a: Space and Shift-Space scroll the item by one pane; "end" says Space found the last line already in view, and nothing moved. */ page: (direction: 1 | -1) => "scrolled" | "end" };
 
 type Line = { side: "old" | "new"; line: number };
 
@@ -183,6 +183,15 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
       return true;
     },
     enter: () => "none",
+    page: direction => {
+      if (!scroller) return "end";
+      const room = scroller.scrollHeight - scroller.clientHeight;
+
+      if (direction === 1 && scroller.scrollTop >= room - 1) return "end";
+      scroller.scrollTop = Math.min(Math.max(room, 0), Math.max(0, scroller.scrollTop + direction * scroller.clientHeight));
+
+      return "scrolled";
+    },
     reload: () => { for (const reader of readers.values()) reader.reload(); },
     reveal: () => here()?.reveal(),
     note: () => here()?.note(),
