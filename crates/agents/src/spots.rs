@@ -7,7 +7,7 @@ use std::sync::Mutex;
 
 use super::*;
 use crate::worktree::PlacedSpot;
-use contracts::agent::{OwnedGroupKey, PostSpotsParams, Spots};
+use contracts::agent::{CompareTarget, OwnedGroupKey, PostSpotsParams, Spots};
 
 /// The posted Spots of each Agent, by source.
 #[derive(Default)]
@@ -87,23 +87,10 @@ impl Agents {
     ) -> Result<Spots, RpcError> {
         let posted = self.shared.posted.of(id);
         let git = self.shared.git.bounded();
-        let top = match group {
-            Some(group) => {
-                let edits = self.recorded_edits(id)?;
-                let git = git.clone();
-                tokio::task::spawn_blocking(move || git.group_root(&edits, &group))
-                    .await
-                    .map_err(|err| {
-                        RpcError::from(worktree::WorktreeError::Failed(err.to_string()))
-                    })??
-            }
-            None => self
-                .shared
-                .node(id)?
-                .worktree()
-                .map(|record| PathBuf::from(record.path))
-                .ok_or_else(|| RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")))?,
-        };
+        let top = self
+            .readback_worktree(id, group, CompareTarget::Tree)
+            .await?
+            .path;
         let spots = tokio::task::spawn_blocking(move || {
             let top = std::fs::canonicalize(top).map_err(|err| err.to_string())?;
             Ok::<_, String>(git.read_spots(

@@ -81,8 +81,9 @@ it("u7688a_only_the_user_starts_a_readback_and_a_comparison_without_a_tree_offer
   expect(app.calls.find(call => call.method === "agent.readbackStart")?.params).toEqual({ id: "a", to: "tree" });
 
   fireEvent.click(screen.getByRole("radio", { name: copy.changes }));
-  expect(await screen.findByText(copy.readbackNeedsTree)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: copy.readBack })).toBeNull();
+  // U7955a: the Changes target reads as Tree does, so it never says a readback needs another comparison.
+  expect(await screen.findByText(copy.readingBack)).toBeTruthy();
+  expect(screen.queryByText(copy.readbackNeedsTree)).toBeNull();
 });
 
 it("u7688b_a_kept_result_shows_on_open_and_starts_no_run", async () => {

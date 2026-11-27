@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use contracts::agent::{CompareTarget, FileComparison, OwnedGroup, OwnedGroupKey};
 use rpc::RpcError;
 
-use super::{Git, invalid};
+use super::{Git, Worktree, failed, invalid};
 
 /// A repository's main checkout and the checkout of one of its git worktrees (`top`), keyed to the
 /// files of `top` the Agent wrote, relative to it.
@@ -32,8 +32,54 @@ impl Git {
         self.sites(edits).into_keys().map(|(_, top)| top).collect()
     }
 
-    /// The checkout the Agent's `edits` sit in that `group` names, as `compare_group_file` finds it.
-    pub fn group_root(&self, edits: &[String], group: &OwnedGroupKey) -> Result<PathBuf, RpcError> {
+    /// U7853a: `path` as `agent.compareFile` reads it for an Agent with no Worktree: in the checkout
+    /// of the group `group` names, as Changes lists it, so `to` is never `Branch`. A group the
+    /// `edits` do not sit in is refused whatever the caller names; no path of the caller is opened.
+    pub fn compare_group_file(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        path: &str,
+        to: CompareTarget,
+    ) -> Result<FileComparison, RpcError> {
+        let top = self.group_top(edits, group, to)?;
+        self.compare_file(&top, path, to)
+    }
+
+    /// U7955a: the checkout of the group `group` names, as a Worktree the reads that take one run
+    /// on: its HEAD's branch, and the remote's main (else the local default branch) as its base.
+    /// Refused as `compare_group_file` refuses; no path of the caller is opened.
+    pub fn group_worktree(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        to: CompareTarget,
+    ) -> Result<Worktree, RpcError> {
+        let path = self.group_top(edits, group, to)?;
+        let (_, base) = self
+            .default_branch(&path)
+            .ok_or_else(|| failed("no default branch"))?;
+        Ok(Worktree {
+            path,
+            branch: group.branch.clone(),
+            base,
+            adopted: true,
+        })
+    }
+
+    /// The checkout the `edits` sit in that `group` names: a group is read as Changes, not Branch.
+    fn group_top(
+        &self,
+        edits: &[String],
+        group: &OwnedGroupKey,
+        to: CompareTarget,
+    ) -> Result<PathBuf, RpcError> {
+        if to == CompareTarget::Branch {
+            return Err(invalid(
+                "group_target",
+                "a group is read as Changes, not Branch",
+            ));
+        }
         self.sites(edits)
             .into_keys()
             .find(|(repo, top)| {
@@ -49,41 +95,6 @@ impl Git {
                     "not a repository and branch the Agent wrote in",
                 )
             })
-    }
-
-    /// U7853a: `path` as `agent.compareFile` reads it for an Agent with no Worktree: in the checkout
-    /// of the group `group` names, as Changes lists it, so `to` is never `Branch`. A group the
-    /// `edits` do not sit in is refused whatever the caller names; no path of the caller is opened.
-    pub fn compare_group_file(
-        &self,
-        edits: &[String],
-        group: &OwnedGroupKey,
-        path: &str,
-        to: CompareTarget,
-    ) -> Result<FileComparison, RpcError> {
-        if to == CompareTarget::Branch {
-            return Err(invalid(
-                "group_target",
-                "a group is read as Changes, not Branch",
-            ));
-        }
-        let top = self
-            .sites(edits)
-            .into_keys()
-            .find(|(repo, top)| {
-                repo == Path::new(&group.repo)
-                    && self
-                        .run(top, &["rev-parse", "--abbrev-ref", "HEAD"])
-                        .is_ok_and(|branch| branch == group.branch)
-            })
-            .map(|(_, top)| top)
-            .ok_or_else(|| {
-                invalid(
-                    "unsafe_path",
-                    "not a repository and branch the Agent wrote in",
-                )
-            })?;
-        self.compare_file(&top, path, to)
     }
 
     /// Where the absolute `edits` sit: per (main checkout, git worktree) the files written there.

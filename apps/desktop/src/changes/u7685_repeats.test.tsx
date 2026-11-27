@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -179,22 +179,24 @@ it("u7685d_the_scan_is_asked_after_the_first_paint_on_tree_only_and_never_delays
   const never = new Promise<ScanSpots>(() => undefined);
   const mounted = await landed(() => ({ files: [counted("a/x.ts", 1, 1), counted("b/x.ts", 1, 1)] }), read);
 
-  mounted.app.handlers["agent.repeatScan"] = () => never;
+  let asked = 0;
+
+  mounted.app.handlers["agent.repeatScan"] = () => ++asked === 1 ? found() : never;
   await tick();
 
-  // The Changes target and the Branch target ask nothing.
-  expect(calls(mounted.app, "agent.repeatScan")).toBe(0);
+  // U7955a: the Changes target asks with the open group; the Branch target asks nothing more.
+  await waitFor(() => expect(calls(mounted.app, "agent.repeatScan")).toBe(1));
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetBranch }));
   await tick();
-  expect(calls(mounted.app, "agent.repeatScan")).toBe(0);
+  expect(calls(mounted.app, "agent.repeatScan")).toBe(1);
 
   // The Tree target asks only after a frame has painted.
   vi.stubGlobal("requestAnimationFrame", (run: FrameRequestCallback) => frames.push(run));
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
   await waitFor(() => expect(frames.length).toBeGreaterThan(0));
-  expect(calls(mounted.app, "agent.repeatScan")).toBe(0);
+  expect(calls(mounted.app, "agent.repeatScan")).toBe(1);
   frames.splice(0).forEach(run => run(0));
-  await waitFor(() => expect(calls(mounted.app, "agent.repeatScan")).toBe(1));
+  await waitFor(() => expect(calls(mounted.app, "agent.repeatScan")).toBe(2));
 
   // The scan never answers, and J still opens the first module.
   press("j");
@@ -202,14 +204,15 @@ it("u7685d_the_scan_is_asked_after_the_first_paint_on_tree_only_and_never_delays
 });
 
 it("u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_says_nothing", async () => {
-  // Not asked: the Changes target of an Agent with a Worktree says to choose Tree; an Agent with none says nothing.
+  // Not asked: the Branch target says to choose Tree; the Changes target asks and says nothing.
   const first = await landed(() => ({ files: FILES }), read);
 
+  await waitFor(() => expect(calls(first.app, "agent.repeatScan")).toBe(1));
+  expect(screen.queryByText(copy.repeatsNeedTree)).toBeNull();
+  fireEvent.click(await screen.findByRole("radio", { name: copy.targetBranch }));
   await screen.findByText(copy.repeatsNeedTree);
-  first.connected.rail.select("plain");
-  await waitFor(() => expect(screen.queryByText(copy.repeatsNeedTree)).toBeNull());
-  expect(calls(first.app, "agent.repeatScan")).toBe(0);
-  document.body.replaceChildren();
+  expect(calls(first.app, "agent.repeatScan")).toBe(1);
+  cleanup();
 
   // Scanning: quiet until 150 ms, then the line; done with none leaves no word and no mark.
   const slow = deferred<ScanSpots>();

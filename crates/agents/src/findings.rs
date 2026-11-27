@@ -71,7 +71,7 @@ impl Agents {
         &self,
         p: ChangedFilesParams,
     ) -> Result<DefectFindings, RpcError> {
-        let worktree = self.readback_worktree(&p.id)?;
+        let worktree = self.readback_worktree(&p.id, p.group.clone(), p.to).await?;
         let input = self.readback_diff(worktree, p.to).await?;
         if let Some(cause) = over_cap(&input.hunks) {
             return Ok(failed("tooLarge", cause));

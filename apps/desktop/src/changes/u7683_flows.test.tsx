@@ -86,9 +86,7 @@ it("u7683b_opening_the_view_asks_the_lookup_once_and_traces_typescript_once_and_
   serve(app, answers());
   await chooseLens(copy.lenses.flows);
 
-  // The Changes target has no Worktree to trace: nothing is asked, and every file is Not traced.
-  screen.getByText(copy.flowsNeedWorktree);
-  expect(moduleKeys()).toEqual(["m:~untraced"]);
+  // The listing has no owned group to read through: nothing is asked.
   await tick();
   expect(asked()).toEqual([]);
 

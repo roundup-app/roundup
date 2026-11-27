@@ -6,7 +6,7 @@ import { failureOf } from "../app/failureOf";
 import type { AppSeam } from "../app/seam";
 import type { Done } from "./flows";
 import { createLate } from "./late";
-import { watchTurns } from "./owned";
+import { reachKey, watchTurns, type Reach } from "./owned";
 
 /** U7683b: the one language the App never traces by itself: Rust starts only on Trace (the owner's decision 7). */
 const MANUAL = "rust";
@@ -33,10 +33,10 @@ const resultOf = (answer: CallPaths): Result => {
 
 /**
  * U7683b: the call paths of the open comparison. The lookup and each language's trace are `agent.callPaths`: once the listing is ready the lookup asks, every language but Rust traces, and Rust traces on `trace`.
- * A new `to` or `reset` (the merge base moved) ends what ran: its answers are dropped, since the Daemon cannot be stopped, and the lookup asks again.
+ * A new `at` or `reset` (the merge base moved) ends what ran: its answers are dropped, since the Daemon cannot be stopped, and the lookup asks again.
  * A write of the Agent dims every finished language until it is traced again, and a turn's end traces a dimmed language once, never Rust.
  */
-export const createCallPaths = (input: { app: AppSeam; events: Events; id: string; to: () => "tree" | "branch" | null; ready: () => boolean }) => {
+export const createCallPaths = (input: { app: AppSeam; events: Events; id: string; at: () => Reach | null; ready: () => boolean }) => {
   const [rows, setRows] = createSignal<readonly LanguageRow[]>([]);
   const [results, setResults] = createSignal<ReadonlyMap<string, Result>>(new Map());
   const [pending, setPending] = createSignal<ReadonlySet<string>>(new Set());
@@ -52,13 +52,13 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
 
   /** One `agent.callPaths` request; its answer counts only while the comparison is the one it was asked for. */
   const ask = async (language: string | undefined) => {
-    const to = input.to();
+    const at = untrack(input.at);
     const mine = generation;
     const reply: Reply = { answer: undefined };
 
-    if (!to) return undefined;
+    if (!at) return undefined;
 
-    const failure = await failureOf(async () => { reply.answer = await input.app.rpc("agent.callPaths", language === undefined ? { id: input.id, to } : { id: input.id, to, language }); });
+    const failure = await failureOf(async () => { reply.answer = await input.app.rpc("agent.callPaths", language === undefined ? { id: input.id, ...at } : { id: input.id, ...at, language }); });
 
     return mine === generation ? { failure, answer: reply.answer } : undefined;
   };
@@ -102,7 +102,7 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
     void start();
   };
 
-  let current: "tree" | "branch" | null | undefined;
+  let current: string | null | undefined;
   let begun = false;
 
   const begin = () => {
@@ -111,7 +111,7 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
   };
 
   // The lookup asks once for a comparison, when its listing is ready; another `to` is another comparison.
-  createEffect(() => ({ ready: input.ready(), to: input.to() }), ({ ready, to }) => {
+  createEffect(() => ({ ready: input.ready(), to: reachKey(input.at()) }), ({ ready, to }) => {
     if (to !== current) {
       current = to;
       begun = false;
@@ -160,7 +160,7 @@ export const createCallPaths = (input: { app: AppSeam; events: Events; id: strin
       clear();
       begun = false;
 
-      if (untrack(input.ready) && untrack(input.to)) begin();
+      if (untrack(input.ready) && untrack(input.at)) begin();
     },
   };
 };
