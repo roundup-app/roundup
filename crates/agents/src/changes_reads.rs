@@ -19,32 +19,14 @@ impl Agents {
         Ok(contracts::agent::OwnedChanges { groups })
     }
 
-    /// LH25: the folder of a Rail node: its Worktree record, else the linked git worktree of its
-    /// newest recorded write, else the Project folder.
+    /// LH25: the folder of a Rail node.
     pub(super) async fn dir_of(&self, id: &str) -> Result<String, RpcError> {
-        if let Some(worktree) = self.shared.node(id)?.worktree() {
-            return Ok(worktree.path);
-        }
-        let edits = self.recorded_edits(id)?;
-        let git = self.shared.git.bounded();
-        let newest = tokio::task::spawn_blocking(move || git.newest_checkout(&edits))
-            .await
-            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?;
-        Ok(newest
-            .unwrap_or_else(|| self.project_dir().to_path_buf())
-            .to_string_lossy()
-            .into_owned())
+        self.shared.dir_of(id).await
     }
 
     /// The absolute paths the Agent's file-writing tool calls recorded.
     pub(super) fn recorded_edits(&self, id: &str) -> Result<Vec<String>, RpcError> {
-        self.shared.node(id)?;
-        Ok(self
-            .shared
-            .runs()
-            .agent(id)
-            .map(|agent| agent.facts.edits.clone())
-            .unwrap_or_default())
+        self.shared.recorded_edits(id)
     }
 
     /// U2540a: read one comparison within the assigned Worktree, or (U7853a) within the checkout
@@ -77,5 +59,33 @@ impl Agents {
             }
         };
         read.map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
+    }
+}
+
+impl Shared {
+    /// LH25: the folder of a Rail node: its Worktree record, else the linked git worktree of its
+    /// newest recorded write, else the Project folder.
+    pub(crate) async fn dir_of(&self, id: &str) -> Result<String, RpcError> {
+        if let Some(worktree) = self.node(id)?.worktree() {
+            return Ok(worktree.path);
+        }
+        let edits = self.recorded_edits(id)?;
+        let git = self.git.bounded();
+        let newest = tokio::task::spawn_blocking(move || git.newest_checkout(&edits))
+            .await
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?;
+        Ok(newest
+            .unwrap_or_else(|| self.project_dir.clone())
+            .to_string_lossy()
+            .into_owned())
+    }
+
+    pub(crate) fn recorded_edits(&self, id: &str) -> Result<Vec<String>, RpcError> {
+        self.node(id)?;
+        Ok(self
+            .runs()
+            .agent(id)
+            .map(|agent| agent.facts.edits.clone())
+            .unwrap_or_default())
     }
 }

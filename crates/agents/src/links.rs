@@ -109,7 +109,15 @@ impl Shared {
                 return;
             };
             let last = shared.events.links.get(&id);
-            match claude_code::links::answer(&*shared.events.links_model, &text, &last).await {
+            let dir = shared.dir_of(&id).await.ok().map(PathBuf::from);
+            match claude_code::links::answer(
+                &*shared.events.links_model,
+                &text,
+                &last,
+                dir.as_deref(),
+            )
+            .await
+            {
                 Ok(None) => {}
                 Ok(Some(set)) => {
                     shared
