@@ -108,12 +108,13 @@ async fn u7951a_a_restart_before_session_start_still_bounds_the_first_prompt() {
     let second = start(project, &clock).await;
     second.daemon.reattach_owners().await.unwrap();
 
+    let mut tick = tokio::time::interval(Duration::from_millis(50));
     let mut delivery = first_delivery(&second, &child).await;
     for _ in 0..100 {
         if delivery["state"] == "uncertain" {
             break;
         }
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tick.tick().await;
         delivery = first_delivery(&second, &child).await;
     }
     assert_eq!(delivery["state"], "uncertain");
