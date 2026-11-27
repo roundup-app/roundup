@@ -1,1 +1,0 @@
-let writes = Promise.resolve(); writes = writes.then(a).catch(b);

@@ -1,1 +1,0 @@
-const [a, setA] = createSignal(0); createEffect(on(key, () => setA(0)));
