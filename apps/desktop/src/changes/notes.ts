@@ -298,10 +298,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const retain = async (id: string, value: Recipient) => {
     const empty = !value.notes.length && !value.forms.length && !value.submissions.length && !value.recovered.length;
 
-    const next = new Map(recipients());
-
-    if (empty) next.delete(id); else next.set(id, value);
-    holdRecipients(next);
+    holdRecipients(empty ? new Map([...recipients()].filter(([key]) => key !== id)) : new Map(recipients()).set(id, value));
 
     // Invalid records are recoverable evidence, never overwritten by a fresh edit.
     if (invalid.size) return;
