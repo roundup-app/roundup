@@ -1,0 +1,20 @@
+# UI: a failure the user did not start shows nothing (U8004a to U8004d)
+
+Module: `apps/desktop` (the webview). Ids: U8004a–U8004d.
+
+Work order: [#8004](https://github.com/roundup-app/roundup/issues/8004). Owner, 2026-11-27: "I hate these useless errors about things I didn't do or notice". Work the user started is a key, click, drag or paste the user made, including a Retry the user pressed; anything the App or a program starts on its own is not. This extends U7314a to U7314h (`ui-failure-toasts.md`) and changes the failure clause of Z3788a's OSC 52 row (`app-libraries.md`).
+
+Policy: webview only; no App command, Daemon method or contract change. The log is the App log through `tauri-plugin-log`, already a dependency of `crates/desktop`; the webview reaches it through the plugin's JavaScript `error` function or an equivalent the build run records on the Issue. The Issue's "Find why the pasteboard write returned false" is an investigation the build run settles and names in its PR body: an OSC 52 write of empty text skips the clipboard; if another roundup input caused the failed write, that input is fixed; if macOS refused a valid write, nothing more changes.
+
+**U8004a a failure of work the user did not start shows nothing.** Given a fake App whose clipboard write fails with `Unknown error while interacting with the clipboard: NSPasteboard#writeObjects: returned false`, when a Terminal program writes to the clipboard through OSC 52, or any other producer the audit (U8004d) classes as not user-started fails (a background read, an automatic retry, a stream that restarts on its own), then no notice, no `role="alert"` element, no dot, badge or bar on any row or tab and no tooltip shows, the Terminal's `clipboard` failure slot stays empty, and the App log gets one line holding the raw cause. A failed OSC 52 write of empty text never reaches the clipboard and logs nothing. Test: `u8004a_a_program_clipboard_write_failure_only_logs` in `apps/desktop/src/terminal/`.
+
+**U8004b a failure of work the user started says what failed and one step.** Given the same failing clipboard, when the user presses `⌘C` on a selection, then one alert shows, its text names the copy in plain words with one step the user can take, it holds no platform internals (no `NSPasteboard`, no `writeObjects`), and the App log gets the raw cause. The same holds for a Copy button, a paste, a drop and opening a link: each failure names that action. Test: `u8004b_a_user_copy_failure_is_plain_and_logged` in `apps/desktop/src/terminal/`.
+
+**U8004c no notice carries a tooltip that repeats its own text.** Given any failure notice, then it has no `title` or tooltip whose text equals the notice's text. Policy: the notice's own text and Dismiss carry it. Test: `u8004c_no_notice_repeats_itself_in_a_tooltip` in `apps/desktop/src/terminal/`, rendering the Terminal's notice with the U8004b failure.
+
+**U8004d every producer says whether the user started it.** Given every producer of a failure notice in `apps/desktop/src` (the Terminal failure slots set with `failures.set` in `terminal/`, the toast queue in `toasts/`, and each `role="alert"` element), then each is classed started by the user or not in the PR body, and a producer carries that class as a required field, so the type check fails a new producer that omits it. A producer not started by the user routes to the log only (U8004a); the copy of each user-started producer that showed platform internals is plain (U8004b). Policy: no new settings toggle for notices, and no failure is dropped without a log line. Test: the type check over a required `started` field on the failure notice, plus `u8004d_a_failure_without_a_user_start_logs_and_shows_nothing` in `apps/desktop/src/toasts/`.
+
+Checks on `origin/main` (regression anchors, not evidence that these clauses pass):
+
+1. `apps/desktop/src/terminal/u102_emulator.test.ts`: the OSC 52 copy reaches the App clipboard once.
+2. `apps/desktop/src/ink/u7314h_no_failure_renders_outside_a_toast.test.tsx`: no failure renders outside a toast.
