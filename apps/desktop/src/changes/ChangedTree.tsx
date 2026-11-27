@@ -202,7 +202,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
         <Name text={module().label ?? leafOf(module())} stale={module().read?.stale} />
         <Show when={module().function}>{name => <span class="changes-row-function">{name()}</span>}</Show>
         <Show when={props.selected === moduleKey(module().name) && module().counted}><Counts added={module().added} removed={module().removed} /></Show>
-        <Show when={module().counted}><span class="changes-row-bar" aria-hidden="true"><span class="changes-row-added" style={`inline-size:${share(module().added)}%`} /><span class="changes-row-removed" style={`inline-size:${share(module().removed)}%`} /></span></Show>
+        <Show when={module().counted}><span class="changes-row-bar" aria-hidden="true"><span class="changes-row-added" style={{ "inline-size": `${share(module().added)}%` }} /><span class="changes-row-removed" style={{ "inline-size": `${share(module().removed)}%` }} /></span></Show>
         <Show when={signalOf(module())}>{signal => <Show when={signal() === "risk" ? module().risk : undefined} fallback={<span class="changes-row-dot" data-signal={signal()} aria-hidden="true" />}>{risk => <RiskMark risk={risk()} />}</Show>}</Show>
       </TreeItem>
       <Show when={open(moduleKey(module().name))}>

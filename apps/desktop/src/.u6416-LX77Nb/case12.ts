@@ -1,0 +1,1 @@
+const [a, setA] = createSignal(0); createEffect(on(key, (value, previous) => { if (previous) setA(0); }));

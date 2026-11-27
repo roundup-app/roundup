@@ -1,0 +1,1 @@
+let latest = 5; const total = latest + 1;

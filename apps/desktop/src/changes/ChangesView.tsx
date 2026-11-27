@@ -160,6 +160,22 @@ const placesOf = (memory: Memory, at: (key: string) => string) => ({
 });
 
 /** A pane's `lens` is the one its item was opened in, and none for a noise file, the same diff in every lens. The Overview is a pane and holds no scroll. */
+/** U8009c: each tab with the items its lens lists, the Overview and the noise rows not counted; the segments stay the same objects and their label follows the count, so a count changing never remounts a tab. */
+const lensSegmentsOf = (props: { countOf: (lens: Lens) => number }) => LENSES.map(value => {
+  const count = createMemo(() => props.countOf(value));
+
+  return { value, get label() { return copy.tabCount(copy.lenses[value], count()); }, content: <>{copy.lenses[value]} <span class="changes-tab-count">{count()}</span></> };
+});
+
+const LensTabs = (props: { countOf: (lens: Lens) => number; lens: Lens; onSwitch: (lens: Lens) => void }) => {
+  const segments = lensSegmentsOf(props);
+
+  return <>
+    <SegmentGroup label={copy.lens} segments={segments} value={props.lens} onValueChange={props.onSwitch} />
+    <p class="changes-lens-line">{copy.lensLines[props.lens]}</p>
+  </>;
+};
+
 /** U7679a: a place's key in the memory: by lens for a file and a module's scroll, plain for a noise file, the same in every lens. */
 const placeAt = (each: Lens) => (key: string) => key.startsWith("n:") || noiseOf(key) !== undefined ? key : `${each}|${key}`;
 
@@ -366,13 +382,6 @@ const Surface = (props: { id: string; name: string }) => {
 
   const listing = () => lensed()(lens());
 
-  /** U8009c: each tab with the items its lens lists, the Overview and the noise rows not counted; the segments stay the same objects and their label follows the count, so a count changing never remounts a tab. */
-  const lensSegments = LENSES.map(value => {
-    const count = createMemo(() => lensed()(value).modules.length);
-
-    return { value, get label() { return copy.tabCount(copy.lenses[value], count()); }, content: <>{copy.lenses[value]} <span class="changes-tab-count">{count()}</span></> };
-  });
-
   // U7678a, U7679c: the rows that open something, in list order: the Overview, each module, then each noise file; none with no file listed.
   const rowsOf = (each: Grouped) => files().length === 0 ? [] : [OVERVIEW, ...each.modules.map(module => moduleKey(module.name)), ...each.noise.flatMap(noise => noise.files.map(file => noiseKey(file.path)))];
 
@@ -544,8 +553,7 @@ const Surface = (props: { id: string; name: string }) => {
           </ul>
         </Show>
         <Show when={files().length > 0}>
-          <SegmentGroup label={copy.lens} segments={lensSegments} value={lens()} onValueChange={switchLens} />
-          <p class="changes-lens-line">{copy.lensLines[lens()]}</p>
+          <LensTabs countOf={each => lensed()(each).modules.length} lens={lens()} onSwitch={switchLens} />
           <Show when={lens() === "flows"}><FlowStates calls={calls} readback={readback} /></Show>
           <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
