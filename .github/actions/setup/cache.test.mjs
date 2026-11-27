@@ -180,3 +180,41 @@ exit 0
   assert.equal(calls, '4');
   assert.match(log, /503/);
 });
+
+test('test_ci7615b_apt_steps_read_no_microsoft_source', async () => {
+  const steps = parse(readFileSync(new URL('./action.yml', import.meta.url), 'utf8')).runs.steps;
+
+  for (const name of ['Start tracer packages', 'Start Tauri packages']) {
+    const dir = mkdtempSync(join(tmpdir(), 'ci7615b-'));
+    const apt = join(dir, 'apt');
+    const bin = join(dir, 'bin');
+    execFileSync('mkdir', ['-p', bin, join(apt, 'sources.list.d')]);
+    writeFileSync(join(bin, 'sudo'), '#!/bin/bash\nexec "$@"\n', { mode: 0o755 });
+    writeFileSync(join(bin, 'setsid'), '#!/bin/bash\nexec "$@"\n', { mode: 0o755 });
+    writeFileSync(join(bin, 'apt-get'), `#!/bin/bash
+if [ "$1" = update ]; then cat "$APT_ETC"/sources.list "$APT_ETC"/sources.list.d/* >"$RUNNER_TEMP/seen"; fi
+exit 0
+`, { mode: 0o755 });
+    const ubuntu = 'deb http://archive.ubuntu.com/ubuntu noble main\n';
+    writeFileSync(join(apt, 'sources.list'), `${ubuntu}deb [arch=amd64] https://packages.microsoft.com/ubuntu/24.04/prod noble main\n`);
+    writeFileSync(join(apt, 'sources.list.d', 'ubuntu.sources'), 'Types: deb\nURIs: http://azure.archive.ubuntu.com/ubuntu\nSuites: noble\n');
+    writeFileSync(join(apt, 'sources.list.d', 'any-name.list'), 'deb https://packages.microsoft.com/repos/azure-cli noble main\n');
+    writeFileSync(join(apt, 'sources.list.d', 'ms.sources'), 'Types: deb\nURIs: https://packages.microsoft.com/ubuntu/24.04/prod\nSuites: noble\n\nTypes: deb\nURIs: http://archive.ubuntu.com/mixed\nSuites: noble\n');
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, HOME: dir, RUNNER_TEMP: dir, APT_ETC: apt };
+
+    try {
+      execFileSync('bash', ['-c', steps.find(s => s.name === name).run], { env });
+      const status = join(dir, name.includes('tracer') ? 'tracer.status' : 'apt.status');
+
+      for (let i = 0; i < 100 && !(existsSync(status) && readFileSync(status, 'utf8').trim()); i++) await new Promise(r => setTimeout(r, 50));
+
+      const seen = readFileSync(join(dir, 'seen'), 'utf8');
+      assert.doesNotMatch(seen, /packages\.microsoft\.com/, name);
+      assert.match(seen, /archive\.ubuntu\.com\/ubuntu noble main/, name);
+      assert.match(seen, /azure\.archive\.ubuntu\.com/, name);
+      assert.match(seen, /archive\.ubuntu\.com\/mixed/, name);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
