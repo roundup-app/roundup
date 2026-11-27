@@ -40,7 +40,7 @@ describe("u179 the header is the strip", () => {
     expect(tab("web").getAttribute("aria-selected")).toBe("true");
     expect(tab("api").getAttribute("aria-selected")).toBe("false");
     expect(within(tab("api")).getByRole("img").getAttribute("aria-label")).toBe("Needs you");
-    expect(within(tab("web")).queryByRole("img")).toBeNull();
+    expect(within(tab("web")).getByRole("img").getAttribute("aria-label")).toBe("Error");
   });
 
   it("u179_a_tab_shows_nothing_else_until_hover", async () => {

@@ -230,6 +230,33 @@ impl Rail {
         ).optional()?)
     }
 
+    /// U7951a: keep the start time of a first delivery with it, so a restart re-arms its bound from there.
+    pub(super) fn stamp_instruction(
+        &mut self,
+        delivery: &str,
+        started: i64,
+    ) -> Result<(), StoreError> {
+        self.db.execute(
+            "UPDATE instruction_deliveries SET started=? WHERE id=?",
+            params![started, delivery],
+        )?;
+        Ok(())
+    }
+
+    /// U7951a: every first delivery still `prepared`, as Rail id, Attempt and start time.
+    pub(super) fn prepared_first_instructions(
+        &self,
+    ) -> Result<Vec<(String, String, i64)>, StoreError> {
+        let mut query = self.db.prepare(
+            "SELECT r.agent,d.attempt,d.started FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision
+             WHERE d.first=1 AND d.state='prepared' AND d.started IS NOT NULL ORDER BY d.id",
+        )?;
+        let rows = query
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
     /// U7946a: past `FIRST_PROMPT_BOUND` a first delivery still `prepared` has no receipt, so it is
     /// `uncertain` with `cause`; the inbox write still lands on a late `SessionStart`, and its
     /// receipt makes the delivery `submitted` and clears the cause. Returns whether it changed.

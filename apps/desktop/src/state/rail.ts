@@ -36,7 +36,9 @@ const isTerminal = (item: RailNode | TerminalInfo): item is TerminalInfo => "inc
 const failureKey = (item: RailNode | TerminalInfo): string | null => {
   if (isTerminal(item)) return item.status ? `terminal:${item.incarnation}:${item.status.since}` : null;
 
-  return isDoor(item) && (item.status?.kind === "error" || item.status?.kind === "needs-you") && item.attempt !== null && item.status_revision !== null ? `${item.id}:${item.attempt}:${item.status_revision}` : null;
+  if (!isDoor(item) || (item.status?.kind !== "error" && item.status?.kind !== "needs-you")) return null;
+
+  return `${item.id}:${item.attempt ?? item.status.since}:${item.status_revision ?? item.status.since}`;
 };
 
 export type DismissalStorage = {

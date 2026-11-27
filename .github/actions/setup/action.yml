@@ -57,8 +57,9 @@ runs:
       shell: bash
       run: |
         mkdir -p "$HOME/apt-archives/partial"
+        # CI7615b: the runner image lists Microsoft's repository, which no package below comes from, and one source that answers 403 fails `apt-get update` for all of them.
         # CI7615a: a mirror's 503 or stall fails one attempt, not the lane: each attempt gets 3 min, and the next resumes the partial downloads.
-        setsid sudo bash -c 'for attempt in 1 2 3 4; do timeout 180 bash -c "apt-get update -qq && apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o DPkg::Lock::Timeout=300 -o Dir::Cache::archives=$1 bpftrace libfuse3-dev fuse3 pkg-config" && break; done; echo $? >"$2"' _ "$HOME/apt-archives" "$RUNNER_TEMP/tracer.status" >"$RUNNER_TEMP/tracer.log" 2>&1 </dev/null &
+        setsid sudo bash -c 'e=${APT_ETC:-/etc/apt}; for f in $e/sources.list $e/sources.list.d/*.list; do [ -f $f ] && sed -i /packages[.]microsoft[.]com/d $f; done; for f in $e/sources.list.d/*.sources; do [ -f $f ] && awk -v RS= -v ORS="\n\n" "!/packages[.]microsoft[.]com/" $f >$f.new && mv $f.new $f; done; for attempt in 1 2 3 4; do timeout 180 bash -c "apt-get update -qq && apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o DPkg::Lock::Timeout=300 -o Dir::Cache::archives=$1 bpftrace libfuse3-dev fuse3 pkg-config" && break; done; echo $? >"$2"' _ "$HOME/apt-archives" "$RUNNER_TEMP/tracer.status" >"$RUNNER_TEMP/tracer.log" 2>&1 </dev/null &
     - if: runner.environment == 'self-hosted'
       name: Verify prepared boxd toolchain
       shell: bash
@@ -91,9 +92,10 @@ runs:
       shell: bash
       run: |
         mkdir -p "$HOME/apt-archives/partial"
+        # CI7615b: the runner image lists Microsoft's repository, which no package below comes from, and one source that answers 403 fails `apt-get update` for all of them.
         # A mirror that crawls at 40 kB/s (26 min for these packages) is not a stall `Acquire::http::Timeout` catches: each
         # attempt gets 3 min, and the next resumes the partial downloads, usually from a faster mirror connection.
-        setsid sudo bash -c 'for attempt in 1 2 3 4; do timeout 180 bash -c "apt-get update && apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Dir::Cache::archives=$1 libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq" && break; done; echo $? >"$2"' _ "$HOME/apt-archives" "$RUNNER_TEMP/apt.status" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
+        setsid sudo bash -c 'e=${APT_ETC:-/etc/apt}; for f in $e/sources.list $e/sources.list.d/*.list; do [ -f $f ] && sed -i /packages[.]microsoft[.]com/d $f; done; for f in $e/sources.list.d/*.sources; do [ -f $f ] && awk -v RS= -v ORS="\n\n" "!/packages[.]microsoft[.]com/" $f >$f.new && mv $f.new $f; done; for attempt in 1 2 3 4; do timeout 180 bash -c "apt-get update && apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Dir::Cache::archives=$1 libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq" && break; done; echo $? >"$2"' _ "$HOME/apt-archives" "$RUNNER_TEMP/apt.status" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
     # CI5330e/f: run 41421700034 grew target from 12 GB to 37 GB and filled rust 3's 72 GB disk compiling a32_removed.
     # Omit debug symbols from both runtime and test builds; debug assertions, overflow checks and test selection stay
     # enabled. Every Linux job that restores the Rust cache sets the same values before it, since its key hashes them, so

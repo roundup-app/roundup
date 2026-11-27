@@ -550,7 +550,8 @@ impl Agents {
             if let (Some(text), Some(revision)) =
                 (&prompt, rail.order_revision(crate::rail::agent_id(id)?)?)
             {
-                rail.prepare_instruction(&revision, attempt, text, true)?;
+                let delivery = rail.prepare_instruction(&revision, attempt, text, true)?;
+                rail.stamp_instruction(&delivery, (self.shared.clock)())?;
             }
             (node, prompt)
         };
@@ -610,7 +611,8 @@ impl Agents {
                 return Err(err);
             }
         };
-        self.shared.bound_first_prompt(id, attempt);
+        self.shared
+            .bound_first_prompt(id, attempt, (self.shared.clock)());
         for prompt in prompts {
             self.shared.steer_first_prompt(id, attempt, prompt);
         }

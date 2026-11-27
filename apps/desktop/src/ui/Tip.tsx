@@ -73,6 +73,8 @@ export const Tip = (props: TipKind & {
   text?: string | undefined;
   content?: JSX.Element;
   cut?: () => boolean;
+  /** The text mounts only while the tooltip is open, so a trigger inside a named control (a tab) leaves that control's name and text as they were. */
+  lazy?: boolean;
   class?: string;
   chord?: Chord | undefined;
   disabled?: boolean;
@@ -100,7 +102,7 @@ export const Tip = (props: TipKind & {
 
       return props.children(own => own ? withOwn(trigger, own) : trigger, merge(focusProps(trigger), { onFocusIn: Tooltip.useEnclosingFocusIn() }));
     }} />
-    <Tooltip.Content side="right" align="start" class={props.class ?? (props.content !== undefined ? "ink-tip" : undefined)} chord={props.chord}>{props.content ?? props.text}</Tooltip.Content>
+    <Tooltip.Content side="right" align="start" class={props.class ?? (props.content !== undefined ? "ink-tip" : undefined)} chord={props.chord}>{props.lazy && !open() ? null : props.content ?? props.text}</Tooltip.Content>
   </Tooltip.Root>
   );
 };

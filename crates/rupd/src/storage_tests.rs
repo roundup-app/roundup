@@ -219,7 +219,10 @@ async fn n16_all_stores_share_one_project_database() {
     agents::schema::open(&mut retention, Path::new("agents")).unwrap();
     // U7946a: the Project adds a delivery's `cause` by 0065, after the Message columns; replay that order.
     retention
-        .execute_batch("ALTER TABLE instruction_deliveries DROP COLUMN cause")
+        .execute_batch(
+            "ALTER TABLE instruction_deliveries DROP COLUMN cause;
+             ALTER TABLE instruction_deliveries DROP COLUMN started",
+        )
         .unwrap();
     retention
         .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
@@ -245,6 +248,11 @@ async fn n16_all_stores_share_one_project_database() {
     retention
         .execute_batch(include_str!(
             "../../storage/migrations/project/0065-instruction-delivery-cause.sql"
+        ))
+        .unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../../storage/migrations/project/0066-instruction-delivery-started.sql"
         ))
         .unwrap();
     expected.extend(

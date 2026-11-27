@@ -234,7 +234,7 @@ fn lh17_the_log_keeps_its_last_200_lines() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("links.log");
     for n in 0..250 {
-        crate::links::append_log(&path, &format!("line {n}")).unwrap();
+        crate::links::append_log(&path, &format!("line {n}"), 200).unwrap();
     }
     let text = std::fs::read_to_string(&path).unwrap();
     let lines: Vec<&str> = text.lines().collect();
