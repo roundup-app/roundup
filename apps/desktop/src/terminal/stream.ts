@@ -112,7 +112,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
       }
 
       if (chunk.offset > stream.after) {
-        void restore(id, holder, stream);
+        void restore(id, holder, stream, false);
 
         return;
       }
@@ -153,7 +153,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
         if (!(thrown instanceof Error)) throw thrown;
 
         stream.parsing = false;
-        failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message), { started: true });
+        failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message), { started: false });
       }
 
       if (stream.parsing) return;
@@ -200,11 +200,11 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     if (agent && rail.shouldAcknowledgeAlerts() && rail.selected() === agent.id) acknowledge(agent.id);
   };
 
-  const restoreFailed = (id: string, holder: H, stream: Stream, thrown: Error): void => {
+  const restoreFailed = (id: string, holder: H, stream: Stream, thrown: Error, started: boolean): void => {
     failures.set(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), {
-      started: true,
+      started,
       retry: () => {
-        if (isOpen(stream) && !stream.restoring) void restore(id, holder, stream);
+        if (isOpen(stream) && !stream.restoring) void restore(id, holder, stream, true);
       },
     });
 
@@ -215,7 +215,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     if (!holder.complete) drain(id, holder, stream);
   };
 
-  const restore = async (id: string, holder: H, stream: Stream): Promise<void> => {
+  const restore = async (id: string, holder: H, stream: Stream, started: boolean): Promise<void> => {
     if (stream.restoring || !isOpen(stream)) return;
 
     stream.restoring = true;
@@ -230,7 +230,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      if (isOpen(stream)) restoreFailed(id, holder, stream, thrown);
+      if (isOpen(stream)) restoreFailed(id, holder, stream, thrown, started);
 
       return;
     }
@@ -239,7 +239,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
 
     if (stream.lost) {
       stream.lost = false;
-      void restore(id, holder, stream);
+      void restore(id, holder, stream, false);
     } else {
       drain(id, holder, stream);
     }
@@ -250,7 +250,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
 
     if (stream.lost && !stream.restoring) {
       stream.lost = false;
-      void restore(id, holder, stream);
+      void restore(id, holder, stream, false);
     } else {
       drain(id, holder, stream);
     }
@@ -310,7 +310,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
       });
     }
 
-    if (isOpen(stream)) void restore(id, holder, stream);
+    if (isOpen(stream)) void restore(id, holder, stream, true);
   };
 
   return { drain, restore, settle, receive, attach };

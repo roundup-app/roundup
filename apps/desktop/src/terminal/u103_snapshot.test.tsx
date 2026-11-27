@@ -219,7 +219,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "S", "reset", "size 100x30", "COMPLETE"]));
   });
 
-  it("u103_a_failed_gap_recovery_preserves_the_last_complete_screen_and_shows_one_failure_line", async () => {
+  it("u103_a_failed_gap_recovery_preserves_the_last_complete_screen_and_shows_nothing", async () => {
     const { app, pending, snapshots, log } = await mount();
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
@@ -230,9 +230,9 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
     await exhaust(pending, 1, "recovery failed");
 
-    expect((await screen.findByRole("alert", { name: /recovery failed/ })).tagName).toBe("P");
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(2 + READ_ATTEMPTS - 1));
+    expect(notices("alert")).toHaveLength(0);
     expect(log()).toEqual(["size 100x30", "complete"]);
-    expect(notices("alert")[0]!.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_output_overlapping_the_recovery_cut_writes_only_the_remaining_bytes", async () => {
@@ -334,7 +334,7 @@ describe("u103 a reloaded pane shows the screen", () => {
   });
 
   it("u3791c_a_new_snapshot_failure_replaces_its_original_terminal_target", async () => {
-    const { app, connected, pending, snapshots, logOf } = await mount(
+    const { connected, pending, snapshots } = await mount(
       [node("a"), node("b")],
       [info("t-a"), info("t-b")],
     );
@@ -345,13 +345,7 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     connected.rail.select("b");
     await vi.waitFor(() => expect(snapshots()).toHaveLength(READ_ATTEMPTS + 1));
-    pending[READ_ATTEMPTS]?.(snapshotOf("B screen", 0));
-    await vi.waitFor(() => expect(logOf("t-b")).toContain("B screen"));
-    expect(notices("alert")).toHaveLength(0);
-
-    app.emitGap("t-b", 0, 50);
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(READ_ATTEMPTS + 2));
-    await exhaust(pending, READ_ATTEMPTS + 1, "B failed");
+    await exhaust(pending, READ_ATTEMPTS, "B failed");
     await screen.findByRole("alert", { name: /B failed/ });
 
     connected.rail.select("a");
