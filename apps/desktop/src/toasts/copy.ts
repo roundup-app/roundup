@@ -11,5 +11,6 @@ export const copy = {
   roundup: sharedCopy.roundup,
   herdrCore: sharedCopy.herdrCore,
   updateReady: "is ready",
+  /** @prose */
   unstartedLog: "Message of work the user did not start",
 } as const;
