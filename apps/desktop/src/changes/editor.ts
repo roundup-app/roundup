@@ -30,6 +30,7 @@ export const createEditor = (app: ReturnType<typeof useConnectedProject>["app"],
   };
 
   createMessageToasts(() => [...failures().keys()], key => ({
+    started: true,
     get message() {
       const error = failures().get(key);
 

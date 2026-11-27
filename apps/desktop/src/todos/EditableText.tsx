@@ -84,6 +84,7 @@ export const useTodoDraftFailure = (object: () => string, active: () => boolean,
   const problemLine = dismissable(() => problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null);
 
   createMessageToast({
+    started: true,
     get message() { return failure() ?? problemLine.message(); },
     dismiss: () => failure() ? setFailure(null) : problemLine.dismiss(),
     get recover() { return problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined; },
@@ -450,7 +451,7 @@ export const EditableText = (props: {
   };
 
   // U7310d: a failed save shows as a toast.
-  createMessageToast({ get message() { return retentionFailure() || (!props.onFailure && failure()); }, dismiss: () => retentionFailure() ? setRetentionFailure(null) : setFailure(null) });
+  createMessageToast({ started: true, get message() { return retentionFailure() || (!props.onFailure && failure()); }, dismiss: () => retentionFailure() ? setRetentionFailure(null) : setFailure(null) });
 
   return (
     <div class="todo-editable" ref={container}>

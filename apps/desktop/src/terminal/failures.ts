@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { logFailure } from "../app/log";
 import { coreFailureText } from "../coreFailure";
 
 type FailureEntry = { message: string; order: number; retry: (() => void) | null };
@@ -19,14 +20,19 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
   );
 };
 
+/** `started`: a key, click, drag or paste the user made, a Retry they pressed included; anything the App or a program starts on its own is not. */
+export type FailureOrigin = { started: boolean; retry?: (() => void) | null };
+
 export type Failures = {
-  set(id: string, kind: FailureKind, message: string | null, retry?: (() => void) | null): void;
+  /** U8004d: a failure says whether the user started the work; one the user did not start goes to the App log and shows nothing. */
+  set(id: string, kind: FailureKind, message: null): void;
+  set(id: string, kind: FailureKind, message: string, origin: FailureOrigin): void;
   /** The failure `failure(id)` shows, with the Terminal that owns it: that of `id`, or with no `id` the newest of any Terminal. */
   shown(id: string | null): { id: string; entry: FailureEntry } | null;
   /** P3557c: the user dismisses the shown failure of `id`; an older failure of that Terminal then shows. */
   dismiss(id: string | null): void;
   /** Awaits a Terminal's call: success clears its `live` failure, an error becomes it. */
-  attempt(id: string, call: Promise<unknown>): Promise<boolean>;
+  attempt(id: string, call: Promise<unknown>, started: boolean): Promise<boolean>;
 };
 
 /** U6249b, P3557c: each Terminal's failures. One stays until a later success or a dismiss. */
@@ -34,7 +40,15 @@ export const createFailures = (): Failures => {
   const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
   let order = 0;
 
-  const set: Failures["set"] = (id, kind, message, retry = null) => {
+  const set = (id: string, kind: FailureKind, message: string | null, origin?: FailureOrigin): void => {
+    if (message !== null && origin?.started !== true) {
+      logFailure(`Terminal ${kind} failed without a user start`, message);
+
+      return;
+    }
+
+    const retry = origin?.retry ?? null;
+
     setFailures((current) => {
       const previous = current.get(id) ?? { snapshot: null, live: null, output: null, clipboard: null, link: null };
 
@@ -83,7 +97,7 @@ export const createFailures = (): Failures => {
     return latest;
   };
 
-  const attempt: Failures["attempt"] = async (id, call) => {
+  const attempt: Failures["attempt"] = async (id, call, started) => {
     try {
       await call;
 
@@ -93,7 +107,7 @@ export const createFailures = (): Failures => {
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      set(id, "live", thrown.message);
+      set(id, "live", thrown.message, { started });
 
       return false;
     }
@@ -101,7 +115,8 @@ export const createFailures = (): Failures => {
 
   return {
     attempt,
-    set,
+    // SAFETY: `set` takes the same arguments as both overloads of `Failures["set"]`; its `origin` is checked at a call that passes a message.
+    set: set as Failures["set"],
     shown,
     dismiss: (id) => {
       const top = shown(id);

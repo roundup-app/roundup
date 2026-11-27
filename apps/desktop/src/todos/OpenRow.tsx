@@ -126,7 +126,7 @@ export const OpenRow = (props: {
 
   const clearFailure = () => { setFailure(null); setMoveFailure(null); };
 
-  createMessageToast({ get message() { return failure(); }, dismiss: clearFailure, get content() { return failedAction() && actionFailure() && !moveFailure() ? failedLabel(failedAction() ?? "", failure()) : undefined; } });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: clearFailure, get content() { return failedAction() && actionFailure() && !moveFailure() ? failedLabel(failedAction() ?? "", failure()) : undefined; } });
 
   createEffect(createMemo(() => props.todo.id), clearFailure);
   onCleanup(connected.events.subscribe(event => {

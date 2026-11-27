@@ -35,7 +35,7 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
   const step = () => terminal() ? statusText(terminal()!.status!) : node()!.status?.label;
   const failure = () => props.actions.failure(props.row);
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => props.actions.dismiss(props.row) });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => props.actions.dismiss(props.row) });
 
   const act = (label: string, click: () => void, primary = false) =>
     <button type="button" data-button={primary ? "primary" : "quiet"} class="word" aria-describedby={name} disabled={props.actions.busy(props.row)} onClick={click}>{label}</button>;

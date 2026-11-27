@@ -4,7 +4,10 @@ import { ErrorLine } from "./ErrorLine";
 import { RecoveryButtons, type Dismissible } from "./recovery";
 
 /** U7310d: a message card has no time; `closed` answers the user closing the card. */
-export type MessageCard = { id: string; body: () => JSX.Element; closed: () => void };
+export type MessageCard = { id: string; body: () => JSX.Element; closed: () => void; started: boolean };
+
+/** U8004d: whether the user started the work that failed (a key, click, drag or paste they made, a Retry they pressed included); a message of work they did not start goes to the App log and shows nothing. */
+export type Started = { started: boolean };
 
 /** U7310d: what a view needs of the App's Toast queue: it shows a card, and the returned call takes the card down. */
 export type MessageQueue = { message(card: MessageCard): () => void; /** U7471a: text a view's failure starts with when the card shows; empty when the view's Project is shown. */ origin?: () => string };
@@ -20,9 +23,8 @@ type FailureLine = Dismissible & { message: string | null | false | undefined; c
 
 /** U7314h: a card's body: the whole message as its title, the line's text and its Retry and Dismiss. */
 export const MessageBody = (props: FailureLine) => (
-  // The card is the only place a message wraps whole; its title holds the lines the text cuts.
-  // oxlint-disable-next-line anti-slop/no-tooltip-bypass
-  <div class={`message-body${props.class ? ` ${props.class}` : ""}`} title={props.message || undefined}>
+  // U8004c: the card wraps the message whole, so no title repeats it.
+  <div class={`message-body${props.class ? ` ${props.class}` : ""}`}>
     <Show when={props.message}>{message => <ErrorLine message={message()} content={props.content} notice={props.notice} />}</Show>
     <div class="message-actions">{props.action}<RecoveryButtons recover={props.recover} dismiss={props.dismiss} dismissIn={props.dismissIn} /></div>
   </div>
@@ -33,7 +35,7 @@ export const MessageBody = (props: FailureLine) => (
  * A failure stays until the user dismisses it or its cause clears; a status or notice stays in its view. A new message is a new card, and closing the card runs the line's `dismiss`.
  * Pass the line's changing parts as getters, as a component's props are.
  */
-export const createMessageToast = (line: FailureLine, queue: MessageQueue | null = useContext(ToastQueueContext)): void => {
+export const createMessageToast = (line: FailureLine & Started, queue: MessageQueue | null = useContext(ToastQueueContext)): void => {
   if (!queue) throw new Error("no toast region: a view showed a message outside the App's Toast queue");
 
   const id = createUniqueId();
@@ -53,14 +55,14 @@ export const createMessageToast = (line: FailureLine, queue: MessageQueue | null
   createEffect(text, shown => {
     if (!shown) return undefined;
 
-    const card: MessageCard = { id, body: () => body, closed: () => line.dismiss() };
+    const card: MessageCard = { id, body: () => body, closed: () => line.dismiss(), started: line.started };
 
     return queue.message(card);
   });
 };
 
 /** A toast per failure in a list, each living as long as its failure is in the list. Pass the queue where the caller sits above the App's Toast context. */
-export const createMessageToasts = <T,>(failures: () => readonly T[], line: (failure: T) => FailureLine, queue: MessageQueue | null = useContext(ToastQueueContext)): void => {
+export const createMessageToasts = <T,>(failures: () => readonly T[], line: (failure: T) => FailureLine & Started, queue: MessageQueue | null = useContext(ToastQueueContext)): void => {
   // The memo only keeps the mapping read, so each failure's toast lives and goes with it.
   const _toasts = createMemo(mapArray(failures, failure => createMessageToast(line(failure), queue)));
 };

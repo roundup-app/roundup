@@ -28,12 +28,14 @@ export const NamingSettings = (props: { app: App }) => {
   }, { loadingValue: null });
 
   createMessageToast({
+    started: true,
     get message() { return failure(); },
     dismiss: () => setFailure(null),
     get recover() { return settings() ? undefined : { run: () => refresh(settings), label: copy.storageRetry }; },
   });
 
   createMessageToast({
+    started: true,
     get message() { return draftLine.message(); },
     dismiss: draftLine.dismiss,
     recover: { run: () => drafts.retry(), label: copy.storageRetry },

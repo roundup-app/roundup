@@ -179,9 +179,9 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     </div>;
 
   // U7310d: the thread's failures show as toasts.
-  createMessageToast({ get message() { return failure(); }, dismiss: () => dismiss(loaded()), recover: { run: () => refetch(), label: copy.commentRetry } });
-  createMessageToast({ get message() { return sendFailure(); }, dismiss: () => setSendFailure(null) });
-  createMessageToast({ get message() { return copyFailure(); }, dismiss: () => setCopyFailure(null) });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => dismiss(loaded()), recover: { run: () => refetch(), label: copy.commentRetry } });
+  createMessageToast({ started: true, get message() { return sendFailure(); }, dismiss: () => setSendFailure(null) });
+  createMessageToast({ started: true, get message() { return copyFailure(); }, dismiss: () => setCopyFailure(null) });
 
   return <section class="todo-comments" aria-label={copy.activity} ref={section} onContextMenu={commentMenu}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>

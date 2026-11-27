@@ -659,7 +659,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
   });
 
   // U7310d: an editor that failed to load says so in a toast.
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => setFailure(null) });
 
   return (
     <>

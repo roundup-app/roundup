@@ -81,6 +81,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
   /** U7314b: the close or open failure shows as a toast; its Retry closes the same Bubble again, or runs `again`, the open's own retry. */
   const toastFailure = (line: { message: () => string | null; dismiss: () => void; again: () => (() => void | Promise<void>) | undefined }) => createMessageToast({
+    started: true,
     get message() { return line.message(); },
     dismiss: line.dismiss,
     get recover() {

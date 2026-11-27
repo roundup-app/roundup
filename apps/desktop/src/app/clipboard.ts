@@ -1,4 +1,5 @@
 import { copy } from "./copy";
+import { logFailure } from "./log";
 import { PASTED_IMAGE_TYPES } from "./seam";
 import type { App, PastedImage } from "./seam";
 
@@ -34,7 +35,10 @@ export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): P
 export const clipboardFailure = (verb: "copy" | "paste" | "drop", thrown: Error): string => {
   if (thrown.cause === unsupportedImage) return thrown.message;
 
+  // U8004b: the raw cause (platform internals) goes to the App log, the notice names the action and one step.
+  logFailure(`${verb} failed`, thrown);
+
   const retry = { copy: copy.clipboardCopyRetry, paste: copy.clipboardRetry, drop: copy.dropRetry }[verb];
 
-  return copy.failed(verb === "copy" ? copy.copy : copy.paste, `${thrown.message} — ${retry}`);
+  return copy.failed({ copy: copy.copy, paste: copy.paste, drop: copy.drop }[verb], retry);
 };

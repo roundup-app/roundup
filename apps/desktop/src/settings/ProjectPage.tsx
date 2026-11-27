@@ -80,8 +80,8 @@ export const ProjectPage = () => {
     return problem ? copy.draftRetention(copy.settingsProject, copy.workstreams, problem.cause) : null;
   });
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
-  createMessageToast({ get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return draftLine.message(); }, dismiss: draftLine.dismiss, recover: { run: () => drafts.retry(), label: copy.storageRetry } });
 
   const capField = () => markControl("workstreams", () => <label class="app-dialog-field">
       <span>{copy.runAtMost}</span>

@@ -119,7 +119,7 @@ export const Pads = () => {
   const failure = createFailure();
   const listNote = dismissable(() => list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null));
   const { itemFailure, setItemFailure, reportItemFailure, itemLabel } = createPadFailure(pads);
-  createMessageToast({
+  createMessageToast({ started: true,
     get message() { return itemFailure()?.message ?? failure.message() ?? listNote.message(); }, dismiss: () => itemFailure() ? setItemFailure(null) : failure.message() ? failure.clear() : listNote.dismiss(),
     get content() { return itemLabel(); }, get recover() { return retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined; },
     get action() { return <Show when={retentionProblem()}><NameRecovery app={connected.app} text={name()} failure={failure} label={nameLabel} discard={() => { forget(); setInvalid(false); }} /></Show>; },

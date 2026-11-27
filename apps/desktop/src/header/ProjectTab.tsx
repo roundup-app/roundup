@@ -172,6 +172,7 @@ export const ProjectTab = (props: {
   });
 
   createMessageToast({
+    started: true,
     get message() { return retention.message(); },
     dismiss: retention.dismiss,
     recover: { run: () => drafts?.retry(), label: copy.storageRetry },

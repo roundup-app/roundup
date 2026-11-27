@@ -1,4 +1,5 @@
 import { copy } from "./copy";
+import { logFailure } from "../app/log";
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 
@@ -20,6 +21,8 @@ const EXTENSION = /\.[A-Za-z][A-Za-z0-9]*$/;
 const LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;
 
 const NOT_FOUND = -32001;
+
+const REFUSED = -32002;
 
 type Parse = typeof import("tldts").parse;
 
@@ -108,6 +111,15 @@ const homesOf = (path: string, bases: readonly string[]): string[] => {
   return [...new Set([...bases.map((base) => absolutePath(path, base)), ...(relative ? [`~/${path}`] : [])])];
 };
 
+/** U8004b: the App's own refusal is plain; any other cause (platform internals) goes to the App log, and the notice names the link and one step. */
+const openFailure = (thrown: Error, printed: Printed): string => {
+  if (thrown instanceof RpcError && thrown.code === REFUSED) return thrown.message;
+
+  logFailure("open link failed", thrown);
+
+  return copy.openFailed(printed.kind === "url" ? printed.url : printed.path);
+};
+
 /**
  * U365b, U6249c4: opens a printed target through `openTarget`. A path is asked for against `bases` in order (the first is where it was printed: the Agent's Worktree or the Project folder), then the home folder; a bare domain that is missing opens as `https://` once, after the first miss.
  * Returns the failure line, or null: a path that exists nowhere is logged, not shown.
@@ -153,6 +165,6 @@ export const openPrinted = async (
   } catch (thrown) {
     if (!(thrown instanceof Error)) throw thrown;
 
-    return thrown.message;
+    return openFailure(thrown, printed);
   }
 };

@@ -91,7 +91,7 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
   }));
 
   // U7310d: a failed read or copy shows as a toast.
-  createMessageToast({ get message() { return copyFailure() ?? failure(); }, dismiss: () => { failCopy(null); dismiss(problem()); }, recover: { run: () => { history.refetch(); read.refetch(); }, label: copy.retryHistory } });
+  createMessageToast({ started: true, get message() { return copyFailure() ?? failure(); }, dismiss: () => { failCopy(null); dismiss(problem()); }, recover: { run: () => { history.refetch(); read.refetch(); }, label: copy.retryHistory } });
 
   return {
     changes: () => loaded()?.changes,

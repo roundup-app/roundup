@@ -18,9 +18,9 @@ export const ChooseProject = (props: { app: App; failure: string | null; onOpen:
   const recentLine = dismissable(() => recent()?.failure);
   const binaryLine = dismissable(() => binary() && !binary()!.value ? binary()!.failure ?? copy.claudeNotFound : null);
 
-  createMessageToast({ get message() { return failureLine.message(); }, dismiss: failureLine.dismiss, get recover() { return props.onRetry ? { run: props.onRetry } : undefined; } });
-  createMessageToast({ get message() { return recentLine.message(); }, dismiss: recentLine.dismiss, recover: { run: () => refresh(recent) } });
-  createMessageToast({ get message() { return binaryLine.message(); }, dismiss: binaryLine.dismiss, recover: { run: () => refresh(binary) } });
+  createMessageToast({ started: true, get message() { return failureLine.message(); }, dismiss: failureLine.dismiss, get recover() { return props.onRetry ? { run: props.onRetry } : undefined; } });
+  createMessageToast({ started: true, get message() { return recentLine.message(); }, dismiss: recentLine.dismiss, recover: { run: () => refresh(recent) } });
+  createMessageToast({ started: true, get message() { return binaryLine.message(); }, dismiss: binaryLine.dismiss, recover: { run: () => refresh(binary) } });
 
   registerKeys({ kind: "app" }, [{ action: CHORDS["project.choose-folder"], capture: () => ({ available: () => true, invoke: () => props.onChoose() }) }]);
 

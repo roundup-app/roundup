@@ -12,7 +12,7 @@ const createProgramAct = () => {
   const { app, program } = useConnectedProject();
   const [failure, setFailure] = createSignal<string | null>(null);
 
-  createMessageToast({ get message() { return failure(); }, dismiss: () => setFailure(null) });
+  createMessageToast({ started: true, get message() { return failure(); }, dismiss: () => setFailure(null) });
 
   return async (method: Method) => {
     setFailure(await failureOf(() => app.rpc(method, null)));

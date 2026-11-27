@@ -150,7 +150,6 @@
 {"file":"apps/desktop/src/terminal/u12_typing.test.tsx","test":"u12 typing > u12_a_failed_write_shows_its_message","identity":"ac561acf556b3eedb701408fd133cc4eb89b8effe0131940e6391f0e803ee261"}
 {"file":"apps/desktop/src/terminal/u34_scrollback.test.tsx","test":"u34 the latest control > u34_is_hidden_while_the_view_is_at_the_bottom","identity":"65f99f2eb2b58535a52c574e2fc5c87d011dfbea23fc146fe6e6afc2743b7d2e"}
 {"file":"apps/desktop/src/terminal/u34_scrollback.test.tsx","test":"u34 the latest control > u34_shows_once_the_user_scrolls_up","identity":"5946f1f20d5b46be572e35b7d778cfa09da77d5300171097d8e69d02e829dbc9"}
-{"file":"apps/desktop/src/terminal/u3560_failure.test.tsx","test":"u3560d_clipboard_failure_preserves_input_%s","identity":"a3b8ad15882757f4508034886ed1d7b4fc3e9442e27edc61e6c6e83ef4af3fe4"}
 {"file":"apps/desktop/src/terminal/u365_links.test.tsx","test":"u365 opening > u365_other_schemes_open_nothing","identity":"e76023a3fed9130bdcc547c8c49bd4ab7f5984280376a0f015d26ee8669cdc80"}
 {"file":"apps/desktop/src/terminal/u38_empty_pane.test.tsx","test":"u38 empty Pane > u38_a_selected_agent_shows_no_empty_pane_text","identity":"37ae5942b9abb72a9592ad25d7d7da8da5996a89225ccd7ec492b1eabf1c75b4"}
 {"file":"apps/desktop/src/terminal/u38_empty_pane.test.tsx","test":"u38 empty Pane > u38_a_failed_initial_rail_tree_shows_no_empty_pane_text","identity":"a91bec921335c408fb43627e7e9ff38341006674a0680be032d0a7d13917bdcf"}

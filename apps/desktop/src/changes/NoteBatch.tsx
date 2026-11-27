@@ -104,6 +104,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   const noteLine = dismissable(() => props.notes.problem() ?? props.notes.failure(props.id));
 
   createMessageToast({
+    started: true,
     get message() { return noteLine.message(); },
     dismiss: () => props.notes.failure(props.id) ? props.notes.dismiss(props.id) : noteLine.dismiss(),
     get action() { return <Show when={props.notes.problem()}><IconButton aria-label={copy.openNotesRecovery} onClick={props.recover}><Icon name="sticky-note" /></IconButton></Show>; },

@@ -13,7 +13,7 @@ it("u7471a_a_hidden_project_failure_names_its_project", () => {
   const [hiddenFailure, setHiddenFailure] = createSignal<string | null>(null);
 
   render(() => {
-    createMessageToast({ get message() { return hiddenFailure(); }, dismiss: () => setHiddenFailure(null) }, projectMessageQueue(queue, "notes-app", () => shown() === "notes-app"));
+    createMessageToast({ started: true, get message() { return hiddenFailure(); }, dismiss: () => setHiddenFailure(null) }, projectMessageQueue(queue, "notes-app", () => shown() === "notes-app"));
 
     return (
     <ToastQueueContext value={queue}>
