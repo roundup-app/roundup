@@ -19,6 +19,7 @@
     Method { name: "agent.explain", params: "agent_ExplainParams", result: "agent_Explanation" },
     Method { name: "agent.findDefects", params: "agent_ChangedFilesParams", result: "agent_DefectFindings" },
     Method { name: "agent.readback", params: "agent_ChangedFilesParams", result: "agent_Readback" },
+    Method { name: "agent.dir", params: "agent_NodeId", result: "agent_AgentDir" },
     Method { name: "agent.ownedChanges", params: "agent_NodeId", result: "agent_OwnedChanges" },
     Method { name: "agent.compareFile", params: "agent_CompareFileParams", result: "agent_FileComparison" },
     Method { name: "agent.remoteMain", params: "agent_NodeId", result: "agent_RemoteMain" },

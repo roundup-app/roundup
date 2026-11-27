@@ -66,6 +66,12 @@ pub struct OwnedGroupKey {
     pub branch: String,
 }
 
+/// LH25: what `agent.dir` returns, the absolute folder of a Rail node.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct AgentDir {
+    pub path: String,
+}
+
 /// What `agent.ownedChanges` returns (U7186a), sorted by `repo` then `branch`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct OwnedChanges {

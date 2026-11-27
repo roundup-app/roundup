@@ -281,6 +281,18 @@ impl Agents {
         self.spots(&p.id, p.group).await
     }
 
+    async fn agent_dir(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::AgentDir, RpcError> {
+        let NodeId { id } = p;
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
+        Ok(contracts::agent::AgentDir {
+            path: self.dir_of(&id).await?,
+        })
+    }
+
     async fn agent_owned_changes(
         &self,
         ctx: &Ctx,
