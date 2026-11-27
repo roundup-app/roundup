@@ -84,13 +84,16 @@ const focusedValue = (): string | undefined => {
 };
 
 /** U7678a, U7678b, U7679c: the Overview row, then the lens's modules in path order, each folded to its files, and a quiet row for each noise kind; a row that takes focus is chosen, a file row chooses its module at that file, and Enter or a double click on a file edits it (U2539d). `finding` is U7679d: the rows of a narrowed list, each unfolded, the Overview row gone. */
-export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; /** U7691a: the names of the modules and flows holding an unfinished note, and U7691d: the item notes each row counts. */ unfinishedItems: ReadonlySet<string>; itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7700c: each item's findings still to keep or drop, by its name. */ findings?: ReadonlyMap<string, number> | undefined; /** U7696c: each item's moved and renamed code, by its name. */ moved?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
+export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: boolean; selected: string | undefined; onChoose: (key: string, file?: string) => void; onEdit: (path: string) => void; unfinished: ReadonlySet<string>; /** U7691a: the names of the modules and flows holding an unfinished note, and U7691d: the item notes each row counts. */ unfinishedItems: ReadonlySet<string>; itemNotes: readonly ItemNote[]; viewed: ReadonlySet<string>; changed: ReadonlySet<string>; dimmed?: ReadonlySet<string> | undefined; /** U7685c: each item's repeats, by its name. */ repeats?: ReadonlyMap<string, number> | undefined; /** U7704c: each item's tool spots, by its name, one entry for each source. */ sources?: ReadonlyMap<string, readonly (readonly [string, number])[]> | undefined; /** U7688e: each item's gaps, by its name. */ gaps?: ReadonlyMap<string, number> | undefined; /** U7700c: each item's findings still to keep or drop, by its name. */ findings?: ReadonlyMap<string, number> | undefined; /** U7696c: each item's moved and renamed code, by its name. */ moved?: ReadonlyMap<string, number> | undefined; /** U7689c: Not traced says the readback places its files. */ readHint?: boolean | undefined; controls?: (controls: { focus: (key: string) => void; focused: () => string | undefined }) => void }) => {
   const controller = createTreeController();
   const [expanded, setExpanded] = createSignal<string[]>([]);
   const open = (value: string) => props.finding || expanded().includes(value);
 
   /** U7685c: the repeats an item holds, by its row's key. */
   const repeatsOf = (key: string) => props.repeats?.get(key.slice(2)) ?? 0;
+
+  /** U7704c: the spots of each tool an item holds, by its row's key. */
+  const sourcesOf = (key: string) => props.sources?.get(key.slice(2)) ?? [];
 
   /** U7688e: the gaps an item holds, by its row's key. */
   const gapsOf = (key: string) => props.gaps?.get(key.slice(2)) ?? 0;
@@ -101,8 +104,8 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   /** U7696c: the moves an item holds, by its row's key. */
   const movedOf = (key: string) => props.moved?.get(key.slice(2)) ?? 0;
 
-  /** The counts an item row says: its repeats, gaps and moves, each when above 0. */
-  const countWords = (key: string | undefined) => key === undefined ? [] : [{ count: repeatsOf, say: copy.repeatsCount }, { count: gapsOf, say: copy.gapsCount }, { count: findingsOf, say: copy.findingsCount }, { count: movedOf, say: copy.movedCount }].flatMap(({ count, say }) => count(key) > 0 ? [say(count(key))] : []);
+  /** The counts an item row says: its repeats, gaps, findings and moves, each when above 0, then each tool's spots. */
+  const countWords = (key: string | undefined) => key === undefined ? [] : [{ count: repeatsOf, say: copy.repeatsCount }, { count: gapsOf, say: copy.gapsCount }, { count: findingsOf, say: copy.findingsCount }, { count: movedOf, say: copy.movedCount }].flatMap(({ count, say }) => count(key) > 0 ? [say(count(key))] : []).concat(sourcesOf(key).map(([name, count]) => copy.fromSource(count, name)));
 
   const marked = (files: readonly ChangedFile[], item?: ModuleGroup) => files.some(file => props.unfinished.has(file.path)) || (item !== undefined && props.unfinishedItems.has(item.name));
 
@@ -152,6 +155,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
         <Show when={module().counted}><Counts added={module().added} removed={module().removed} /></Show>
         <Show when={notesOf(module()) > 0}><span class="changes-row-notes">{copy.noteCount(notesOf(module()))}</span></Show>
         <Show when={repeatsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.repeatsCount(repeatsOf(moduleKey(module().name)))}</span></Show>
+        <For each={sourcesOf(moduleKey(module().name))}>{([name, count]) => <span class="changes-row-repeats">{copy.fromSource(count, name)}</span>}</For>
         <Show when={gapsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.gapsCount(gapsOf(moduleKey(module().name)))}</span></Show>
         <Show when={findingsOf(moduleKey(module().name)) > 0}><span class="changes-row-repeats">{copy.findingsCount(findingsOf(moduleKey(module().name)))}</span></Show>
         <Show when={movedOf(moduleKey(module().name)) > 0}><span class="changes-row-moved" data-state="moved">{copy.movedCount(movedOf(moduleKey(module().name)))}</span></Show>

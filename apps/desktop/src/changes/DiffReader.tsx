@@ -32,10 +32,11 @@ import { createExplaining } from "./explain";
 import type { Explanations } from "./explain";
 import { createFinding, type FindingsState } from "./findings";
 import type { ExplainForm } from "@contracts/agent/ExplainForm";
-import { createGapped, createMoving, createRepeated } from "./repeats";
-import { apart } from "./moves";
+import { createGapped, createMoving } from "./repeats";
+import { createSpotted, undrawn } from "./spots";
+import { SpotList } from "./SpotLine";
 import type { Moved } from "./moves";
-import type { ScanHit } from "@contracts/agent/ScanHit";
+import type { Spot } from "@contracts/agent/Spot";
 import { createLate } from "./late";
 import { NoteForm } from "./NoteForm";
 import { NoteView, acceptedAs } from "./NoteView";
@@ -69,10 +70,10 @@ const createSlots = () => {
   return { slots, sweep };
 };
 
-/** U7676c: the notes whose lines this file no longer shows, listed under it. */
-const GatheredNotes = (props: { id: string; notes: Notes; gathered: readonly LineNote[]; read: FileComparison | undefined }) => <Show when={props.gathered.length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
+/** U7676c, U7704e: what no line of this file shows, listed under it: the notes whose lines it no longer shows, then the spots. */
+const Unshown = (props: { id: string; notes: Notes; gathered: readonly LineNote[]; read: FileComparison | undefined; spots: readonly Spot[]; drawable: boolean; only: Takes | undefined }) => <><Show when={props.gathered.length}><ul class="note-group" aria-label={copy.notesNoLongerShown}>
   <For each={props.gathered}>{note => <li><Show when={outdated(note, props.read)} fallback={<><p>{copy.selectedLines(note.side, copy.lineSpan(note.start, note.end), note.start === note.end)}{copy.originalContext}</p><p class="note-text">{note.text}</p></>}><NoteView note={note} status="outdated" edit={() => {}} remove={() => void props.notes.remove(props.id, note.id)} /></Show></li>}</For>
-</ul></Show>;
+</ul></Show><SpotList spots={undrawn(props.spots, props.read, props.drawable, props.only)} /></>;
 
 /** U7678d: whether a read has lines to draw: not an image, unfinished, or hidden file. */
 const drawableOf = (value: FileComparison | undefined, hidden: ReturnType<typeof hiddenKind>) => value !== undefined && drawsLines(value) && value.status !== null && hidden === null;
@@ -208,7 +209,7 @@ const createComparisonRead = (props: ReadProps) => {
 };
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7685a: the repeats whose lines this file shows, and the editor's open for the place a mark shows. */ repeats?: readonly ScanHit[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; /** U7696a: the moves and renames in this file's new lines, and the Logic lens's ask for a file once it is drawn. */ moves?: readonly Moved[] | undefined; onRead?: ((value: FileComparison) => void) | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element; /** U7697a: the word of this file's rank. */ rank?: string | undefined; /** U7698: the explanations of the Agent's diff, asked from this file's header and keys. */ explain?: Explanations | undefined; /** U7700c: the defect pass's findings, each drawn by the file that holds its lines. */ findings?: FindingsState | undefined }) => {
+export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean | undefined; counts?: { added: number; removed: number } | null | undefined; onFocus?: (() => void) | undefined; onDrawn?: (() => void) | undefined; id: string; name: string; path: string; blob?: string | null | undefined; places?: Places | undefined; keys?: ((keys: DiffKeys) => void) | undefined; target?: DiffTarget | undefined; arrived?: (() => void) | undefined; only?: Takes | undefined; /** U7704a: the spots of this file, and the editor's open for the place a mark shows. */ spots?: readonly Spot[] | undefined; /** U7688e: the gaps whose line this file shows. */ gaps?: readonly Gap[] | undefined; /** U7696a: the moves and renames in this file's new lines, and the Logic lens's ask for a file once it is drawn. */ moves?: readonly Moved[] | undefined; onRead?: ((value: FileComparison) => void) | undefined; openAt?: ((path: string, at: { side: "new"; line: number }) => void) | undefined; to?: CompareTarget | undefined; group?: OwnedGroupKey | undefined; notes: Notes; editing?: LineNote | undefined; onEdited: () => void; recover: () => void; /** U7691a: the file's note icon, and the file notes its form and list draw under the header. */ onNote?: ((opener: Element) => void) | undefined; under?: JSX.Element; /** U7697a: the word of this file's rank. */ rank?: string | undefined; /** U7698: the explanations of the Agent's diff, asked from this file's header and keys. */ explain?: Explanations | undefined; /** U7700c: the defect pass's findings, each drawn by the file that holds its lines. */ findings?: FindingsState | undefined }) => {
   const [selection, setSelection] = createSignal<LineSelection>({ side: "new", start: 1, end: 1 });
   const [focused, setFocused] = createSignal(false);
   const owner = getOwner();
@@ -234,7 +235,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   const { slots, sweep } = createSlots();
 
-  const repeated = createRepeated(() => props.repeats, () => apart(props.only, props.moves ?? []));
+  const spotted = createSpotted(() => props.spots, () => props.only, () => props.moves ?? []);
 
   const moving = createMoving(() => props.moves, () => props.only);
 
@@ -266,15 +267,15 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
 
   let stamp = (_stamped: Partial<Stamped>) => {};
 
-  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), repeated(), gapped(), moving(), explaining.marks(), finding.marks()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
+  createEffect(() => ({ view: renderer(), lines: lineAnnotations(read(), notes(), composer() ? [] : props.notes.unfinished(props.id), composer(), spotted(), gapped(), moving(), explaining.marks(), finding.marks()).filter(({ metadata }) => props.only?.(metadata.side, metadata.end) ?? true), active: focused() }), ({ view, lines, active }) => {
     if (!view) return;
     annotate(view, lines, untrack(selection));
     sweep(new Set(lines.map(line => line.metadata)));
     stamp({ noted: lines.flatMap(({ metadata }) => isMark(metadata) ? [] : [{ side: metadata.side, start: metadata.start, end: metadata.end, focused: "composing" in metadata && active }]) });
   });
 
-  // U7685a, U7696a: the lines of a repeat and of a move carry the stamps the style keys on, again after each render.
-  createEffect(() => ({ view: renderer(), repeat: repeated().map(({ start, end }) => ({ start, end })), move: (props.moves ?? []).flatMap(moved => moved.lines) }), ({ view, ...spans }) => { if (view) stamp(spans); });
+  // U7704a, U7696a: the lines of a spot and of a move carry the stamps the style keys on, again after each render.
+  createEffect(() => ({ view: renderer(), spot: spotted().map(({ start, end }) => ({ start, end })), move: (props.moves ?? []).flatMap(moved => moved.lines) }), ({ view, ...spans }) => { if (view) stamp(spans); });
 
   // U7678d: a file with nothing to draw is settled once its read is.
   createEffect(() => !loading() && !drawableOf(read(), hidden()), settled => { if (settled) props.onDrawn?.(); });
@@ -429,7 +430,7 @@ export const DiffReader = (props: { shared?: Shared | undefined; batch?: boolean
     <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><IconButton aria-label={hidden() === "large" ? copy.showAnyway : copy.showWhitespace} onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}><Icon name="down" /></IconButton></div></Show>
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
-    <GatheredNotes id={props.id} notes={props.notes} gathered={gathered()} read={read()} />
+    <Unshown id={props.id} notes={props.notes} gathered={gathered()} read={read()} spots={props.spots ?? []} drawable={drawableOf(read(), hidden())} only={props.only} />
     <Show when={props.batch !== false}><NoteBatch fallback={() => focusHost()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => { if (isLine(note)) edit(note); }} /></Show>
   </section>;
 };

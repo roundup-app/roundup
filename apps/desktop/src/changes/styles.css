@@ -220,6 +220,9 @@
 .changes-tree .changes-row[data-level="2"] { padding-inline-start: var(--space-5); }
 .changes-tree .changes-noise { color: var(--grey); }
 .changes-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* U7704c: a module row's name keeps its own text's width; the counts wrap to a second line when the row runs out of space. */
+.changes-tree .changes-row[data-row="module"] { flex-wrap: wrap; }
+.changes-row[data-row="module"] .changes-row-name { flex: 1 0 auto; max-inline-size: 100%; }
 .changes-row-name[data-stale="true"], .flow-account[data-stale="true"] .readback-text { opacity: 0.6; }
 .changes-row-function { flex: none; max-inline-size: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--grey); font: var(--text-small) var(--font-ui); }
 .flow-account { padding: var(--space-3); font: var(--text-small) var(--font-ui); }
@@ -249,9 +252,11 @@
 .repeat-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
 .repeat-place p, .repeat-excerpt { margin: 0; padding-block: var(--space-2); }
 .repeat-excerpt { font: var(--text-small) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-/* U7688e: the mark under the line a gap names: the same sunken ground as a repeat's. */
-.gap-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
-.gap-mark p { margin: 0; overflow-wrap: anywhere; }
+/* U7688e, U7704a: the mark under the line a gap names, and under a tool's spot: the same sunken ground as a repeat's. */
+.gap-mark, .spot-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }
+.gap-mark p, .spot-mark p { margin: 0; overflow-wrap: anywhere; }
+/* U7704a: an Outdated spot dims to the grey of the counts. */
+.spot-mark[data-stale] { color: var(--grey); }
 .explained { margin: 0; padding: var(--space-2); background: none; color: var(--diff-text); font: var(--text-small) var(--font-ui); }
 .explained p { margin: 0; overflow-wrap: anywhere; }
 .finding { margin: 0; padding: var(--space-2); background: none; color: var(--diff-text); font: var(--text-small) var(--font-ui); }

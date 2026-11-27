@@ -25,8 +25,8 @@ describe("u1 the fake App", () => {
 describe("c7684e the fake App answers agent.repeatScan", () => {
   it("c7684e_the_fake_answers_hits_none_partial_and_a_failure", async () => {
     const scan = (id: string) => createFakeApp().rpc("agent.repeatScan", { id });
-    expect(await scan("repeat-hits")).toMatchObject({ complete: true, hits: [{ other: { path: "owned.ts", start: 12, end: 31 } }] });
-    expect(await scan("repeat-none")).toEqual({ hits: [], complete: true });
+    expect(await scan("repeat-hits")).toMatchObject({ complete: true, spots: [{ other: { path: "owned.ts", start: 12, end: 31 } }] });
+    expect(await scan("repeat-none")).toEqual({ spots: [], complete: true });
     expect(await scan("repeat-partial")).toMatchObject({ complete: false });
     await expect(scan("repeat-failure")).rejects.toMatchObject({ code: -32603 });
   });

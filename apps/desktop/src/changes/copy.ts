@@ -231,6 +231,10 @@ export const copy = {
   repeats: "Repeats",
   repeatsAt: (place: string) => `Repeats ${place}`,
   repeatsCount: (count: number) => `${count} ${count === 1 ? "repeat" : "repeats"}`,
+  /** U7704a, U7704c: a tool's spots: its row count, the group of those no line shows and its failed read. */
+  fromSource: (count: number, source: string) => `${count} from ${source}`,
+  otherSpots: "Other spots",
+  spotsFailed: "Couldn't read spots",
   repeatPlace: (path: string, start: number, end: number) => `${path} ${copy.lineSpan(start, end)}`,
   openRepeat: sharedCopy.openEvidence,
   noTextToShow: "No text",

@@ -116,12 +116,12 @@ it("u7696c_a_slow_read_says_so_after_a_pause_and_none_before", async () => {
 
 it("u7696e_a_repeat_whose_lines_moved_is_not_also_a_repeat", async () => {
   await logicOpen(app => {
-    app.handlers["agent.repeatScan"] = () => ({ hits: [{ path: RUN_PATH, start: 19, end: 21, other: { path: "pkg/a.ts", start: 1, end: 3 } }, { path: LOAD_PATH, start: 4, end: 5, other: { path: "pkg/b.ts", start: 1, end: 2 } }], complete: true });
+    app.handlers["agent.repeatScan"] = () => ({ spots: [{ source: { kind: "repeats" }, path: RUN_PATH, start: 19, end: 21, other: { path: "pkg/a.ts", start: 1, end: 3 }, stale: false }, { source: { kind: "repeats" }, path: LOAD_PATH, start: 4, end: 5, other: { path: "pkg/b.ts", start: 1, end: 2 }, stale: false }], complete: true });
   });
 
-  await waitFor(() => expect(stamped(LOAD_PATH, "repeat")).toEqual([4, 5]));
+  await waitFor(() => expect(stamped(LOAD_PATH, "spot")).toEqual([4, 5]));
   await waitFor(() => expect(said("apps/a")).toContain(copy.repeatsCount(1)));
-  expect(stamped(RUN_PATH, "repeat")).toEqual([]);
+  expect(stamped(RUN_PATH, "spot")).toEqual([]);
   expect(screen.queryByRole("button", { name: copy.repeatsAt(copy.repeatPlace("pkg/a.ts", 1, 3)) })).toBeNull();
 });
 

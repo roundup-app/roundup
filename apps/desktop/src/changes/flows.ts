@@ -4,6 +4,7 @@ import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { ChangedSymbol } from "@contracts/agent/ChangedSymbol";
 import type { FlowNode } from "@contracts/agent/FlowNode";
 import type { ReadFlow } from "@contracts/agent/ReadFlow";
+import type { Changed } from "./looseStore";
 import { copy } from "./copy";
 import { riskOf } from "./rank";
 import { groupModules, noiseOf, scrollOrder, type Grouped, type ModuleGroup, type Takes, type Section } from "./modules";
@@ -66,14 +67,25 @@ const itemOf = (name: string, label: string, files: ChangedFile[], rest: Partial
   ...rest,
 });
 
+/** U7923a: the listed files whose functions sit in a flow of `done`, the files a hunk outside every function can hide in. */
+export const flowFiles = (files: readonly ChangedFile[], done: readonly Done[]): ChangedFile[] => {
+  const paths = new Set(done.flatMap(answer => {
+    const symbols = new Map(answer.symbols.map(symbol => [symbol.key, symbol.path] as const));
+
+    return answer.flows.flatMap(flow => callOrder(flow.tree)).flatMap(key => symbols.get(key) ?? []);
+  }));
+
+  return files.filter(file => paths.has(file.path) && noiseOf(file.path) === undefined);
+};
+
 const distinct = (sections: readonly Section[]) => [...new Map(sections.map(section => [section.file.path, section.file])).values()];
 
 /**
- * U7683c: the Flows list: a flow for each entry point of the finished traces in path order, then Unplaced (the files of symbols no flow holds, minus the hunks the flows show), then Not traced (every file no trace names), then the noise rows as in the other lenses.
+ * U7683c: the Flows list: a flow for each entry point of the finished traces in path order, then Unplaced (the files of symbols no flow holds, and the files with a changed line outside every flow's section, minus the hunks the flows show), then Not traced (every file no trace names), then the noise rows as in the other lenses.
  * A file belongs to a language only when a trace's symbols name it: the App reads no extension.
  * U7689: a readback names the code's flows (`code-N` is the Nth flow of the traces, in the trace's order, and its name applies only when its hunks sit in the files the flow lists), adds its own flows after them, and replaces Unplaced and Not traced with the files of its unplaced hunks.
  */
-export const groupFlows = (files: readonly ChangedFile[], done: readonly Done[], read?: Read): Grouped => {
+export const groupFlows = (files: readonly ChangedFile[], done: readonly Done[], read?: Read, changed?: ReadonlyMap<string, Changed>): Grouped => {
   const listed = new Map(files.flatMap(file => noiseOf(file.path) === undefined ? [[file.path, file] as const] : []));
   const symbols = new Map(done.flatMap(answer => answer.symbols.map(symbol => [symbol.key, symbol] as const)));
   const calls = new Map(done.flatMap(answer => answer.calls.map(call => [call.key, call] as const)));
@@ -119,7 +131,13 @@ export const groupFlows = (files: readonly ChangedFile[], done: readonly Done[],
     const file = listed.get(symbol.path);
 
     return placed.has(symbol.key) || !file ? [] : [{ id: symbol.path, file }];
-  }));
+  }).concat([...taken].flatMap(([path, picks]) => {
+    const file = listed.get(path);
+    const lines = changed?.get(path);
+    const outside = (side: "old" | "new") => (lines?.[side] ?? []).some(line => !picks.some(pick => pick(side, line)));
+
+    return file && (outside("old") || outside("new")) ? [{ id: path, file }] : [];
+  })));
 
   const added = (read?.account.flows ?? []).flatMap(flow => {
     const own = flow.source === "readback" ? filesOf(flow).flatMap(path => listed.get(path) ?? []) : [];

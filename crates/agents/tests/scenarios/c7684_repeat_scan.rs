@@ -59,8 +59,8 @@ async fn scan(f: &Fixture, id: &str) -> Value {
 }
 
 fn hit(path: &str, start: u32, end: u32, other: &str, o_start: u32, o_end: u32) -> Value {
-    json!({"path": path, "start": start, "end": end,
-           "other": {"path": other, "start": o_start, "end": o_end}})
+    json!({"source": {"kind": "repeats"}, "path": path, "start": start, "end": end,
+           "other": {"path": other, "start": o_start, "end": o_end}, "stale": false})
 }
 
 /// A project whose Base holds `owned.rs` with a 20-line block at lines 12-31.
@@ -88,7 +88,7 @@ async fn c7684a_a_copied_block_is_reported_with_the_other_file_and_lines() {
 
     assert_eq!(
         result,
-        json!({"hits": [hit("new.rs", 3, 22, "owned.rs", 12, 31)], "complete": true})
+        json!({"spots": [hit("new.rs", 3, 22, "owned.rs", 12, 31)], "complete": true})
     );
 }
 
@@ -108,10 +108,10 @@ async fn c7684a_a_copy_between_two_changed_files_is_reported_from_each() {
         &format!("{0}{1}{0}", block("twice", 9, "", ""), unique("gap", 3)),
     );
 
-    let hits = scan(&f, &id).await["hits"].clone();
+    let spots = scan(&f, &id).await["spots"].clone();
 
     assert_eq!(
-        hits,
+        spots,
         json!([
             hit("a.rs", 3, 12, "b.rs", 1, 10),
             hit("b.rs", 1, 10, "a.rs", 3, 12),
@@ -126,7 +126,7 @@ async fn c7684b_a_hunk_that_repeats_nothing_has_no_hit() {
     let (f, id, path) = owned().await;
     write(&path, "new.rs", &unique("fresh", 30));
 
-    assert_eq!(scan(&f, &id).await, json!({"hits": [], "complete": true}));
+    assert_eq!(scan(&f, &id).await, json!({"spots": [], "complete": true}));
 }
 
 #[tokio::test]
@@ -140,7 +140,7 @@ async fn c7684b_a_repeat_under_the_minimum_is_not_reported() {
     git(&path, &["merge", "-q", "main"]);
     write(&path, "short_copy.rs", &short);
 
-    assert_eq!(scan(&f, &id).await["hits"], json!([]));
+    assert_eq!(scan(&f, &id).await["spots"], json!([]));
 }
 
 #[tokio::test]
@@ -158,7 +158,7 @@ async fn c7684b_an_unscanned_file_is_neither_scanned_nor_reported() {
     write(&path, ".roundup/new.rs", &copy);
     write(&path, "wide.rs", &big);
 
-    assert_eq!(scan(&f, &id).await["hits"], json!([]));
+    assert_eq!(scan(&f, &id).await["spots"], json!([]));
 }
 
 fn snapshot(path: &Path, main: &Path) -> Vec<String> {
@@ -336,7 +336,7 @@ fn count(dir: &Path) -> usize {
         .repeat_scan(&worktree, &std::sync::atomic::AtomicBool::new(false))
         .unwrap();
     assert!(hits.complete);
-    hits.hits.len()
+    hits.spots.len()
 }
 
 /// C7684f: the dense `tree-40` seed (`apps/desktop/src/perf/fixture.ts`): 40 Agents, each

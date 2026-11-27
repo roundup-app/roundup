@@ -57,5 +57,5 @@ export const answers = (rust: CallPaths = RUST) => ({ language }: { language?: s
 
 const numbered = (change: (line: number) => string) => Array.from({ length: 25 }, (_, index) => change(index + 1)).join("\n") + "\n";
 
-/** Lines 2 and 20 of every file changed: the first is `run`'s, the second `other`'s. */
-export const flowComparison = (path: string): FileComparison => comparison(path, { old: text("old", numbered(line => `line ${line}`)), new: text("new", numbered(line => line === 2 || line === 20 ? `line ${line} new` : `line ${line}`)) });
+/** Line 2 of every file changed, and line 20 of run.ts: `run`'s and `other`'s; `lines` names others. */
+export const flowComparison = (path: string, lines: readonly number[] = path === RUN.path ? [2, 20] : [2]): FileComparison => comparison(path, { old: text("old", numbered(line => `line ${line}`)), new: text("new", numbered(line => lines.includes(line) ? `line ${line} new` : `line ${line}`)) });

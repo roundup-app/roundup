@@ -29,11 +29,11 @@ const path = (n: number) => "crates/module-" + String(n).padStart(2, "0") + "/sr
 const FILES = Array.from({ length: 14 }, (_, n) => file(path(n + 1)));
 
 // Modules 1 to 3 repeat lines of the module after them, so the open module is marked and three rows count.
-const HITS = [1, 2, 3].map(n => ({ path: path(n), start: 6, end: 8, other: { path: path(n + 1), start: 12, end: 14 } }));
+const HITS = [1, 2, 3].map(n => ({ source: { kind: "repeats" }, path: path(n), start: 6, end: 8, other: { path: path(n + 1), start: 12, end: 14 }, stale: false }));
 
 const said = (words: string) => "document.querySelector('.changes-view')?.textContent.includes(" + JSON.stringify(words) + ")";
 
-const MARKED = "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line][data-repeat]') && !!document.querySelector('.repeat-mark button')";
+const MARKED = "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line][data-spot]') && !!document.querySelector('.repeat-mark button')";
 
 // U7685h: `just capture U7685h` writes each state at 1512 by 950, dark, over the U26 harness; the design critic judges layout and looks.
 it("u7685h_the_repeats_are_captured_for_the_critic", async () => {
@@ -72,7 +72,7 @@ it("u7685h_the_repeats_are_captured_for_the_critic", async () => {
         if (${JSON.stringify(mode)} === "slow") return new Promise(() => {});
         if (${JSON.stringify(mode)} === "failed") throw Object.assign(new Error("failed: the scan could not read the Worktree"), { code: -32603 });
 
-        return { hits: ${JSON.stringify(HITS)}, complete: true };
+        return { spots: ${JSON.stringify(HITS)}, complete: true };
       };
       window.__fake.setStatus("agent-1", "idle", "ready");
 
