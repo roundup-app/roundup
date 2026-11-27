@@ -44,7 +44,7 @@ const said = (words: string) => `document.querySelector('.changes-view')?.textCo
 
 const FOCUS_DIFF = "(() => { document.querySelector('.diff-content').focus(); return true; })()";
 
-const LENS = (lens: string, checked = "") => `!!document.querySelector('.changes-side .app-segment[aria-label="${lens}"]${checked}')`;
+const LENS = (lens: string, checked = "") => `!!document.querySelector('.changes-side .app-segment[aria-label^="${lens} "]${checked}')`;
 
 // U7679f: `just capture U7679f` writes each state at 1512 by 950 and at the centre's 388 px minimum, dark, over the U26 harness; the design critic judges layout and looks.
 it("u7679f_the_lenses_overview_and_find_are_captured_for_the_critic", async () => {
@@ -108,7 +108,7 @@ it("u7679f_the_lenses_overview_and_find_are_captured_for_the_critic", async () =
   };
 
   const lens = async (name: string) => {
-    await browser("click", `.changes-side .app-segment[aria-label="${name}"]`);
+    await browser("click", `.changes-side .app-segment[aria-label^="${name} "]`);
     await until(LENS(name, "[data-checked]"));
   };
 

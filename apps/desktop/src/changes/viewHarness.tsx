@@ -172,11 +172,14 @@ export const counted = (path: string, added: number, removed: number): ChangedFi
 
 export const lensGroup = () => within(screen.getByRole("radiogroup", { name: copy.lens }));
 
+/** A tab by its lens's name: its accessible name adds the count (U8009c). */
+export const tabNamed = (name: string) => new RegExp(`^${name} \\d+$`);
+
 /** The label of the lens the switch has chosen. */
-export const lensNow = () => Object.values(copy.lenses).find(name => lensGroup().queryByRole("radio", { name, checked: true }));
+export const lensNow = () => Object.values(copy.lenses).find(name => lensGroup().queryByRole("radio", { name: tabNamed(name), checked: true }));
 
 export const chooseLens = async (name: string) => {
-  fireEvent.click(lensGroup().getByRole("radio", { name }));
+  fireEvent.click(lensGroup().getByRole("radio", { name: tabNamed(name) }));
   await waitFor(() => expect(lensNow()).toBe(name));
 };
 

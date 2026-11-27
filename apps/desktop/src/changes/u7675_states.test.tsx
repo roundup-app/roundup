@@ -485,8 +485,8 @@ it("u7678a_files_show_only_inside_their_module_folded_at_first", async () => {
   const row = moduleRow("a");
 
   expect(fileRows()).toEqual([]);
-  // The row names its module, its file count and the sums of its files' counts.
-  expect([copy.filesCount(2), copy.addedLines(2), copy.removedLines(2)].every(part => row.textContent?.includes(part))).toBe(true);
+  // The row's accessible name says its file count and the sums of its files' counts (U8009a).
+  expect([copy.filesCount(2), copy.addedLines(2), copy.removedLines(2)].every(part => row.getAttribute("aria-label")?.includes(part))).toBe(true);
   expect(row.getAttribute("aria-expanded")).toBe("false");
   press("ArrowRight", row);
   await waitFor(() => expect(fileRows()).toEqual(["a/x.ts", "a/y.ts"]));

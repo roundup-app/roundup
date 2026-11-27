@@ -50,7 +50,7 @@ const READY = "!!document.querySelector('diffs-container')?.shadowRoot?.querySel
 
 const said = (words: string) => "document.querySelector('.changes-view')?.textContent.includes(" + JSON.stringify(words) + ")";
 
-const LENS = (lens: string, checked = "") => "!!document.querySelector('.changes-side .app-segment[aria-label=\"" + lens + "\"]" + checked + "')";
+const LENS = (lens: string, checked = "") => "!!document.querySelector('.changes-side .app-segment[aria-label^=\"" + lens + " \"]" + checked + "')";
 
 const ITEM = (name: string) => ".changes-side [data-row=\"module\"][data-key=\"m:" + name + "\"]";
 
@@ -128,7 +128,7 @@ it("u7695d_the_logic_lists_are_captured_for_the_critic", async () => {
     if (!wide) await browser("set", "viewport", String(SIZE.wide - Math.max(0, Math.floor(view) - SIZE.centre)), String(SIZE.height));
 
     await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
-    await browser("click", ".changes-side .app-segment[aria-label=\"Logic\"]");
+    await browser("click", ".changes-side .app-segment[aria-label^=\"Logic \"]");
     await until(LENS("Logic", "[data-checked]"));
   };
 

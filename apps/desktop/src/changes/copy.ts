@@ -19,6 +19,11 @@ export const copy = {
   /** U7679a: the switch at the top of the list, its segments and the first row of every lens (U7679c). */
   lens: "Lens",
   lenses: { flows: "Flows", modules: "Modules", logic: "Logic", tests: "Tests" },
+  /** U8009c: a tab's name with the items it lists, and the line under the tabs that says what the open tab lists. */
+  tabCount: (lens: string, count: number) => `${lens} ${count}`,
+  lensLines: { flows: "One entry point and what it calls", modules: "Every changed folder, code and tests together", logic: "Code with its tests left out", tests: "Tests only" },
+  /** U8009b: the folder of a module at the repository's top, shown before a name another row shares. */
+  rootFolder: "./",
   /** U7683c: the two items that follow the flows, the words under the call tree and the rows of a call. */
   unplaced: "Unplaced",
   notTraced: "Not traced",

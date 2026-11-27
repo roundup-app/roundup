@@ -137,8 +137,8 @@ it("u7689g_the_flows_lens_after_a_readback_is_captured_for_the_critic", async ()
     await browser("click", ".changes-icon");
     await until("!!document.querySelector('.changes-view .changes-side [data-row=\"overview\"]')");
     await browser("click", ".changes-view .app-segment[aria-label=\"Tree\"]");
-    await browser("click", ".changes-side .app-segment[aria-label=\"Flows\"]");
-    await until("!!document.querySelector('.changes-side .app-segment[aria-label=\"Flows\"][data-checked]')");
+    await browser("click", ".changes-side .app-segment[aria-label^=\"Flows \"]");
+    await until("!!document.querySelector('.changes-side .app-segment[aria-label^=\"Flows \"][data-checked]')");
   };
 
   const states: { name: string; answer: Readback; run: () => Promise<void> }[] = [
