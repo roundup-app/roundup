@@ -255,6 +255,14 @@ export const connectProject = async (
   // NA6: from here the Daemon can relay `action.list` and `action.run` to this window.
   serveActions(app).catch(error => console.error(copy.actionsUnregistered, error));
 
+  // U7956a: the notes the Agent has not yet been given turn Sent as their Messages land.
+  inChildren(() => { const stop = notesFor(app, project.path, drafts).follow(events);
+
+    onCleanup(stop);
+
+    return stop;
+  });
+
   const rail = inChildren(() => createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path)));
 
   drafts.undo.bindRail(direction => rail.drawHistory(direction));
