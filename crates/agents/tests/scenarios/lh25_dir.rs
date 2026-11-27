@@ -103,10 +103,7 @@ async fn lh25_a_missing_checkout_falls_back() {
 async fn lh25_an_unknown_node_is_not_found() {
     let f = Fixture::new();
 
-    let err = f
-        .call("agent.dir", json!({"id": "999"}))
-        .await
-        .unwrap_err();
+    let err = f.call("agent.dir", json!({"id": "999"})).await.unwrap_err();
 
     assert_eq!(err.code, code::NOT_FOUND);
 }
