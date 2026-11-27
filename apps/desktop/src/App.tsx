@@ -369,7 +369,7 @@ export const App = (props: {
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.rail"], capture: () => ({
     available: () => activeConnection() != null, invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
-  createChangesFold(() => activeConnection()?.hasView("changes") === true, widths, railSlide, frame);
+  createChangesFold(() => activeConnection()?.hasView("changes") === true, widths, railSlide, frame, () => activeConnection()?.viewSource() ?? "pointer");
   const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);

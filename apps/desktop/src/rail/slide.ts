@@ -1,6 +1,7 @@
 import { createEffect, createSignal, type Accessor } from "solid-js";
 import { createSlideLifetime } from "../ui/slideLifetime";
 import type { Widths } from "../resize/widths";
+import type { ActivationSource } from "../keys/registry";
 import type { ShelfFrame } from "../shelf/frame";
 import { railSliding, setRailSliding } from "./sliding";
 
@@ -40,16 +41,18 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
   };
 };
 
+const motionOf = (source: ActivationSource) => source === "key" ? "key" : "click";
+
 /** U8005a: Changes folds the Rail and closes the Bench without saving; closing it restores each one the user has not touched since. */
-export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Widths, railSlide: ReturnType<typeof createRailSlide>, frame: ShelfFrame) => {
+export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Widths, railSlide: ReturnType<typeof createRailSlide>, frame: ShelfFrame, source: Accessor<ActivationSource>) => {
   let before: { rail: boolean; bench: boolean } | null = null;
 
   createEffect(changesOpen, open => {
     if (open) {
       before = { rail: widths.collapsed(), bench: frame.open() };
 
-      if (!before.rail) railSlide.set(true, "click", false);
-      frame.fold();
+      if (!before.rail) railSlide.set(true, motionOf(source()), false);
+      frame.fold(source());
 
       return;
     }
@@ -60,8 +63,8 @@ export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Widths
 
     if (!kept) return;
 
-    if (!kept.rail && widths.collapsed()) railSlide.set(false, "click");
+    if (!kept.rail && widths.collapsed()) railSlide.set(false, motionOf(source()));
 
-    if (kept.bench && !frame.open()) frame.toggle("pointer");
+    if (kept.bench && !frame.open()) frame.toggle(source());
   });
 };

@@ -25,7 +25,7 @@ export const WorktreeControl = (props: { compact?: boolean | undefined }) => {
     const id = rail.selected();
 
     return id !== null && rail.nodes.some(node => node.id === id && node.kind === "agent") && ownedCount(owned.read(id)) > 0;
-  }, invoke: () => showView("changes") }) }]);
+  }, invoke: () => showView("changes", "key") }) }]);
 
   return <NoteRecovery compact={props.compact} name={id => rail.nodes.find(node => node.id === id)?.name ?? names.get(id) ?? copy.unavailableAgent} notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && isDoor(node) && node.worktree !== null)} />;
 };
