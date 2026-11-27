@@ -42,8 +42,8 @@ export const nameParts = (name: string): [string, string] => {
 };
 
 /** #7970: the causes of one Project's mark, read from the one list (U7189a): its Daemon's exit, then the Agents and Terminals in `attentionOrder`. */
-export const causesOf = (exit: string | null, entries: readonly AttentionEntry[], nameOfTerminal: (terminal: TerminalInfo) => string): Cause[] => [
-  ...(exit === null ? [] : [{ kind: "exit" as const, id: "", text: exit }]),
+export const causesOf = (exit: "exited" | "notRunning" | null, entries: readonly AttentionEntry[], nameOfTerminal: (terminal: TerminalInfo) => string): Cause[] => [
+  ...(exit === null ? [] : [{ kind: "exit" as const, id: "", text: exit === "notRunning" ? copy.daemonNotRunning : copy.daemonExited }]),
   ...entries.map((entry): Cause => {
     const what = entry.status.kind === "error" ? copy.errored : copy.needsYouLower;
 

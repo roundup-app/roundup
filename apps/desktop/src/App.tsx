@@ -39,7 +39,6 @@ import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
-import { copy as headerCopy } from "./header/copy";
 import { dismissable } from "./ink/recovery";
 import { FloatingLine } from "./ink/FloatingLine";
 import { exitText } from "./ink/exitText";
@@ -111,7 +110,7 @@ const stripTabOf = (tab: OpenTab, rail: ConnectedProject["rail"] | undefined, ba
     name: tab.project.name,
     base,
     exitText: tab.exit ? daemonExitText(tab.exit) : null,
-    causes: causesOf(tab.exit ? tab.notRunning ? headerCopy.daemonNotRunning : headerCopy.daemonExited : null, attentionOrder(nodes, terminals, rail?.dismissed), nameOf),
+    causes: causesOf(tab.exit ? tab.notRunning ? "notRunning" : "exited" : null, attentionOrder(nodes, terminals, rail?.dismissed), nameOf),
     busy,
     ...attentionCounts(attentionHolders(nodes, terminals, rail?.dismissed)),
     running: nodes.flatMap((node) => (isDoor(node) && node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
