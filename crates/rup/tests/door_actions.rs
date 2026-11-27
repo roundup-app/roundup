@@ -59,13 +59,6 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
     model.assert_matched();
 }
 
-/// The systems of the Haiku side calls (LH1's links, A7180's stop judge): they reach the model
-/// boundary too, but are no Claude program of the test's.
-const SIDE_CALLS: [&str; 2] = [
-    "You list the links",
-    "You read the last message a coding agent wrote",
-];
-
 #[tokio::test]
 async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
     let project = daemon::start_real("m9_create_workstream", &[]);
@@ -124,14 +117,19 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
         model
             .journal()
             .iter()
-            .filter(|entry| entry["body"]["tools"].is_array()
-                && !SIDE_CALLS
-                    .iter()
-                    .any(|side| entry["body"]["system"].to_string().contains(side)))
+            .filter(|entry| entry["body"]["tools"].is_array() && !is_side_call(entry))
             .count(),
         2,
         "both real Claude programs reached the model boundary"
     );
+}
+
+/// The Haiku side calls (LH1's links, A7180's stop judge) reach the model boundary too; they are no
+/// Claude program of the test's.
+fn is_side_call(entry: &serde_json::Value) -> bool {
+    entry["body"]["model"]
+        .as_str()
+        .is_some_and(|model| model.contains("haiku"))
 }
 
 fn has_note(entry: &serde_json::Value) -> bool {
