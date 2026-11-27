@@ -1,8 +1,6 @@
-import { copy as recoveryCopy } from "../sharedCopy";
 import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { copy } from "./copy";
 import { event } from "../testing/nodes";
 import { answerQuestion, questionClosed, questionDialog } from "../shelf/bulkQuestionHarness";
 import { mountBubbles, TERMINALS } from "./bubblesFixture";
@@ -45,12 +43,8 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     const { app, connected, setListed } = mounted;
     fireEvent.click(document.querySelector(".bubble:not([hidden]) [aria-label=Minimise]")!);
     flush();
-    const text = "  unfinished e\u0301 🫧 雪  ";
-    const retainedEdit = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: text, base: "other run" }, null, "ordinary");
-    await retainedEdit.retained;
-    const retained = retainedEdit.draft;
     const remove = app.handlers["terminal.close"]!;
-    const refusal = source === "context" ? copy.copyDraftFailure("Close refused\nTry again") : "Close refused\nTry again";
+    const refusal = "Close refused\nTry again";
 
     if (source === "close") {
       app.handlers["terminal.close"] = () => { throw new Error("Close refused\nTry again"); };
@@ -86,8 +80,6 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       await app.pickMenu("Copy link");
       await screen.findByRole("alert", { name: refusal });
     }
-
-    const before = connected.drafts.list();
 
     if (transition === "delete") {
       setListed(TERMINALS.filter(terminal => terminal.id !== "2"));
@@ -139,19 +131,11 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     if (["delete", "dismiss", "save", "replace", "successful-delete"].includes(transition)) {
       await waitFor(() => expect(notices("alert")).toHaveLength(0));
     } else expect(screen.getByRole("alert", { name: transition === "failed-delete" ? "Still refused" : refusal })).toBeDefined();
-    expect(connected.drafts.list()).toContainEqual(retained);
-
-    if (!["save", "other-save"].includes(transition)) expect(connected.drafts.list()).toEqual(before);
-    expect(retained.value.name).toBe(text);
-    expect(retained.destination).toMatchObject({ object: TERMINALS[2]!.incarnation, recipient: "3", surface: "bubbles" });
   });
 
 it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbles_open: %s", async transition => {
   const { app, connected, setListed } = await mountBubbles();
   const open = app.handlers["terminal.open"]!;
-  const retainedEdit = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: "  unsent 雪  ", base: "other run" }, null, "ordinary");
-    await retainedEdit.retained;
-    const retained = retainedEdit.draft;
   app.handlers["terminal.open"] = () => { throw new Error("Cannot open Terminal"); };
 
   fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
@@ -179,60 +163,6 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
 
   if (["dismiss", "recover"].includes(transition)) await waitFor(() => expect(notices("alert")).toHaveLength(0));
   else expect(notices("alert")).toHaveLength(1);
-  expect(connected.drafts.list()).toEqual([retained]);
-});
-
-it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention"])("p3557c_failure_lifetime_bubbles_recovery: %s", async transition => {
-  const { app, connected } = await mountBubbles();
-  const drafts = connected.drafts;
-  const destination = { surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" };
-  const firstEdit = drafts.edit(destination, { name: "  copied e\u0301 雪  ", base: "zsh" }, null, "ordinary");
-  await firstEdit.retained;
-  const first = firstEdit.draft;
-  const otherEdit = drafts.edit({ ...destination, object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: "other unfinished", base: "other run" }, null, "ordinary");
-  await otherEdit.retained;
-  const other = otherEdit.draft;
-  app.clipboardFailure = new Error("Clipboard refused");
-  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
-  flush();
-  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  const inspect = (name: string) => { fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`Inspect.*${name}`) })); flush(); };
-
-  inspect("zsh");
-  fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
-  flush();
-  await within(dialog).findByRole("alert", { name: /Clipboard refused/ });
-  const before = drafts.list();
-
-  if (transition === "dismiss") { fireEvent.click(within(dialog).getByRole("button", { name: "Dismiss" })); flush(); }
-  else if (transition === "discard") { fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision })); flush(); }
-  else if (transition === "copy") {
-    app.clipboardFailure = null;
-    fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
-    flush();
-  } else if (transition === "other-copy") {
-    inspect("other run");
-    app.clipboardFailure = null;
-    fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
-    flush();
-    await waitFor(() => expect(app.clipboardWrites.at(-1)).toBe("other unfinished"));
-  } else if (transition === "other-discard") {
-    inspect("other run");
-    fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
-    flush();
-  } else {
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Disk full"); });
-    await drafts.edit(destination, { name: "still in memory", base: "zsh" }, null, "ordinary").retained;
-    expect(within(dialog).getByRole("alert")).toBeDefined();
-    expect(drafts.problem()).not.toBeNull();
-    expect(drafts.list().some(draft => draft.value.name === "still in memory")).toBe(true);
-  }
-
-  if (["dismiss", "discard", "copy"].includes(transition)) await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
-  else if (["other-discard", "other-copy"].includes(transition)) expect(within(dialog).getByRole("alert", { name: /Clipboard refused/ })).toBeDefined();
-  expect(drafts.list()).toContainEqual(transition === "other-discard" ? first : other);
-
-  if (["dismiss", "copy", "other-copy"].includes(transition)) expect(drafts.list()).toEqual(before);
 });
 
 it("p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure with its Retry", async () => {

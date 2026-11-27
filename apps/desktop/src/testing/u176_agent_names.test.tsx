@@ -132,26 +132,19 @@ describe("u2773 Rail task destinations", () => {
     expect(rightCalls.mock.calls.filter(([method]) => ["agent.spawn", "message.send"].includes(method))).toEqual([]);
   }, 120_000);
 
-  it("u2773c_rail_external_change_keeps_original_removed_parent", async () => {
+  it("u7978c_rail_removed_parent_drops_the_task_draft", async () => {
     await mount(); await select(home); await openTask(); type(" exact removed\n😀 ");
     tree = [];
     app.of("/left").emit(event({ name: "rail.changed" }));
     await waitFor(() => expect(document.querySelector(`[data-id="${home}"]`)).toBeNull());
-    const replacement = workstream("replacement", { name: "same" });
-    tree = [replacement];
-    app.of("/left").emit(event({ name: "rail.changed" }));
-    await waitFor(() => expect(document.querySelector(`[data-id="${replacement.id}"] .name`)).not.toBeNull());
-    const calls = vi.spyOn(left, "rpc");
-    submit();
-    // ui-sdk keeps an empty assertive announcer in the page; the alert that carries the text is the one under test.
-    expect(screen.getByText(railCopy.railDraftUnavailable, { selector: '[role="alert"]' })).toBeDefined();
-    expect(task().value).toBe(" exact removed\n😀 ");
-    expect(calls.mock.calls.filter(([method]) => method === "agent.spawn" || method === "message.send")).toEqual([]);
+    // U7978c: no field can show a task for a removed parent, so the draft is dropped and nothing is sent.
+    await waitFor(() => expect(draftStorage("/left").list().filter(entry => entry.destination.surface === "rail-task")).toEqual([]));
+    expect(vi.spyOn(left, "rpc").mock.calls.filter(([method]) => method === "agent.spawn" || method === "message.send")).toEqual([]);
   }, 120_000);
 });
 
 describe("u2773 Rail persisted edits", () => {
-  it("u2773c_rail_external_rename_and_removal_keep_original_edit", async () => {
+  it("u2773c_rail_external_rename_keeps_the_edit_and_removal_drops_it", async () => {
     const app = createFakeApp();
     app.add("/project", "Project");
     const node = workstream("original", { name: "Original target" });
@@ -172,15 +165,11 @@ describe("u2773 Rail persisted edits", () => {
     // A refused save emits no acknowledgement; observe that no asynchronous rename starts.
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(app.calls.filter(call => call.method === "rail.rename")).toEqual([]);
-    tree = [];
+    tree = [workstream("elsewhere", { name: "Elsewhere" })];
     app.emit(event({ name: "rail.changed" }));
     await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name") })).toBeNull());
-    expect(screen.getByText(railCopy.railDraftUnavailable)).toBeDefined();
-    fireEvent.keyDown(screen.getByLabelText(recoveryCopy.unfinishedWork), { key: "Enter" });
-    expect(screen.getAllByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).map((field) => field.value)).toContain(" exact e\u0301 😀 ");
-    expect(draftStorage("/project").list().find((entry) => entry.value.text === " exact e\u0301 😀 ")).toMatchObject({
-      destination: { object: node.id }, value: { text: " exact e\u0301 😀 ", base: "Original target" },
-    });
+    // U7978c: no field can show the removed Agent's name draft, so it is dropped.
+    await waitFor(() => expect(draftStorage("/project").list().find((entry) => entry.value.text === " exact e\u0301 😀 ")).toBeUndefined());
     expect(app.calls.filter(call => call.method === "rail.rename")).toEqual([]);
   }, 120_000);
 });

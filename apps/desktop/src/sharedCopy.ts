@@ -21,7 +21,7 @@ const noCi = "No CI";
 
 export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": word.newMode, "opening-prompt": word.firstPrompt, "row-name": word.name, rail: "Project item", agent: word.agent, workstream: word.workstream, terminal: word.terminal, orders: "Order", pads: word.pad, todos: word.todo, thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: word.ask, header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" }));
 
-export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Another window has changed stored unfinished work." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
+export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save typed text for reload." : cause === "capacity" ? "Storage for typed text is full." : cause === "changed" ? "Another window has changed stored typed text." : cause === "unreadable" ? "Could not read stored typed text." : "Could not restore stored typed text."} Stored data has been preserved.`;
 
 export type CopyValue = string | number | undefined;
 
@@ -66,7 +66,7 @@ export const copy = {
   diff: "Diff",
   typescript: "TypeScript",
   closeView: (name: string) => `Close ${name}`,
-  railDraftConflict: "The original name has changed. Your unfinished work remains. Copy it or discard it before renaming again.",
+  railDraftConflict: "The original name has changed. Your text stays in its field. Copy it or discard it before renaming again.",
   railDraftMissingTarget: "Unavailable target",
   settings: "Settings",
   settingsForward: "Forward →",

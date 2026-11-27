@@ -643,6 +643,25 @@ it("u2773a_pads_restores_exact_work", async () => {
   expect(screen.getByRole<HTMLButtonElement>("button", { name: "Resume" }).disabled).toBe(false);
 });
 
+it("u7978b_typed_text_returns_in_its_own_field_pad", async () => {
+  const { connected, app } = await openShelf([padOf("returning", USER, "original")]);
+  app.handlers["pad.write"] = () => deferred<Pad>().promise;
+  const field = await openPad("returning");
+  fireEvent.input(field, { target: { value: "typed, not sent 🌱" } });
+  flush();
+  field.setSelectionRange(3, 8, "forward");
+  flush();
+  connected.drawer.close("key");
+  await waitFor(() => expect(field.isConnected).toBe(false));
+  const writes = () => app.calls.filter(call => call.method === "pad.write").length;
+  await waitFor(() => expect(writes()).toBe(1));
+  const reopened = await openPad("returning");
+  expect(reopened.value).toBe("typed, not sent 🌱");
+  expect([reopened.selectionStart, reopened.selectionEnd]).toEqual([3, 8]);
+  expect(writes()).toBe(1);
+  expect(screen.queryByText(/unfinished work/i)).toBeNull();
+});
+
 it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_settlement_preserves_other_revisions_%s", async (outcome) => {
   const { app, connected } = await openShelf([padOf("settlement", USER, "base")]);
   const reply = deferred<Pad>();

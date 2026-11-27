@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { expect, it } from "vitest";
 import { rowOf } from "../rail/railFixture";
 import { copy } from "./copy";
-import { marked, openChanges, saveNote, take, startNote } from "./noteHarness";
+import { openChanges, saveNote, take, startNote } from "./noteHarness";
 import { MODS, THREE, absent, at, calls, chooseLens, closeButton, content, counted, drawn, edited, file, fileRows, gone, isOpen, landed, lensGroup, lensNow, marks, moduleKeys, moduleRow, mountRailWith, multi, noiseRows, open, openPaths, owning, pane, press, region, scrolled, scrolledTo, scroller, setUpView, showing, slot, switchedTo, takeNoise, there, treeFocus, written } from "./viewHarness";
 
 setUpView();
@@ -328,37 +328,6 @@ it("u7679b_a_module_opens_its_logic_in_logic_its_tests_in_tests_and_both_in_modu
   await waitFor(() => expect(openPaths()).toEqual(["crates/a/src/x.rs"]));
   await chooseLens(copy.lenses.tests);
   await waitFor(() => expect(openPaths()).toEqual(["crates/a/tests/x.rs"]));
-});
-
-it("u7679b_unfinished_work_marks_the_row_that_lists_the_file_in_each_lens", async () => {
-  await landed(() => ({ files: LENS_FILES }), path => multi(path));
-
-  const draft = async (path: string) => {
-    await drawn(path);
-    startNote();
-    fireEvent.input(within(screen.getByRole("form", { name: copy.lineNote })).getByLabelText(copy.note), { target: { value: "half" } });
-  };
-
-  // A note on crates/a/tests/x.rs marks crates/a in Modules and Tests, and no row in Logic.
-  await chooseLens(copy.lenses.tests);
-  take(moduleRow("crates/a"));
-  await draft("crates/a/tests/x.rs");
-  await chooseLens(copy.lenses.modules);
-  await waitFor(() => expect(marked()).toEqual(["module:m:crates/a"]));
-  await chooseLens(copy.lenses.logic);
-  await waitFor(() => expect(marked()).toEqual([]));
-  await chooseLens(copy.lenses.tests);
-  await waitFor(() => expect(marked()).toEqual(["module:m:crates/a"]));
-
-  // A note on a noise file marks that noise row in all three lenses; the Overview row never takes a mark.
-  await takeNoise("pnpm-lock.yaml");
-  await draft("pnpm-lock.yaml");
-
-  for (const lens of Object.values(copy.lenses)) {
-    await chooseLens(lens);
-    await waitFor(() => expect(marked()).toContain("noise:k:lockfile"));
-    expect(marked().some(key => key.startsWith("overview:"))).toBe(false);
-  }
 });
 
 it("u7679b_a_jump_to_a_note_the_open_lens_does_not_list_switches_to_modules", async () => {

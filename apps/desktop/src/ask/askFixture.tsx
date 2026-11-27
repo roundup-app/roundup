@@ -46,13 +46,11 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   if (selected !== null) connected.rail.select(selected);
 
-  const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
-
   const view = render(() => (
     <ToastHost><ConnectedProjectContext value={connected}>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
-      <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar recovery={recovery()} /></div>
+      <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar /></div>
     </ConnectedProjectContext></ToastHost>
   ));
 
@@ -61,7 +59,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
 
 
-  return { app, connected, setRecovery, unmount: view.unmount };
+  return { app, connected, unmount: view.unmount };
 };
 
 export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.map((part) => part.text).join(" ")): Ask => ({ id, text, at: BigInt(at), parts });
