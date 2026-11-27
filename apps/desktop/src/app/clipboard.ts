@@ -1,7 +1,6 @@
 import { copy } from "./copy";
 import { logFailure } from "./log";
 import { PASTED_IMAGE_TYPES } from "./seam";
-import { RpcError } from "./seam";
 import type { App, PastedImage } from "./seam";
 
 /** An Error whose message is already plain words for the user, so it shows as written. */
@@ -35,7 +34,7 @@ export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): P
 
 /** Keep real platform causes and an available recovery action; permission-refusal advice has no producer. */
 export const clipboardFailure = (verb: "copy" | "paste" | "drop", thrown: Error): string => {
-  if (thrown.cause === plainMessage || thrown instanceof RpcError) return thrown.message;
+  if (thrown.cause === plainMessage) return thrown.message;
 
   // U8004b: the raw cause (platform internals) goes to the App log, the notice names the action and one step.
   logFailure(copy.clipboardLog(verb), thrown);
