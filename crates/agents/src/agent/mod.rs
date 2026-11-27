@@ -32,8 +32,9 @@ pub(crate) struct Facts {
     pub(crate) strays: Vec<Stray>,
     /// U3780a: the current or last tool call.
     pub(crate) tool_call: Option<Tracked>,
-    /// U7186a: absolute paths of the files the Agent's file-writing tool calls finished writing.
-    pub(crate) edits: std::collections::BTreeSet<String>,
+    /// U7186a: absolute paths of the files the Agent's file-writing tool calls finished writing,
+    /// the one written last at the end (LH25).
+    pub(crate) edits: Vec<String>,
 }
 
 /// `runs` read and written by Slot; a write keeps the entry's facts. The id is parsed here, once

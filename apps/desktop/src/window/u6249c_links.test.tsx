@@ -61,8 +61,9 @@ it("u6249c_os_link_without_project_stays_malformed", async () => {
   m.app.handlers["link.read"] = () => { throw new RpcError(-32602, "not a link: the `project` parameter is missing"); };
 
   m.receive({ kind: "link", url: "roundup://agent/4" });
-  await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
-  expect(String(warn.mock.calls[0]?.[0])).toContain("the `project` parameter is missing");
+  const notOpened = () => warn.mock.calls.map(call => String(call[0])).filter(text => text.startsWith("link not opened"));
+  await waitFor(() => expect(notOpened()).toHaveLength(1));
+  expect(notOpened()[0]).toContain("the `project` parameter is missing");
   expect(m.app.calls.filter(call => call.method === "link.read").map(call => call.params)).toEqual([{ url: "roundup://agent/4" }]);
   expect(notices("alert")).toEqual([]);
 });

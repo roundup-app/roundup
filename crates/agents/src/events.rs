@@ -421,7 +421,8 @@ impl Shared {
         payload: &serde_json::Value,
     ) {
         if let Some(path) = claude_code::toolcall::written_path(payload) {
-            agent_facts.edits.insert(path);
+            agent_facts.edits.retain(|each| *each != path);
+            agent_facts.edits.push(path);
         }
         if claude_code::toolcall::fold(&mut agent_facts.tool_call, payload, cwd, (self.clock)())
             && let Some(tracked) = &agent_facts.tool_call

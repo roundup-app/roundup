@@ -1,5 +1,5 @@
-//! LH19, LH20: what an Agent made for the user to read: its shown Pads, its open Todos and the files
-//! it published, read from the records the Pads, Todos and publications already keep (no model
+//! LH19, LH20: what an Agent made for the user to read: its shown Pads and the files
+//! it published, read from the records the Pads and publications already keep (no model
 //! call), and one `agent.made` event whenever an Agent's list changes.
 
 use std::collections::{BTreeMap, HashMap};
@@ -13,7 +13,6 @@ use tokio::sync::broadcast::{Receiver, error::RecvError};
 use crate::deliverables::Publications;
 
 pub(crate) struct Made {
-    todos: Arc<todos::Todos>,
     pads: Arc<pads::Pads>,
     publications: Arc<Publications>,
     /// The list last read or told for each Agent; an Agent with none is absent.
@@ -21,20 +20,15 @@ pub(crate) struct Made {
 }
 
 impl Made {
-    pub(crate) fn new(
-        todos: Arc<todos::Todos>,
-        pads: Arc<pads::Pads>,
-        publications: Arc<Publications>,
-    ) -> Self {
+    pub(crate) fn new(pads: Arc<pads::Pads>, publications: Arc<Publications>) -> Self {
         Self {
-            todos,
             pads,
             publications,
             seen: Default::default(),
         }
     }
 
-    /// Every Agent's list: its shown Pads, then its open Todos, then its published files, each
+    /// Every Agent's list: its shown Pads, then its published files, each
     /// in creation order, the oldest dropped past `MAX_MADE`.
     fn lists(&self) -> Result<BTreeMap<String, Vec<MadeItem>>, RpcError> {
         let mine = |actor: &Actor| (actor.kind == ActorKind::Agent).then(|| actor.id.clone());
@@ -50,17 +44,6 @@ impl Made {
                     kind: MadeKind::Pad,
                     id: pad.name.clone(),
                     title: pad.name,
-                });
-            }
-        }
-        let mut todos = self.todos.list_all()?;
-        todos.sort_by_key(|todo| todo.id);
-        for todo in todos.into_iter().filter(|todo| !todo.done) {
-            if let Some(agent) = mine(&todo.creator) {
-                lists.entry(agent).or_default().push(MadeItem {
-                    kind: MadeKind::Todo,
-                    id: todo.id.to_string(),
-                    title: todo.title,
                 });
             }
         }
@@ -108,23 +91,19 @@ impl Made {
         Ok(changed)
     }
 
-    /// LH20: whether an event is a change to a Pad, a Todo or a publication.
+    /// LH20: whether an event is a change to a Pad or a publication.
     fn moves(event: &Event) -> bool {
         matches!(
             event.data,
             EventData::PadChanged(_)
                 | EventData::PadRenamed { .. }
                 | EventData::PadDeleted(_)
-                | EventData::TodoCreated(_)
-                | EventData::TodoUpdated(_)
-                | EventData::TodoRestored(_)
-                | EventData::TodoDeleted(_)
                 | EventData::DeliverablePublished { .. }
                 | EventData::DeliverableChanged
         )
     }
 
-    /// Runs for as long as the Bus lives: each change to a Pad, a Todo or a publication tells the
+    /// Runs for as long as the Bus lives: each change to a Pad or a publication tells the
     /// Agents whose list it changed.
     pub(crate) async fn watch(self: Arc<Self>, mut events: Receiver<Event>, bus: Bus) {
         loop {

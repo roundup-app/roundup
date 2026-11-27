@@ -64,12 +64,11 @@ pub fn schema() -> String {
 #[serde(rename_all = "lowercase")]
 pub enum MadeKind {
     Pad,
-    Todo,
     File,
 }
 
 /// LH19: one item an Agent made for the user to read. `id` is what the App opens it by: a Pad's
-/// name, a Todo's number or a Deliverable's id.
+/// name or a Deliverable's id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct MadeItem {
     pub kind: MadeKind,
