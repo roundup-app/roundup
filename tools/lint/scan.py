@@ -282,8 +282,11 @@ def main():
         errors.extend(compare(actual[section], debt[section], section, excused=excused))
         for row in debt[section]:
             print(f'baseline debt: {section} {json.dumps(row, ensure_ascii=False)}')
+    sys.stdout.flush()
     for error in errors:
         print(error, file=sys.stderr)
+    if errors:
+        print(f'lint failed: {len(errors)} finding{"" if len(errors) == 1 else "s"}', file=sys.stderr)
     return 1 if errors else 0
 
 

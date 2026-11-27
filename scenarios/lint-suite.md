@@ -49,6 +49,7 @@ Policy: each added lint command uses this failure contract. Native tool statuses
 
 | Result, one row per failure | Exit | Required output |
 | --- | --- | --- |
+| Any failing run (exit 1) | 1 | After every finding, one `lint failed: <n> finding(s)` line |
 | Clean or only current exact exceptions | 0 | Tool identity and any remaining baseline debt |
 | New cycle | 1 | Cycle's file chain |
 | Disallowed licence | 1 | Crate/version and SPDX expression |
