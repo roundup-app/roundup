@@ -10,8 +10,12 @@ use std::time::Duration;
 
 use crate::{Observation, Shared};
 
-/// A7180b: how long the model has to answer; a late or failed answer leaves the Agent idle.
-pub(crate) const MODEL_BOUND: Duration = Duration::from_secs(3);
+/// A7180b: how long the model has to answer; a late or failed answer leaves the Agent idle. The
+/// real call takes 5.5 to 10 s wall on the owner's Mac.
+pub(crate) const MODEL_BOUND: Duration = Duration::from_secs(20);
+
+/// A7180b: the most lines `stop-check.log` keeps.
+const LOG_LINES: usize = 200;
 
 /// The longest question a label holds.
 const MAX_LABEL: usize = 120;
@@ -67,11 +71,7 @@ impl Shared {
             let question = match answer {
                 Ok(Some(question)) => question,
                 Ok(None) => return,
-                Err(err) => {
-                    return eprintln!(
-                        "agents: {id}: its stop stays idle, unread by the model: {err}"
-                    );
-                }
+                Err(err) => return shared.log_stop_failure(&id, &err),
             };
             let judged = Observation::Judged {
                 turn: turn.clone(),
@@ -84,6 +84,27 @@ impl Shared {
                 eprintln!("agents: {id}: the model's reading of its stop is lost: {err}");
             }
         });
+    }
+}
+
+impl Shared {
+    /// A7180b: the failed call's time, the Agent's id and name and the cause, on stderr and as a
+    /// line of `stop-check.log` in the state directory. None of the message is in it.
+    fn log_stop_failure(&self, id: &str, cause: &str) {
+        let name = self.rail().name_or_gone(id).unwrap_or_default();
+        let line = format!(
+            "{} agent {id} ({name}): its stop stays idle, unread by the model: {}",
+            time::OffsetDateTime::now_utc()
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_default(),
+            cause.replace('\n', " ")
+        );
+        eprintln!("agents: {line}");
+        let _ = crate::links::append_log(
+            &self.rail_view.data_dir.join("stop-check.log"),
+            &line,
+            LOG_LINES,
+        );
     }
 }
 
@@ -153,6 +174,9 @@ const DONE: [&str; 13] = [
 /// paragraph above it when that closes with a list of options, and never at more than the last
 /// `MAX_INPUT` bytes: a replayed Stop of a long message costs no more than a short one.
 pub(crate) fn rules(text: &str) -> Verdict {
+    if let Some(question) = card_question(model_input(text)) {
+        return Verdict::Asks(question);
+    }
     let tail = without_inline_code(&closing(model_input(text)));
     if tail.trim().is_empty() {
         return Verdict::Reports;
@@ -173,6 +197,27 @@ pub(crate) fn rules(text: &str) -> Verdict {
     } else {
         Verdict::Reports
     }
+}
+
+/// A7180e: the first non-empty question of a closing ```` ```card ```` block, as a label.
+fn card_question(text: &str) -> Option<String> {
+    let lines: Vec<&str> = text.trim_end().lines().collect();
+    let (last, body) = lines.split_last()?;
+    if last.trim() != "```" {
+        return None;
+    }
+    let open = body
+        .iter()
+        .rposition(|line| line.trim_start().starts_with("```"))?;
+    if body.get(open)?.trim() != "```card" {
+        return None;
+    }
+    let card: serde_json::Value = serde_json::from_str(&body.get(open + 1..)?.join("\n")).ok()?;
+    card.get("questions")?
+        .as_array()?
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .find_map(label_of)
 }
 
 /// The longest end of a message the rules and the model read.
@@ -387,6 +432,28 @@ mod tests {
             ("Should I ship it?", asks("Should I ship it?")),
         ] {
             assert_eq!(rules(text), expected, "{text}");
+        }
+    }
+
+    /// A7180e: a closing card with questions asks; an empty, unparsable or non-closing one does not.
+    #[test]
+    fn a7180e_a_closing_card_with_questions_is_an_ask() {
+        let card = |json: &str| format!("Answer q1 and q2 below.\n\n```card\n{json}\n```\n");
+        assert_eq!(
+            rules(&card(r#"{"questions":["", "Which format?", "Why?"]}"#)),
+            asks("Which format?")
+        );
+    }
+
+    #[test]
+    fn a7180e_a_card_without_questions_is_no_ask() {
+        for text in [
+            "Done.\n\n```card\n{\"questions\":[]}\n```".to_owned(),
+            "Done.\n\n```card\n{\"facts\":[\"a\"]}\n```".to_owned(),
+            "Done.\n\n```card\n{not json\n```".to_owned(),
+            "```card\n{\"questions\":[\"Which?\"]}\n```\n\nDone, merged.".to_owned(),
+        ] {
+            assert_eq!(rules(&text), Verdict::Reports, "{text}");
         }
     }
 

@@ -11,8 +11,9 @@ pub const REAL_BOUND: Duration = Duration::from_secs(120);
 pub const KEY: &str = "sk-mock-key-000000000000000000000001";
 
 /// Fixtures every Model loads before its own, for requests no test scripts: the Rail rename note, and
-/// A7180's stop judge, which Claude Code answers for each Stop the rules cannot read.
-const SHARED: [&str; 2] = ["rail_rename_note", "stop_judge"];
+/// A7180's stop judge, which Claude Code answers for each Stop the rules cannot read, and LH1's links
+/// call, now that its schema reaches the model (LH16).
+const SHARED: [&str; 3] = ["rail_rename_note", "stop_judge", "links_call"];
 
 pub struct Model {
     child: Child,
