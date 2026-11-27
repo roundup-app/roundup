@@ -83,6 +83,10 @@ const subscribe = (start: () => Promise<() => void>, fail: (cause: string) => vo
 
 const captureOff = (cause: string) => console.warn(copy.captureOff(cause));
 
+/** The App log line is fire-and-forget; the caller falls back to the console. */
+export const writeAppLog = (level: number, message: string): Promise<void> =>
+  invoke<void>("plugin:log|log", { level, message, location: "roundup" });
+
 /** The reset location comes from the invoking webview's native storage configuration. */
 export const webviewDataPath = (): Promise<string> =>
   parsedCommand(v.string(), "plugin:window-bar|webview_data_path", {});

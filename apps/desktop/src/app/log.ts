@@ -1,11 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
+import { writeAppLog } from "./tauri";
 
 const ERROR_LEVEL = 5;
 
 /** Where the App log lines go; a webview without the plugin logs to its console. */
 export const appLog = {
   write: (message: string): void => {
-    invoke("plugin:log|log", { level: ERROR_LEVEL, message, location: "roundup" }).catch(() => console.error(message));
+    writeAppLog(ERROR_LEVEL, message).catch(() => console.error(message));
   },
 };
 

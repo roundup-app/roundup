@@ -2,7 +2,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { createRoot, getOwner, runWithOwner } from "solid-js";
 import { logFailure } from "../app/log";
 import { captureFocus } from "../keys/focus";
-import { clipboardFailure, readPaste } from "../app/clipboard";
+import { clipboardFailure, plainMessage, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { Emulator } from "./emulator";
@@ -99,7 +99,7 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     const signal = focus.signal();
 
     const check = () => {
-      if (signal.aborted || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged);
+      if (signal.aborted || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged, { cause: plainMessage });
     };
 
     try {
