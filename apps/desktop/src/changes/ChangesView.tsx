@@ -584,6 +584,7 @@ const Surface = (props: { id: string; name: string }) => {
       </Show>
       <span class="changes-totals">{copy.changedFiles(files().length)} {copy.addedLines(totals().added)} {copy.removedLines(totals().removed)}</span>
       <ViewedProgress id={props.id} name={props.name} viewed={viewed.progress().viewed} total={viewed.progress().total} notes={notes} />
+      <Show when={viewed.viewedKeys().size > 0}><IconButton aria-label={copy.showViewed} tooltip={copy.showViewed} aria-pressed={list.shown() ? "true" : "false"} class="changes-viewed-toggle" onClick={list.toggle}><Icon name="check" /></IconButton></Show>
       <IconButton aria-label={copy.overview} data-home="true" aria-pressed={opened() === OVERVIEW ? "true" : "false"} onClick={() => { choosePath(OVERVIEW); flush(); section?.querySelector<HTMLElement>(".changes-overview [data-entry]")?.focus(); }}><Icon name="home" /></IconButton>
       <IconButton aria-label={copy.closeChanges} onClick={event => close(activationSource(event))}><Icon name="x" /></IconButton>
     </header>
@@ -609,7 +610,6 @@ const Surface = (props: { id: string; name: string }) => {
           <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <Show when={viewed.viewedKeys().size > 0}><IconButton aria-label={copy.showViewed} tooltip={copy.showViewed} aria-pressed={list.shown() ? "true" : "false"} class="changes-viewed-toggle" onClick={list.toggle}><Icon name="check" /></IconButton></Show>
           <ChangedTree grouped={list.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} onDot={dots.open} />
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
