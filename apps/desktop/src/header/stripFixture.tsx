@@ -11,7 +11,7 @@ import type { FakeApp } from "../testing/fakeApp";
 export const path = (name: string): string => `/Users/me/${name}`;
 
 /** The App on a fake whose open Projects are `names`, each with its own Rail tree; it returns before any Project connects. */
-export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = false, clock = () => 0) => {
+export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = false, clock = () => 0, stopped: readonly string[] = []) => {
   if (!keepStorage) window.localStorage.clear();
   useBrowserStorage(window.localStorage);
 
@@ -19,6 +19,8 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
   const names = Object.keys(trees);
 
   for (const name of names) app.add(path(name));
+
+  for (const name of stopped) app.exitDaemon({ code: null }, path(name));
 
   // U7499b: an empty read record, so each Project's Pads are unread and list above the folds.
   for (const name of names) padReadStorage(path(name)).write({});
@@ -36,8 +38,8 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
 };
 
 /** `renderTabs`, once no tab is busy, so every Project's Rail and Tab mark is current (U181). */
-export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = false, clock?: () => number) => {
-  const opened = renderTabs(trees, keepStorage, clock);
+export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = false, clock?: () => number, stopped: readonly string[] = []) => {
+  const opened = renderTabs(trees, keepStorage, clock, stopped);
 
   await waitFor(() => expect(projectTabs().map((tab) => tab.getAttribute("aria-busy"))).toEqual(Object.keys(trees).map(() => "false")));
 

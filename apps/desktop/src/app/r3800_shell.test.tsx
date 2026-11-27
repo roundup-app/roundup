@@ -66,7 +66,7 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   await waitFor(() => expect(pending.length).toBeGreaterThan(0));
   const rail = await screen.findByRole("region", { name: "Rail" });
   const centre = screen.getByRole("region", { name: "Centre" });
-  expect(screen.getByRole("tabpanel", { name: app.opened.project.name })).toBeTruthy();
+  expect(screen.getByRole("tabpanel", { name: new RegExp(`^${app.opened.project.name}`) })).toBeTruthy();
 
   if (mode === "initial open") {
     expect(rail.getAttribute("aria-busy")).toBe("true");

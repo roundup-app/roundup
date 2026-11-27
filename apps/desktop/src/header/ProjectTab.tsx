@@ -4,12 +4,13 @@ import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
 import { ProjectDraftsContext, type createProjectDrafts } from "../state/connectedProject";
-import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, Show, untrack, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, For, Show, untrack, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
+import { Tip } from "../ui/Tip";
 import { NameDraftRecovery } from "../drawer/NameDraftRecovery";
 import type { SortableParts } from "../ui/sortable";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
@@ -134,7 +135,6 @@ const tabMenu = (tab: { edit: () => void; recoverable: boolean; recover: () => v
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
-  suppressed?: boolean;
   closeFocus?: boolean;
   /** U6220c: the sortable the strip lifts this tab with; a tab without one stays where it is. */
   sort?: SortableParts | undefined;
@@ -158,7 +158,7 @@ export const ProjectTab = (props: {
   const [editing, setEditing] = createSignal<{ width: number; from: { revision: string } | undefined } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
-  const mark = () => props.suppressed ? null : markOf(props.tab);
+  const mark = () => markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
   const path = untrack(() => props.tab.path);
   const drafts = headerDrafts(useContext(ProjectDraftsContext)?.(path), path);
@@ -288,7 +288,7 @@ export const ProjectTab = (props: {
         return <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={field => capture(draft, field)} onDone={(saved, refocus) => finishRename(draft, saved, refocus)} />;
       }}</Show>}>
         <Tabs.Trigger value={props.tab.path} class="tab-name-button"
-          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy ? "true" : "false"} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
+          aria-description={[records().length || problem() || copyFailure() ? copy.unfinishedWork : "", ...(mark() ? props.tab.causes.map(cause => cause.text) : [])].filter(Boolean).join(copy.comma) || undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy ? "true" : "false"} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
           onKeyDown={closeOnKey(() => props.onClose())}
           ref={dragHandleRef()}
           onClick={(click) => {
@@ -298,7 +298,7 @@ export const ProjectTab = (props: {
             }
           }}>
           <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
-          <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
+          <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <Tip kind="changing" lazy content={<><For each={props.tab.causes}>{(cause) => <div>{cause.text}</div>}</For></>}>{trigger => <span {...trigger()} class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Tip>}</Show></span>
         </Tabs.Trigger>
         <div class="tab-actions">
         <IconButton icon="close" chord={TAB_CLOSE} class="tab-close" aria-hidden="true" tabindex={-1} aria-label={copy.closeProject(props.tab.name)} data-visible={String(near() || props.selected || props.closeFocus === true)} onClick={() => props.onClose()}><Icon name="x" /></IconButton>

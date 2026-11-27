@@ -43,7 +43,9 @@ import { dismissable } from "./ink/recovery";
 import { FloatingLine } from "./ink/FloatingLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
-import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
+import { attentionCounts, attentionHolders, attentionOrder } from "./rail/attention";
+import { causesOf } from "./header/tab";
+import { nameOf, revealTerminal } from "./bubbles/places";
 import { createDockBadge } from "./rail/DockBadge";
 import { createProjectAlerts } from "./state/projectAlerts";
 import { createStateAlerts } from "./rail/stateAlerts";
@@ -56,7 +58,7 @@ import type { LinkContent } from "@contracts/link/LinkContent";
 import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
-import { createProjectsState } from "./state/projects";
+import { createProjectsState, type OpenTab } from "./state/projects";
 import { createProjectDrafts, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
 import { connectedEntries, connectedOf, createConnections, failedOf } from "./state/connections";
@@ -90,8 +92,30 @@ const WalkHost = lazy(() => import("./pads/WalkHost").then(module => ({ default:
 
 const PadHost = lazy(() => import("./pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
+const revealCause = (rail: ConnectedProject["rail"], path: string, id: string) => {
+  const terminal = rail.terminals().find(each => each.id === id);
+
+  if (terminal) queueMicrotask(() => revealTerminal(rail, path, terminal));
+};
+
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
+
+const stripTabOf = (tab: OpenTab, rail: ConnectedProject["rail"] | undefined, base: StripTab["base"], busy: boolean): StripTab => {
+  const nodes = rail?.nodes ?? [];
+  const terminals = rail?.terminals() ?? [];
+
+  return {
+    path: tab.project.path,
+    name: tab.project.name,
+    base,
+    exitText: tab.exit ? daemonExitText(tab.exit) : null,
+    causes: causesOf(tab.exit ? tab.notRunning ? "notRunning" : "exited" : null, attentionOrder(nodes, terminals, rail?.dismissed), nameOf),
+    busy,
+    ...attentionCounts(attentionHolders(nodes, terminals, rail?.dismissed)),
+    running: nodes.flatMap((node) => (isDoor(node) && node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
+  };
+};
 
 const linkedItem = (content: LinkContent, onLateFailure: (message: string) => void) =>
   content.kind === "pad" ? <PadHost name={content.id} heading={content.section?.heading} onLateFailure={onLateFailure} />
@@ -273,19 +297,7 @@ export const App = (props: {
   }));
 
   const stripTabs = createMemo<StripTab[]>(() =>
-    projects.tabs().map((tab) => {
-      const nodes = railOf(tab.project.path)?.nodes ?? [];
-
-      return {
-        path: tab.project.path,
-        name: tab.project.name,
-        base: projects.base(tab.project.path),
-        exitText: tab.exit ? daemonExitText(tab.exit) : null,
-        busy: connections().get(tab.project.path)?.kind === "connecting",
-        ...attentionCounts(attentionHolders(nodes, railOf(tab.project.path)?.terminals() ?? [], railOf(tab.project.path)?.dismissed)),
-        running: nodes.flatMap((node) => (isDoor(node) && node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
-      };
-    }),
+    projects.tabs().map((tab) => stripTabOf(tab, railOf(tab.project.path), projects.base(tab.project.path), connections().get(tab.project.path)?.kind === "connecting")),
   );
 
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
@@ -400,14 +412,15 @@ export const App = (props: {
   onCleanup(untrack(() => props.app.onForkSheet(() => { if (projects.tabs().length > 0) { setForkAsked(true); setForkOpen(true); } })));
   const forkSources = () => projects.tabs().map(tab => ({ path: tab.project.path, name: tab.project.name, nodes: railOf(tab.project.path)?.nodes ?? [] }));
 
-  /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
+  /** U181, U180: that Project opens and the first cause of its mark is reached by its own route: an Agent's row selected, a Terminal's Bubble, an exit's `Reopen`. */
   const jumpTo = (path: string) => {
     const rail = railOf(path);
-    const next = rail && nextAttention(rail.nodes, rail.selected(), rail.dismissed);
+    const first = stripTabs().find(tab => tab.path === path)?.causes[0];
 
-    if (next) rail?.select(next.id);
-
+    if (first?.kind === "agent") rail?.select(first.id);
     projects.select(path);
+
+    if (rail && first?.kind === "terminal") revealCause(rail, path, first.id);
   };
 
 
