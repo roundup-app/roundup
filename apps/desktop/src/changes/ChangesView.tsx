@@ -513,9 +513,7 @@ const Surface = (props: { id: string; name: string }) => {
     const at = order.indexOf(opened() ?? "");
     const next = at !== -1 ? order[(at + direction + order.length) % order.length] : order[direction === 1 ? 0 : order.length - 1];
 
-    if (next === undefined) return;
-    choosePath(next);
-    focusTree(next);
+    if (next !== undefined) { choosePath(next); focusTree(next); }
   };
 
   // U7679a, U8010a: a lens keeps the open item it lists and else lands on its own.
