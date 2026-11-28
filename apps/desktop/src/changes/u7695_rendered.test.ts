@@ -46,7 +46,6 @@ const LOOKUP = { languages: [found("typescript", 4), found("rust", 15), { langua
 
 type Group = { repo: string; checkout: string; branch: string; base: string; files: ChangedFile[] };
 
-const READY = "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')";
 
 const said = (words: string) => "document.querySelector('.changes-view')?.textContent.includes(" + JSON.stringify(words) + ")";
 
@@ -133,8 +132,7 @@ it("u7695d_the_logic_lists_are_captured_for_the_critic", async () => {
   };
 
   const states: { name: string; run: () => Promise<void> }[] = [
-    { name: "logic-closed", run: async () => { await browser("click", ITEM("apps/a")); await shot("logic-closed", READY + " && " + said("Functions and types")); } },
-    { name: "logic-open", run: async () => { await browser("click", ITEM("apps/a")); await until(said("Functions and types")); await browser("click", ".changed-symbols .disclosure-trigger"); await shot("logic-open", "!!document.querySelector('.changed-symbols-list li')"); } },
+    { name: "logic-open", run: async () => { await browser("click", ITEM("apps/a")); await shot("logic-open", "!!document.querySelector('.changes-side [data-row=\"call\"]')"); } },
     { name: "rust-not-traced", run: async () => { await browser("click", ITEM("crates/b")); await shot("rust-not-traced", said("Rust not traced")); } },
   ];
 

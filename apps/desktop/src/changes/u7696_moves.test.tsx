@@ -8,7 +8,7 @@ import { answers, ALIAS, flowComparison, FLOW_FILES, LOAD, OTHER, RUN, TYPESCRIP
 import { reads } from "./moveHarness";
 import type { Moved } from "./moves";
 import { take } from "./noteHarness";
-import { chooseLens, comparison, drawnIn, landed, moduleRow, region, setUpView, text, there } from "./viewHarness";
+import { chooseLens, comparison, drawnIn, landed, moduleRow, region, setUpView, text } from "./viewHarness";
 
 setUpView();
 
@@ -125,15 +125,13 @@ it("u7696e_a_repeat_whose_lines_moved_is_not_also_a_repeat", async () => {
   expect(screen.queryByRole("button", { name: copy.repeatsAt(copy.repeatPlace("pkg/a.ts", 1, 3)) })).toBeNull();
 });
 
-const rows = () => within(there(screen.queryByRole("list", { name: copy.functionsAndTypes }))).getAllByRole("listitem").map(row => row.textContent);
+const rows = () => [...region().querySelectorAll('[data-row="call"]')].map(row => row.getAttribute("aria-label"));
 
 it("u7696f_the_list_labels_a_moved_function_and_a_renamed_one", async () => {
   const moved: CallPaths = { ...TYPESCRIPT, symbols: [{ ...RUN, new: { start: 19, end: 21 } }, OTHER, LOAD, ALIAS] };
 
   await logicOpen(app => { app.handlers["agent.callPaths"] = params => params.language === "typescript" ? moved : answers()(params); });
-  fireEvent.click(await screen.findByRole("button", { name: copy.functionsAndTypes }));
-
-  await waitFor(() => expect(rows()).toEqual(expect.arrayContaining(["run function moved", "load function renamed", "other function", "Alias type"])));
+  await waitFor(() => expect(rows()).toEqual(expect.arrayContaining(["run, function, moved", "load, function, renamed", "other, function", "Alias, type"])));
 });
 
 const symbol = (path: string, name: string, over: Partial<ChangedSymbol>): ChangedSymbol => ({ key: `${path}##${name}#function`, name, kind: "function", path, old: null, new: null, status: "changed", callable: true, ...over });
