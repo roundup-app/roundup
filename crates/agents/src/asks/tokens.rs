@@ -57,6 +57,21 @@ impl Read {
     }
 }
 
+/// Placement whose answer takes the `#` Projects before it is checked, so a part naming no Project of its own is valid.
+pub struct Assigning<'a> {
+    pub inner: &'a dyn placement::Placement,
+    pub read: &'a Read,
+}
+
+#[async_trait::async_trait]
+impl placement::Placement for Assigning<'_> {
+    async fn call(&self, id: &str, request: &placement::Request) -> Result<Vec<placement::AskPart>, String> {
+        let mut parts = self.inner.call(id, request).await?;
+        self.read.assign_projects(&mut parts);
+        Ok(parts)
+    }
+}
+
 /// `None` when the text holds no token that names anything: it then reaches Placement as it always did.
 pub fn read(text: &str, rail: &[RailNode], scope: Option<&Scope>, fixed: Option<&str>) -> Option<Read> {
     let mut hashes: Vec<String> = Vec::new();

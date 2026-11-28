@@ -260,14 +260,14 @@ impl Intake {
                     Request::new(ask.text.clone(), earlier, trees.into_iter().flat_map(|(_, rail)| rail).collect())
                 }
             };
-            let mut parts = placement::place(self.placement.as_ref(), &ask.id, &request, |id, cause| {
-                eprintln!("agents: Ask {id}: {cause}")
-            })
-            .await;
-            if let Some(marked) = &marked {
-                marked.assign_projects(&mut parts);
+            let log = |id: &str, cause: &str| eprintln!("agents: Ask {id}: {cause}");
+            match &marked {
+                Some(read) => {
+                    let assigning = tokens::Assigning { inner: self.placement.as_ref(), read };
+                    placement::place(&assigning, &ask.id, &request, log).await
+                }
+                None => placement::place(self.placement.as_ref(), &ask.id, &request, log).await,
             }
-            parts
         };
         let parts: Vec<_> = parts
             .into_iter()

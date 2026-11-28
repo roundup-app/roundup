@@ -410,7 +410,7 @@ async fn u8045d_two_at_workstreams_offer_only_those_to_placement() {
         h.asks.call(
             &h.ctx,
             "ask.send",
-            json!({"text":"@loop and @docs","projects":projects})
+            json!({"text":"ask @loop and @docs","projects":projects})
         ),
         async {
             let call = h.calls.recv().await.unwrap();
@@ -467,8 +467,15 @@ async fn u8045c_one_hash_project_fixes_every_part() {
     );
     assert_eq!(call["projects"], json!(["Work"]));
     assert_eq!(call["workstreams"], json!([]));
-    let listed = h.list().await;
-    assert_eq!(listed[0]["parts"][0]["placement"]["project"], "Work");
+    for _ in 0..100 {
+        let listed = h.list().await;
+        if listed[0]["parts"][0]["state"] != "placing" {
+            assert_eq!(listed[0]["parts"][0]["placement"]["project"], "Work");
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("the Ask stayed placing");
 }
 
 #[tokio::test]
@@ -485,7 +492,7 @@ async fn u8045c_two_hash_projects_each_part_takes_its_own() {
         h.asks.call(
             &h.ctx,
             "ask.send",
-            json!({"text":"#Education a; b #work; c","projects":projects})
+            json!({"text":"#Education a b #work c","projects":projects})
         ),
         async {
             let call = h.calls.recv().await.unwrap();
