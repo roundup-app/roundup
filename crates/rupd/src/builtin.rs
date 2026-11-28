@@ -64,13 +64,13 @@ impl Daemon {
         p: AttestParams,
     ) -> Result<(), RpcError> {
         use subtle::ConstantTimeEq;
-        let held = self
+        let stored = self
             .attest_secret
             .get()
             .map(Vec::as_slice)
             .unwrap_or_default();
         // `ct_eq` on slices of different lengths is false without comparing bytes.
-        if held.is_empty() || !bool::from(held.ct_eq(p.secret.as_bytes())) {
+        if stored.is_empty() || !bool::from(stored.ct_eq(p.secret.as_bytes())) {
             return Err(RpcError::forbidden("the secret is not this start's"));
         }
         conn.attested = true;

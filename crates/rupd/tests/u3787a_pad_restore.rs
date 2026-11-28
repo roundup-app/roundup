@@ -5,39 +5,13 @@
     clippy::panic,
     clippy::indexing_slicing
 )]
-use rpc::Client;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use tokio::net::UnixListener;
 
-/// A connection starts as the user and cannot claim to be one (EP2), so the user and the identified
-/// Agent are two connections and a test says which one speaks.
-struct Who {
-    user: Client,
-    agent: Client,
-    as_user: std::cell::Cell<bool>,
-}
-impl Who {
-    async fn connect(socket: &std::path::Path) -> Self {
-        Self {
-            user: Client::connect(socket).await.unwrap(),
-            agent: Client::connect(socket).await.unwrap(),
-            as_user: std::cell::Cell::new(true),
-        }
-    }
-    async fn request(
-        &self,
-        method: &str,
-        params: impl serde::Serialize,
-    ) -> Result<Value, rpc::RpcError> {
-        let client = if self.as_user.get() {
-            &self.user
-        } else {
-            &self.agent
-        };
-        client.request(method, params).await
-    }
-}
+#[path = "u3787a_pad_restore/who.rs"]
+mod who;
+use who::Who;
 
 struct World {
     _dir: tempfile::TempDir,

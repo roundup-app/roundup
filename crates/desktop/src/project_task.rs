@@ -190,6 +190,7 @@ struct Open {
     connected: Option<oneshot::Sender<Result<(), RpcError>>>,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum Phase {
     Open(Open),
     /// Not started yet, or the Daemon exited or failed to start; the Project stays listed so it

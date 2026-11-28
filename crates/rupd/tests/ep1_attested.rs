@@ -1,5 +1,10 @@
 //! EP1: the secret rupd writes at start reaches only the App that started it.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::io::Read;
 use std::path::Path;
