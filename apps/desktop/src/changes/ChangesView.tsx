@@ -22,6 +22,7 @@ import { flowListed, itemNotes, outdatedItem, paneTarget } from "./itemNotes";
 import type { ScrollKeys } from "./ModuleScroll";
 import { createOpenAt } from "./editor";
 import { createLate } from "./late";
+import { ChangeMap } from "./ChangeMap";
 import { ChangedTree, moduleKey, noiseKey, noteOnRow } from "./ChangedTree";
 import { createFind, FindField } from "./Find";
 import { groupLens, lensAfter, LENSES, OVERVIEW, type Lens } from "./lens";
@@ -610,7 +611,7 @@ const Surface = (props: { id: string; name: string }) => {
           <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <ChangedTree grouped={list.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} onDot={dots.open} />
+          <ChangeMap items={find.grouped().modules} viewed={viewed.viewedKeys()} open={opened()} onOpen={key => { choosePath(key); flush(); focusTree(key); }}><ChangedTree grouped={list.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} onDot={dots.open} /></ChangeMap>
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
       </div>
