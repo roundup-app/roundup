@@ -449,8 +449,8 @@ it("u7675e_question_mark_lists_the_keys", async () => {
   const keys = await screen.findByRole("region", { name: copy.keys });
   const items = within(keys).getAllByRole("listitem").map(item => item.textContent ?? "");
 
-  // Up and Down, Left and Right, Tab, J and K, L, /, ] and [, V (Viewed), X, N, E and Delete, G, R (U7688), W and D (U7698a), Enter, Esc and ? are listed, and N on a list row (U7691a), and Left and Right for a focused diagram (U7703c).
-  expect(items).toHaveLength(19);
+  // Up and Down, Left and Right, Tab, J and K, L, /, ] and [, V (Viewed), X, N, E and Delete, G, R (U7688), W and D (U7698a), Enter, Esc and ? are listed, and N on a list row (U7691a), Left and Right for a focused diagram (U7703c), and Space (U8011a).
+  expect(items).toHaveLength(20);
   expect(items.filter(item => /^V\b/.test(item))).toHaveLength(1);
   expect(items.filter(item => /^R\b/.test(item))).toHaveLength(1);
   press("?");

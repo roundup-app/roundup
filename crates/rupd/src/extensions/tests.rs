@@ -684,56 +684,56 @@ async fn ua8_a_broken_extension_never_stops_the_daemon() {
 }
 
 #[tokio::test]
-async fn c5461b_unsupported_event_fails_load() {
-    let events = [
-        "rail.sort",
-        "agent.status",
-        "rail.group",
-        "agent.classify",
-        "bus.route",
-        "tool.call",
-        "ui.render",
-        "provenance.render",
-        "unknown",
-    ];
+async fn ep4_an_unknown_event_does_not_stop_the_actions_publishing() {
     let mut fx = with(|root| {
-        for (index, event) in events.iter().enumerate() {
-            let suffix = char::from(b'a' + u8::try_from(index).unwrap());
-            ext(root, &format!("bad-{index}"), &[], &format!(
-                "export function register(on) {{ on('action', {{ name: 'user.bad{suffix}', label: 'Bad' }}, () => ({{ done: true }})); on('{event}', () => undefined); }}"
-            ));
-        }
-        ext(root, "good", &[], &action("user.good", "return { done: true };"));
-    }).await;
-    let mut problems = Vec::new();
-    tokio::time::timeout(Duration::from_secs(4), async {
-        while problems.len() < events.len() {
-            if let EventData::ExtensionProblem(problem) = fx.events.recv().await.unwrap().data {
-                problems.push((problem.extension, problem.cause));
-            }
-        }
+        ext(root, "future", &[], "export function register(on) { on('action', { name: 'user.kept', label: 'Kept' }, () => ({ done: true })); on('rail.sort', () => undefined).catch(() => undefined); on('unknown', { name: 'x' }, () => undefined); }");
     })
-    .await
-    .expect("every unsupported registration must fail by name");
-    fx.listed(&["user.good"]).await;
+    .await;
+    fx.listed(&["user.kept"]).await;
     let mut user = fx.user().await;
     assert_eq!(
-        user.call("daemon.ping", Value::Null).await["result"]["pong"],
-        true
+        user.call("action.run", json!({"name":"user.kept"})).await["result"]["status"],
+        "done"
     );
-    problems.extend(fx.problems());
-    assert_eq!(problems.len(), events.len(), "{problems:?}");
-    for (index, event) in events.iter().enumerate() {
-        let matching: Vec<_> = problems
-            .iter()
-            .filter(|(extension, _)| extension == &format!("bad-{index}"))
-            .collect();
-        assert_eq!(matching.len(), 1, "{problems:?}");
-        assert!(
-            matching[0].1.contains(event) && matching[0].1.contains("unsupported"),
-            "{matching:?}"
-        );
+    assert!(fx.problems().is_empty());
+}
+
+#[tokio::test]
+async fn ep4_the_sdk_ignores_unknown_frames_and_fields() {
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("m.mjs");
+    std::fs::write(&module, "export function register(on) { on('action', { name: 'user.a', label: 'A' }, () => ({ done: true })); }").unwrap();
+    let mut child = tokio::process::Command::new("node")
+        .arg("-e")
+        .arg(super::child::RUNNER)
+        .arg(&module)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let registered: Value =
+        serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+    assert_eq!(registered["t"], "registered");
+    for frame in [
+        json!({"t":"hello","offers":["panel","later"],"granted":[],"components":["stack"]}),
+        json!({"t":"a-frame-from-the-future","x":1}),
+        json!({"t":"stop","reason":"later"}),
+        json!({"t":"run","id":7,"name":"user.a","args":{},"later":true}),
+    ] {
+        stdin
+            .write_all(format!("{frame}\n").as_bytes())
+            .await
+            .unwrap();
     }
+    let result: Value = serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+    assert_eq!(
+        (result["t"].as_str(), result["id"].as_u64()),
+        (Some("result"), Some(7))
+    );
+    assert_eq!(result["answer"]["done"], true);
+    child.kill().await.unwrap();
 }
 
 #[tokio::test]

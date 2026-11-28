@@ -77,7 +77,7 @@ BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
 # builds, which `desktop` starts and bundles as the App, and read these files.
 PING_CRATES = {'rupd', 'rup', 'desktop'}
 PING_READS = ('loop/ci-ping.sh', 'loop/app-data.py', 'loop/app-data.test.py', 'loop/launch-sites.test.py',
-              'loop/launch-sites.json', '.github/workflows/pre.yml')
+              'loop/launch-sites.json', 'loop/launch-references.json', '.github/workflows/pre.yml')
 
 
 # T7188: what a test target's source reads from a helper binary built beside the test binaries (`rupd`, `rup`, the `terminal`

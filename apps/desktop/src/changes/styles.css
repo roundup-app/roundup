@@ -211,6 +211,9 @@
 .module-scroll { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overflow-anchor: none; overscroll-behavior: contain; }
 .module-file { display: flex; flex-direction: column; border-block-end: var(--hairline-width) solid var(--hairline); }
 .module-file .diff-reader { flex: none; }
+/* U8031b: a waiting file's block is the library's own ground (white, not --diff-ground), so the ground does not change when its lines arrive; no text sits on it. */
+.module-file .diff-reader[data-waiting] { flex: 1; gap: 0; }
+.diff-waiting { flex: 1; background: var(--diff-code-ground); }
 /* U7854c: a file's header and the lines under it sit inside the diff's edges. */
 .module-file .diff-header { padding: var(--space-1) var(--space-3); }
 .module-file .mounted-line { padding-inline: var(--space-3); }
@@ -235,7 +238,9 @@
 .changes-row-added, .changes-row-removed { block-size: 100%; }
 .changes-row-added { background: var(--green-11); }
 .changes-row-removed { background: var(--red-11); }
-.changes-row-slot { flex: none; display: flex; align-items: center; justify-content: center; inline-size: var(--space-3); }
+.changes-row-slot { flex: none; position: relative; display: flex; align-items: center; justify-content: center; inline-size: var(--space-3); }
+.changes-row-slot:has(.changes-row-icon, .risk-mark) { cursor: pointer; }
+.changes-row-slot:has(.changes-row-icon, .risk-mark)::before { content: ""; position: absolute; inset-block: calc(var(--space-3) * -1); inset-inline: calc(var(--space-2) * -1); }
 .changes-row-icon { display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: none; color: var(--grey); cursor: pointer; }
 .changes-row-icon svg, .risk-mark svg { inline-size: var(--space-3); block-size: var(--space-3); }
 .changes-row-icon[data-signal="finding"] { color: var(--red); }
@@ -258,18 +263,19 @@
 .app-segment[data-checked] .changes-tab-count { color: inherit; }
 .changes-lens-line { flex: none; margin: 0; padding-inline: var(--space-3); color: var(--grey); font: var(--text-small) var(--font-ui); }
 .changes-nomatch { margin: 0; padding-inline: var(--space-3); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
-/* U7683e: the call tree steps in one space step with each level of the call; D2 reads the depth from --flow-depth. */
-.flow-tree-rows .changes-row { padding-inline-start: calc(var(--space-2) + var(--flow-depth, 0) * var(--space-2)); }
+/* U8032a: an open item's call rows step in one space step with each level under the item's row; D2 reads the depth from --flow-depth. The `←N` mark follows the name, the +/− mark closes the row. */
+.changes-tree .changes-row[data-row="call"] { padding-inline-start: calc(var(--space-6) + var(--flow-depth, 0) * var(--space-2)); }
+[data-row="call"] .changes-row-name { flex: 0 1 auto; }
+.changes-row-called { flex: none; margin-inline-start: var(--space-2); color: var(--grey); font-variant-numeric: tabular-nums; }
+.changes-row-status[data-mark] { margin-inline-start: auto; }
+.changes-row-status[data-mark="+"] { color: var(--green-11); }
+.changes-row-status[data-mark="−"] { color: var(--red-11); }
 /* U7683d, U7683f: a section's function name and the trace lines sit on their column's text edge; a failed trace's cause sets apart on its own line. */
 .module-function { margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 .flow-states { display: flex; flex-direction: column; gap: var(--space-1); padding-inline: var(--space-4); }
 .flow-states p { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 .flow-cause { flex-basis: 100%; }
 
-/* U7695a: an entry's name is a quiet button; its kind and status follow it in words. */
-.changed-symbols-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(var(--space-6) * 8); overflow-y: auto; overscroll-behavior: contain; }
-.changed-symbols-list .changed-symbol-name { color: var(--text); }
-.changed-symbols-list li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-2); color: var(--grey); font: var(--text-small) var(--font-ui); overflow-wrap: anywhere; }
 
 /* U7685a, U7685b: the mark under a repeat's last line, and the other place it shows: sunken, in the diff's own type. */
 .repeat-mark { padding: var(--space-2); background: var(--sunken); color: var(--text); font: var(--text-small) var(--font-ui); }

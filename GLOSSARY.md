@@ -335,6 +335,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code editor (`codeEditor`, `list_editors`, `EditorChoice`) | Code editor | — |
 | Extension | same | — |
 | Hook | same | — |
+| Panel (`contracts::extension::Panel`, `Element`: an Extension's data, a root and elements by id, drawn by roundup's own components) | panel | — |
+| Extension capability (`Capability`: `panel`, `service`, `agents.place`, `agents.settings`; an Extension's `uses`, roundup's `hello.offers`) | none | — |
+| Extension frame (`FromExtension`, `ToExtension`, `contracts::extension::schemas`: every JSON line between rupd and an Extension, grown only by `contracts/extension/history/`) | none | — |
 | User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |
 | Extension host (`crates/rupd` `src/extensions/`, `extension.problem`) | none | — |
 | Config (`crates/rupd` `src/config.rs`, `config.read`, `config.changed`, `config.problem`, `ConfigState`) | none | — |
