@@ -407,7 +407,7 @@ const createSteps = (input: Parameters<typeof createListed>[0] & Parameters<type
 
 /** U8011a: Space scrolls the open item a pane, and at its end marks it and opens the next unviewed item; Shift-Space only scrolls back. */
 const readOn = (direction: 1 | -1, opened: string | undefined, diff: ScrollKeys | undefined, mark: () => void) => {
-  if (opened !== undefined && opened !== OVERVIEW && diff?.page(direction) === "end") mark();
+  if (opened !== undefined && opened !== OVERVIEW && diff?.page(direction)) mark();
 };
 
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */

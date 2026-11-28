@@ -7,7 +7,7 @@ import { copy } from "./copy";
 import { answers, FLOW_FILES, flowComparison, OTHER, RUN, SHOUT, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
 import { openOverview, take } from "./noteHarness";
-import { calls, chooseLens, landed, moduleKeys, moduleRow, openPaths, pane, press, region, setUpView, showing, slot } from "./viewHarness";
+import { calls, chooseLens, landed, moduleKeys, moduleRow, openPaths, pane, press, region, setUpView, showViewedRows, showing, slot } from "./viewHarness";
 
 setUpView();
 
@@ -205,7 +205,7 @@ it("u7689e_marking_a_flow_viewed_opens_the_next_unviewed_one_an_added_flow_inclu
   press("v");
 
   // run and other list the same two files, so both read viewed; the added flow, next in the list, opens.
-  await waitFor(() => expect(said(flowName(RUN.key))).toContain(copy.viewed));
+  await waitFor(() => { showViewedRows(); expect(said(flowName(RUN.key))).toContain(copy.viewed); });
   expect(said(flowName(OTHER.key))).toContain(copy.viewed);
   await showing(LIB_RS);
   expect(screen.getByText(copy.viewedProgress(2, 4))).toBeTruthy();
