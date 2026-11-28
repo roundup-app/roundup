@@ -55,10 +55,10 @@
   --form-thumb: #ffffff;
   --transparent: transparent;
   /* U8035: the diff follows the App's theme through color-scheme (U7761); a note drawn under its lines reads these, the notes bar reads the App's. */
-  --diff-text: light-dark(#1f2328, #e6edf3);
-  --diff-grey: light-dark(#59636e, #9198a1);
-  --diff-ground: light-dark(#f6f8fa, #151b23);
-  --diff-code-ground: light-dark(#ffffff, #0d1117);
+  --diff-text: light-dark(#1f2328, #e8e8e8);
+  --diff-grey: light-dark(#59636e, #9a9a9a);
+  --diff-ground: light-dark(#f6f8fa, #1a1a1a);
+  --diff-code-ground: light-dark(#ffffff, var(--ground));
   --diff-accent: light-dark(#b23300, #fc6a3e);
   /* The accent at 55% for the bar and 6% for the tint, written as rgba because D5 reads a computed wash only in that form. */
   --note-bar-width: 2px;

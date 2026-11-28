@@ -30,5 +30,8 @@
 /* The App's chrome is non-selectable; diff text must opt into native selection. */
 [data-line] { user-select: text; }
 
+/* U8035: a plain file drops the sign but keeps its column, so the note button never covers the first character. */
+[data-indicators=none] [data-line] { padding-inline-start: 2ch; }
+
 /* U7676a: the gutter + is Pierre's own button; only its look is ours. */
 [data-utility-button] { color: var(--text); cursor: pointer; }
