@@ -42,12 +42,12 @@
   max-height: var(--order-field-max-height);
   field-sizing: content;
   resize: none;
-  padding: var(--space-2);
+  padding: 0;
   font: inherit;
   color: inherit;
-  background: var(--ground);
-  border: var(--hairline-width) solid var(--hairline);
-  border-radius: var(--radius-control);
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
 
 .ask-input::placeholder {
@@ -555,15 +555,32 @@
 }
 
 .ask-field {
+  display: flex;
+  align-items: flex-end;
+  column-gap: var(--space-3);
+}
+
+.ask-body {
   position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.ask-pick {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--grey);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .ask-tint {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  padding: var(--space-2);
-  border: var(--hairline-width) solid var(--hairline);
+  padding: 0;
   font: inherit;
   visibility: hidden;
   white-space: pre-wrap;
@@ -580,5 +597,8 @@
 
 .ask-field .ask-input {
   position: relative;
+  min-height: 1lh;
+  padding: 0;
+  border: 0;
   background: none;
 }

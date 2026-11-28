@@ -17,6 +17,8 @@ export const createProjectPick = (from: {
   text: Accessor<string>;
   /** The text names its Workstream (A40) or a token (U8045c), so nothing is placed. */
   named: Accessor<boolean>;
+  /** The Project the bar sits in, which a part with no named Project goes to. */
+  active: Accessor<string>;
 }) => {
   const [placed, setPlaced] = createSignal<{ text: string; parts: readonly PlacedPart[] } | null>(null);
   const shown = () => from.projects().length >= 2 && !from.named();
@@ -55,6 +57,13 @@ export const createProjectPick = (from: {
   const current = () => (placed()?.text === from.text() ? placed()!.parts : null);
 
   return {
+    /** U8046b: the Projects shown at the line's right end, each once; empty when nothing is shown. */
+    names: (): string[] => {
+      if (!shown() || from.text().trim() === "") return [];
+      const parts = current();
+
+      return parts ? [...new Set(parts.map(part => ("project" in part.placement && part.placement.project) || from.active()))] : [from.active()];
+    },
     /** What the send adds to its request: the parts already placed for exactly this text. */
     request: (): Pick<SendParams, "parts"> => {
       const parts = current();

@@ -234,11 +234,14 @@ export const AskBar = () => {
     { chords: ASK_CLOSE, when: event => !(event.target instanceof Element && event.target.closest(".app-select-list, [aria-expanded=true]")), run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
+  const named = () => v.safeParse(v.string(), current()?.value.workstream).success || tinted().some(segment => segment.mark !== undefined);
+
   const projectPick = createProjectPick({
     place: value => asks.place(value),
     projects: asks.projects,
     text,
-    named: () => v.safeParse(v.string(), current()?.value.workstream).success || tinted().some(segment => segment.mark !== undefined),
+    active: () => connected.project.name,
+    named,
   });
 
   const send = async (): Promise<void> => {
@@ -306,10 +309,11 @@ export const AskBar = () => {
       <DialogContent class="ask-bar" data-mode="over" aria-label={copy.askBarLabel} initialFocus={initialFocus} finalFocus={finalFocus} ref={setPanel}>
         <div class="ask-compose">
         <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
-          <div class="ask-field"><div class="ask-tint" role="presentation"><For each={tinted()} keyed={false}>{segment => <Show when={segment().mark} fallback={segment().text}>{mark => <mark class="ask-token" data-token={mark()} aria-label={mark() === "project" ? copy.askProjectToken(segment().text.slice(1)) : copy.askWorkstreamToken(segment().text.slice(1))}>{segment().text}</mark>}</Show>}</For></div>
+          <div class="ask-field"><div class="ask-body"><div class="ask-tint" role="presentation"><For each={tinted()} keyed={false}>{segment => <Show when={segment().mark} fallback={segment().text}>{mark => <mark class="ask-token" data-token={mark()} aria-label={mark() === "project" ? copy.askProjectToken(segment().text.slice(1)) : copy.askWorkstreamToken(segment().text.slice(1))}>{segment().text}</mark>}</Show>}</For></div>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); setCaret(event.currentTarget.selectionStart); followScroll(event.currentTarget); }} onScroll={(event) => followScroll(event.currentTarget)} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} /></div>
+          <Show when={!named() && projectPick.names().length > 0}><span class="ask-pick">{projectPick.names().join(", ")}</span></Show></div>
           <Show when={matching().length > 0}><Mentions.List label={typing()?.sigil === "#" ? copy.askProjectMentions : copy.askMentions} items={matching()} row={item => {
             const node = () => rail.nodes.find(node => node.id === item.value);
 
