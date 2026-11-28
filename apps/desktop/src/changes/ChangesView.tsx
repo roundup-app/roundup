@@ -412,7 +412,6 @@ const readOn = (direction: 1 | -1, opened: string | undefined, diff: ScrollKeys 
   if (opened !== undefined && opened !== OVERVIEW && diff?.page(direction)) mark();
 };
 
-/** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 /** U8075: true a task after the view mounts, so the fold's slide does not wait behind one long mount. */
 const afterMount = () => {
   const [drawn, setDrawn] = createSignal(false);
@@ -426,6 +425,7 @@ const afterMount = () => {
   return drawn;
 };
 
+/** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
   const { app, events, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
