@@ -3,14 +3,23 @@ export type Token = { sigil: "#" | "@"; word: string; start: number; end: number
 
 const TOKEN = /(?<lead>^|\s)(?<sigil>[#@])(?<word>\S*)/g;
 
-export const tokensOf = (text: string): Token[] =>
+/** The longest of `names` that opens `rest` and ends at a space or the end of the text. */
+const nameAt = (rest: string, names: readonly string[]): string | undefined =>
+  names
+    .filter(name => name.length > 0 && rest.slice(0, name.length).toLowerCase() === name.toLowerCase() && /^\s?$/.test(rest.charAt(name.length)))
+    .reduce<string | undefined>((best, name) => (best === undefined || name.length > best.length ? name : best), undefined);
+
+/** `names` are the open Projects (`#`) and Workstreams (`@`): a token takes the longest of them that follows its sigil, else the non-space run. */
+export const tokensOf = (text: string, names: { "#"?: readonly string[]; "@"?: readonly string[] } = {}): Token[] =>
   [...text.matchAll(TOKEN)].flatMap(found => {
     const { lead = "", sigil, word = "" } = found.groups ?? {};
 
     if (sigil !== "#" && sigil !== "@") return [];
     const start = found.index + lead.length;
+    const rest = text.slice(start + 1);
+    const taken = nameAt(rest, names[sigil] ?? []) ?? word;
 
-    return [{ sigil, word, start, end: start + 1 + word.length }];
+    return [{ sigil, word: taken, start, end: start + 1 + taken.length }];
   });
 
 /** The token being typed: the one the caret sits in or at the end of. */
@@ -32,7 +41,7 @@ export const projectNamed = (word: string, projects: readonly string[]): string 
 
 /** The distinct open Projects the text names with `#`, in the order first named. */
 export const hashProjects = (text: string, projects: readonly string[]): string[] => {
-  const named = tokensOf(text).filter(token => token.sigil === "#").flatMap(token => projectNamed(token.word, projects) ?? []);
+  const named = tokensOf(text, { "#": projects }).filter(token => token.sigil === "#").flatMap(token => projectNamed(token.word, projects) ?? []);
 
   return [...new Set(named)];
 };
@@ -44,7 +53,7 @@ export const segments = (text: string, projects: readonly string[], workstreams:
   const out: Segment[] = [];
   let at = 0;
 
-  for (const token of tokensOf(text)) {
+  for (const token of tokensOf(text, { "#": projects, "@": workstreams })) {
     const mark = token.sigil === "#"
       ? (projectNamed(token.word, projects) ? "project" : undefined)
       : (workstreams.some(name => same(name, token.word)) ? "workstream" : undefined);

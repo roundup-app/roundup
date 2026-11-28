@@ -576,7 +576,6 @@
   visibility: visible;
   color: var(--row-open-wash);
   background: var(--row-open-wash);
-  border-radius: var(--radius-control);
 }
 
 .ask-field .ask-input {

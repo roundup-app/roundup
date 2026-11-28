@@ -10,12 +10,39 @@ type Found = Vec<(Option<String>, String)>;
 /// The open Projects an Ask's tokens are read against, each with its complete tree.
 pub type Scope = Vec<(String, Vec<RailNode>)>;
 
-/// A token is `#` or `@` plus the non-space characters after it, at the start of the text or after a space.
-fn words(text: &str, sigil: char) -> Vec<&str> {
-    text.split_whitespace()
-        .filter_map(|word| word.strip_prefix(sigil))
-        .filter(|word| !word.is_empty())
-        .collect()
+/// A token is `#` or `@` at the start of the text or after a space, then the longest of `names` that follows
+/// and ends at a space or the end, else the non-space characters after it.
+fn words<'a>(text: &'a str, sigil: char, names: &[&str]) -> Vec<&'a str> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    while let Some(found) = text[at..].find(sigil) {
+        let start = at + found;
+        let rest = &text[start + sigil.len_utf8()..];
+        at = start + sigil.len_utf8();
+        if text[..start]
+            .chars()
+            .next_back()
+            .is_some_and(|c| !c.is_whitespace())
+        {
+            continue;
+        }
+        let closes = |len: usize| rest[len..].chars().next().is_none_or(char::is_whitespace);
+        let longest = names
+            .iter()
+            .filter(|name| {
+                rest.get(..name.len()).is_some_and(|head| {
+                    head.to_lowercase() == name.to_lowercase() && closes(name.len())
+                })
+            })
+            .map(|name| name.len())
+            .max();
+        let len = longest.unwrap_or_else(|| rest.find(char::is_whitespace).unwrap_or(rest.len()));
+        if len > 0 {
+            out.push(&rest[..len]);
+            at += len;
+        }
+    }
+    out
 }
 
 pub struct Route {
@@ -50,7 +77,13 @@ impl Read {
         }
         for part in parts {
             if part.project.is_none() && matches!(part.destination, Destination::New { .. }) {
-                let own = words(&part.text, '#').into_iter().find_map(|word| {
+                let own = words(
+                    &part.text,
+                    '#',
+                    &self.hashes.iter().map(String::as_str).collect::<Vec<_>>(),
+                )
+                .into_iter()
+                .find_map(|word| {
                     self.hashes
                         .iter()
                         .find(|name| name.to_lowercase() == word.to_lowercase())
@@ -88,7 +121,12 @@ pub fn read(
     fixed: Option<&str>,
 ) -> Option<Read> {
     let mut hashes: Vec<String> = Vec::new();
-    for word in words(text, '#') {
+    let projects: Vec<&str> = scope
+        .into_iter()
+        .flatten()
+        .map(|(name, _)| name.as_str())
+        .collect();
+    for word in words(text, '#', &projects) {
         let named = scope
             .into_iter()
             .flatten()
@@ -114,7 +152,13 @@ pub fn read(
         None => vec![(fixed.clone(), rail)],
     };
     let mut asked: Vec<&str> = Vec::new();
-    for word in words(text, '@') {
+    let workstreams: Vec<&str> = pool
+        .iter()
+        .flat_map(|(_, tree)| tree.iter())
+        .filter(|node| node.kind() == NodeKind::Workstream)
+        .map(|node| node.name.as_str())
+        .collect();
+    for word in words(text, '@', &workstreams) {
         if !asked
             .iter()
             .any(|each| each.to_lowercase() == word.to_lowercase())

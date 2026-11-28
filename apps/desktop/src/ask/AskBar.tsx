@@ -35,6 +35,12 @@ const optionalViews = ["made"];
 
 /** U504, U6244c: the Ask bar and its rows. Only `⌘/` opens it, over whatever the centre shows; Escape closes it and returns focus. Requested lists show while nothing is selected. */
 
+const followScroll = (field: HTMLTextAreaElement) => {
+  const tint = field.previousElementSibling;
+
+  if (tint) tint.scrollTop = field.scrollTop;
+};
+
 export const AskBar = () => {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
@@ -303,7 +309,7 @@ export const AskBar = () => {
           <div class="ask-field"><div class="ask-tint" role="presentation"><For each={tinted()} keyed={false}>{segment => <Show when={segment().mark} fallback={segment().text}>{mark => <mark class="ask-token" data-token={mark()} aria-label={mark() === "project" ? copy.askProjectToken(segment().text.slice(1)) : copy.askWorkstreamToken(segment().text.slice(1))}>{segment().text}</mark>}</Show>}</For></div>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
-            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); setCaret(event.currentTarget.selectionStart); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} /></div>
+            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); setCaret(event.currentTarget.selectionStart); followScroll(event.currentTarget); }} onScroll={(event) => followScroll(event.currentTarget)} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} /></div>
           <Show when={matching().length > 0}><Mentions.List label={typing()?.sigil === "#" ? copy.askProjectMentions : copy.askMentions} items={matching()} row={item => {
             const node = () => rail.nodes.find(node => node.id === item.value);
 
