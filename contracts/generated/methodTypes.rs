@@ -131,6 +131,8 @@
     Method { name: "ask.pick", params: "ask_PickParams", result: "ask_Ask" },
     Method { name: "daemon.getNaming", params: "null", result: "project_NamingSettings" },
     Method { name: "daemon.setNaming", params: "project_NamingSettings", result: "null" },
+    Method { name: "extension.approve", params: "extension_ApproveParams", result: "null" },
+    Method { name: "extension.capabilities", params: "null", result: "extension_ExtensionCapabilities[]" },
     Method { name: "project.setProgram", params: "project_ProjectProgram", result: "null" },
     Method { name: "project.clearProgram", params: "null", result: "null" },
     Method { name: "project.startProgram", params: "null", result: "null" },

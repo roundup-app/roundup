@@ -5,6 +5,7 @@ async fn call_as(daemon: &Daemon, actor: Actor, params: Value) -> Result<Value, 
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor,
         peer: None,
         events,
@@ -70,6 +71,7 @@ fn test_conn() -> Conn {
     let (events, _) = mpsc::unbounded_channel();
     Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor::user(),
         peer: None,
         events,

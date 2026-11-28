@@ -89,6 +89,8 @@ import type { Resolution as deliverable_Resolution } from "./deliverable/Resolut
 import type { DescribeParams as describe_DescribeParams } from "./describe/DescribeParams";
 import type { MethodDescription as describe_MethodDescription } from "./describe/MethodDescription";
 import type { MethodList as describe_MethodList } from "./describe/MethodList";
+import type { ApproveParams as extension_ApproveParams } from "./extension/ApproveParams";
+import type { ExtensionCapabilities as extension_ExtensionCapabilities } from "./extension/ExtensionCapabilities";
 import type { Check as feedback_Check } from "./feedback/Check";
 import type { Filed as feedback_Filed } from "./feedback/Filed";
 import type { SendParams as feedback_SendParams } from "./feedback/SendParams";
@@ -348,6 +350,8 @@ export type RpcMethods = {
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
   "daemon.getNaming": { params: null; result: project_NamingSettings };
   "daemon.setNaming": { params: project_NamingSettings; result: null };
+  "extension.approve": { params: extension_ApproveParams; result: null };
+  "extension.capabilities": { params: null; result: extension_ExtensionCapabilities[] };
   "project.setProgram": { params: project_ProjectProgram; result: null };
   "project.clearProgram": { params: null; result: null };
   "project.startProgram": { params: null; result: null };

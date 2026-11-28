@@ -62,8 +62,8 @@ impl Daemon {
         rpc::reply(&adopted).map(Some)
     }
 
-    /// ST4: `settings` come from the user or the Project's program, from no Agent and no other
-    /// Ext; the program sends no `permissionMode` field. Decided from the caller's process, before
+    /// ST4: `settings` come from the user, the Project's program or an Extension the owner approved
+    /// for `agents.settings` (EP7), from no Agent and no other Ext; the program sends no `permissionMode` field. Decided from the caller's process, before
     /// anything is made.
     pub(crate) fn guard_spawn(&self, conn: &Conn, params: &Value) -> Result<(), RpcError> {
         let sent = |key: &str| params.get(key).is_some_and(|value| !value.is_null());
@@ -72,9 +72,9 @@ impl Daemon {
             return Ok(());
         }
         let program = self.is_program(conn);
-        if settings && !program && conn.actor.kind != ActorKind::User {
+        if settings && !program && conn.actor.kind != ActorKind::User && !conn.settings_granted {
             return Err(RpcError::forbidden(
-                "only the user or the Project's program starts an Agent with settings",
+                "only the user, the Project's program or an Extension approved for agents.settings starts an Agent with settings",
             ));
         }
         if program && sent("permissionMode") {

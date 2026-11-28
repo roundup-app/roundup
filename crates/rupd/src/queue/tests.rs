@@ -67,6 +67,7 @@ async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, Rpc
     let (events, _) = tokio::sync::mpsc::unbounded_channel();
     let mut conn = super::super::Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor::user(),
         peer: None,
         events,

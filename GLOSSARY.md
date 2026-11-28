@@ -337,6 +337,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Hook | same | — |
 | Panel (`contracts::extension::Panel`, `Element`: an Extension's data, a root and elements by id, drawn by roundup's own components) | panel | — |
 | Extension capability (`Capability`: `panel`, `service`, `agents.place`, `agents.settings`; an Extension's `uses`, roundup's `hello.offers`) | none | — |
+| Extension approval (`extension.approve` behind `Gate::Attested`, `extension.capabilities`, `ExtensionCapabilities`, `ApproveParams`, `Conn::settings_granted`, `extensions::approvals`: the owner's attested grant of `panel`, `agents.place` and `agents.settings` to one Extension folder, name and set of capabilities asked) | none | — |
 | Extension frame (`FromExtension`, `ToExtension`, `contracts::extension::schemas`: every JSON line between rupd and an Extension, grown only by `contracts/extension/history/`) | none | — |
 | User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |
 | Extension host (`crates/rupd` `src/extensions/`, `extension.problem`) | none | — |

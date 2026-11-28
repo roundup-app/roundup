@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use contracts::extension::{CallError, FromExtension, ToExtension};
+use contracts::extension::{CallError, Capability, FromExtension, ToExtension};
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, Command};
@@ -53,7 +53,12 @@ pub(super) struct Started {
 static IDS: AtomicU64 = AtomicU64::new(1);
 
 impl Child {
-    pub(super) fn start(node: &OsStr, folder: &Path, module: &Path) -> std::io::Result<Started> {
+    pub(super) fn start(
+        node: &OsStr,
+        folder: &Path,
+        module: &Path,
+        granted: Vec<Capability>,
+    ) -> std::io::Result<Started> {
         let mut process = Command::new(node)
             .arg("-e")
             .arg(RUNNER)
@@ -85,6 +90,19 @@ impl Child {
         let driven = std::sync::Arc::clone(&child);
         tokio::spawn(async move {
             let mut registered_tx = Some(registered_tx);
+            // EP5: first on stdin, before any run or answer can be sent.
+            let _ = driven
+                .send(&ToExtension::Hello {
+                    offers: vec![
+                        Capability::Panel,
+                        Capability::Service,
+                        Capability::AgentsPlace,
+                        Capability::AgentsSettings,
+                    ],
+                    granted,
+                    components: contracts::extension::COMPONENTS.map(str::to_owned).to_vec(),
+                })
+                .await;
             let mut lines = BufReader::new(stdout);
             let mut line = Vec::new();
             loop {

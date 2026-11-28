@@ -327,6 +327,26 @@ impl Daemon {
         Ok(self.extensions.rows())
     }
 
+    /// EP5: behind `Gate::Attested`; the Extension reloads to be told what it is now granted.
+    pub(super) async fn extension_approve(
+        &self,
+        conn: &mut Conn,
+        p: contracts::extension::ApproveParams,
+    ) -> Result<(), RpcError> {
+        self.ctx(conn.actor.clone())
+            .touch(Verb::Wrote, &format!("extension:{}", p.folder))?;
+        self.extensions.approve(p)
+    }
+
+    pub(super) async fn extension_capabilities(
+        &self,
+        conn: &mut Conn,
+    ) -> Result<Vec<contracts::extension::ExtensionCapabilities>, RpcError> {
+        self.ctx(conn.actor.clone())
+            .touch(Verb::Read, "extension:capabilities")?;
+        Ok(self.extensions.capabilities())
+    }
+
     pub(super) async fn config_read(
         &self,
         conn: &mut Conn,

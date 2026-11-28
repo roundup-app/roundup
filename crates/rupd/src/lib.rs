@@ -214,6 +214,9 @@ pub struct Conn {
     actor: Actor,
     /// EP1: set by `app.attest` with the start's secret; never cleared.
     attested: bool,
+    /// EP7: set only on the host's own connection for an Extension granted `agents.settings`; no
+    /// socket client can set it, whatever `ext:` name it claims.
+    settings_granted: bool,
     /// H21: the pid of the process on the other end, as the OS reports it.
     peer: Option<u32>,
     events: mpsc::UnboundedSender<Frame>,

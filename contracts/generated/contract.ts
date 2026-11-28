@@ -76,6 +76,8 @@ export const CONTRACT = {
     "deliverable.remove": "91e18f475738c84d",
     "deliverable.resolve": "6df699e51874607a",
     "events.subscribe": "de0fefe1c4790852",
+    "extension.approve": "f2433829c21e5697",
+    "extension.capabilities": "d2b9c2de51d733ea",
     "feedback.check": "ac03a0c43f2f5c15",
     "feedback.send": "b9d08faca74e35e4",
     "github.issueGet": "5752a99b295ac021",
