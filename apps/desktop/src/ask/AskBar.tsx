@@ -18,8 +18,9 @@ import { Line } from "../ink/FailureLine";
 import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
-import { Select } from "../ui/Select";
 import { createProjectPick } from "./projectPick";
+import { replaceToken } from "../state/askTokens";
+import { createTokenLists } from "./tokenLists";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph } from "../ink/KindGlyph";
 import { errorCause, shownKind } from "../ink/FailureLine";
@@ -30,12 +31,15 @@ import { createDeliverables, Deliverables } from "./Deliverables";
 import { createCut } from "../ink/Tip";
 import "./styles.css";
 
-/** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
-const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ?? null;
-
 const optionalViews = ["made"];
 
 /** U504, U6244c: the Ask bar and its rows. Only `⌘/` opens it, over whatever the centre shows; Escape closes it and returns focus. Requested lists show while nothing is selected. */
+
+const followScroll = (field: HTMLTextAreaElement) => {
+  const tint = field.previousElementSibling;
+
+  if (tint) tint.scrollTop = field.scrollTop;
+};
 
 export const AskBar = () => {
   const connected = useConnectedProject();
@@ -117,6 +121,8 @@ export const AskBar = () => {
   const retainSelection = () => {
     const draft = current();
 
+    if (field?.isConnected) setCaret(field.selectionStart);
+
     if (!draft || !field?.isConnected) return;
     const selection = { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection };
 
@@ -189,11 +195,7 @@ export const AskBar = () => {
 
   const names = createMemo(() => rail.nodes.filter((node) => node.kind === "workstream").map((node) => ({ value: node.id, label: node.name })));
 
-  const matching = createMemo(() => {
-    const typed = mentionOf(text());
-
-    return dismissed() || typed === null ? [] : names().filter((item) => item.label.toLowerCase().includes(typed.toLowerCase()));
-  });
+  const { setCaret, workstreams, typing, matching, tinted } = createTokenLists({ text, dismissed, names, projects: asks.projects, known: asks.workstreams });
 
   const [highlighted, setHighlighted] = createWritableMemo<string | null>(previous => {
     const list = matching();
@@ -235,9 +237,8 @@ export const AskBar = () => {
   const projectPick = createProjectPick({
     place: value => asks.place(value),
     projects: asks.projects,
-    active: connected.project.name,
     text,
-    named: () => v.safeParse(v.string(), current()?.value.workstream).success,
+    named: () => v.safeParse(v.string(), current()?.value.workstream).success || tinted().some(segment => segment.mark !== undefined),
   });
 
   const send = async (): Promise<void> => {
@@ -265,17 +266,20 @@ export const AskBar = () => {
     });
   };
 
-  const complete = (id: string): void => {
-    const node = rail.nodes.find(node => node.kind === "workstream" && node.id === id);
+  const complete = (value: string): void => {
+    const token = typing();
+    const found = workstreams().find(item => item.value === value);
+    const pick = token?.sigil === "#" ? { name: value, id: undefined } : found && { name: found.label, id: value };
 
-    if (!node) return;
-    const value = `@${node.name} `;
+    if (!token || !pick) return;
+    const written = replaceToken(text(), token, `${token.sigil}${pick.name} `);
 
-    setText(value, id);
+    setText(written.text, token.start === 0 && pick.id !== undefined && rail.nodes.some(node => node.id === pick.id) ? pick.id : undefined);
     // The field and the stored selection below read the completed text.
     flush();
     field?.focus({ preventScroll: true });
-    field?.setSelectionRange(value.length, value.length);
+    field?.setSelectionRange(written.caret, written.caret);
+    setCaret(written.caret);
     retainSelection();
   };
 
@@ -302,32 +306,28 @@ export const AskBar = () => {
       <DialogContent class="ask-bar" data-mode="over" aria-label={copy.askBarLabel} initialFocus={initialFocus} finalFocus={finalFocus} ref={setPanel}>
         <div class="ask-compose">
         <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
+          <div class="ask-field"><div class="ask-tint" role="presentation"><For each={tinted()} keyed={false}>{segment => <Show when={segment().mark} fallback={segment().text}>{mark => <mark class="ask-token" data-token={mark()} aria-label={mark() === "project" ? copy.askProjectToken(segment().text.slice(1)) : copy.askWorkstreamToken(segment().text.slice(1))}>{segment().text}</mark>}</Show>}</For></div>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
-            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
-          <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} row={item => {
+            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); setCaret(event.currentTarget.selectionStart); followScroll(event.currentTarget); }} onScroll={(event) => followScroll(event.currentTarget)} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} /></div>
+          <Show when={matching().length > 0}><Mentions.List label={typing()?.sigil === "#" ? copy.askProjectMentions : copy.askMentions} items={matching()} row={item => {
             const node = () => rail.nodes.find(node => node.id === item.value);
 
             const parent = () => names().filter(other => other.label === item.label).length > 1
               ? (rail.nodes.find(other => other.id === node()?.parent)?.name ?? connected.project.name) : undefined;
 
-            const start = () => item.label.toLowerCase().indexOf((mentionOf(text()) ?? "").toLowerCase());
-            const end = () => start() + (mentionOf(text())?.length ?? 0);
+            const start = () => item.label.toLowerCase().indexOf((typing()?.word ?? "").toLowerCase());
+            const end = () => start() + (typing()?.word.length ?? 0);
 
             const [cutRef, cut] = createCut();
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
+            if (typing()?.sigil === "#") return <span class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>;
+
             return <><KindGlyph decorative kind={shownKind(doorStatus(node()), dismissed())} /><Tip kind="changing" text={item.label} cut={cut}>{trigger => <span {...trigger({ ref: cutRef })} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(doorStatus(node()), false)}>{cause => <Line label={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
-        <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
-          <For each={projectPick.chips()} keyed={false}>{(chip, index) => <span class="ask-chip">
-            <span class="ask-chip-lead">{projectPick.chips().length > 1 ? chip().text : copy.askProject}</span>
-            <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip().text) : copy.askProject} value={chip().project}
-              choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={value => projectPick.pick(index, value)} />
-          </span>}</For>
-        </div></Show>
         <DialogFailure message={sendLine.message()} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
         <MountedStatus when={records().some(draft => draft.status === "unknown")} class="ask-send-status"><For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);

@@ -7,7 +7,10 @@ use contracts::ask::{
 use placement::{Destination, EarlierAsk, Placement, Request};
 use std::collections::{HashMap, HashSet};
 
+mod placed;
 mod store;
+mod tokens;
+use placed::placed_parts;
 use store::Store;
 
 pub struct Asks {
@@ -26,6 +29,8 @@ struct Intake {
     doors: Mutex<HashSet<String>>,
     /// U6271a: the Project the owner fixed for an Ask whose Placement call is still pending.
     fixed: Mutex<HashMap<String, String>>,
+    /// U8045c: the open Projects an Ask's tokens are read against, for an Ask whose Placement is still pending.
+    scopes: Mutex<HashMap<String, tokens::Scope>>,
 }
 
 impl Agents {
@@ -56,6 +61,7 @@ impl Asks {
                 recovered: AtomicBool::new(false),
                 doors: Mutex::new(HashSet::new()),
                 fixed: Mutex::new(HashMap::new()),
+                scopes: Mutex::new(HashMap::new()),
             }),
         })
     }
@@ -147,6 +153,16 @@ impl Intake {
             _ => None,
         });
         let fixed = lock(&self.fixed, "fixed Projects")?.remove(&ask.id);
+        let scope = lock(&self.scopes, "Ask scopes")?.remove(&ask.id);
+        let marked = if ask.text.starts_with('@') || captured.is_some() {
+            None
+        } else {
+            tokens::read(&ask.text, &rail, scope.as_ref(), fixed.as_deref())
+        };
+        let fixed = marked
+            .as_ref()
+            .and_then(|marked| marked.fixed.clone())
+            .or(fixed);
         let named = ask
             .text
             .strip_prefix('@')
@@ -188,6 +204,11 @@ impl Intake {
                 text: ask.text.clone(),
                 destination: Destination::Routed { workstream },
             }]
+        } else if let Some(tokens::Read {
+            route: Some(route), ..
+        }) = marked
+        {
+            vec![route.into_part(&ask.text)]
         } else if let Some((name, text)) = named {
             let ids: Vec<_> = rail
                 .iter()
@@ -231,19 +252,25 @@ impl Intake {
                     parts: ask.parts.into_iter().map(earlier_part).collect(),
                 })
                 .collect();
-            let request = match &fixed {
-                Some(project) => Request::across(
-                    ask.text.clone(),
-                    earlier,
-                    vec![(Some(project.clone()), rail)],
-                    Some(project),
-                ),
-                None => Request::new(ask.text.clone(), earlier, rail),
-            };
-            placement::place(self.placement.as_ref(), &ask.id, &request, |id, cause| {
-                eprintln!("agents: Ask {id}: {cause}")
-            })
-            .await
+            let request = tokens::request(
+                ask.text.clone(),
+                earlier,
+                rail,
+                scope.as_ref(),
+                fixed.as_deref(),
+                marked.as_ref(),
+            );
+            let log = |id: &str, cause: &str| eprintln!("agents: Ask {id}: {cause}");
+            match &marked {
+                Some(read) => {
+                    let assigning = tokens::Assigning {
+                        inner: self.placement.as_ref(),
+                        read,
+                    };
+                    placement::place(&assigning, &ask.id, &request, log).await
+                }
+                None => placement::place(self.placement.as_ref(), &ask.id, &request, log).await,
+            }
         };
         let parts: Vec<_> = parts
             .into_iter()
@@ -697,6 +724,7 @@ impl Asks {
                 workstream,
                 project,
                 parts,
+                projects,
             } = p;
             if submission
                 .as_ref()
@@ -746,6 +774,13 @@ impl Asks {
                     .ok_or_else(|| RpcError::internal("the Ask has no parts"))?;
                 if let Some(project) = project.filter(|_| first_state == State::Placing) {
                     lock(&shared.fixed, "fixed Projects")?.insert(ask.id.clone(), project);
+                }
+                if let Some(projects) = projects.filter(|_| first_state == State::Placing) {
+                    let scope = projects
+                        .into_iter()
+                        .map(|each| (each.name, each.tree))
+                        .collect();
+                    lock(&shared.scopes, "Ask scopes")?.insert(ask.id.clone(), scope);
                 }
                 (ask, first_state)
             };
@@ -937,55 +972,6 @@ impl Asks {
             Ok(ask)
         }
     }
-}
-
-/// Check already-placed parts before storing them: together they are the Ask's words, in order.
-fn placed_parts(
-    shared: &Intake,
-    text: &str,
-    parts: Vec<PlacedPart>,
-) -> Result<Vec<Part>, RpcError> {
-    let invalid = |message: &str| RpcError::new(code::INVALID_PARAMS, message);
-    if parts.is_empty() || parts.iter().any(|part| part.text.is_empty()) {
-        return Err(invalid("placed parts must be non-empty"));
-    }
-    if parts.iter().map(|part| part.text.len()).sum::<usize>() > text.len() {
-        return Err(invalid("placed parts must be spans of the Ask text"));
-    }
-    parts
-        .into_iter()
-        .map(|part| {
-            if !text.contains(&part.text) {
-                return Err(invalid("placed parts must be spans of the Ask text"));
-            }
-            if let Place::Routed { workstream, .. } = &part.placement
-                && shared.agents.shared.node(workstream)?.kind() != NodeKind::Workstream
-            {
-                return Err(invalid("target must be a Workstream"));
-            }
-            if let Place::New { title, .. } = &part.placement {
-                Order::Work {
-                    title: Some(title.clone()),
-                    ask: part.text.clone(),
-                    done: None,
-                    limits: vec![],
-                }
-                .validate_explicit()
-                .map_err(|err| invalid(&err.to_string()))?;
-            }
-            let state = if matches!(part.placement, Place::Unclear { .. }) {
-                State::Waiting
-            } else {
-                State::Queued
-            };
-            Ok(Part {
-                text: part.text,
-                placement: part.placement,
-                state,
-                reason: None,
-            })
-        })
-        .collect()
 }
 
 fn lock<'a, T>(mutex: &'a Mutex<T>, what: &str) -> Result<MutexGuard<'a, T>, RpcError> {
