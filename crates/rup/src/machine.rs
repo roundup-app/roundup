@@ -332,9 +332,10 @@ mod tests {
     #[tokio::test]
     async fn ep22_a_user_actor_with_another_id_is_refused_and_you_is_not() {
         let dir = tempfile::tempdir().unwrap();
-        let (daemon, watchers) = crate::test_daemon(dir.path());
+        let (daemon, watchers) = rupd::Daemon::open(&dir.path().join(".roundup")).unwrap();
         let socket = dir.path().join("rpc.sock");
-        crate::serve_test_daemon(&socket, daemon, watchers);
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon), watchers));
         let client = rpc::Client::connect(&socket).await.unwrap();
         let user = |id: &str| contracts::Actor {
             kind: contracts::ActorKind::User,
