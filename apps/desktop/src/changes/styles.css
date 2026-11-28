@@ -221,7 +221,7 @@
 .changes-listing { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
 /* U8012c: the map stands where the scrollbar was; the tree's own bar is hidden so none stands beside it. */
 .changes-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-inline-end: var(--space-2); }
-.change-map { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: var(--space-2); display: flex; flex-direction: column; gap: 2px; padding: 0; margin: 0; }
+.change-map { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: var(--space-2); display: flex; flex-direction: column; gap: calc(var(--space-1) / 2); padding: 0; margin: 0; }
 .change-map-block { flex: 0 1 0; min-block-size: var(--space-1); padding: 0; border: 0; border-radius: var(--radius-scrollbar); background: var(--scrollbar-thumb); cursor: pointer; }
 .change-map-block[data-viewed] { background: var(--grey); }
 .change-map-block[data-open] { background: var(--accent); }
