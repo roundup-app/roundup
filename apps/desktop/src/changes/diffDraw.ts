@@ -236,7 +236,7 @@ const sharedVirtualizer = (shared: Shared | undefined, Virtualizer: typeof impor
 
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
-  // U8010a: the landing opens a file while the Rail folds; its draw waits for the slide, so the two never share a frame.
+  // U8075: a Changes fold gives the centre its width at the click, so the landing's draw waits only for a resize or slide the user started.
   await layoutRested();
 
   if (!hooks.current()) return undefined;
