@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
-import { DiffIdentity, DiffReader } from "./DiffReader";
+import { DiffReader } from "./DiffReader";
 import type { DiffKeys } from "./DiffReader";
 import type { Shared } from "./diffDraw";
 import type { Place, Places } from "./lines";
@@ -43,6 +43,22 @@ const createComposer = (fallback: () => void) => {
 
 /** The reader's keys, and U7691a's: N on a list row opens the form of that item. */
 export type ScrollKeys = DiffKeys & { noteItem: (item: Pick<Item, "kind" | "name">) => void; /** U8011a: Space and Shift-Space scroll the item by one pane; true says Space found the last line already in view, and nothing moved. */ page: (direction: 1 | -1) => boolean };
+
+/** U8031a: how far below and above the scroll a file is read and drawn, the read-ahead of `@pierre/diffs`' Virtualizer. */
+const READ_AHEAD = 4000;
+
+/** The sections the scroll reports as they near its view, read ahead by READ_AHEAD; undefined where the platform has no IntersectionObserver. */
+const watching = (root: HTMLElement | undefined, sections: Map<string, HTMLElement>, report: (path: string) => void) => {
+  if (typeof IntersectionObserver === "undefined" || !root) return undefined;
+
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting && entry.target instanceof HTMLElement && entry.target.dataset.path !== undefined) report(entry.target.dataset.path);
+  }, { root, rootMargin: `${READ_AHEAD}px 0px` });
+
+  for (const element of sections.values()) observer.observe(element);
+
+  return observer;
+};
 
 type Line = { side: "old" | "new"; line: number };
 
@@ -94,10 +110,12 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
   const reported = (path: string) => want(path, paths()[paths().indexOf(path) + 1]);
 
-  // The library reports sections as they near the view; a reported file and the one after it are read.
-  const observer = typeof IntersectionObserver === "undefined" ? undefined : new IntersectionObserver(entries => {
-    for (const entry of entries) if (entry.isIntersecting && entry.target instanceof HTMLElement && entry.target.dataset.path !== undefined) reported(entry.target.dataset.path);
-  });
+  // The library reports sections as they near the view; a reported file and the one after it are read. The scroll is the root, so it exists once the sections have mounted.
+  let observer: IntersectionObserver | undefined;
+
+  const watch = () => {
+    observer = watching(scroller, sections, reported);
+  };
 
   onCleanup(() => observer?.disconnect());
 
@@ -114,6 +132,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
   onCleanup(() => shared.virtualizer?.cleanUp());
 
   onSettled(() => {
+    watch();
     current = startPath() ?? "";
 
     // The file the scroll opens on is in view by definition; the library's report brings the rest.
@@ -248,9 +267,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
 
       return <section class="module-file" data-path={id} style={{ "min-block-size": `calc(var(--space-5) * ${lines(id)})` }} ref={element => { sections.set(id, element); observer?.observe(element); onCleanup(() => { observer?.unobserve(element); sections.delete(id); readers.delete(id); }); }}>
         <Show when={entryOf(id)?.label}>{label => <p class="module-function">{label()}</p>}</Show>
-        <Show when={wanted().has(id)} fallback={<header class="diff-header"><DiffIdentity read={undefined} path={path()} rank={rank()} /></header>}>
-          <DiffReader shared={shared} batch={false} rank={rank()} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} spots={spots()} gaps={gaps()} explain={props.explain} findings={props.findings} moves={props.moves?.of(path())} onRead={props.moves?.request} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
-        </Show>
+        <DiffReader waiting={!wanted().has(id)} shared={shared} batch={false} rank={rank()} counts={fileOf(id)?.counts} id={props.id} name={props.name} path={path()} blob={fileOf(id)?.blob} only={only()} spots={spots()} gaps={gaps()} explain={props.explain} findings={props.findings} moves={props.moves?.of(path())} onRead={props.moves?.request} openAt={props.open} places={sectionPlaces(id)} to={props.to} group={props.group} notes={props.notes} editing={first() && editing()?.comparison.newPath === path() ? editing() : undefined} onEdited={() => setEditing(undefined)} onNote={fileNote() ? takeNote : undefined} under={<Show when={fileNote()}>{target => <ItemNotes id={props.id} notes={props.notes} target={target()} form={form()} setForm={compose} outdated={props.itemOutdated} />}</Show>} onFocus={() => { current = id; }} target={first() && props.target?.path === path() ? props.target : undefined} arrived={props.arrived} onDrawn={() => { props.onReady(); resume(); }} keys={api => { readers.set(id, api); resume(); }} recover={props.recover} />
       </section>;
     }}</For>
     </div>
