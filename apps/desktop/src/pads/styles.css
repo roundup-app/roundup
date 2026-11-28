@@ -477,8 +477,6 @@ li[aria-selected="true"] svg {
   align-items: flex-start;
   white-space: normal;
   height: auto;
-  min-height: 0;
-  padding-block: 0;
   gap: var(--space-2);
   width: 100%;
   text-align: start;
@@ -512,8 +510,13 @@ li[aria-selected="true"] svg {
 
 .walk-title code,
 .walk-fold code,
-.walk-item-title code {
+.walk-outline .walk-item[data-button] code {
   font-family: var(--font-mono); /* taste-skill-ignore: literal code uses the code face. */
+}
+
+.walk-outline .walk-item[data-button] code,
+.pad-body .walk-title code {
+  font-size: inherit;
 }
 
 .walk-main {
