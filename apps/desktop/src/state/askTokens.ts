@@ -1,13 +1,16 @@
 /** U8045a: a token is `#` or `@` plus the non-space characters after it, starting the text or following a space. */
 export type Token = { sigil: "#" | "@"; word: string; start: number; end: number };
 
-const TOKEN = /(^|\s)([#@])(\S*)/g;
+const TOKEN = /(?<lead>^|\s)(?<sigil>[#@])(?<word>\S*)/g;
 
 export const tokensOf = (text: string): Token[] =>
-  [...text.matchAll(TOKEN)].map(found => {
-    const start = found.index + found[1]!.length;
+  [...text.matchAll(TOKEN)].flatMap(found => {
+    const { lead = "", sigil, word = "" } = found.groups ?? {};
 
-    return { sigil: found[2] as "#" | "@", word: found[3]!, start, end: start + 1 + found[3]!.length };
+    if (sigil !== "#" && sigil !== "@") return [];
+    const start = found.index + lead.length;
+
+    return [{ sigil, word, start, end: start + 1 + word.length }];
   });
 
 /** The token being typed: the one the caret sits in or at the end of. */
@@ -15,7 +18,7 @@ export const tokenAt = (text: string, caret: number): Token | null =>
   tokensOf(text).find(token => caret > token.start && caret <= token.end) ?? null;
 
 /** Writes `replacement` in place of `token`, leaving the text around it, and says where the caret goes. */
-export const replaceToken = (text: string, token: Token, replacement: string): { text: string; caret: number } => {
+export const replaceToken = (text: string, token: Token, replacement: string) => {
   const after = text.slice(token.end);
   const tail = after.startsWith(" ") ? after.slice(1) : after;
 
@@ -47,6 +50,7 @@ export const segments = (text: string, projects: readonly string[], workstreams:
       : (workstreams.some(name => same(name, token.word)) ? "workstream" : undefined);
 
     if (!mark) continue;
+
     if (token.start > at) out.push({ text: text.slice(at, token.start) });
     out.push({ text: text.slice(token.start, token.end), mark });
     at = token.end;

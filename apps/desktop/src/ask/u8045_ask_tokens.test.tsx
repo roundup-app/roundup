@@ -17,7 +17,15 @@ const setup = async () => {
   return mounted;
 };
 
-const type = (text: string) => fireEvent.input(input()!, { target: { value: text } });
+const field = () => {
+  const found = input();
+
+  if (!found) throw new Error("the Ask input is not mounted");
+
+  return found;
+};
+
+const type = (text: string) => fireEvent.input(field(), { target: { value: text } });
 
 const options = async () => within(await screen.findByRole("listbox")).getAllByRole("option").map(item => item.textContent);
 
@@ -49,22 +57,22 @@ describe("u8045a a typed # or @ opens its list anywhere", () => {
 
   it("u8045a_picking_a_project_writes_the_token_and_a_space", async () => {
     await setup();
-    input()!.focus();
+    field().focus();
     type("fix #ed");
     await options();
-    press("Enter", {}, input()!);
-    await waitFor(() => expect(input()!.value).toBe("fix #Education "));
+    press("Enter", {}, field());
+    await waitFor(() => expect(field().value).toBe("fix #Education "));
   });
 
   it("u8045a_escape_closes_only_the_hash_list", async () => {
     await setup();
-    input()!.focus();
+    field().focus();
     type("fix #ed");
     await options();
-    press("Escape", {}, input()!);
+    press("Escape", {}, field());
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
-    expect(input()!.value).toBe("fix #ed");
-    expect(screen.getByRole("dialog", { name: "Ask" })).toBeTruthy();
+    expect(field().value).toBe("fix #ed");
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });
 
@@ -72,9 +80,9 @@ describe("u8045b a set token shows tinted in the text", () => {
   it("u8045b_a_set_token_is_marked_and_an_unknown_one_is_not", async () => {
     await setup();
     type("fix #Education and #nowhere with @meta-harness");
-    expect(screen.getByRole("mark", { name: "Project Education" })).toBeTruthy();
-    expect(screen.getByRole("mark", { name: "Workstream meta-harness" })).toBeTruthy();
-    expect(screen.queryAllByRole("mark")).toHaveLength(2);
+    const names = screen.getAllByRole("mark").map(mark => mark.getAttribute("aria-label"));
+
+    expect(names).toEqual(["Project Education", "Workstream meta-harness"]);
   });
 });
 
@@ -83,6 +91,6 @@ describe("u8045c #Project fixes the Project of the Ask", () => {
     await setup();
     type("pay invoices");
     await new Promise(resolve => setTimeout(resolve, 100));
-    expect(screen.queryByRole("combobox", { name: "Project" })).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 });

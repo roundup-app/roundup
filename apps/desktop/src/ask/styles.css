@@ -563,9 +563,9 @@
   inset: 0;
   box-sizing: border-box;
   padding: var(--space-2);
-  border: var(--hairline-width) solid transparent;
+  border: var(--hairline-width) solid var(--hairline);
   font: inherit;
-  color: transparent;
+  visibility: hidden;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow: hidden;
@@ -573,12 +573,13 @@
 }
 
 .ask-token {
-  color: transparent;
+  visibility: visible;
+  color: var(--row-open-wash);
   background: var(--row-open-wash);
   border-radius: var(--radius-control);
 }
 
 .ask-field .ask-input {
   position: relative;
-  background: transparent;
+  background: none;
 }

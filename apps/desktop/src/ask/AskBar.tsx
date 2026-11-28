@@ -19,7 +19,7 @@ import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { createProjectPick } from "./projectPick";
-import { replaceToken, segments, tokenAt } from "./tokens";
+import { replaceToken, segments, tokenAt } from "../state/askTokens";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph } from "../ink/KindGlyph";
 import { errorCause, shownKind } from "../ink/FailureLine";
@@ -116,7 +116,9 @@ export const AskBar = () => {
     const draft = current();
 
     if (field?.isConnected) setCaret(field.selectionStart);
+
     if (!draft || !field?.isConnected) return;
+
     const selection = { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection };
 
     if (JSON.stringify(draft.selection) !== JSON.stringify(selection)) drafts.setSelection(draft.revision, selection);
@@ -187,13 +189,17 @@ export const AskBar = () => {
   void rail.settled().then(() => setTreeReady(true));
 
   const names = createMemo(() => rail.nodes.filter((node) => node.kind === "workstream").map((node) => ({ value: node.id, label: node.name })));
+
   const [caret, setCaret] = createSignal(0);
+
   const projectNames = () => asks.projects().map(project => project.name);
+
   const workstreams = () => {
     const seen = new Set(names().map(item => item.value));
 
     return [...names(), ...asks.workstreams().filter(item => !seen.has(item.value))];
   };
+
   const typing = createMemo(() => tokenAt(text(), caret()));
 
   const matching = createMemo(() => {

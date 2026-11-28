@@ -250,20 +250,21 @@ impl Intake {
                     parts: ask.parts.into_iter().map(earlier_part).collect(),
                 })
                 .collect();
-            let (trees, only) = tokens::offered(rail, scope.as_ref(), fixed.as_deref(), marked.as_ref());
-            let request = match (&fixed, only) {
-                (Some(project), _) => {
-                    Request::across(ask.text.clone(), earlier, trees, Some(project))
-                }
-                (None, true) => Request::across(ask.text.clone(), earlier, trees, None),
-                (None, false) => {
-                    Request::new(ask.text.clone(), earlier, trees.into_iter().flat_map(|(_, rail)| rail).collect())
-                }
-            };
+            let request = tokens::request(
+                ask.text.clone(),
+                earlier,
+                rail,
+                scope.as_ref(),
+                fixed.as_deref(),
+                marked.as_ref(),
+            );
             let log = |id: &str, cause: &str| eprintln!("agents: Ask {id}: {cause}");
             match &marked {
                 Some(read) => {
-                    let assigning = tokens::Assigning { inner: self.placement.as_ref(), read };
+                    let assigning = tokens::Assigning {
+                        inner: self.placement.as_ref(),
+                        read,
+                    };
                     placement::place(&assigning, &ask.id, &request, log).await
                 }
                 None => placement::place(self.placement.as_ref(), &ask.id, &request, log).await,
@@ -773,7 +774,10 @@ impl Asks {
                     lock(&shared.fixed, "fixed Projects")?.insert(ask.id.clone(), project);
                 }
                 if let Some(projects) = projects.filter(|_| first_state == State::Placing) {
-                    let scope = projects.into_iter().map(|each| (each.name, each.tree)).collect();
+                    let scope = projects
+                        .into_iter()
+                        .map(|each| (each.name, each.tree))
+                        .collect();
                     lock(&shared.scopes, "Ask scopes")?.insert(ask.id.clone(), scope);
                 }
                 (ask, first_state)

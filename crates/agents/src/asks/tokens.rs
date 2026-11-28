@@ -1,5 +1,5 @@
 //! U8045c, U8045d: the `#Project` and `@Workstream` tokens of an Ask's text.
-use crate::placement::{self, Destination};
+use crate::placement::{self, Destination, EarlierAsk, Request};
 use contracts::agent::{NodeKind, RailNode};
 use std::collections::HashSet;
 
@@ -65,7 +65,11 @@ pub struct Assigning<'a> {
 
 #[async_trait::async_trait]
 impl placement::Placement for Assigning<'_> {
-    async fn call(&self, id: &str, request: &placement::Request) -> Result<Vec<placement::AskPart>, String> {
+    async fn call(
+        &self,
+        id: &str,
+        request: &placement::Request,
+    ) -> Result<Vec<placement::AskPart>, String> {
         let mut parts = self.inner.call(id, request).await?;
         self.read.assign_projects(&mut parts);
         Ok(parts)
@@ -73,20 +77,30 @@ impl placement::Placement for Assigning<'_> {
 }
 
 /// `None` when the text holds no token that names anything: it then reaches Placement as it always did.
-pub fn read(text: &str, rail: &[RailNode], scope: Option<&Scope>, fixed: Option<&str>) -> Option<Read> {
+pub fn read(
+    text: &str,
+    rail: &[RailNode],
+    scope: Option<&Scope>,
+    fixed: Option<&str>,
+) -> Option<Read> {
     let mut hashes: Vec<String> = Vec::new();
     for word in words(text, '#') {
-        let named = scope.into_iter().flatten().find(|(name, _)| name.to_lowercase() == word.to_lowercase());
+        let named = scope
+            .into_iter()
+            .flatten()
+            .find(|(name, _)| name.to_lowercase() == word.to_lowercase());
         if let Some((name, _)) = named
             && !hashes.contains(name)
         {
             hashes.push(name.clone());
         }
     }
-    let fixed = fixed.map(str::to_owned).or_else(|| match hashes.as_slice() {
-        [only] => Some(only.clone()),
-        _ => None,
-    });
+    let fixed = fixed
+        .map(str::to_owned)
+        .or_else(|| match hashes.as_slice() {
+            [only] => Some(only.clone()),
+            _ => None,
+        });
     let pool: Vec<(Option<String>, &[RailNode])> = match scope {
         Some(scope) => scope
             .iter()
@@ -97,7 +111,10 @@ pub fn read(text: &str, rail: &[RailNode], scope: Option<&Scope>, fixed: Option<
     };
     let mut asked: Vec<&str> = Vec::new();
     for word in words(text, '@') {
-        if !asked.iter().any(|each| each.to_lowercase() == word.to_lowercase()) {
+        if !asked
+            .iter()
+            .any(|each| each.to_lowercase() == word.to_lowercase())
+        {
             asked.push(word);
         }
     }
@@ -164,7 +181,12 @@ pub fn read(text: &str, rail: &[RailNode], scope: Option<&Scope>, fixed: Option<
     if fixed.is_none() && hashes.is_empty() && route.is_none() && only.is_none() {
         return None;
     }
-    Some(Read { fixed, hashes, route, only })
+    Some(Read {
+        fixed,
+        hashes,
+        route,
+        only,
+    })
 }
 
 /// The trees Placement may offer, and whether they span Projects: every open Project's when the caller supplied
@@ -188,4 +210,25 @@ pub fn offered(
         }
     }
     (trees, scope.is_some())
+}
+
+pub fn request(
+    text: String,
+    earlier: Vec<EarlierAsk>,
+    rail: Vec<RailNode>,
+    scope: Option<&Scope>,
+    fixed: Option<&str>,
+    read: Option<&Read>,
+) -> Request {
+    let (trees, spans) = offered(rail, scope, fixed, read);
+
+    match (fixed, spans) {
+        (Some(project), _) => Request::across(text, earlier, trees, Some(project)),
+        (None, true) => Request::across(text, earlier, trees, None),
+        (None, false) => Request::new(
+            text,
+            earlier,
+            trees.into_iter().flat_map(|(_, rail)| rail).collect(),
+        ),
+    }
 }

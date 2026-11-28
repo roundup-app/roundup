@@ -10,7 +10,7 @@ import type { Events } from "../app/events";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "./storage";
 import { copy } from "./copy";
-import { hashProjects } from "../ask/tokens";
+import { hashProjects } from "./askTokens";
 
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
 export type AskEntry = { key: string; at?: number; text: string; parts: readonly AskPart[]; pending: boolean };
@@ -141,6 +141,7 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
 
     return app.rpc("ask.place", { text, projects });
   };
+
   const fail = (message: string): AskFailure => ({ id: ++sequence, message });
   let loaded = false;
   // The bar asks for the list from its body, which is an owned scope.
@@ -252,9 +253,13 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
           const named = hashProjects(text, routing.open().map(project => project.name));
           const placed = await placeAll(text);
 
-          const parts = placed.map((part): PlacedPart => part.placement.kind === "new" && !part.placement.project
-            ? { ...part, placement: { ...part.placement, project: hashProjects(part.text, named)[0] ?? named[0]! } }
-            : part);
+          const parts = placed.map((part): PlacedPart => {
+            const chosen = hashProjects(part.text, named)[0] ?? named[0];
+
+            return part.placement.kind === "new" && !part.placement.project && chosen
+              ? { ...part, placement: { ...part.placement, project: chosen } }
+              : part;
+          });
 
           const sent = await sendPlaced(routing.app, app, routing.open(), submission, parts);
           const first = sent[0];

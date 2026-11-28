@@ -340,31 +340,33 @@ async fn tree_with(h: &Harness, name: &str) -> Value {
         .unwrap()
 }
 
+async fn placed(
+    events: &mut tokio::sync::broadcast::Receiver<contracts::Event>,
+    id: &Value,
+) -> Value {
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        if let contracts::EventData::AskChanged { ask } = event.data {
+            let ask = serde_json::to_value(ask).unwrap();
+            if ask["id"] == *id && ask["parts"][0]["state"] != "placing" {
+                return ask;
+            }
+        }
+    }
+}
+
 async fn sent(h: &Harness, text: &str, projects: Value) -> Value {
+    let mut events = h.ctx.bus.subscribe();
     let ask = h
         .asks
-        .call(
-            &h.ctx,
-            "ask.send",
-            json!({"text":text,"projects":projects}),
-        )
+        .call(&h.ctx, "ask.send", json!({"text":text,"projects":projects}))
         .await
         .unwrap();
-    for _ in 0..100 {
-        let listed = h.list().await;
-        let found = listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|each| each["id"] == ask["id"])
-            .unwrap()
-            .clone();
-        if found["parts"][0]["state"] != "placing" {
-            return found;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    panic!("the Ask stayed placing");
+
+    placed(&mut events, &ask["id"]).await
 }
 
 #[tokio::test]
@@ -446,7 +448,8 @@ async fn u8045c_one_hash_project_fixes_every_part() {
     let mut h = Harness::open(dir.path());
     let tree = tree_with(&h, "Loop").await;
     let projects = json!([{"name":"Education","tree":tree},{"name":"Work","tree":[]}]);
-    let (_, call) = tokio::join!(
+    let mut events = h.ctx.bus.subscribe();
+    let (ask, call) = tokio::join!(
         h.asks.call(
             &h.ctx,
             "ask.send",
@@ -459,7 +462,9 @@ async fn u8045c_one_hash_project_fixes_every_part() {
                 .send(vec![AskPart {
                     project: None,
                     text: "ship #Work docs".into(),
-                    destination: Destination::New { title: "Docs".into() },
+                    destination: Destination::New {
+                        title: "Docs".into(),
+                    },
                 }])
                 .unwrap();
             wire
@@ -467,15 +472,8 @@ async fn u8045c_one_hash_project_fixes_every_part() {
     );
     assert_eq!(call["projects"], json!(["Work"]));
     assert_eq!(call["workstreams"], json!([]));
-    for _ in 0..100 {
-        let listed = h.list().await;
-        if listed[0]["parts"][0]["state"] != "placing" {
-            assert_eq!(listed[0]["parts"][0]["placement"]["project"], "Work");
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    panic!("the Ask stayed placing");
+    let ask = placed(&mut events, &ask.unwrap()["id"]).await;
+    assert_eq!(ask["parts"][0]["placement"]["project"], "Work");
 }
 
 #[tokio::test]
@@ -488,7 +486,8 @@ async fn u8045c_two_hash_projects_each_part_takes_its_own() {
         text: text.into(),
         destination: Destination::New { title: text.into() },
     };
-    let (_, _) = tokio::join!(
+    let mut events = h.ctx.bus.subscribe();
+    let (ask, _) = tokio::join!(
         h.asks.call(
             &h.ctx,
             "ask.send",
@@ -501,16 +500,12 @@ async fn u8045c_two_hash_projects_each_part_takes_its_own() {
                 .unwrap();
         }
     );
-    for _ in 0..100 {
-        let listed = h.list().await;
-        if listed[0]["parts"][0]["state"] != "placing" {
-            let projects: Vec<_> = (0..3)
-                .map(|i| listed[0]["parts"][i]["placement"]["project"].clone())
-                .collect();
-            assert_eq!(projects, [json!("Education"), json!("Work"), json!("Education")]);
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    panic!("the Ask stayed placing");
+    let ask = placed(&mut events, &ask.unwrap()["id"]).await;
+    let projects: Vec<_> = (0..3)
+        .map(|i| ask["parts"][i]["placement"]["project"].clone())
+        .collect();
+    assert_eq!(
+        projects,
+        [json!("Education"), json!("Work"), json!("Education")]
+    );
 }
