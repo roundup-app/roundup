@@ -292,14 +292,20 @@ async fn serve_live(stream: UnixStream, link: Shared) {
 }
 
 /// MC22: a client of the live socket, or `None` for away: no relay, no bridge, or no answer to identify.
-/// A connection starts as the user and `daemon.identify` refuses that claim (EP2), so only a
-/// caller that is not the user identifies.
+/// A connection starts as `you` and `daemon.identify` refuses any other user claim (EP2), so a
+/// user with another id is refused here, before a call, and only a non-user identifies (EP22).
 pub(crate) async fn identify(
     client: &rpc::Client,
     actor: &contracts::Actor,
 ) -> Result<(), rpc::RpcError> {
     if actor.kind == contracts::ActorKind::User {
-        return Ok(());
+        return if actor.id == "you" {
+            Ok(())
+        } else {
+            Err(rpc::RpcError::forbidden(
+                "a user other than you cannot be identified",
+            ))
+        };
     }
     client
         .request(
@@ -322,6 +328,24 @@ pub async fn live_client(actor: &contracts::Actor) -> Option<rpc::Client> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn ep22_a_user_actor_with_another_id_is_refused_and_you_is_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let (daemon, watchers) = rupd::Daemon::open(&dir.path().join(".roundup")).unwrap();
+        let socket = dir.path().join("rpc.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon), watchers));
+        let client = rpc::Client::connect(&socket).await.unwrap();
+        let user = |id: &str| contracts::Actor {
+            kind: contracts::ActorKind::User,
+            id: id.into(),
+            parent: None,
+        };
+        let refused = identify(&client, &user("mallory")).await.unwrap_err();
+        assert_eq!(refused.code, rpc::code::FORBIDDEN);
+        assert!(identify(&client, &user("you")).await.is_ok());
+    }
 
     #[test]
     fn mc23_a_line_stays_until_removed() {
