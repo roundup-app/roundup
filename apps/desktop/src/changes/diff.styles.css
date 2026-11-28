@@ -1,4 +1,4 @@
-/* U7674d: the diff's colours are Shiki's github-light in both App modes; only type and spacing come from App Tokens. */
+/* U8035: the diff's colours are Shiki's github-light or github-dark-default, as the App's theme is; only type and spacing come from App Tokens. */
 :host {
   --diffs-font-family: var(--font-mono);
   --diffs-header-font-family: var(--font-ui);
