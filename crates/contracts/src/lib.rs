@@ -16,6 +16,7 @@ pub mod describe;
 mod error;
 pub mod event;
 pub mod export;
+pub mod extension;
 pub mod feedback;
 pub mod github;
 pub mod identity;

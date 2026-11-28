@@ -7,12 +7,13 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use serde_json::{Value, json};
+use contracts::extension::{CallError, FromExtension, ToExtension};
+use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, Command};
 use tokio::sync::{Notify, mpsc, oneshot};
 
-const RUNNER: &str = include_str!("runner.js");
+pub(super) const RUNNER: &str = include_str!("runner.js");
 /// A line longer than this is not the protocol; the rest of it is dropped.
 const LINE_CAP: usize = 1 << 20;
 
@@ -95,10 +96,10 @@ impl Child {
                 if !matches!(read, Ok(true)) {
                     break;
                 }
-                let Ok(message) = serde_json::from_slice::<Value>(&line) else {
+                let Ok(message) = serde_json::from_slice::<FromExtension>(&line) else {
                     continue;
                 };
-                driven.message(&message, &mut registered_tx, &calls_tx);
+                driven.message(message, &mut registered_tx, &calls_tx);
             }
             let _ = process.kill().await;
             let in_flight = std::mem::take(&mut *driven.pending.lock()).len();
@@ -114,51 +115,46 @@ impl Child {
 
     fn message(
         &self,
-        message: &Value,
+        message: FromExtension,
         registered: &mut Option<oneshot::Sender<Registered>>,
         calls: &mpsc::UnboundedSender<Call>,
     ) {
-        match message["t"].as_str() {
-            Some("registered") => {
+        match message {
+            FromExtension::Registered { actions } => {
                 if let Some(tx) = registered.take() {
-                    let actions = message["actions"].as_array().cloned().unwrap_or_default();
                     let _ = tx.send(Ok(actions));
                 }
             }
-            Some("failed") => {
+            FromExtension::Failed { cause } => {
                 if let Some(tx) = registered.take() {
-                    let _ = tx.send(Err(message["cause"]
-                        .as_str()
-                        .unwrap_or("register failed")
-                        .into()));
+                    let _ = tx.send(Err(if cause.is_empty() {
+                        "register failed".into()
+                    } else {
+                        cause
+                    }));
                 }
             }
-            Some("result") => {
-                let Some(id) = message["id"].as_u64() else {
-                    return;
-                };
+            FromExtension::Result {
+                id,
+                answer,
+                failure,
+            } => {
                 let waiting = self.pending.lock().remove(&id);
                 if let Some(waiting) = waiting {
                     let _ = waiting.send(Ran {
-                        answer: Some(message["answer"].clone()).filter(|answer| !answer.is_null()),
-                        failure: message["failure"].as_str().map(str::to_owned),
+                        answer: Some(answer).filter(|answer| !answer.is_null()),
+                        failure,
                     });
                 }
             }
-            Some("call") => {
-                if let (Some(id), Some(path)) = (message["id"].as_u64(), message["path"].as_str()) {
-                    let _ = calls.send(Call {
-                        id,
-                        path: path.into(),
-                        params: message["params"].clone(),
-                    });
-                }
+            FromExtension::Call { id, path, params } => {
+                let _ = calls.send(Call { id, path, params });
             }
-            _ => {}
+            FromExtension::Show { .. } | FromExtension::Health { .. } => {}
         }
     }
 
-    async fn send(&self, message: &Value) -> std::io::Result<()> {
+    async fn send(&self, message: &ToExtension) -> std::io::Result<()> {
         let mut line = serde_json::to_vec(message)?;
         line.push(b'\n');
         self.stdin.lock().await.write_all(&line).await
@@ -175,7 +171,11 @@ impl Child {
         let (tx, rx) = oneshot::channel();
         self.pending.lock().insert(id, tx);
         if self
-            .send(&json!({ "t": "run", "id": id, "name": name, "args": args }))
+            .send(&ToExtension::Run {
+                id,
+                name: name.into(),
+                args,
+            })
             .await
             .is_err()
         {
@@ -195,8 +195,19 @@ impl Child {
     /// Answers a `$` call of the child.
     pub(super) async fn answer(&self, id: u64, answer: Result<Value, rpc::RpcError>) {
         let message = match answer {
-            Ok(result) => json!({ "t": "callResult", "id": id, "result": result }),
-            Err(error) => json!({ "t": "callResult", "id": id, "error": error }),
+            Ok(result) => ToExtension::CallResult {
+                id,
+                result: Some(result),
+                error: None,
+            },
+            Err(error) => ToExtension::CallResult {
+                id,
+                result: None,
+                error: Some(CallError {
+                    code: error.code,
+                    message: error.message,
+                }),
+            },
         };
         let _ = self.send(&message).await;
     }
