@@ -31,7 +31,12 @@ const namespace = (ns) =>
 const $ = new Proxy({}, { get: (_, ns) => (isText(ns) ? namespace(ns) : undefined) });
 
 function on(event, matcher, hook) {
-  if (event !== "action") throw new Error(`on("${event}"): unsupported event`);
+  // The interface only grows: an event this host does not know is ignored, never a load failure.
+  if (event !== "action") {
+    const ignored = { catch: () => ignored };
+
+    return ignored;
+  }
 
   if (matcher instanceof Function) [matcher, hook] = [undefined, matcher];
 
