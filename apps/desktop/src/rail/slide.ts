@@ -51,10 +51,20 @@ export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Pick<W
     if (open) {
       before = { rail: widths.collapsed(), bench: frame.open(), project: project() };
 
-      if (!before.rail) railSlide.set(true, motionOf(source()), false);
-      frame.fold(source());
+      const { rail } = before;
+      const how = source();
 
-      return;
+      const fold = () => {
+        if (!rail) railSlide.set(true, motionOf(how), false);
+        frame.fold(how);
+      };
+
+      if (!("getAnimations" in Element.prototype)) return void fold();
+
+      // U7610b: a slide starts in the frame after the one that draws the view, so the open's longest task holds one of the two.
+      const frameId = requestAnimationFrame(fold);
+
+      return () => cancelAnimationFrame(frameId);
     }
 
     const kept = before;
