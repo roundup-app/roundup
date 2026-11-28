@@ -312,7 +312,10 @@ const d2 = (page: Page): Measure =>
 
       const keyGap = chip && (property === "column-gap" || property === "row-gap") && value === (px(page.token("space-1") ?? "") ?? NaN) / 4;
 
-      const conforms = keyGap ? true : chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
+      // U8012c: the change map's gap is half a space-1 step.
+      const mapGap = el.matches(".change-map") && (property === "row-gap" || property === "column-gap") && value === (px(page.token("space-1") ?? "") ?? NaN) / 2;
+
+      const conforms = keyGap || mapGap ? true : chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
         : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && (treePadding ?? padPadding ?? flowPadding) !== null && value === (treePadding ?? padPadding ?? flowPadding));
 
       if (!conforms && !(/^(margin|padding)-/.test(property) && vendorWins(page, el, property))) return { [property]: style.getPropertyValue(property) };

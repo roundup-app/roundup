@@ -55,6 +55,9 @@ export const copy = {
   changedSinceViewed: "Changed since you viewed it",
   /** U8011b: the list header's toggle: its name and tooltip, pressed while the viewed items show. */
   showViewed: "Show viewed items",
+  changeMap: "Change map",
+  /** @prose */
+  mapBlock: (name: string, size: string, viewed: boolean) => [name, size, viewed ? "viewed" : "not viewed"].filter(Boolean).join(", "),
   findFile: "Find a file",
   /** @prose */
   noChangesIn: (lens: string) => `No changes in ${lens}`,
