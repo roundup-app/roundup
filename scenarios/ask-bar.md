@@ -173,7 +173,7 @@ Policy amendment — owner decision of 2026-11-05 (#6271): the Ask bar places an
 
 Observer: the real-Claude observer of `crates/rup/tests/` with two fixture Projects open, each holding one named Workstream: an ask naming the second Project's work lands in that Workstream, and the chip showed that Project before send. Regression Checks on main: `crates/agents/tests/asks.rs`, `a41_the_door_gets_the_users_words_byte_for_byte`; `crates/agents/tests/asks/placement.rs`, `a40_naming_a_workstream_makes_no_call`. Scope (policy): `crates/agents`, `crates/contracts`, `contracts/generated/`, `crates/desktop`, `apps/desktop/src/ask/`. No implementation is delivered by this specification.
 
-Policy amendment — owner decision of 2026-11-27 (#8046), on the Ask bar: "this view needs proper redesigning spacing alignment and iteractions and visbility and behaviour"; on the drafts: "Yes I love that desing and you should file the issues and screen to match this promised draft details". The owner picked frames 2, 5 and 8 of the draft:
+Policy amendment — owner decision of 2026-11-27 (#8046), on the Ask bar: "this view needs proper redesigning spacing alignment and interactions and visibility and behaviour"; on the drafts: "Yes I love that design and you should file the issues and screen to match this promised draft details". The owner picked frames 2, 5 and 8 of the draft:
 
 ```
 ┌──────────────────────────────────────────────┐
