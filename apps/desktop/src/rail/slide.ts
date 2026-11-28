@@ -70,6 +70,50 @@ export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Pick<W
 
   onCleanup(cancel);
 
+  const reshow = (kept: Fold, rail: boolean) => {
+    // The new Project's sidebars are read from what the user saved; show the fold Changes made here again, at once.
+    if (rail) kept.rail = false;
+    else if (kept.rail) railSlide.snap(true);
+
+    if (kept.bench) frame.fold("pointer", false);
+  };
+
+  const disown = (kept: Fold, rail: boolean, bench: boolean) => {
+    // A sidebar the user changed by hand since the fold is theirs.
+    if (!rail) kept.rail = false;
+
+    if (bench) kept.bench = false;
+  };
+
+  const open_ = (at_: string | null, rail: boolean, bench: boolean) => {
+    const how = source();
+
+    const fold = () => {
+      if (!rail) railSlide.set(true, motionOf(how), false);
+      frame.fold(how);
+
+      // Recorded once both folds have landed, so the effect they re-run reads no half-made fold as a hand change.
+      folds.set(at_, { rail: !rail, bench });
+    };
+
+    if (!railSlide.animatable()) return void fold();
+
+    // U7610b: a slide starts in the frame after the one that draws the view, so the open's longest task holds one of the two.
+    setFoldPending(true);
+
+    frameId = requestAnimationFrame(() => {
+      frameId = undefined;
+      fold();
+      setFoldPending(false);
+    });
+  };
+
+  const restore = (kept: Fold, rail: boolean, bench: boolean) => {
+    if (kept.rail && rail) railSlide.set(false, motionOf(source()));
+
+    if (kept.bench && !bench) frame.toggle(source());
+  };
+
   createEffect(() => [project(), changesOpen(), widths.collapsed(), frame.open()] as const, ([at_, open, rail, bench]) => {
     const switched = at_ !== at;
     const edge = open !== was;
@@ -81,58 +125,22 @@ export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Pick<W
     if (switched) {
       cancel();
 
-      if (!open || !kept) return;
-
-      // The new Project's sidebars are read from what the user saved; show the fold Changes made here again, at once.
-      if (rail) kept.rail = false;
-      else if (kept.rail) railSlide.snap(true);
-
-      if (kept.bench) frame.fold("pointer", false);
+      if (open && kept) reshow(kept, rail);
 
       return;
     }
 
     if (!edge) {
-      // A sidebar the user changed by hand since the fold is theirs.
-      if (kept && !rail) kept.rail = false;
-
-      if (kept && bench) kept.bench = false;
+      if (kept) disown(kept, rail, bench);
 
       return;
     }
 
-    if (open) {
-      const how = source();
-
-      const fold = () => {
-        if (!rail) railSlide.set(true, motionOf(how), false);
-        frame.fold(how);
-
-        // Recorded once both folds have landed, so the effect they re-run reads no half-made fold as a hand change.
-        folds.set(at_, { rail: !rail, bench });
-      };
-
-      if (!railSlide.animatable()) return void fold();
-
-      // U7610b: a slide starts in the frame after the one that draws the view, so the open's longest task holds one of the two.
-      setFoldPending(true);
-
-      frameId = requestAnimationFrame(() => {
-        frameId = undefined;
-        fold();
-        setFoldPending(false);
-      });
-
-      return;
-    }
+    if (open) return open_(at_, rail, bench);
 
     cancel();
     folds.delete(at_);
 
-    if (!kept) return;
-
-    if (kept.rail && rail) railSlide.set(false, motionOf(source()));
-
-    if (kept.bench && !bench) frame.toggle(source());
+    if (kept) restore(kept, rail, bench);
   });
 };
