@@ -109,7 +109,8 @@ it("pw1_a_pad_splits_into_steps_at_its_section_level", () => {
   expect(walkSteps("# Title\n## A\none\n### sub\n## B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["A", "one\n### sub"], ["B", "two"]]);
   expect(titles("# A\none\n# B\ntwo")).toEqual(["A", "B"]);
   expect(walkSteps("intro\n# A\none\n# B\ntwo", "p").map(s => [s.title, s.text])).toEqual([["Overview", "intro"], ["A", "one"], ["B", "two"]]);
-  expect(walkSteps("just text\n## deeper\n### deepest", "p")).toEqual([{ title: "p", text: "just text\n## deeper\n### deepest" }]);
+  expect(walkSteps("just text\n## deeper\n### deepest", "p").map(s => [s.title, s.text])).toEqual([["p", "just text\n## deeper\n### deepest"]]);
+  expect(titles("# Why `mac` stays **over** [it](u)\nx\n# B")).toEqual(["Why mac stays over it", "B"]);
   expect(titles("# A\n```\n# not a heading\n```\n~~~\n# nor this\n~~~\n# B")).toEqual(["A", "B"]);
   expect(titles("# T\n```\n## x\n## y\n```\n## A\n## B")).toEqual(["Overview", "A", "B"]);
 });
@@ -265,12 +266,60 @@ it("pw8_the_outline_lists_every_step_and_opens_one", async () => {
   await shown();
   const items = () => screen.getAllByRole("button", { name: /Part \d/ });
   const at = (index: number) => items().at(index) ?? screen.getByRole("button", { name: "missing" });
-  expect(items().map(item => item.textContent)).toEqual(["Part 1", "Part 2", "Part 3"].map((title, at) => at === 0 ? `1${title}` : title));
+  expect(items().map(item => item.textContent)).toEqual(["Part 1", "Part 2", "Part 3"]);
   expect(items().map(item => item.getAttribute("aria-current"))).toEqual(["step", null, null]);
   fireEvent.click(at(2));
   expect(await step()).toEqual([3, 3]);
   expect(items().map(item => item.getAttribute("aria-current"))).toEqual([null, null, "step"]);
   expect(at(0).hasAttribute("data-done")).toBe(true);
+});
+
+it("u8080a_a_title_keeps_its_code_and_bold", async () => {
+  const m = await mount({ pads: { fmt: "# One\n\n## Why `mac` stays **over**\nx\n\n## Two\ny\n\n## Three\nz" } });
+  m.click("fmt");
+  await shown();
+  fireEvent.click(await screen.findByRole("button", { name: "Why mac stays over" }));
+  const walk = await shown();
+  await screen.findByRole("heading", { name: "Why mac stays over" });
+  await screen.findByRole("button", { name: "Why mac stays over" });
+  expect(walk.querySelector(".walk-item code")).not.toBeNull();
+  expect(walk.querySelector(".walk-item strong")).not.toBeNull();
+  expect(walk.querySelector(".walk-title code")).not.toBeNull();
+  expect(walk.querySelector(".walk-title strong")).not.toBeNull();
+});
+
+it("u8080a_a_heading_link_shows_its_words_and_no_anchor", async () => {
+  const m = await mount({ pads: { lnk: "## See [the docs](https://example.com) now\nx\n\n## Two\ny" } });
+  m.click("lnk");
+  const walk = await shown();
+  await screen.findByRole("button", { name: "See the docs now" });
+  await screen.findByRole("heading", { name: "See the docs now" });
+  expect(walk.querySelector(".walk-outline a, .walk-title a")).toBeNull();
+});
+
+it("u8080a_a_long_title_keeps_its_whole_name_and_tooltip", async () => {
+  const long = "Cause A: red main on advisories (main red 17:55 to 19:01Z) with a very long tail that cannot fit";
+  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(40);
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(36);
+  const m = await mount({ pads: { cut: `## ${long}\nx\n\n## Two\ny` } });
+  m.click("cut");
+  await shown();
+  const row = await screen.findByRole("button", { name: long });
+  fireEvent.pointerEnter(row, { pointerType: "mouse", clientX: 0, clientY: 0 });
+  fireEvent.focusIn(row);
+  await screen.findByRole("tooltip", { name: long });
+});
+
+it("u8080a_the_current_row_is_marked_and_no_row_is_numbered", async () => {
+  const m = await mount();
+  m.click("notes");
+  const walk = await shown();
+  fireEvent.click(await screen.findByRole("button", { name: "Part 2" }));
+  await step();
+  const rows = [...walk.querySelectorAll<HTMLElement>(".walk-item")];
+  expect(rows.map(row => row.getAttribute("aria-current"))).toEqual([null, "step", null]);
+  expect(rows.map(row => /\d/.test(row.querySelector(".walk-mark")?.textContent ?? ""))).toEqual([false, false, false]);
+  expect(rows.map(row => row.querySelector(".walk-mark")?.textContent)).toEqual(["", "", ""]);
 });
 
 it("pw8_a_narrow_pane_folds_the_outline_into_one_row", async () => {

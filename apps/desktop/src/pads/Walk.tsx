@@ -1,15 +1,18 @@
 import "./styles.css";
 
+import type { Tokens } from "marked";
 import { createEffect, createSignal, For, lazy, Loading, onCleanup, Show, untrack, type Accessor } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { animate } from "motion";
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { Icon } from "../ink/Icon";
 import { appSettings } from "../settings/preferences";
+import { createCut } from "../ink/Tip";
 import { Collapsible } from "../ui/Collapsible";
+import { Tip } from "../ui/Tip";
 import { durationMs, easingOutCurve } from "../ui/reorderMotion";
 import { copy } from "./copy";
-import { stepOfHeading, walkSteps } from "./walkSteps";
+import { stepOfHeading, walkSteps, type WalkStep } from "./walkSteps";
 import type { walkStorage } from "./walkStorage";
 import type { PadEditorHandle } from "./PadRichEditor";
 
@@ -18,11 +21,41 @@ const PadRichEditor = lazy(() => import("./PadRichEditor"));
 /** Below this pane width the outline and a step column do not fit side by side, so the outline folds into one row (PW8). */
 const SIDE_BY_SIDE = 720;
 
+/** U8080a: a heading's inline tokens as the Pad draws them; a link shows its words only. */
+const Marks = (props: { marks: readonly Tokens.Generic[] }) => <For each={props.marks}>{token => {
+  const inner = () => token.tokens ? <Marks marks={token.tokens} /> : token.text ?? token.raw;
+
+  if (token.type === "codespan") return <code class="walk-code">{token.text}</code>;
+
+  if (token.type === "strong") return <strong>{inner()}</strong>;
+
+  if (token.type === "em") return <em>{inner()}</em>;
+
+  if (token.type === "del") return <del>{inner()}</del>;
+
+  return inner();
+}}</For>;
+
+const Row = (props: { step: WalkStep; done: boolean; current: boolean; onPick: () => void }) => {
+  const [ref, cut] = createCut();
+
+  return (
+    <Tip kind="changing" text={props.step.title} cut={cut}>
+      {trigger => (
+        <button {...trigger()} type="button" data-button="quiet" class="walk-item" data-done={props.done ? "" : undefined} aria-current={props.current ? "step" : undefined} onClick={props.onPick}>
+          <span class="walk-mark" aria-hidden="true"><Show when={props.done}><Icon name="check" /></Show></span>
+          <span class="walk-item-title" ref={ref}><Marks marks={props.step.marks} /></span>
+        </button>
+      )}
+    </Tip>
+  );
+};
+
 /** PW1 to PW6: a Pad read one top-level step at a time, forward and back, read-only. `onFinish` runs once per finish; the caller decides where focus goes (PW5). */
 export const Walk = (props: { name: string; text: string; storage: ReturnType<typeof walkStorage>; reducedMotion: Accessor<boolean>; onFinish: () => void; /** PW11: opens at the step holding this heading, else at the saved step. */ heading?: string | undefined; /** PW12: a step to open at, ahead of the heading and the saved step. */ at?: number | undefined; /** PW5: a walk opened with no link stays open at step 1 after Finish. */ stays?: boolean; /** PW12: the walk's Edit key. */ onEdit?: () => void }) => {
   const steps = untrack(() => walkSteps(props.text, props.name));
   const last = steps.length - 1;
-  const stepAt = (at: number) => steps[at] ?? steps[last] ?? { title: props.name, text: props.text };
+  const stepAt = (at: number) => steps[at] ?? steps[last] ?? { title: props.name, text: props.text, marks: [{ type: "text", raw: props.name, text: props.name }] };
   const saved = untrack(() => props.storage.read()?.[props.name]);
   const opened = untrack(() => props.at ?? (props.heading === undefined ? -1 : stepOfHeading(steps, props.heading)));
   const [index, setIndex] = createSignal(Math.min(Math.max(opened >= 0 ? opened : (saved ?? 1) - 1, 0), last));
@@ -144,12 +177,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
 
   const outline = () => (
     <div class="walk-steps">
-      <For each={steps}>{(step, at) => (
-        <button type="button" data-button="quiet" class="walk-item" data-done={at() < index() ? "" : undefined} aria-current={at() === index() ? "step" : undefined} onClick={() => { go(at()); setListOpen(false); }}>
-          <span class="walk-mark" aria-hidden="true"><Show when={at() < index()} fallback={at() === index() ? at() + 1 : null}><Icon name="check" /></Show></span>
-          <span class="walk-item-title">{step.title}</span>
-        </button>
-      )}</For>
+      <For each={steps}>{(step, at) => <Row step={step} done={at() < index()} current={at() === index()} onPick={() => { go(at()); setListOpen(false); }} />}</For>
     </div>
   );
 
@@ -158,7 +186,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
       <nav class="walk-outline" aria-label={copy.walkOutline}>
         <Show when={folded()} fallback={<><Show when={!props.stays}><h2 class="walk-name">{props.name}</h2></Show>{outline()}</>}>
           <Collapsible.Root open={listOpen()} onOpenChange={open => setListOpen(open)}>
-            <Collapsible.Trigger data-button="quiet" class="walk-fold">{copy.walkFolded(index() + 1, steps.length, stepAt(index()).title)}</Collapsible.Trigger>
+            <Collapsible.Trigger data-button="quiet" class="walk-fold">{copy.walkFolded(index() + 1, steps.length)}<Marks marks={stepAt(index()).marks} /></Collapsible.Trigger>
             <Collapsible.Content>{outline()}</Collapsible.Content>
           </Collapsible.Root>
         </Show>
@@ -166,7 +194,7 @@ export const Walk = (props: { name: string; text: string; storage: ReturnType<ty
       <div class="walk-main" data-pad-width={appSettings().padWidth}>
         <div class="walk-step" ref={slide}>
           <header class="walk-head">
-            <h2 class="walk-title">{stepAt(index()).title}</h2>
+            <h2 class="walk-title"><Marks marks={stepAt(index()).marks} /></h2>
             <Show when={!folded()}><span class="walk-count" aria-live="polite">{copy.walkCount(index() + 1, steps.length)}</span></Show>
           </header>
           <div class="walk-body pad-body" ref={el => { body = el; makeEventListener(el, "scroll", measure, { capture: true }); }} data-more={more() ? "" : undefined}>
