@@ -1,5 +1,6 @@
 import { createSignal, type Accessor } from "solid-js";
 import type { ActivationSource } from "../keys/registry";
+import { holdMount } from "./mountHold";
 
 type Creation = { kind: "todo" | "pad" | "terminal"; home: string };
 
@@ -62,7 +63,13 @@ export const createProjectView = (selected: Accessor<string | null>, openShelf: 
     },
     view, hasView: name => views().includes(name),
     viewSource: () => viewSource,
-    showView: (name, source = "pointer") => { viewSource = source; setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]); },
+    showView: (name, source = "pointer") => {
+      viewSource = source;
+
+      if (name === "changes" && !views().includes(name)) holdMount();
+
+      setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]);
+    },
     hideView: (name, source = "pointer") => { viewSource = source; setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); },
     madeSelected, selectMade,
   };

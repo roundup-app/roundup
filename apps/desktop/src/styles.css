@@ -22,6 +22,9 @@ p {
 
 :focus { outline: none; }
 
+/* U8075: Changes folds the Bench and the Rail in the layout duration, a key in the key duration. */
+.window[data-shelf-fold="true"] { --slide-duration: var(--duration-layout); }
+
 .window[data-shelf-key="true"] { --slide-duration: var(--duration-key); }
 
 /* U449: every content region starts beneath the shared window bar. */
@@ -142,6 +145,8 @@ p {
 
 /* U6228g: a key slides in the key duration; reduced motion fades (M10) instead of sliding. */
 .rail[data-slide="key"] { --rail-slide-duration: var(--duration-key); }
+
+.rail[data-slide="fold"] { --rail-slide-duration: var(--duration-layout); }
 
 .rail[data-slide="fade"] { --rail-slide-duration: var(--duration-reduced); }
 
