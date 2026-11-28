@@ -142,6 +142,7 @@ impl Fx {
     async fn hello_granted(&self, folder: &str, granted: &[&str]) -> Value {
         let file = self.extensions.join(folder).join("hello.json");
         let mut last = String::new();
+        let mut tick = tokio::time::interval(Duration::from_millis(50));
         for _ in 0..400 {
             if let Ok(text) = std::fs::read_to_string(&file) {
                 last = text.clone();
@@ -151,9 +152,13 @@ impl Fx {
                     return hello;
                 }
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            tick.tick().await;
         }
-        let caps = self.user().await.request("extension.capabilities", Value::Null).await;
+        let caps = self
+            .user()
+            .await
+            .request("extension.capabilities", Value::Null)
+            .await;
         panic!("{folder}'s hello never granted {granted:?}; last: {last}; {caps:?}");
     }
 
@@ -177,12 +182,13 @@ impl Fx {
         let user = self.user().await;
         let name = format!("probe.{folder}");
         let mut ran = Err(rpc::RpcError::internal("not listed"));
+        let mut tick = tokio::time::interval(Duration::from_millis(50));
         for _ in 0..400 {
             ran = user.request("action.run", json!({ "name": name })).await;
             if ran.is_ok() {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            tick.tick().await;
         }
         ran.unwrap();
         let text =

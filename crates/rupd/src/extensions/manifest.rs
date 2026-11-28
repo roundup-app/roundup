@@ -27,7 +27,7 @@ pub(super) struct Manifest {
     pub uses: Vec<Capability>,
     /// EP5: the folder, which keys `$.store` and the `ext:` Actor (EP6); set by the loader.
     pub dir: String,
-    /// EP5: what rupd granted; set by the loader from the owner's approvals.
+    /// EP5: what the Daemon granted; set by the loader from the owner's approvals.
     pub granted: Vec<Capability>,
 }
 

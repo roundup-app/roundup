@@ -14,25 +14,25 @@ struct Approved {
 
 pub(super) struct Approvals {
     path: Option<PathBuf>,
-    held: BTreeMap<String, Approved>,
+    approved: BTreeMap<String, Approved>,
 }
 
 impl Approvals {
     /// The approvals saved at `path`; none when it is absent or unreadable, which grants nothing.
     pub(super) fn load(path: Option<PathBuf>) -> Self {
-        let held = path
+        let approved = path
             .as_ref()
             .and_then(|path| std::fs::read(path).ok())
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
-        Self { path, held }
+        Self { path, approved }
     }
 
     /// EP5: an approval holds while folder, name and the set asked all match.
     pub(super) fn holds(&self, folder: &str, name: &str, uses: &[Capability]) -> bool {
-        self.held
+        self.approved
             .get(folder)
-            .is_some_and(|held| held.name == name && held.uses == uses)
+            .is_some_and(|approved| approved.name == name && approved.uses == uses)
     }
 
     /// `uses` is sorted and without repeats, as the manifest reader gives it.
@@ -42,7 +42,7 @@ impl Approvals {
         name: &str,
         uses: &[Capability],
     ) -> std::io::Result<()> {
-        self.held.insert(
+        self.approved.insert(
             folder.to_owned(),
             Approved {
                 name: name.to_owned(),
@@ -53,7 +53,7 @@ impl Approvals {
             return Ok(());
         };
         let temp = path.with_extension("tmp");
-        std::fs::write(&temp, serde_json::to_vec(&self.held)?)?;
+        std::fs::write(&temp, serde_json::to_vec(&self.approved)?)?;
         std::fs::rename(&temp, path)
     }
 }

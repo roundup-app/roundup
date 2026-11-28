@@ -16,12 +16,23 @@ pub const MAX_NOTE: u32 = 80;
 pub const MAX_LABEL: u32 = 200;
 
 /// The element kinds roundup draws, as `hello.components` names them.
-pub const COMPONENTS: [&str; 7] = [
-    "stack", "heading", "text", "row", "chip", "button", "input",
-];
+pub const COMPONENTS: [&str; 7] = ["stack", "heading", "text", "row", "chip", "button", "input"];
 
 /// What an Extension declares it uses (`uses`) and roundup states it offers (`hello`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Type, JsonSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    Type,
+    JsonSchema,
+)]
 pub enum Capability {
     #[serde(rename = "panel")]
     Panel,
@@ -33,7 +44,7 @@ pub enum Capability {
     AgentsSettings,
 }
 
-/// EP5: what one Extension folder asked (`uses`), what rupd granted it and what waits for the owner.
+/// EP5: what one Extension folder asked (`uses`), what the Daemon granted it and what waits for the owner.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ExtensionCapabilities {
     pub dir: String,
