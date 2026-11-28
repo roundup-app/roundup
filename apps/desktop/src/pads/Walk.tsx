@@ -25,7 +25,7 @@ const SIDE_BY_SIDE = 720;
 const Marks = (props: { marks: readonly Tokens.Generic[] }) => <For each={props.marks}>{token => {
   const inner = () => token.tokens ? <Marks marks={token.tokens} /> : token.text ?? token.raw;
 
-  if (token.type === "codespan") return <code>{token.text}</code>;
+  if (token.type === "codespan") return <code class="walk-code">{token.text}</code>;
 
   if (token.type === "strong") return <strong>{inner()}</strong>;
 

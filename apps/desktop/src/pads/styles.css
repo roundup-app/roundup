@@ -510,12 +510,11 @@ li[aria-selected="true"] svg {
 
 .walk-title code,
 .walk-fold code,
-.walk-outline .walk-item[data-button] code {
+code.walk-code {
   font-family: var(--font-mono); /* taste-skill-ignore: literal code uses the code face. */
 }
 
-.walk-outline .walk-item[data-button] code,
-.pad-body .walk-title code {
+code.walk-code {
   font-size: inherit;
 }
 
