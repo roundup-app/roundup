@@ -3,6 +3,7 @@ import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Finding } from "@contracts/agent/Finding";
 import type { Gap } from "@contracts/agent/Gap";
 import type { Spot } from "@contracts/agent/Spot";
+import { layoutRested } from "../resize/motion";
 import { copy } from "./copy";
 import type { Explaining } from "./explain";
 import type { Moved } from "./moves";
@@ -228,6 +229,11 @@ const sharedVirtualizer = (shared: Shared | undefined, Virtualizer: typeof impor
 
 /** Builds Pierre's view of one comparison; undefined when `hooks.current` went false on the way. */
 export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks: Hooks): Promise<Drawn | undefined> => {
+  // U8010a: the landing opens a file while the Rail folds; its draw waits for the slide, so the two never share a frame.
+  await layoutRested();
+
+  if (!hooks.current()) return undefined;
+
   const { VirtualizedFileDiff, Virtualizer, processFile, preloadHighlighter, getFiletypeFromFileName } = await (library ??= import("@pierre/diffs").then(module => {
     // U7674d: the library ships no themes in this build; Pierre's own github-light, a Zed theme for Highlights, loads on first use.
     module.registerCustomTheme(DIFF_THEME, () => import("@pierre/highlights/themes/github-light"), "zed");
