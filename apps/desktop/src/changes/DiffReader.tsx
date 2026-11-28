@@ -12,6 +12,7 @@ import type { CompareTarget } from "@contracts/agent/CompareTarget";
 import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import type { OwnedGroupKey } from "@contracts/agent/OwnedGroupKey";
 import type { ChangedStatus } from "@contracts/agent/ChangedStatus";
+import { appIsDark } from "../settings/preferences";
 import { useConnectedProject } from "../state/connectedProject";
 import { BlockedFailure, StatusNote } from "../ink/MountedLine";
 import { failureOf } from "../app/failureOf";
@@ -220,7 +221,7 @@ export const DiffReader = (props: { waiting?: boolean | undefined; shared?: Shar
   const { read, failure, setFailure, loading, slow, updated, retry, reread } = createComparisonRead(props);
   const { form, edit, open: openNote, composer, close: closeForm } = createNoteField(props, read, () => focusHost());
   const [renderer, setRenderer] = createSignal<VirtualizedFileDiff<Annotated>>();
-  const [coarse, setCoarse] = createSignal(false);
+  const [coarse, setCoarse] = createSignal(false); const dark = appIsDark();
   const [host, setHost] = createSignal<HTMLDivElement>();
   const [shown, setShown] = createSignal<{ path: string; kind: "whitespace" | "large" }>();
   const changes = createChangeCursor();
@@ -289,15 +290,15 @@ export const DiffReader = (props: { waiting?: boolean | undefined; shared?: Shar
 
     if (!value || !mount || !drawableOf(value, hidden())) return undefined;
 
-    return { value, mount };
+    return { value, mount, dark: dark() }; // U8035: a theme switch redraws.
   }, target => {
     if (!target) return;
-    const { value, mount } = target;
+    const { value, mount, dark } = target;
     const { shared, onFocus } = props;
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const drawn = await drawDiff(value, mount, { current: () => current, shared, selection, pick: range => { setSelection(range); changes.place(range); onFocus?.(); remember(); }, note: range => openNote(range), annotation, only: props.only });
+      const drawn = await drawDiff(value, mount, { current: () => current, shared, selection, pick: range => { setSelection(range); changes.place(range); onFocus?.(); remember(); }, note: range => openNote(range), annotation, only: props.only, dark });
 
       if (!drawn) return;
       const { view, virtualizer, container, fileDiff, coarse } = drawn;

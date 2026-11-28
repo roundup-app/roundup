@@ -250,3 +250,12 @@ export const followAppAppearance = (changed: () => void): (() => void) => {
 
   return () => { dispose(); query?.removeEventListener("change", follow); };
 };
+
+/** The App's dark theme as a signal, following its choice and macOS's until the owner is disposed. */
+export const appIsDark = () => {
+  const [dark, setDark] = createSignal(untrack(appDark));
+
+  onCleanup(followAppAppearance(() => setDark(appDark())));
+
+  return dark;
+};
