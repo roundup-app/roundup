@@ -57,6 +57,7 @@ export const CONTRACT = {
     "agent.worktreeState": "79ecd2bbd18d5127",
     "api.describe": "36e296d0464a22ca",
     "api.list": "b37e12c7f2862ecd",
+    "app.attest": "168a4e6ef7512c01",
     "ask.list": "dd8bee1eec2326f2",
     "ask.pick": "d0407cda8d9f736b",
     "ask.place": "e8b87a2d1a3049f6",

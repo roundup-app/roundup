@@ -551,7 +551,6 @@ pub async fn one_run(
 
 /// X14's bounded, isolated real-Daemon observation.
 pub mod flood {
-    use contracts::{Actor, ActorKind};
     use rpc::{Client, OutputFrame};
     use serde::{Deserialize, Serialize};
     use serde_json::{Value, json};
@@ -701,12 +700,6 @@ pub mod flood {
             for identity in ["flood-paused-0", "flood-paused-1"] {
                 call(
                     &client,
-                    "daemon.identify",
-                    json!({"actor":Actor{kind:ActorKind::User,id:identity.into(),parent:None}}),
-                )
-                .await?;
-                call(
-                    &client,
                     "rail.rename",
                     json!({"id":crate::measure::field(&rail, "id"),"name":identity}),
                 )
@@ -741,9 +734,13 @@ pub mod flood {
                 match receiver.try_recv() {
                     Ok(event) => match event.data {
                         contracts::EventData::RailChanged
-                            if report.markers_emitted.contains(&event.actor.id) =>
+                            if event.actor.kind == contracts::ActorKind::User =>
                         {
-                            report.markers_received.push(event.actor.id)
+                            if let Some(next) =
+                                report.markers_emitted.get(report.markers_received.len())
+                            {
+                                report.markers_received.push(next.clone())
+                            }
                         }
                         _ => {}
                     },

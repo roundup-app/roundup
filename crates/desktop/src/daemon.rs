@@ -26,6 +26,36 @@ pub struct Started {
     pub stdin: ChildStdin,
     pub child: Child,
     pub socket: OwnedSocket,
+    pub secret: Secret,
+}
+
+/// EP1: what rupd wrote at start. Only this App holds it, in memory; it is never logged or
+/// passed on, so `Debug` is not derived.
+#[derive(Clone)]
+pub struct Secret(Arc<str>);
+
+/// `rupd-bound `, 64 hex digits of the secret and a newline.
+const BOUND_LINE: usize = 11 + 64 + 1;
+
+impl Secret {
+    fn parse(line: &[u8]) -> Result<Self, String> {
+        let secret = line
+            .strip_prefix(b"rupd-bound ")
+            .and_then(|rest| rest.strip_suffix(b"\n"))
+            .filter(|hex| hex.len() == 64 && hex.iter().all(u8::is_ascii_hexdigit))
+            .ok_or("sent an invalid bound notification")?;
+        Ok(Self(String::from_utf8_lossy(secret).into()))
+    }
+
+    /// A connection to `socket` whose first call is `app.attest`, so it holds the Daemon's trust in
+    /// this App.
+    pub async fn connect(&self, socket: &Path) -> Result<Client, RpcError> {
+        let client = Client::connect(socket).await.map_err(RpcError::internal)?;
+        client
+            .request("app.attest", serde_json::json!({ "secret": &*self.0 }))
+            .await?;
+        Ok(client)
+    }
 }
 
 /// The socket file this App's Daemon creates; removed when the App is done with the Daemon, so a
@@ -125,7 +155,7 @@ pub async fn start(
             Err(err) => format!("could not be waited on: {err}"),
         },
         ready = timeout(config.ready_bound, connect_after_bound(stdout, socket)) => match ready {
-            Ok(Ok(client)) => return Ok(Started { client, stdin, child, socket: owned_socket }),
+            Ok(Ok((client, secret))) => return Ok(Started { client, stdin, child, socket: owned_socket, secret }),
             Ok(Err(failure)) => failure,
             Err(_) => format!("did not answer daemon.ping within {:?}", config.ready_bound),
         },
@@ -189,24 +219,26 @@ fn describe(status: ExitStatus) -> String {
 }
 
 /// STARTUP.md's notification permits a connection attempt; only ping proves readiness.
-async fn connect_after_bound(mut stdout: ChildStdout, socket: &Path) -> Result<Client, String> {
-    let mut signal = [0; 11];
+async fn connect_after_bound(
+    mut stdout: ChildStdout,
+    socket: &Path,
+) -> Result<(Client, Secret), String> {
+    let mut signal = [0; BOUND_LINE];
     stdout
         .read_exact(&mut signal)
         .await
         .map_err(|err| format!("could not read bound notification: {err}"))?;
-    if &signal != b"rupd-bound\n" {
-        return Err("sent an invalid bound notification".to_owned());
-    }
+    let secret = Secret::parse(&signal)?;
     drop(stdout);
-    let client = Client::connect(socket)
+    let client = secret
+        .connect(socket)
         .await
         .map_err(|err| format!("could not connect after bound notification: {err}"))?;
     client
         .request("daemon.ping", Value::Null)
         .await
         .map_err(|err| format!("did not answer daemon.ping after bound notification: {err}"))?;
-    Ok(client)
+    Ok((client, secret))
 }
 
 async fn drain(stderr: ChildStderr, tail: StderrTail) {
@@ -231,6 +263,56 @@ async fn drain(stderr: ChildStderr, tail: StderrTail) {
 #[cfg(test)]
 pub(crate) mod tests {
     use std::path::Path;
+
+    #[tokio::test]
+    async fn ep1_the_client_attests_first_after_parsing_the_bound_line() {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        let secret = "ab".repeat(32);
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("rupd.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        let fake = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let (read, mut write) = stream.into_split();
+            let mut lines = BufReader::new(read).lines();
+            let mut seen = Vec::new();
+            while let Some(line) = lines.next_line().await.unwrap() {
+                let request: serde_json::Value = serde_json::from_str(&line).unwrap();
+                let answer = serde_json::json!({"jsonrpc":"2.0","id":request["id"],"result":null});
+                write
+                    .write_all(format!("{answer}\n").as_bytes())
+                    .await
+                    .unwrap();
+                seen.push(request);
+                if seen.len() == 2 {
+                    break;
+                }
+            }
+            seen
+        });
+        let mut child = tokio::process::Command::new("sh")
+            .args(["-c", &format!("printf 'rupd-bound {secret}\\n'")])
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let stdout = child.stdout.take().unwrap();
+        super::connect_after_bound(stdout, &socket).await.unwrap();
+        let seen = fake.await.unwrap();
+        assert_eq!(seen[0]["method"], "app.attest");
+        assert_eq!(seen[0]["params"], serde_json::json!({ "secret": secret }));
+        assert_eq!(seen[1]["method"], "daemon.ping");
+    }
+
+    #[test]
+    fn ep1_a_bound_line_without_a_secret_is_refused() {
+        for line in [
+            "rupd-bound\n".to_owned(),
+            format!("rupd-bound {}\n", "z".repeat(64)),
+            format!("rupd-bound {}", "a".repeat(64)),
+        ] {
+            assert!(super::Secret::parse(line.as_bytes()).is_err(), "{line:?}");
+        }
+    }
 
     #[test]
     fn s6123a_first_line_leads_with_the_last_stderr_line() {

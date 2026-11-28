@@ -120,7 +120,7 @@ export const nextNote = async () => {
 
 /** U7676d: the bar's count opens the batch list. */
 export const openBatch = async () => {
-  const count = await screen.findByRole("button", { name: /^\d+ notes?$/ });
+  const count = await within(await screen.findByRole("region", { name: copy.notesRegion })).findByRole("button", { name: /^\d+ notes?$/ });
 
   if (!noteList()) {
     fireEvent.click(count);

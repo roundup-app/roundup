@@ -69,6 +69,7 @@ import type { PickParams as ask_PickParams } from "./ask/PickParams";
 import type { PlaceParams as ask_PlaceParams } from "./ask/PlaceParams";
 import type { PlacedPart as ask_PlacedPart } from "./ask/PlacedPart";
 import type { SendParams as ask_SendParams } from "./ask/SendParams";
+import type { AttestParams as common_AttestParams } from "./AttestParams";
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
 import type { Ping as common_Ping } from "./Ping";
@@ -389,6 +390,7 @@ export type RpcMethods = {
   "link.read": { params: link_LinkUrl; result: link_LinkContent };
   "shortcuts.export": { params: link_ShortcutFileExport; result: null };
   "daemon.identify": { params: common_IdentifyParams; result: null };
+  "app.attest": { params: common_AttestParams; result: null };
   "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };
   "provenance.touched": { params: common_TouchedParams; result: common_Touch[] };

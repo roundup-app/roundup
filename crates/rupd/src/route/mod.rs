@@ -6,6 +6,14 @@ pub(crate) mod policy;
 
 use policy::{Actor as Caller, After, Entry, Gate, policy};
 
+/// EP1: a method behind `Gate::Attested` runs only on a connection that sent the start's secret.
+pub(crate) fn require_attested(gate: Gate, conn: &Conn) -> Result<(), RpcError> {
+    if gate == Gate::Attested && !conn.attested {
+        return Err(RpcError::forbidden("not attested"));
+    }
+    Ok(())
+}
+
 /// The `owner` of a `todo.create` or `todo.assign`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OwnerOnly {
@@ -219,6 +227,7 @@ impl Daemon {
         if row.gate == Gate::UserOnly && conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user may call this"));
         }
+        require_attested(row.gate, conn)?;
         if row.entry == Entry::Rail {
             return rpc::reply(&self.presented_rail(conn).await?);
         }
@@ -320,7 +329,7 @@ impl Daemon {
                     return Ok(reply);
                 }
             }
-            Gate::None | Gate::UserOnly | Gate::RefTarget => {}
+            Gate::None | Gate::UserOnly | Gate::Attested | Gate::RefTarget => {}
         }
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params.clone())
@@ -420,6 +429,7 @@ mod tests {
         daemon.register(Arc::new(Listed));
         let (events, _) = mpsc::unbounded_channel();
         let conn = Conn {
+            attested: false,
             actor: Actor::user(),
             peer: None,
             events,

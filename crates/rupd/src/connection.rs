@@ -88,6 +88,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
     let (finished, finish) = tokio::sync::oneshot::channel();
     let writer = tokio::spawn(write_frames(write, outbox, selected_output, finish));
     let mut conn = Conn {
+        attested: false,
         actor: Actor::user(),
         peer: stream_pid,
         events: frames.clone(),
