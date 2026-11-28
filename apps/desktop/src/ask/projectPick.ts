@@ -3,6 +3,7 @@ import { debounce } from "@solid-primitives/scheduled";
 import type { PlacedPart } from "@contracts/ask/PlacedPart";
 import type { SendParams } from "@contracts/ask/SendParams";
 import type { Project } from "../app/seam";
+import { copy } from "./copy";
 
 /** U6271b: how long typing must rest before one Placement call. */
 export const PAUSE_MS = 600;
@@ -56,14 +57,16 @@ export const createProjectPick = (from: {
 
   const current = () => (placed()?.text === from.text() ? placed()!.parts : null);
 
-  return {
-    /** U8046b: the Projects shown at the line's right end, each once; empty when nothing is shown. */
-    names: (): string[] => {
-      if (!shown() || from.text().trim() === "") return [];
-      const parts = current();
+  /** U8046b: the Projects shown at the line's right end, each once; empty when nothing is shown. */
+  const names = (): string[] => {
+    if (!shown() || from.text().trim() === "") return [];
+    const parts = current();
 
-      return parts ? [...new Set(parts.map(part => ("project" in part.placement && part.placement.project) || from.active()))] : [from.active()];
-    },
+    return parts ? [...new Set(parts.map(part => ("project" in part.placement && part.placement.project) || from.active()))] : [from.active()];
+  };
+
+  return {
+    label: (): string => names().join(copy.askPickSeparator),
     /** What the send adds to its request: the parts already placed for exactly this text. */
     request: (): Pick<SendParams, "parts"> => {
       const parts = current();

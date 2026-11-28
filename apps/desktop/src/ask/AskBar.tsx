@@ -234,14 +234,10 @@ export const AskBar = () => {
     { chords: ASK_CLOSE, when: event => !(event.target instanceof Element && event.target.closest(".app-select-list, [aria-expanded=true]")), run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
-  const named = () => v.safeParse(v.string(), current()?.value.workstream).success || tinted().some(segment => segment.mark !== undefined);
-
   const projectPick = createProjectPick({
-    place: value => asks.place(value),
-    projects: asks.projects,
-    text,
+    place: value => asks.place(value), projects: asks.projects, text,
     active: () => connected.project.name,
-    named,
+    named: () => v.safeParse(v.string(), current()?.value.workstream).success || tinted().some(segment => segment.mark !== undefined),
   });
 
   const send = async (): Promise<void> => {
@@ -313,7 +309,7 @@ export const AskBar = () => {
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); setCaret(event.currentTarget.selectionStart); followScroll(event.currentTarget); }} onScroll={(event) => followScroll(event.currentTarget)} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} /></div>
-          <Show when={!named() && projectPick.names().length > 0}><span class="ask-pick">{projectPick.names().join(", ")}</span></Show></div>
+          <Show when={projectPick.label()}>{label => <span class="ask-pick">{label()}</span>}</Show></div>
           <Show when={matching().length > 0}><Mentions.List label={typing()?.sigil === "#" ? copy.askProjectMentions : copy.askMentions} items={matching()} row={item => {
             const node = () => rail.nodes.find(node => node.id === item.value);
 

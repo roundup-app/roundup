@@ -48,6 +48,7 @@ export const copy = {
   askProjectMentions: sharedCopy.projects,
   askProjectToken: (name: string) => `Project ${name}`,
   askWorkstreamToken: (name: string) => `Workstream ${name}`,
+  askPickSeparator: ", ",
   askPlacing: "Placing",
   askWaiting: "Needs your pick",
   askQueued: "Queued",
