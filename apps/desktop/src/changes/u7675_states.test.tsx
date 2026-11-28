@@ -316,6 +316,7 @@ it("u7678d_each_module_keeps_its_scroll_and_line_across_switches", async () => {
   const { connected } = await open(() => ({ files: MODS.map(each => ({ ...each, blob: revision })) }), path => multi(path, revision));
 
   await drawn();
+  await new Promise(resolve => setTimeout(resolve));
   press("]");
   press("]");
   await marks(at("new", 21));
