@@ -47,6 +47,19 @@ export type ScrollKeys = DiffKeys & { noteItem: (item: Pick<Item, "kind" | "name
 /** U8031a: how far below and above the scroll a file is read and drawn, the read-ahead of `@pierre/diffs`' Virtualizer. */
 const READ_AHEAD = 4000;
 
+/** The sections the scroll reports as they near its view, read ahead by READ_AHEAD; undefined where the platform has no IntersectionObserver. */
+const watching = (root: HTMLElement | undefined, sections: Map<string, HTMLElement>, report: (path: string) => void) => {
+  if (typeof IntersectionObserver === "undefined" || !root) return undefined;
+
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting && entry.target instanceof HTMLElement && entry.target.dataset.path !== undefined) report(entry.target.dataset.path);
+  }, { root, rootMargin: `${READ_AHEAD}px 0px` });
+
+  for (const element of sections.values()) observer.observe(element);
+
+  return observer;
+};
+
 type Line = { side: "old" | "new"; line: number };
 
 /** U7678c, U7683d: one module's hunks as one scroll, or a flow's `sections` in call order (a file, or the hunks of one function of it): each under its header, read only once the scroll reports it in view or next after one that is, and a note batch shared by all of them. */
@@ -101,13 +114,7 @@ export const ModuleScroll = (props: { id: string; name: string; files: readonly 
   let observer: IntersectionObserver | undefined;
 
   const watch = () => {
-    if (typeof IntersectionObserver === "undefined" || !scroller) return;
-
-    observer = new IntersectionObserver(entries => {
-      for (const entry of entries) if (entry.isIntersecting && entry.target instanceof HTMLElement && entry.target.dataset.path !== undefined) reported(entry.target.dataset.path);
-    }, { root: scroller, rootMargin: `${READ_AHEAD}px 0px` });
-
-    for (const element of sections.values()) observer.observe(element);
+    observer = watching(scroller, sections, reported);
   };
 
   onCleanup(() => observer?.disconnect());
