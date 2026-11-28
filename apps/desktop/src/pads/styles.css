@@ -484,7 +484,7 @@ li[aria-selected="true"] svg {
   text-align: start;
   color: var(--grey);
   font-size: var(--text-body);
-  line-height: 18px;
+  line-height: 1.5;
 }
 
 .walk-outline .walk-item[data-button][aria-current="step"] {
@@ -498,7 +498,7 @@ li[aria-selected="true"] svg {
   align-items: center;
   justify-content: center;
   inline-size: 2ch;
-  block-size: 18px;
+  block-size: 1lh;
 }
 
 .walk-item-title {
