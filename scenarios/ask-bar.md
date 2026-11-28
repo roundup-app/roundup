@@ -4,7 +4,7 @@ Policy amendment — owner decision of 2026-11-05 (#6244, `scenarios/ui-project-
 
 Policy amendment — owner decision of 2026-11-02 (#5730): U504 defines one list of Project changes since the last visit under Ask. It replaces #4966's four-section accordion and section-unseen rules, and #4901's Earlier disclosure and Ask history presentation. U505 retains Sent-part acknowledgement, delivery, routing and recovery; acknowledged parts leave Overview. Full Made remains on demand through its existing Project menu action. U504's composition also governs U2539b and DV5/DV6 where they previously required Overview sections.
 
-Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, U504, U505, U506.
+Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, U504, U505, U506, U8046a, U8046b, U8046c, U8046d.
 
 Source: the user's choices of 2026-10-15, recorded on the work Issues. Terms: Workstream, Door, Agent, Steer, Work order, Order title, Status, Kind, Adapter, Model, Effort, Rail, Reach (`GLOSSARY.md`). New terms, added to `GLOSSARY.md` by the PR that builds A40: **Ask** (one message the user sends from the Ask bar), **Ask part** (the span of an Ask that one Workstream takes), **Placement** (where an Ask part goes: `routed`, `new` or `unclear`) and **Placement call** (the Adapter's one-shot call that returns an Ask's parts and their Placements). Acceptance only; work ownership and dependencies live in GitHub Issues. No implementation is claimed by this specification.
 
@@ -172,3 +172,42 @@ Policy amendment — owner decision of 2026-11-05 (#6271): the Ask bar places an
 **U6271c a sent row names its Project.** Given a sent row (U505), then it names the Project and the Workstream each part went to, and opening it selects that Project and that Workstream, also when the part went to a Project other than the active one. Test: `u6271c_opening_a_row_of_another_project_selects_it`.
 
 Observer: the real-Claude observer of `crates/rup/tests/` with two fixture Projects open, each holding one named Workstream: an ask naming the second Project's work lands in that Workstream, and the chip showed that Project before send. Regression Checks on main: `crates/agents/tests/asks.rs`, `a41_the_door_gets_the_users_words_byte_for_byte`; `crates/agents/tests/asks/placement.rs`, `a40_naming_a_workstream_makes_no_call`. Scope (policy): `crates/agents`, `crates/contracts`, `contracts/generated/`, `crates/desktop`, `apps/desktop/src/ask/`. No implementation is delivered by this specification.
+
+Policy amendment — owner decision of 2026-11-27 (#8046), on the Ask bar: "this view needs proper redesigning spacing alignment and interactions and visibility and behaviour"; on the drafts: "Yes I love that design and you should file the issues and screen to match this promised draft details". The owner picked frames 2, 5 and 8 of the draft:
+
+```
+┌──────────────────────────────────────────────┐
+│ fix the login bug in the Rail spec  Education│   one line, one border
+└──────────────────────────────────────────────┘
+388 px:
+┌──────────────────────────────┐
+│ fix the login bug in the Rail│
+│ spec and check the… Education│
+└──────────────────────────────┘
+```
+
+**Precedence.** A design check that reads a decision here as a defect changes how it is drawn, never the decision. When both cannot hold, `ask` (`flag:needs-user`). Every word the bar shows is read from `copy.ts`.
+
+**U8046a the bar is one line with one border.** Given the Ask bar open (U6244c: still only by ⌘/, no field or button before it), then the bar is one bordered surface and its field draws no border of its own, so no box sits inside a box; #2731's `--space-4` inset on all four sides stays. The bar holds no Project `Select` and no "Project" word. Send stays keyboard only: no button, no key hint. The placeholder reads "Ask anything. # names a Project, @ a Workstream". The bar and the `#` and `@` lists appear and leave at once, with no motion. Amends U504 (the field) and #2731's padding policy (one bordered surface). Test: `u8046a_the_bar_holds_no_select_and_no_send_control`. Looks are policy for the critic (U8046d).
+
+**U8046b the Project pick is text at the line's right end.** Given the Ask bar with two or more open Projects, then roundup's Project pick shows as grey text at the right end of the line, never a control. Amends U6271b ("One chip per part" and "The owner's pick" become this text and the `#` token of U8045a) and U8045c's "Chip gone". Then:
+- **Reads.** Until the pick of `ask.place` returns after the typing pause (U6271b's one call per pause, unchanged) the text reads the active Project; then it reads the pick. Test: `u8046b_the_pick_reads_the_active_project_until_a_pick_returns`.
+- **Hidden.** It is absent while the text holds a `#<Project>` token that names an open Project (U8045c) or names an `@<Workstream>` (U8045d). Tests: `u8046b_the_pick_is_absent_with_a_hash_project_token` and `u8046b_the_pick_is_absent_with_an_at_workstream_token`.
+- **Not a control.** It has no role of a control, takes no focus and opens no list; the owner fixes a Project with `#` (U8045a). Test: `u8046b_the_pick_is_not_a_control`.
+- **Many Projects (assumed).** When the parts go to different Projects, the right end lists each Project once, comma-separated. Test: `u8046b_parts_in_two_projects_list_each_once`.
+
+**U8046c wrapped text grows the bar.** Given text that wraps, then the bar grows with it up to today's 160 px, then the field scrolls, and the pick sits at the end of the last line (frame 8), on the field's text baseline. Shift+Enter, Enter, U2773 draft persistence and the exact recipient stay as U504 has them. Policy: layout is the critic's (U8046d); no Vitest test asserts a size, position or baseline (rule 10).
+
+**U8046d the rendered bar for the critic.** Given the U26 harness with two open Projects, then at 1512 by 950 and at 388 px, dark and light: the empty bar, the bar with one line of text and its pick, the bar with wrapped text, and the bar with a `#Project` token match frames 2, 5 and 8, with one border, an equal 16 px inset, the pick on the field's text baseline and no sideways scroll; D2, D5, D6 and every Check passing on `main` still pass. Run `just capture U8046d`; evidence under `artifacts/ux/U8046d/`, uncommitted. Policy; the critic judges layout and looks against the draft frames, never a Vitest test.
+
+Scope (policy): `apps/desktop/src/ask/` (`AskBar.tsx`, `styles.css`, `projectPick.ts`, `copy.ts`). It builds after #8045 (`scenarios/ask-bar-tokens.md`), whose `#` and `@` tokens give the owner a way to fix the Project before the `Select` goes. No new RPC method and no contract change.
+
+Not wanted: a visible Ask field or button before ⌘/ (U6244c stands); a border inside the bar; a picker louder than the text; a Vitest test of looks.
+
+Checks on main (numbered references, not claims that this specification implements them):
+
+1. `apps/desktop/src/ask/u6271b_project_chip.test.tsx`, `u6271b_typing_pausing_then_sending_unchanged_text_makes_one_call`: one call per pause.
+2. `apps/desktop/src/ask/u504_ask_bar.test.tsx`, `u504_at_lists_workstreams_and_writes_the_name`: the lists.
+3. `scenarios/ui-project-root-overview.md`, U6244c; `scenarios/ask-bar-tokens.md`, U8045a to U8045e; `scenarios/ask-bar.md`, U504 (padding policy #2731) and U6271b.
+
+No implementation is delivered by this specification.
