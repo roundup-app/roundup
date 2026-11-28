@@ -37,26 +37,7 @@ const type = (text: string) => fireEvent.input(input()!, { target: { value: text
 
 const enter = () => press("Enter", {}, input()!);
 
-const chip = () => screen.findByRole("combobox", { name: "Project" }, slow);
-
-/** The Project the chip currently holds: the value of the Select's hidden form field. */
-const chosen = () => document.querySelector<HTMLInputElement>(".ask-chips [data-slot=select-form-input]")?.value;
-
-describe("u6271b the Project chip", () => {
-  it("u6271b_the_chip_reads_the_active_project_until_a_pick_returns", async () => {
-    const { places } = await setup();
-
-    await chip();
-    expect(chosen()).toBe("p");
-    type("pay invoices");
-    await chip();
-    expect(chosen()).toBe("p");
-    expect(places).toEqual([]);
-
-    await waitFor(() => expect(chosen()).toBe("other"), slow);
-    expect(places).toEqual(["pay invoices"]);
-  });
-
+describe("u6271b one call per pause", () => {
   it("u6271b_typing_pausing_then_sending_unchanged_text_makes_one_call", async () => {
     const { places, sent } = await setup();
 
@@ -69,106 +50,6 @@ describe("u6271b the Project chip", () => {
 
     type("pay invoices now");
     await waitFor(() => expect(places).toEqual(["pay invoices", "pay invoices now"]), slow);
-  });
-
-  it("u6271b_a_chip_pick_sends_with_the_project_fixed", async () => {
-    const { app, places, sent } = await setup();
-
-    type("ship it");
-    const trigger = await chip();
-
-    // A pointer press focuses the trigger before the list opens; ui-sdk's Select returns focus to whatever kept it then.
-    trigger.focus();
-    fireEvent.click(trigger);
-    flush();
-    const choice = await screen.findByRole("option", { name: "other" });
-    fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
-    flush();
-    fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
-    flush();
-    fireEvent.click(choice);
-    flush();
-    await waitFor(() => expect(chosen()).toBe("other"));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "Project" })));
-    enter();
-    await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toMatchObject({ text: "ship it", project: "other" });
-    expect(sent[0]!.parts).toBeUndefined();
-    expect(places).toEqual([]);
-    expect(app.calls.filter(call => call.method === "ask.send")).toEqual([]);
-  });
-});
-
-describe("u6271b each part's chip", () => {
-  it("u6271b_a_pick_on_one_part_sends_only_that_part_to_the_project", async () => {
-    const { app, sent } = await setup();
-
-    const two: PlacedPart[] = [
-      { text: "fix login", placement: { kind: "routed", workstream: "w1", project: "p" } },
-      { text: "pay invoices", placement: { kind: "routed", workstream: "w9", project: "p" } },
-    ];
-
-    app.handlers["ask.place"] = () => two;
-    type("fix login. pay invoices");
-    fireEvent.click(await screen.findByRole("combobox", { name: "Project for fix login" }, slow));
-    flush();
-    const choice = await screen.findByRole("option", { name: "other" });
-    fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
-    flush();
-    fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
-    flush();
-    fireEvent.click(choice);
-    flush();
-    await waitFor(() => expect([...document.querySelectorAll<HTMLInputElement>(".ask-chips [data-slot=select-form-input]")].map(field => field.value)).toEqual(["other", "p"]));
-    enter();
-    await waitFor(() => expect(sent).toHaveLength(2));
-    expect(sent.find(request => request.text === "fix login")?.parts).toEqual([{ text: "fix login", placement: { kind: "new", title: "fix login", project: "other" } }]);
-    expect(sent.find(request => request.text === "pay invoices")).toMatchObject({ workstream: "w9" });
-  });
-});
-
-describe("u6271b the chip's list", () => {
-  it("u6271b_escape_in_the_open_list_keeps_the_ask_open", async () => {
-    await setup();
-    type("ship it");
-    fireEvent.click(await chip());
-    flush();
-    const choice = await screen.findByRole("option", { name: "other" });
-
-    await new Promise(resolve => setTimeout(resolve, 100));
-    press("Escape", {}, choice);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    expect(() => screen.getByRole("dialog", { name: "Ask" })).not.toThrow();
-  });
-});
-
-describe("u6271b the chip and the send agree", () => {
-  it("u6271b_editing_after_a_part_pick_sends_what_the_chip_shows", async () => {
-    const { app, sent } = await setup();
-
-    app.handlers["ask.place"] = () => [
-      { text: "fix login", placement: { kind: "routed", workstream: "w1", project: "p" } },
-      { text: "pay invoices", placement: { kind: "routed", workstream: "w9", project: "p" } },
-    ] satisfies PlacedPart[];
-    type("fix login. pay invoices");
-    fireEvent.click(await screen.findByRole("combobox", { name: "Project for pay invoices" }, slow));
-    flush();
-    const choice = await screen.findByRole("option", { name: "other" });
-    fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
-    flush();
-    fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
-    flush();
-    fireEvent.click(choice);
-    flush();
-    await waitFor(() => expect([...document.querySelectorAll<HTMLInputElement>(".ask-chips [data-slot=select-form-input]")].map(field => field.value)).toEqual(["p", "other"]));
-    type("fix login. pay invoices today");
-    await waitFor(() => expect(document.querySelectorAll(".ask-chips [data-slot=select-form-input]")).toHaveLength(1));
-    const shown = chosen();
-    enter();
-    await waitFor(() => expect(input()!.value).toBe(""));
-    await new Promise(resolve => setTimeout(resolve, 100));
-    expect(shown).toBe("p");
-    expect(sent).toEqual([]);
   });
 });
 

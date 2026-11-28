@@ -8,6 +8,7 @@ use placement::{Destination, EarlierAsk, Placement, Request};
 use std::collections::{HashMap, HashSet};
 
 mod store;
+mod tokens;
 use store::Store;
 
 pub struct Asks {
@@ -26,6 +27,8 @@ struct Intake {
     doors: Mutex<HashSet<String>>,
     /// U6271a: the Project the owner fixed for an Ask whose Placement call is still pending.
     fixed: Mutex<HashMap<String, String>>,
+    /// U8045c: the open Projects an Ask's tokens are read against, for an Ask whose Placement is still pending.
+    scopes: Mutex<HashMap<String, tokens::Scope>>,
 }
 
 impl Agents {
@@ -56,6 +59,7 @@ impl Asks {
                 recovered: AtomicBool::new(false),
                 doors: Mutex::new(HashSet::new()),
                 fixed: Mutex::new(HashMap::new()),
+                scopes: Mutex::new(HashMap::new()),
             }),
         })
     }
@@ -147,6 +151,16 @@ impl Intake {
             _ => None,
         });
         let fixed = lock(&self.fixed, "fixed Projects")?.remove(&ask.id);
+        let scope = lock(&self.scopes, "Ask scopes")?.remove(&ask.id);
+        let marked = if ask.text.starts_with('@') || captured.is_some() {
+            None
+        } else {
+            tokens::read(&ask.text, &rail, scope.as_ref(), fixed.as_deref())
+        };
+        let fixed = marked
+            .as_ref()
+            .and_then(|marked| marked.fixed.clone())
+            .or(fixed);
         let named = ask
             .text
             .strip_prefix('@')
@@ -188,6 +202,11 @@ impl Intake {
                 text: ask.text.clone(),
                 destination: Destination::Routed { workstream },
             }]
+        } else if let Some(tokens::Read {
+            route: Some(route), ..
+        }) = marked
+        {
+            vec![route.into_part(&ask.text)]
         } else if let Some((name, text)) = named {
             let ids: Vec<_> = rail
                 .iter()
@@ -231,19 +250,24 @@ impl Intake {
                     parts: ask.parts.into_iter().map(earlier_part).collect(),
                 })
                 .collect();
-            let request = match &fixed {
-                Some(project) => Request::across(
-                    ask.text.clone(),
-                    earlier,
-                    vec![(Some(project.clone()), rail)],
-                    Some(project),
-                ),
-                None => Request::new(ask.text.clone(), earlier, rail),
+            let (trees, only) = tokens::offered(rail, scope.as_ref(), fixed.as_deref(), marked.as_ref());
+            let request = match (&fixed, only) {
+                (Some(project), _) => {
+                    Request::across(ask.text.clone(), earlier, trees, Some(project))
+                }
+                (None, true) => Request::across(ask.text.clone(), earlier, trees, None),
+                (None, false) => {
+                    Request::new(ask.text.clone(), earlier, trees.into_iter().flat_map(|(_, rail)| rail).collect())
+                }
             };
-            placement::place(self.placement.as_ref(), &ask.id, &request, |id, cause| {
+            let mut parts = placement::place(self.placement.as_ref(), &ask.id, &request, |id, cause| {
                 eprintln!("agents: Ask {id}: {cause}")
             })
-            .await
+            .await;
+            if let Some(marked) = &marked {
+                marked.assign_projects(&mut parts);
+            }
+            parts
         };
         let parts: Vec<_> = parts
             .into_iter()
@@ -697,6 +721,7 @@ impl Asks {
                 workstream,
                 project,
                 parts,
+                projects,
             } = p;
             if submission
                 .as_ref()
@@ -746,6 +771,10 @@ impl Asks {
                     .ok_or_else(|| RpcError::internal("the Ask has no parts"))?;
                 if let Some(project) = project.filter(|_| first_state == State::Placing) {
                     lock(&shared.fixed, "fixed Projects")?.insert(ask.id.clone(), project);
+                }
+                if let Some(projects) = projects.filter(|_| first_state == State::Placing) {
+                    let scope = projects.into_iter().map(|each| (each.name, each.tree)).collect();
+                    lock(&shared.scopes, "Ask scopes")?.insert(ask.id.clone(), scope);
                 }
                 (ask, first_state)
             };
