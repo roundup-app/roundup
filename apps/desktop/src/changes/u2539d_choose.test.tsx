@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { mountControl, WORKTREE } from "./harness";
+import { comparison } from "./viewHarness";
 import { openChanges, treeRow } from "./noteHarness";
 import { notices } from "../testing/notices";
 
@@ -10,6 +11,7 @@ afterEach(cleanup);
 const open = async () => {
   const mounted = await mountControl();
 
+  mounted.app.handlers["agent.compareFile"] = ({ path }) => comparison(path);
   await openChanges();
   await treeRow("src/a.ts");
 

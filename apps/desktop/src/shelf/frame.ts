@@ -55,6 +55,10 @@ export type ShelfFrame = {
   toggle: (source?: ActivationSource) => void;
   /** U8005a: close the open Shelf without saving, as a view that needs the room asks (`slides` false shows it at once, for a Project switch); the user's own toggle brings it back. */
   fold: (source?: ActivationSource, slides?: boolean) => void;
+  /** U8075: open the Shelf a Changes fold closed, in the fold's duration. */
+  unfold: (source?: ActivationSource) => void;
+  /** U8075: the running slide is a Changes fold's, which takes `--duration-layout`. */
+  folding: Accessor<boolean>;
   /** Bind the Shelf whose browser animations retain its content. */
   attach: (element: HTMLElement) => void;
   sliding: Accessor<boolean>;
@@ -92,6 +96,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const [shown, setShown] = createSignal(() => restored().shown);
   const [animated, setAnimated] = createSignal(() => restored().animated);
   const [keyed, setKeyed] = createSignal(false);
+  const [folding, setFolding] = createSignal(false);
   const [tab, setTabSignal] = createSignal(() => restored().tab);
 
   // Reads lag writes within one turn, so a caller that has just written passes what it wrote.
@@ -128,10 +133,11 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     save({ maximised: false });
   }, { defer: true });
 
-  const move = (to: ShelfPhase, slides: boolean, remember: boolean, source: ActivationSource = "pointer") => {
+  const move = (to: ShelfPhase, slides: boolean, remember: boolean, source: ActivationSource = "pointer", fold = false) => {
     // One update: `rendered` must never read false between the phase and the exit retention changing.
     setAnimated(slides);
     setKeyed(source === "key");
+    setFolding(fold);
     setCovered(to === "peeking" || (to === "closed" && covered()));
     setPhase(to);
     lifetime.retarget(to !== "closed", slides);
@@ -161,6 +167,11 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     }
 
     move(open() ? "closed" : "open", !reducedMotion(), true, source);
+  };
+
+  const unfold = (source: ActivationSource = "pointer") => {
+    if (peeking()) promote();
+    else if (phase() === "closed") move("open", !reducedMotion(), true, source, true);
   };
 
   const promote = () => {
@@ -230,7 +241,9 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     tab,
     setTab: createSettled(setTab),
     toggle: createSettled(toggle),
-    fold: createSettled((source: ActivationSource = "pointer", slides = true) => { if (open()) move("closed", slides && !reducedMotion(), false, source); }),
+    fold: createSettled((source: ActivationSource = "pointer", slides = true) => { if (open()) move("closed", slides && !reducedMotion(), false, source, true); }),
+    unfold: createSettled(unfold),
+    folding,
     attach: setElement,
     sliding: lifetime.sliding,
     settle: lifetime.settle,
