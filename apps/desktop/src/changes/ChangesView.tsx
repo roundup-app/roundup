@@ -1,3 +1,4 @@
+import { mountDeferred } from "../state/mountHold";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { createEffect, createMemo, createSignal, flush, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
@@ -411,6 +412,19 @@ const readOn = (direction: 1 | -1, opened: string | undefined, diff: ScrollKeys 
   if (opened !== undefined && opened !== OVERVIEW && diff?.page(direction)) mark();
 };
 
+/** U8075: true a task after the view mounts, so the fold's slide does not wait behind one long mount. */
+const afterMount = () => {
+  const [drawn, setDrawn] = createSignal(false);
+
+  onSettled(() => {
+    const id = setTimeout(() => setDrawn(true));
+
+    return () => clearTimeout(id);
+  });
+
+  return drawn;
+};
+
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
 const Surface = (props: { id: string; name: string }) => {
   const { app, events, hideView, showView, project, drafts, changeTargets, changePlaces } = useConnectedProject();
@@ -575,6 +589,8 @@ const Surface = (props: { id: string; name: string }) => {
 
   onSettled(() => { initialFocus(() => section?.focus()); });
 
+  const treeDrawn = afterMount();
+
   return <section class="changes-view" aria-label={copy.changes} tabindex="-1" onKeyDown={onKeyDown} ref={element => { section = element; }}>
     <header class="changes-head">
       <span class="changes-name">{props.name}</span>
@@ -611,7 +627,7 @@ const Surface = (props: { id: string; name: string }) => {
           <RepeatStates scan={repeats} notAsked={own() === "branch"} /><SpotStates spots={spots} />
           <Show when={lens() === "logic"}><MoveStates moves={moves} /></Show>
           <FindField find={find} />
-          <ChangedTree grouped={list.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} unfolded={item => unfoldedRows(lens(), item, calls.done(), moves)} states={item => lens() === "logic" ? <SymbolStates item={item} calls={calls} /> : undefined} onAim={aim => aimAt(aim, openSection, jump.aimAt)} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} onDot={dots.open} />
+          <Show when={treeDrawn()}><ChangedTree grouped={list.grouped()} lens={lens()} finding={find.letters() !== ""} itemNotes={itemNotes(notes.all(props.id))} viewed={viewed.viewedKeys()} changed={viewed.changedKeys()} dimmed={lens() === "flows" ? dimmed() : undefined} repeats={repeatTotals()} sources={spotTotals()} gaps={gapTotals()} findings={findings.totals()} moved={lens() === "logic" ? moveTotals() : undefined} readHint={readback.offered()} selected={opened()} unfolded={item => unfoldedRows(lens(), item, calls.done(), moves)} states={item => lens() === "logic" ? <SymbolStates item={item} calls={calls} /> : undefined} onAim={aim => aimAt(aim, openSection, jump.aimAt)} controls={controls => { focusTree = controls.focus; treeFocus = controls.focused; }} onChoose={choosePath} onEdit={openAt} onDot={dots.open} /></Show>
           <Show when={find.letters() !== "" && find.grouped().modules.length === 0 && find.grouped().noise.length === 0}><p class="changes-nomatch">{copy.noFileMatches(find.letters(), copy.lenses[lens()])}</p></Show>
         </Show>
       </div>
@@ -639,6 +655,6 @@ export const ChangesView = (props: { chart?: ChartView }) => {
   }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name });
 
   return <ChartContext value={props.chart ?? noChart}>
-    <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>
+    <Show when={hasView("changes") && !mountDeferred() ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>
   </ChartContext>;
 };

@@ -133,7 +133,7 @@ it("u7679c_reopening_restores_the_open_item_in_the_lens_last_used", async () => 
 
   fireEvent.click(opener);
   await showing("a/x.ts");
-  take(moduleRow("b"));
+  take(await waitFor(() => moduleRow("b")));
   await showing("b/x.ts");
   await switchedTo(copy.lenses.logic);
   await drawn();
