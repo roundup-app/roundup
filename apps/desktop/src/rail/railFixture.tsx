@@ -15,6 +15,7 @@ import { info, NOW } from "../testing/nodes";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Pane } from "../terminal/Pane";
+import { fakeEmulators } from "../terminal/paneHarness";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { AttentionKey } from "./AttentionKey";
 import { createDockBadge } from "./DockBadge";
@@ -30,7 +31,7 @@ afterEach(() => {
 export const exitedTerminal = (id: string, exit_code: number | null): TerminalInfo =>
   info(`t-${id}`, { running: false, exit_code });
 
-/** What else to mount alongside the Rail: a Pane (an `EmulatorFactory` gives it a focusable screen) or the DrawerHost. */
+/** What else to mount alongside the Rail: a Pane (`true` draws it on fake emulators, as jsdom cannot open xterm; an `EmulatorFactory` gives it a focusable screen) or the DrawerHost. */
 type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean; machines?: Machine[] };
 
 /** The Rail on a fake Daemon whose tree is `tree` and whose clock is a signal the test can advance. */
@@ -52,6 +53,7 @@ export const mountRail = async (
   app.handlers["machine.list"] = () => ({ machines: neighbors.machines ?? [], version: "0.1.21" });
   setup?.(app);
 
+  const createEmulator = neighbors.pane === true ? fakeEmulators().factory : neighbors.pane;
   const [now, setNow] = createSignal(NOW);
   // oxlint-disable-next-line solid/reactivity -- as before: the Accessors are read inside the connected project
   const connected = await connectProject(app, project, reducedMotion, now, daemonExit, storage);
@@ -66,7 +68,7 @@ export const mountRail = async (
         <AttentionKey />
         <Rail />
         <Show when={neighbors.pane}>
-          <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
+          <Pane createEmulator={createEmulator} />
         </Show>
         <ProjectSettingsView />
         <Show when={neighbors.drawer}>
