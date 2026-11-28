@@ -7,6 +7,7 @@ import { createSignal, flush } from "solid-js";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { DiffReader } from "./DiffReader";
 import { notesFor } from "./notes";
+import { yielded } from "./diffDraw";
 
 import { VirtualizedFileDiff, Virtualizer, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch, structuredPatch } from "diff";
@@ -21,7 +22,8 @@ vi.mock("@pierre/diffs", { spy: true });
 // eslint-disable-next-line anti-slop/no-module-mocking
 vi.mock("diff", { spy: true });
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); localStorage.clear(); });
+// A draw the test ended under cleans its view up one task later (renderedApart); the mocks clear after that, so the next test counts only its own calls.
+afterEach(async () => { cleanup(); await yielded(); vi.clearAllMocks(); vi.restoreAllMocks(); localStorage.clear(); });
 
 /** One file in the list: its module opens on it alone, so the reader's counters below count that file. */
 const openOne = () => openDiff("/p", undefined, () => ({ files: [{ path: "src/a.ts", status: "modified", line: 12, counts: null, blob: null }] }));
