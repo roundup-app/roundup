@@ -18,7 +18,6 @@ import { RiskMark } from "./RiskMark";
 import { Tip } from "../ui/Tip";
 import { countFor, groupTarget } from "./itemNotes";
 import type { ItemNote } from "./notes";
-import { Tip } from "../ui/Tip";
 import type { Aim, Unfold } from "./unfold";
 
 /** U7678a: a row's key in the open view: a module by its name, a noise file by its path. */
