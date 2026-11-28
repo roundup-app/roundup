@@ -4,7 +4,7 @@ Policy amendment — owner decision of 2026-11-05 (#6244, `scenarios/ui-project-
 
 Policy amendment — owner decision of 2026-11-02 (#5730): U504 defines one list of Project changes since the last visit under Ask. It replaces #4966's four-section accordion and section-unseen rules, and #4901's Earlier disclosure and Ask history presentation. U505 retains Sent-part acknowledgement, delivery, routing and recovery; acknowledged parts leave Overview. Full Made remains on demand through its existing Project menu action. U504's composition also governs U2539b and DV5/DV6 where they previously required Overview sections.
 
-Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, U504, U505, U506, U8046a, U8046b, U8046c, U8046d, U8047a, U8047b, U8047c, U8047d, U8047e.
+Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, A8048, U504, U505, U506, U8046a, U8046b, U8046c, U8046d, U8047a, U8047b, U8047c, U8047d, U8047e, U8048a, U8048b, U8048c, U8048d.
 
 Source: the user's choices of 2026-10-15, recorded on the work Issues. Terms: Workstream, Door, Agent, Steer, Work order, Order title, Status, Kind, Adapter, Model, Effort, Rail, Reach (`GLOSSARY.md`). New terms, added to `GLOSSARY.md` by the PR that builds A40: **Ask** (one message the user sends from the Ask bar), **Ask part** (the span of an Ask that one Workstream takes), **Placement** (where an Ask part goes: `routed`, `new` or `unclear`) and **Placement call** (the Adapter's one-shot call that returns an Ask's parts and their Placements). Acceptance only; work ownership and dependencies live in GitHub Issues. No implementation is claimed by this specification.
 
@@ -43,7 +43,7 @@ Tests: `a39_the_placement_call_is_one_slim_request` (pinned real Claude against 
 - **Naming a Workstream skips the call.** A text that starts with `@<name>` and a space, where exactly one Workstream's name equals `<name>` ignoring case, gives one `routed` part holding the rest of the text, and no Placement call runs. This also holds for an Extension's Mode named by `<name>` when no Workstream has that name: the part is delivered to the Extension (EP19). When no Workstream or more than one has that name, the part is `unclear`, with the question `No Workstream is named <name>` or `<n> Workstreams are named <name>` and those Workstreams as candidates; still no call runs.
 - **Bounds.** A text that is empty after trimming, or over 32 768 bytes, is `INVALID_PARAMS` naming the bound, and nothing is stored.
 - **Kept.** Asks are stored in the Daemon's SQLite store, survive a Daemon restart, and are never deleted by a bound (P7). A part still `placing` at a restart becomes `unclear`, `roundup restarted before placing this`, and its call does not run again.
-- **Usage only when asked (P9).** A Placement call runs only for an `ask.send` that names no Workstream: never for a Message, an Agent's tool call, `ask.pick`, a timer or a restart.
+- **Usage only when asked (P9).** A Placement call runs only for an `ask.send` that names no Workstream: never for a Message, an Agent's tool call, `ask.pick`, a timer or a restart. The one other model call is A8048's guess, which the owner chose on 2026-11-27 for the empty field only.
 
 Tests: `a40_send_returns_at_once_and_the_parts_follow`, `a40_naming_a_workstream_makes_no_call` (aimock's request log stays empty), `a40_a_two_topic_message_becomes_two_parts`, `a40_asks_survive_a_restart_and_placing_becomes_unclear`, `a40_an_agent_cannot_call_the_ask_methods` (each of the three through `rup mcp` and as an Agent identity is `FORBIDDEN`), and `m5_every_app_action_has_a_tool_or_a_reason` with the three methods listed.
 
@@ -244,5 +244,43 @@ Checks on main (numbered references, not claims that this specification implemen
 1. `apps/desktop/src/ask/u6271b_project_chip.test.tsx`, `u6271b_typing_pausing_then_sending_unchanged_text_makes_one_call`: one call per pause.
 2. `apps/desktop/src/ask/u504_ask_bar.test.tsx`, `u504_at_lists_workstreams_and_writes_the_name`: the lists.
 3. `scenarios/ui-project-root-overview.md`, U6244c; `scenarios/ask-bar-tokens.md`, U8045a to U8045e; `scenarios/ask-bar.md`, U504 (padding policy #2731) and U6271b.
+
+No implementation is delivered by this specification.
+
+Policy amendment — owner decision of 2026-11-27 (#8048), on the Ask bar: "we need ask to have the suggest for auto complete like claude code sometimes do - asks should be suggestable". The owner picked draft frames 1 and 2 and knowingly reverses A40's "Usage only when asked (P9)" for the empty-field guess only.
+
+```
+Empty:  │ █Review PR 8026's header sketch      [Tab] │  model's guess, grey
+Typing: │ fix the lo█gin bug in the Rail spec       │  earlier Ask, grey
+```
+
+**A8048 the next-Ask guess.** Contract change (rule 4, the Contract recipe of `.agents/builder.md`): one Daemon method, `ask.guess {}`, returns `{text}` or `{text: null}`; it is the user's, so M5 lists it with a reason (P9) and an Agent's call is `FORBIDDEN` (M2). `GLOSSARY.md` gains **Ask guess** (`ask::guess`) in the same PR, and every caller (the App's `rup` client and the generated `contracts/generated/`) changes with it. Given `ask.guess`, then:
+- **One cheap call.** It runs the Adapter's one-shot program once with the cheapest Model, as A39's Placement call does, over the five newest Asks' texts and every Workstream's name and Status Kind, and returns the one-line text it wrote. Test: `a8048_one_guess_call_per_open`.
+- **At most one in flight.** A second `ask.guess` while one runs shares its answer and starts no second call. Test: `a8048_a_second_request_shares_the_call_in_flight`.
+- **Only an empty field.** The App calls it once for each ⌘/ open with an empty field, never while the field holds text and never for a ⌘/ that restores a U2773 draft. Tests: `u8048b_one_guess_call_per_open_with_an_empty_field` and `u8048b_no_guess_call_while_typing_or_with_a_draft`.
+- **Failure is quiet.** A failed or empty call returns `{text: null}`, shows the placeholder and writes no error. Test: `a8048_a_failed_call_returns_no_text`.
+- **No per-keystroke call.** Typing starts no call. Test: `u8048b_no_guess_call_while_typing_or_with_a_draft`.
+All use a fake `claude` (`crates/agents/tests/asks.rs`).
+
+**U8048a earlier Asks complete the typed start.** Given the Ask bar with the field holding text, then grey ghost text after the caret completes it from the owner's earlier Asks of `ask.list`, newest first, matched on the typed start (case-insensitive); the ghost is the rest of that Ask's first line. No model call runs. Then:
+- **Matches.** Typing the start of an earlier Ask shows its rest as ghost text; the newest of two matches wins. Tests: `u8048a_the_start_of_an_earlier_ask_shows_its_rest` and `u8048a_the_newest_match_wins`.
+- **No ghost.** There is none for an exact match, for no match, for a `#` or `@` token being typed (U8045a), or while the caret is not at the end. Test: `u8048a_no_ghost_for_a_token_or_a_caret_before_the_end`.
+- **Not sent by Enter.** Enter sends only the typed text, never the ghost (U504). Test: `u8048a_enter_sends_only_the_typed_text`.
+
+**U8048b the empty field shows a guess.** Given the Ask bar open with an empty field, then the guess of A8048 shows in grey in place of the placeholder with a small "Tab" key mark at the right end; until it returns, and when it fails, the placeholder of U8046a shows. Typing drops the guess and the mark. Tests: `u8048b_the_guess_replaces_the_placeholder`, `u8048b_a_failed_guess_shows_the_placeholder`, `u8048b_typing_drops_the_guess`. The App never sends a guess: Enter on an empty field sends nothing. Test: `u8048b_enter_on_a_guess_sends_nothing`.
+
+**U8048c Tab takes the ghost.** Given a ghost (U8048a) or a guess (U8048b), then Tab writes it into the field as typed text with the caret at its end, and the text is the owner's to edit and send. With a `#` or `@` list open, Tab picks the highlighted row (U8045a) and takes no ghost. With neither, Tab keeps its focus behaviour. Amends U504 (Tab and Enter). Tests: `u8048c_tab_takes_the_ghost`, `u8048c_tab_takes_the_guess`, `u8048c_tab_with_a_list_open_picks_the_row`.
+
+**U8048d the rendered bar for the critic.** Given the U26 harness, then at 1512 by 950 and at 388 px, dark and light: the empty bar with a guess and its Tab mark, and the bar with typed text and ghost text match draft frames 1 and 2 with one border, the equal inset of U8046d, the ghost on the field's text baseline, in a Token grey and no sideways scroll; D2, D5, D6 and every Check passing on `main` still pass. Run `just capture U8048d`; evidence under `artifacts/ux/U8048d/`, uncommitted. Policy; the critic judges layout and looks, and no Vitest test checks them (rule 10).
+
+Scope: `apps/desktop/src/ask/` (`AskBar.tsx`, `copy.ts`), `apps/desktop/src/ui/Mentions.tsx`, the Daemon's ask module, `crates/contracts`, `contracts/generated/`, `crates/rupd` (registration) and the Claude Code adapter (`crates/agents/src/claude_code/`). It builds after #8046 (U8046a to U8046d).
+
+Not wanted: a model call per keystroke; ghost text that Enter sends without Tab; a Vitest test of looks; any change to A39's Placement call.
+
+Checks on main:
+
+1. `apps/desktop/src/ask/u504_ask_bar.test.tsx`, `u504_at_lists_workstreams_and_writes_the_name`: the lists.
+2. `crates/agents/tests/asks.rs`, `a41_the_door_gets_the_users_words_byte_for_byte`: Enter delivers the typed words only.
+3. `scenarios/ask-bar-tokens.md`, U8045a: Enter or Tab picks a list row.
 
 No implementation is delivered by this specification.
