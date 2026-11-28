@@ -10,6 +10,8 @@ export type SlideLifetime = {
   retarget: (open: boolean, animated: boolean) => void;
   /** Invalidate pending completion on an instant action, Project switch or removal. */
   settle: () => void;
+  /** A retarget will slide: the browser animates and a layer is there to animate; a test DOM does neither. */
+  animatable: () => boolean;
 };
 
 /** U3010b: the browser owns completion; only the latest destination may release retained content. */
@@ -32,6 +34,7 @@ export const createSlideLifetime = (elements: Accessor<readonly (HTMLElement | u
     sliding,
     exiting,
     settle,
+    animatable: () => "getAnimations" in Element.prototype && elements().some(element => element !== undefined),
     retarget: (open, animated) => {
       const current = ++revision;
 
