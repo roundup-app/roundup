@@ -1,4 +1,4 @@
-import { mountHeld } from "../state/mountHold";
+import { mountDeferred } from "../state/mountHold";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { createEffect, createMemo, createSignal, flush, For, lazy, Loading, onSettled, refresh, Show, untrack } from "solid-js";
@@ -413,7 +413,7 @@ const readOn = (direction: 1 | -1, opened: string | undefined, diff: ScrollKeys 
 };
 
 /** U7186c, U7672c: the centre's diff of what one Agent owns, from the remote's main to the switch's value. */
-/** U8075: true a task after the view mounts, so the fold's slide is not held behind one long mount. */
+/** U8075: true a task after the view mounts, so the fold's slide does not wait behind one long mount. */
 const afterMount = () => {
   const [drawn, setDrawn] = createSignal(false);
 
@@ -655,6 +655,6 @@ export const ChangesView = (props: { chart?: ChartView }) => {
   }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name });
 
   return <ChartContext value={props.chart ?? noChart}>
-    <Show when={hasView("changes") && !mountHeld() ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>
+    <Show when={hasView("changes") && !mountDeferred() ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>
   </ChartContext>;
 };
