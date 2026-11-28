@@ -231,7 +231,7 @@ mod startup {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&signal, b"rupd-bound\n");
+        assert_eq!(&signal, b"rupd-bound ");
         let client = timeout(BOUND, rpc::Client::connect(&daemon.socket))
             .await
             .unwrap()
@@ -249,7 +249,11 @@ mod startup {
             .unwrap()
             .unwrap();
         assert!(daemon.child.wait().unwrap().success());
-        assert!(rest.is_empty(), "only one notification is published");
+        assert_eq!(
+            rest.iter().filter(|b| **b == b'\n').count(),
+            1,
+            "only one notification is published, ending with the start's secret"
+        );
     }
 
     #[tokio::test]

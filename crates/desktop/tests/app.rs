@@ -23,10 +23,13 @@ use tauri::{App, Listener, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuil
 use tempfile::TempDir;
 use tokio::net::UnixListener;
 
+/// The secret the fake Daemons' bound line carries and the in-process Daemons expect (EP1).
+const BOUND_SECRET: &str = "abababababababababababababababababababababababababababababababab";
+
 /// The line a Daemon prints on its stdout once it is bound, and its first half; shell text for fake Daemons.
 macro_rules! bound {
     () => {
-        "printf 'rupd-bound\\n'"
+        "printf 'rupd-bound abababababababababababababababababababababababababababababababab\\n'"
     };
 }
 macro_rules! partial_bound {
@@ -95,7 +98,7 @@ impl Fixture {
         );
         let script = dir.path().join("rupd");
         let body = body
-            .replace("{link}", &format!("{link}\nprintf 'rupd-bound\\n'"))
+            .replace("{link}", &format!("{link}\nprintf 'rupd-bound abababababababababababababababababababababababababababababababab\\n'"))
             .replace("{dir}", &dir.path().display().to_string());
         let go = dir.path().join("go");
         assert!(Command::new("mkfifo").arg(&go).status().unwrap().success());
@@ -156,6 +159,7 @@ impl Fixture {
 
     fn serve_daemon(&self, data: &str, socket: PathBuf) {
         let (daemon, watchers) = rupd::Daemon::open(&self.dir.path().join(data)).unwrap();
+        daemon.set_attest_secret(BOUND_SECRET);
         tauri::async_runtime::block_on(async move {
             let listener = UnixListener::bind(socket).unwrap();
             tauri::async_runtime::spawn(rupd::serve(listener, Arc::new(daemon), watchers));
@@ -267,7 +271,7 @@ const SERVE_AND_WAIT: &str = "{link}\nexec cat";
 
 /// A fake `rupd` for several Projects: each links its socket to `real-<folder name>.sock` and
 /// records what it was started with.
-const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nexec cat";
+const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nprintf 'rupd-bound abababababababababababababababababababababababababababababababab\\n'\nexec cat";
 
 #[test]
 fn s1_projects_is_empty_until_one_is_open_and_then_lists_the_open_one() {

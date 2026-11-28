@@ -101,6 +101,12 @@ pub struct IdentifyParams {
     pub actor: Actor,
 }
 
+/// `app.attest`'s params: the secret the Daemon wrote to the App that started it (EP1).
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct AttestParams {
+    pub secret: String,
+}
+
 /// `events.subscribe`'s answer: the highest Event number saved when it was accepted, 0 for an empty log (I9).
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SubscribeResult {

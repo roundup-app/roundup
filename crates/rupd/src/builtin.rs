@@ -2,7 +2,9 @@
 
 use contracts::describe::{self, DescribeParams};
 use contracts::methods;
-use contracts::{HistoryParams, IdentifyParams, SubscribeParams, SubscribeResult, TouchedParams};
+use contracts::{
+    AttestParams, HistoryParams, IdentifyParams, SubscribeParams, SubscribeResult, TouchedParams,
+};
 use rpc::RpcError;
 use serde_json::json;
 
@@ -46,8 +48,38 @@ impl Daemon {
         conn: &mut Conn,
         p: IdentifyParams,
     ) -> Result<(), RpcError> {
+        if p.actor.kind == contracts::ActorKind::User {
+            return Err(RpcError::forbidden(
+                "no connection claims to be the user; the App attests with app.attest",
+            ));
+        }
         conn.actor = p.actor;
         Ok(())
+    }
+
+    /// EP1: a wrong secret changes nothing.
+    pub(crate) async fn app_attest(
+        &self,
+        conn: &mut Conn,
+        p: AttestParams,
+    ) -> Result<(), RpcError> {
+        use subtle::ConstantTimeEq;
+        let stored = self
+            .attest_secret
+            .get()
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        // `ct_eq` on slices of different lengths is false without comparing bytes.
+        if stored.is_empty() || !bool::from(stored.ct_eq(p.secret.as_bytes())) {
+            return Err(RpcError::forbidden("the secret is not this start's"));
+        }
+        conn.attested = true;
+        Ok(())
+    }
+
+    /// EP1: the secret an App that started this Daemon holds; set once, before serving.
+    pub fn set_attest_secret(&self, secret: &str) {
+        let _ = self.attest_secret.set(secret.as_bytes().to_vec());
     }
 
     pub(crate) async fn provenance_history(

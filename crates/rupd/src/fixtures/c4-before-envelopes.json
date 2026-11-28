@@ -1,6 +1,6 @@
 [
   {
-    "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"daemon.identify\",\"params\":{\"actor\":{\"kind\":\"user\",\"id\":\"you\",\"parent\":null}}}",
+    "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"daemon.identify\",\"params\":{\"actor\":{\"kind\":\"ext\",\"id\":\"ext:c4\",\"parent\":null}}}",
     "reply": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}"
   },
   {

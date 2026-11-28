@@ -63,6 +63,16 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
         opened_at.as_secs_f64() * 1e3,
         begun.elapsed().as_secs_f64() * 1e3
     );
+    // EP1: a fresh secret per start, kept in memory and written only to the App's stdout.
+    let secret = if notify_bound {
+        let mut bytes = [0u8; 32];
+        getrandom::fill(&mut bytes).map_err(|err| io::Error::other(err.to_string()))?;
+        let secret = hex::encode(bytes);
+        daemon.set_attest_secret(&secret);
+        Some(secret)
+    } else {
+        None
+    };
     let daemon = Arc::new(daemon);
     daemon.start_memory_guard()?;
     // A12a, S1: retained programs still call the socket of the run that started them.
@@ -86,7 +96,8 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
             // Do this before starting the blocking stdin reader so failure can exit while
             // the parent still holds stdin open, and still reaches Terminal cleanup below.
             let mut stdout = Sender::from_owned_fd(io::stdout().as_fd().try_clone_to_owned()?)?;
-            tokio::time::timeout(Duration::from_secs(1), stdout.write_all(b"rupd-bound\n"))
+            let line = format!("rupd-bound {}\n", secret.unwrap_or_default());
+            tokio::time::timeout(Duration::from_secs(1), stdout.write_all(line.as_bytes()))
                 .await
                 .map_err(|_| {
                     io::Error::new(io::ErrorKind::TimedOut, "startup notification timed out")

@@ -18,6 +18,7 @@ async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, Rpc
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         actor: Actor::user(),
+        attested: false,
         peer: None,
         events,
         output: None,
@@ -165,6 +166,7 @@ async fn u3787a_daemon_refuses_cross_project_and_non_user_restoration() {
     );
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "untrusted".into(),
@@ -301,6 +303,7 @@ async fn u3787a_redo_requires_original_project_restoration_and_user_authority() 
     );
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "untrusted".into(),

@@ -425,10 +425,12 @@ pub(super) fn actor(kind: ActorKind, id: &str) -> Actor {
 
 pub(super) async fn client_as(project: &Project, who: Actor) -> rpc::Client {
     let client = project.client().await;
-    client
-        .request("daemon.identify", IdentifyParams { actor: who })
-        .await
-        .unwrap();
+    if who.kind != ActorKind::User {
+        client
+            .request("daemon.identify", IdentifyParams { actor: who })
+            .await
+            .unwrap();
+    }
     client
 }
 

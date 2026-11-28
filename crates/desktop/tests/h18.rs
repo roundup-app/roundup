@@ -323,7 +323,7 @@ mod recovery {
     if test -f "$1/fail"; then record "$1"; exit 17; fi
     if test -f "$1/hold"; then echo $$ > "$1/held-pid"; record "$1"; exec 3>&1; exec cat > "$1/input"; fi
     ln -s '{d}/real.sock' "$RUPD_SOCKET"
-    printf 'rupd-bound\n'
+    printf 'rupd-bound abababababababababababababababababababababababababababababababab\n'
     echo $$ > "$1/pid"
     record "$1"
     if test -f "$1/late-exit"; then cat > "$1/input"; echo closed > "$1/closed"; read go < "$1/exit-fifo"; exit 7; fi
@@ -755,13 +755,10 @@ mod recovery {
     }
 
     fn u3791a_recovery_sends_no_agent_input(fx: &Fixture) {
-        assert!(
-            fx.calls
-                .lock()
-                .unwrap()
-                .iter()
-                .all(|method| matches!(method.as_str(), "daemon.ping" | "events.subscribe"))
-        );
+        assert!(fx.calls.lock().unwrap().iter().all(|method| matches!(
+            method.as_str(),
+            "app.attest" | "daemon.ping" | "events.subscribe"
+        )));
         for entry in std::fs::read_dir(fx.dir.path()).unwrap() {
             let input = entry.unwrap().path().join("input");
             if input.exists() {
@@ -849,6 +846,7 @@ mod s6 {
         std::fs::create_dir(&project).unwrap();
         let socket = dir.path().join("real.sock");
         let (daemon, watchers) = rupd::Daemon::open(&dir.path().join("daemon-data")).unwrap();
+        daemon.set_attest_secret(&"ab".repeat(32));
         tauri::async_runtime::block_on(async {
             let listener = tokio::net::UnixListener::bind(&socket).unwrap();
             tauri::async_runtime::spawn(rupd::serve(
@@ -861,7 +859,7 @@ mod s6 {
         std::fs::write(
             &script,
             format!(
-                "#!/bin/sh\nln -s '{}' \"$RUPD_SOCKET\"\nprintf 'rupd-bound\\n'\nexec cat\n",
+                "#!/bin/sh\nln -s '{}' \"$RUPD_SOCKET\"\nprintf 'rupd-bound abababababababababababababababababababababababababababababababab\\n'\nexec cat\n",
                 socket.display()
             ),
         )

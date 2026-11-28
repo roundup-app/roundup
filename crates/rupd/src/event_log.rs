@@ -249,6 +249,7 @@ mod tests {
         let bus = &daemon.bus;
         let (events, mut replay) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = crate::Conn {
+            attested: false,
             actor: Actor::user(),
             peer: None,
             events,
@@ -292,6 +293,7 @@ mod tests {
         daemon.bus.emit(Actor::user(), EventData::RailChanged);
         let (events, mut received) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = crate::Conn {
+            attested: false,
             actor: Actor::user(),
             peer: None,
             events,
