@@ -102,6 +102,7 @@ async fn n16_all_stores_share_one_project_database() {
             .route(
                 &mut Conn {
                     attested: false,
+                    settings_granted: false,
                     actor: Actor::user(),
                     peer: None,
                     events,
@@ -517,6 +518,7 @@ async fn u5740c_current_project_drops_only_retired_tables() {
         let (events, _replay) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = crate::Conn {
             attested: false,
+            settings_granted: false,
             actor: contracts::Actor::user(),
             peer: None,
             events,

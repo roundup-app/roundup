@@ -7,6 +7,7 @@ async fn dv2_metadata_only() {
     let (events, _) = tokio::sync::mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: contracts::Actor::user(),
         peer: None,
         events,
@@ -82,6 +83,7 @@ async fn u5558a_events_follow_committed_changes() {
     let (events, _) = tokio::sync::mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: contracts::Actor::user(),
         peer: None,
         events,

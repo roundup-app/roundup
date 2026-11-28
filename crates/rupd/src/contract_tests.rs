@@ -66,6 +66,7 @@ async fn send_note_from(daemon: &Daemon, from: &str, to: &str, body: &str) -> Va
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Ext,
             id: from.into(),
@@ -384,6 +385,7 @@ async fn u4593_selection_preserves_authority() {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -523,6 +525,7 @@ async fn m14_unknown_terminal_is_not_found_before_forbidden() {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -555,6 +558,7 @@ async fn m13_unknown_is_not_found_before_forbidden() {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -585,6 +589,7 @@ async fn m14_an_agent_cannot_set_a_route_to_itself() {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -615,6 +620,7 @@ async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -650,6 +656,7 @@ async fn m14_an_agent_cannot_replace_the_users_route() {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor::user(),
         peer: None,
         events,

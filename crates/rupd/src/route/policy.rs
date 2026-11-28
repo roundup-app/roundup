@@ -211,6 +211,8 @@ static TABLE: &[(&str, Policy)] = &[
     ("deliverable.remove", Policy { actor: Actor::Caller, ..PLAIN }),
     ("deliverable.resolve", Policy { actor: Actor::Caller, ..PLAIN }),
     ("events.subscribe", Policy { settles: true, ..PLAIN }),
+    ("extension.approve", Policy { gate: Gate::Attested, ..PLAIN }),
+    ("extension.capabilities", PLAIN),
     ("feedback.check", PLAIN),
     ("feedback.send", PLAIN),
     ("github.issueGet", PLAIN),

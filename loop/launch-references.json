@@ -615,5 +615,10 @@
     "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir.",
     "data": "Calls the audited support/rupd_harness.rs with an explicit ROUNDUP_DATA_DIR in the test TempDir; no fallback data resolver.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/ep5_capability_approval.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs with an explicit ROUNDUP_DATA_DIR in the test TempDir; no fallback data resolver.",
+    "kind": "reference"
   }
 }

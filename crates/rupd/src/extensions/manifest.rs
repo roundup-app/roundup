@@ -3,6 +3,7 @@
 use crate::field::Field;
 use std::path::{Component, Path};
 
+use contracts::extension::Capability;
 use serde_json::Value;
 
 pub(super) const FILE: &str = "rup-extension.json";
@@ -22,6 +23,12 @@ pub(super) struct Manifest {
     pub name: String,
     pub module: String,
     pub permissions: Vec<String>,
+    /// EP5: the capabilities the manifest asks for, in the order of `Capability`, once each.
+    pub uses: Vec<Capability>,
+    /// EP5: the folder, which keys `$.store` and the `ext:` Actor (EP6); set by the loader.
+    pub dir: String,
+    /// EP5: what the Daemon granted; set by the loader from the owner's approvals.
+    pub granted: Vec<Capability>,
 }
 
 /// What changes when the owner saves the manifest or the module; `None` for a folder with no
@@ -55,6 +62,9 @@ pub(super) fn read(path: &Path) -> Result<(std::path::PathBuf, Manifest), String
             name: stem.into_owned(),
             module: file.into_owned(),
             permissions: NARROW.map(str::to_owned).to_vec(),
+            uses: Vec::new(),
+            dir: String::new(),
+            granted: Vec::new(),
         };
         return Ok((path.parent().unwrap_or(path).to_path_buf(), manifest));
     }
@@ -113,5 +123,29 @@ fn read_folder(folder: &Path) -> Result<Manifest, String> {
         name,
         module,
         permissions,
+        uses: uses(&value, &at)?,
+        dir: String::new(),
+        granted: Vec::new(),
     })
+}
+
+/// `uses`, absent for none. A name this roundup does not know asks for nothing it can grant: the
+/// interface only grows, so a newer manifest still loads.
+fn uses(manifest: &Value, at: &str) -> Result<Vec<Capability>, String> {
+    let Some(listed) = manifest.get("uses").filter(|listed| !listed.is_null()) else {
+        return Ok(Vec::new());
+    };
+    let listed = listed
+        .as_array()
+        .ok_or_else(|| format!("{at}: \"uses\" is not a list"))?;
+    let mut asked = std::collections::BTreeSet::new();
+    for item in listed {
+        let name = item
+            .as_str()
+            .ok_or_else(|| format!("{at}: \"uses\" holds a non-string"))?;
+        if let Ok(capability) = serde_json::from_value(Value::from(name)) {
+            asked.insert(capability);
+        }
+    }
+    Ok(asked.into_iter().collect())
 }
