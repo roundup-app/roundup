@@ -19,7 +19,8 @@ import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { createProjectPick } from "./projectPick";
-import { replaceToken, segments, tokenAt } from "../state/askTokens";
+import { replaceToken } from "../state/askTokens";
+import { createTokenLists } from "./tokenLists";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph } from "../ink/KindGlyph";
 import { errorCause, shownKind } from "../ink/FailureLine";
@@ -29,7 +30,6 @@ import { ProjectOverview } from "./Overview";
 import { createDeliverables, Deliverables } from "./Deliverables";
 import { createCut } from "../ink/Tip";
 import "./styles.css";
-
 
 const optionalViews = ["made"];
 
@@ -118,7 +118,6 @@ export const AskBar = () => {
     if (field?.isConnected) setCaret(field.selectionStart);
 
     if (!draft || !field?.isConnected) return;
-
     const selection = { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection };
 
     if (JSON.stringify(draft.selection) !== JSON.stringify(selection)) drafts.setSelection(draft.revision, selection);
@@ -190,30 +189,7 @@ export const AskBar = () => {
 
   const names = createMemo(() => rail.nodes.filter((node) => node.kind === "workstream").map((node) => ({ value: node.id, label: node.name })));
 
-  const [caret, setCaret] = createSignal(0);
-
-  const projectNames = () => asks.projects().map(project => project.name);
-
-  const workstreams = () => {
-    const seen = new Set(names().map(item => item.value));
-
-    return [...names(), ...asks.workstreams().filter(item => !seen.has(item.value))];
-  };
-
-  const typing = createMemo(() => tokenAt(text(), caret()));
-
-  const matching = createMemo(() => {
-    const token = typing();
-
-    if (dismissed() || token === null) return [];
-    const word = token.word.toLowerCase();
-
-    if (token.sigil === "#") return projectNames().map(name => ({ value: name, label: name })).filter(item => item.label.toLowerCase().includes(word));
-
-    return workstreams().filter(item => item.label.toLowerCase().includes(word));
-  });
-
-  const tinted = createMemo(() => segments(text(), projectNames(), workstreams().map(item => item.label)));
+  const { setCaret, workstreams, typing, matching, tinted } = createTokenLists({ text, dismissed, names, projects: asks.projects, known: asks.workstreams });
 
   const [highlighted, setHighlighted] = createWritableMemo<string | null>(previous => {
     const list = matching();
@@ -286,7 +262,8 @@ export const AskBar = () => {
 
   const complete = (value: string): void => {
     const token = typing();
-    const pick = token?.sigil === "#" ? { name: value, id: undefined } : workstreams().find(item => item.value === value) && { name: workstreams().find(item => item.value === value)!.label, id: value };
+    const found = workstreams().find(item => item.value === value);
+    const pick = token?.sigil === "#" ? { name: value, id: undefined } : found && { name: found.label, id: value };
 
     if (!token || !pick) return;
     const written = replaceToken(text(), token, `${token.sigil}${pick.name} `);

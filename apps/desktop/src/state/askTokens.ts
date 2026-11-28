@@ -60,3 +60,11 @@ export const segments = (text: string, projects: readonly string[], workstreams:
 
   return out;
 };
+
+/** U8045c: a part placed in a new Workstream without a Project takes the one `#` names inside its own text, else the first named. */
+export const withNamedProjects = <P extends { text: string; placement: { kind: string; project?: string } }>(placed: readonly P[], named: readonly string[]): P[] =>
+  placed.map(part => {
+    const chosen = hashProjects(part.text, named)[0] ?? named[0];
+
+    return part.placement.kind === "new" && !part.placement.project && chosen ? { ...part, placement: { ...part.placement, project: chosen } } : part;
+  });

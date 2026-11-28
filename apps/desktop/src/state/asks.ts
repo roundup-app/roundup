@@ -10,7 +10,7 @@ import type { Events } from "../app/events";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "./storage";
 import { copy } from "./copy";
-import { hashProjects } from "./askTokens";
+import { hashProjects, withNamedProjects } from "./askTokens";
 
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
 export type AskEntry = { key: string; at?: number; text: string; parts: readonly AskPart[]; pending: boolean };
@@ -124,6 +124,35 @@ export type AskRouting = {
   show?(path: string, workstream: string): void;
 };
 
+const placeAll = async (app: AppSeam, routing: AskRouting | undefined, text: string) => {
+  const open = routing?.open() ?? [];
+  const projects = await Promise.all(open.map(async project => ({ name: project.name, tree: await routing!.app.forProject(project.path).rpc("rail.tree", null) })));
+
+  return app.rpc("ask.place", { text, projects });
+};
+
+/** U6271a, U8045c: the parts to send: the ones given, or the placed parts when the text names two Projects with `#`; none otherwise. */
+const partsOf = async (app: AppSeam, routing: AskRouting, captured: AskSubmission): Promise<readonly PlacedPart[] | undefined> => {
+  if (captured.parts?.length) return captured.parts;
+  const named = hashProjects(captured.text, routing.open().map(project => project.name));
+
+  return captured.workstream || captured.project || named.length < 2 ? undefined : withNamedProjects(await placeAll(app, routing, captured.text), named);
+};
+
+/** Sends one submission to the Daemon or Daemons that own it; the first Ask is the acknowledgement. */
+const deliver = async (app: AppSeam, routing: AskRouting | undefined, captured: AskSubmission): Promise<Ask[]> => {
+  const parts = routing && await partsOf(app, routing, captured);
+
+  if (routing && parts) return sendPlaced(routing.app, app, routing.open(), captured.submission, parts);
+  // U6271b, U8045c: a fixed Project, or the one `#Project` the text names, is placed within by the Daemon that owns it.
+  const open = routing?.open() ?? [];
+  const fixed = captured.project ?? (captured.workstream ? undefined : hashProjects(captured.text, open.map(project => project.name))[0]);
+  const owner = fixed ? open.find(project => project.name === fixed) : undefined;
+  const request = fixed && !captured.project ? { ...captured, project: fixed } : captured;
+
+  return [await (owner ? routing!.app.forProject(owner.path) : app).rpc("ask.send", request)];
+};
+
 export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string; target(): string | null }, routing?: AskRouting): AsksState => {
   const storage = storedValue(`roundup:ask-acknowledged:${viewed?.path ?? ""}`, acknowledgedSchema);
   const [acknowledged, setAcknowledged] = createSignal<readonly string[]>(storage.read() ?? []);
@@ -134,13 +163,6 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
   const [listFailure, setListFailure] = createSignal<AskFailure | null>(null);
   const [intakeFailure, setIntakeFailure] = createSignal<IntakeFailure | null>(null);
   let sequence = 0;
-
-  const placeAll = async (text: string) => {
-    const open = routing?.open() ?? [];
-    const projects = await Promise.all(open.map(async project => ({ name: project.name, tree: await routing!.app.forProject(project.path).rpc("rail.tree", null) })));
-
-    return app.rpc("ask.place", { text, projects });
-  };
 
   const fail = (message: string): AskFailure => ({ id: ++sequence, message });
   let loaded = false;
@@ -238,45 +260,11 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
       setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all.filter(entry => entry.key !== key)]);
 
       try {
-        let ask: Ask;
+        const sent = await deliver(app, routing, captured);
+        const ask = sent[0];
 
-        if (routing && captured.parts?.length) {
-          // U6271a: every part reaches a Daemon; an empty list has nothing to acknowledge.
-          const sent = await sendPlaced(routing.app, app, routing.open(), submission, captured.parts);
-          const first = sent[0];
-
-          if (!first) throw new Error(copy.askNoAcknowledgement);
-          sent.forEach(upsert);
-          ask = first;
-        } else if (routing && !captured.workstream && !captured.project && hashProjects(text, routing.open().map(project => project.name)).length > 1) {
-          // U8045c: two Projects named; each part takes the Project named in its own text, else the first token's.
-          const named = hashProjects(text, routing.open().map(project => project.name));
-          const placed = await placeAll(text);
-
-          const parts = placed.map((part): PlacedPart => {
-            const chosen = hashProjects(part.text, named)[0] ?? named[0];
-
-            return part.placement.kind === "new" && !part.placement.project && chosen
-              ? { ...part, placement: { ...part.placement, project: chosen } }
-              : part;
-          });
-
-          const sent = await sendPlaced(routing.app, app, routing.open(), submission, parts);
-          const first = sent[0];
-
-          if (!first) throw new Error(copy.askNoAcknowledgement);
-          sent.forEach(upsert);
-          ask = first;
-        } else {
-          // U6271b, U8045c: a fixed Project, or the one `#Project` the text names, is placed within by the Daemon that owns it.
-          const open = routing?.open() ?? [];
-          const hashed = hashProjects(text, open.map(project => project.name))[0];
-          const fixed = captured.project ?? (captured.workstream ? undefined : hashed);
-          const owner = fixed ? open.find(project => project.name === fixed) : undefined;
-          const request = fixed && !captured.project ? { ...captured, project: fixed } : captured;
-          ask = await (owner ? routing!.app.forProject(owner.path) : app).rpc("ask.send", request);
-          upsert(ask);
-        }
+        if (!ask) throw new Error(copy.askNoAcknowledgement);
+        sent.forEach(upsert);
 
         setIntakeFailure(null);
 
@@ -320,7 +308,7 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
 
     workstreams: () => (routing?.open() ?? []).flatMap(project => (routing!.nodes?.(project.path) ?? []).filter(node => node.kind === "workstream").map(node => ({ value: node.id, label: node.name }))),
 
-    place: placeAll,
+    place: text => placeAll(app, routing, text),
 
     destination: (entry, index) => {
       const open = routing?.open() ?? [];

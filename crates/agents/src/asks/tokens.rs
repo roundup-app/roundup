@@ -3,6 +3,10 @@ use crate::placement::{self, Destination, EarlierAsk, Request};
 use contracts::agent::{NodeKind, RailNode};
 use std::collections::HashSet;
 
+/// A Project's name, when the caller names it, with its Rail nodes.
+pub type Tree = (Option<String>, Vec<RailNode>);
+type Found = Vec<(Option<String>, String)>;
+
 /// The open Projects an Ask's tokens are read against, each with its complete tree.
 pub type Scope = Vec<(String, Vec<RailNode>)>;
 
@@ -118,7 +122,7 @@ pub fn read(
             asked.push(word);
         }
     }
-    let matching = |word: &str| -> Vec<(Option<String>, String)> {
+    let matching = |word: &str| -> Found {
         pool.iter()
             .flat_map(|(project, tree)| {
                 tree.iter()
@@ -130,7 +134,7 @@ pub fn read(
             })
             .collect()
     };
-    let named: Vec<(&str, Vec<(Option<String>, String)>)> = asked
+    let named: Vec<(&str, Found)> = asked
         .iter()
         .map(|word| (*word, matching(word)))
         .filter(|(_, found)| !found.is_empty())
@@ -138,7 +142,7 @@ pub fn read(
     let (route, only) = match (asked.as_slice(), named.as_slice()) {
         ([], _) => (None, None),
         (_, [(_, found)]) if found.len() == 1 => {
-            let (project, id) = found[0].clone();
+            let (project, id) = found.first().cloned().unwrap_or_default();
             (
                 Some(Route {
                     destination: Destination::Routed { workstream: id },
@@ -148,9 +152,10 @@ pub fn read(
             )
         }
         (_, []) | (_, [_]) => {
-            let (word, found) = match named.first() {
-                Some((word, found)) => (*word, found.clone()),
-                None => (asked[0], Vec::new()),
+            let (word, found) = match (named.first(), asked.first()) {
+                (Some((word, found)), _) => (*word, found.clone()),
+                (None, Some(word)) => (*word, Vec::new()),
+                (None, None) => ("", Vec::new()),
             };
             let question = if found.is_empty() {
                 format!("No Workstream is named {word}")
@@ -196,7 +201,7 @@ pub fn offered(
     scope: Option<&Scope>,
     fixed: Option<&str>,
     read: Option<&Read>,
-) -> (Vec<(Option<String>, Vec<RailNode>)>, bool) {
+) -> (Vec<Tree>, bool) {
     let mut trees: Vec<_> = match scope {
         Some(scope) => scope
             .iter()
