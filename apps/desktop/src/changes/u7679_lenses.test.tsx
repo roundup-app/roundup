@@ -593,4 +593,5 @@ it("u7679e_the_keys_list_names_the_lens_and_find_keys", async () => {
   expect(items.some(item => /^L\b.*lens/i.test(item))).toBe(true);
   expect(items.some(item => /^\/.*find/i.test(item))).toBe(true);
   expect(items.some(item => /^J and K\b.*item/.test(item))).toBe(true);
+  expect(items.some(item => /^Space reads on\b/.test(item))).toBe(true);
 });
