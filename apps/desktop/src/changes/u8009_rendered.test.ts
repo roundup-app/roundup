@@ -146,7 +146,7 @@ it("u8009d_the_rows_and_tabs_are_captured_for_the_critic", async () => {
     }
 
     await lens("Modules");
-    await until(present('.changes-row-dot[data-signal="' + (wide ? "finding" : "repeat") + '"]'));
+    await until(present('.changes-row-icon[data-signal="' + (wide ? "finding" : "repeat") + '"]'));
     await browser("click", ITEM(first));
     await until(present('.changes-row[data-key="m:' + first + '"][data-open="true"]'));
 
@@ -163,7 +163,7 @@ it("u8009d_the_rows_and_tabs_are_captured_for_the_critic", async () => {
 
     // A pointer at the window's left edge opens the Rail over the list.
     await browser("mouse", "move", "400", "800");
-    await shot("modules-signals", present('.changes-row-dot[data-signal="repeat"]') + " && " + present(".changes-row-folder") + " && " + present('.changes-row[data-open="true"]'));
+    await shot("modules-signals", present('.changes-row-icon[data-signal="repeat"]') + " && " + present(".changes-row-folder") + " && " + present('.changes-row[data-open="true"]'));
   };
 
   const states: { name: string; run: (wide: boolean) => Promise<void> }[] = [...["Flows", "Modules", "Logic", "Tests"].map(lensState), { name: "signals", run: signals }];

@@ -3,7 +3,7 @@ import { createSlideLifetime } from "../ui/slideLifetime";
 import type { Widths } from "../resize/widths";
 import type { ActivationSource } from "../keys/registry";
 import type { ShelfFrame } from "../shelf/frame";
-import { railSliding, setRailSliding } from "./sliding";
+import { railSliding, setFoldPending, setRailSliding } from "./sliding";
 
 /** U6228g: how the Rail's section reads while it folds or opens: the strip shows through a slide, and an opening Rail is drawn as a peek over the centre until the column widens. */
 export const railView = (widths: Widths | undefined, peeking: boolean | undefined) => {
@@ -28,9 +28,10 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
 
   return {
     motion,
+    animatable: lifetime.animatable,
     set: (collapsed: boolean, source: "click" | "key", remember = true) => {
       // Without animations (a test DOM) the change is instant and settles at once.
-      const animated = document.querySelector(".rail-body") !== null && "getAnimations" in Element.prototype;
+      const animated = lifetime.animatable();
 
       setMotion(reducedMotion() ? "fade" : source);
       widths.setCollapsed(collapsed, animated, remember);
@@ -44,17 +45,35 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
 const motionOf = (source: ActivationSource) => source === "key" ? "key" : "click";
 
 /** U8005a: Changes folds the Rail and closes the Bench without saving; closing it restores each one the user has not touched since. */
-export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Pick<Widths, "collapsed">, railSlide: Pick<ReturnType<typeof createRailSlide>, "set">, frame: Pick<ShelfFrame, "open" | "fold" | "toggle">, source: Accessor<ActivationSource>, project: Accessor<string | null>) => {
+export const createChangesFold = (changesOpen: Accessor<boolean>, widths: Pick<Widths, "collapsed">, railSlide: Pick<ReturnType<typeof createRailSlide>, "set" | "animatable">, frame: Pick<ShelfFrame, "open" | "fold" | "toggle">, source: Accessor<ActivationSource>, project: Accessor<string | null>) => {
   let before: { rail: boolean; bench: boolean; project: string | null } | null = null;
 
   createEffect(changesOpen, open => {
     if (open) {
       before = { rail: widths.collapsed(), bench: frame.open(), project: project() };
 
-      if (!before.rail) railSlide.set(true, motionOf(source()), false);
-      frame.fold(source());
+      const { rail } = before;
+      const how = source();
 
-      return;
+      const fold = () => {
+        if (!rail) railSlide.set(true, motionOf(how), false);
+        frame.fold(how);
+      };
+
+      if (!railSlide.animatable()) return void fold();
+
+      // U7610b: a slide starts in the frame after the one that draws the view, so the open's longest task holds one of the two.
+      setFoldPending(true);
+
+      const frameId = requestAnimationFrame(() => {
+        fold();
+        setFoldPending(false);
+      });
+
+      return () => {
+        cancelAnimationFrame(frameId);
+        setFoldPending(false);
+      };
     }
 
     const kept = before;

@@ -174,7 +174,7 @@ const withRepeat = async () => {
   await openChanges();
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
   await showing("crates/a/src/x.rs");
-  await waitFor(() => expect(moduleRow("crates/b").querySelector(".changes-row-dot")).not.toBeNull());
+  await waitFor(() => expect(moduleRow("crates/b").querySelector(".changes-row-icon")).not.toBeNull());
 
   return mounted;
 };

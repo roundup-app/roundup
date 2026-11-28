@@ -1,5 +1,5 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { expect, it } from "vitest";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { expect, it, vi } from "vitest";
 import type { Spot } from "@contracts/agent/Spot";
 import { copy } from "./copy";
 import { mountControl } from "./harness";
@@ -74,4 +74,21 @@ it("u8009c_the_line_under_the_tabs_changes_with_the_tab", async () => {
   await chooseLens(copy.lenses.logic);
   await waitFor(() => expect(region().textContent).toContain(copy.lensLines.logic));
   expect(region().textContent).not.toContain(copy.lensLines.modules);
+});
+
+it("u8034_a_rows_mark_is_one_control_whose_tooltip_and_name_say_its_most_urgent_signal", async () => {
+  const mounted = await mountControl(() => ({ files: FILES }), fresh());
+
+  mounted.app.handlers["agent.compareFile"] = ({ path }) => comparison(path);
+  mounted.app.handlers["agent.repeatScan"] = () => ({ spots: [REPEAT, { ...REPEAT, start: 5, end: 7 }], complete: true });
+  await openChanges();
+  fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
+  const row = moduleRow("crates/a");
+
+  await waitFor(() => expect(row.querySelectorAll(".changes-row-slot button")).toHaveLength(1));
+  const mark = within(row).getByRole("button", { name: copy.repeatsCount(2) });
+
+  vi.spyOn(mark, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 20));
+  fireEvent.pointerEnter(mark, { pointerType: "mouse", clientX: 10, clientY: 10 });
+  expect((await screen.findByRole("tooltip")).textContent).toBe(copy.repeatsCount(2));
 });
