@@ -33,23 +33,6 @@ impl Options {
     }
 }
 
-/// A connection starts as the user and `daemon.identify` refuses that claim (EP2), so only a
-/// caller that is not the user identifies.
-pub(crate) async fn identify(client: &rpc::Client, actor: &Actor) -> Result<(), rpc::RpcError> {
-    if actor.kind == ActorKind::User {
-        return Ok(());
-    }
-    client
-        .request(
-            "daemon.identify",
-            contracts::IdentifyParams {
-                actor: actor.clone(),
-            },
-        )
-        .await
-        .map(drop)
-}
-
 /// CL2: `ext:<name>`, the name 1 to 64 of lowercase letters, digits, `-` and `_`.
 fn ext_actor(value: &str) -> Result<Actor, String> {
     let rule = "--as takes ext:<name>, the name 1 to 64 of a-z, 0-9, - and _";

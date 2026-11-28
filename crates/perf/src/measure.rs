@@ -734,9 +734,13 @@ pub mod flood {
                 match receiver.try_recv() {
                     Ok(event) => match event.data {
                         contracts::EventData::RailChanged
-                            if report.markers_emitted.contains(&event.actor.id) =>
+                            if event.actor.kind == contracts::ActorKind::User =>
                         {
-                            report.markers_received.push(event.actor.id)
+                            if let Some(next) =
+                                report.markers_emitted.get(report.markers_received.len())
+                            {
+                                report.markers_received.push(next.clone())
+                            }
                         }
                         _ => {}
                     },

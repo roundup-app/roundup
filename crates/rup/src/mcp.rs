@@ -615,9 +615,11 @@ impl Shim {
             let client = rpc::Client::connect(&self.socket)
                 .await
                 .map_err(|err| Gone::Unreachable(format!("no Daemon at {socket}: {err}")))?;
-            crate::identify(&client, &self.actor).await.map_err(|err| {
-                Gone::Unreachable(format!("the Daemon at {socket} refused identify: {err}"))
-            })?;
+            crate::machine::identify(&client, &self.actor)
+                .await
+                .map_err(|err| {
+                    Gone::Unreachable(format!("the Daemon at {socket} refused identify: {err}"))
+                })?;
             Ok(client)
         };
         tokio::time::timeout(CALL_TIMEOUT, handshake)

@@ -597,7 +597,7 @@ async fn connect(actor: &Actor) -> Result<rpc::Client, Failure> {
         let client = rpc::Client::connect(&socket)
             .await
             .map_err(|err| gone(&shown, err))?;
-        crate::identify(&client, actor)
+        crate::machine::identify(&client, actor)
             .await
             .map_err(Failure::Rpc)?;
         Ok(client)
