@@ -609,6 +609,7 @@ async fn u3787a_retained_rail_authority_and_unknown_calls() {
         },
     ] {
         let mut conn = crate::Conn {
+            attested: false,
             actor,
             peer: None,
             events: events.clone(),

@@ -3,7 +3,7 @@ use super::*;
 use desktop::handle_run_event;
 use tauri::RunEvent;
 
-/// A Daemon stand-in that answers one request, `open_project`'s ping, and then goes silent.
+/// A Daemon stand-in that answers `open_project`'s attest and ping, and then goes silent.
 pub(super) fn serve_one_answer(socket: PathBuf) {
     use std::io::{BufRead, BufReader, Write};
     let listener = std::os::unix::net::UnixListener::bind(socket).unwrap();
@@ -11,8 +11,10 @@ pub(super) fn serve_one_answer(socket: PathBuf) {
         let (stream, _) = listener.accept().unwrap();
         let mut writer = stream.try_clone().unwrap();
         let mut lines = BufReader::new(stream).lines();
-        let first: Value = serde_json::from_str(&lines.next().unwrap().unwrap()).unwrap();
-        writeln!(writer, "{}", json!({"id": first["id"], "result": null})).unwrap();
+        for _ in 0..2 {
+            let request: Value = serde_json::from_str(&lines.next().unwrap().unwrap()).unwrap();
+            writeln!(writer, "{}", json!({"id": request["id"], "result": null})).unwrap();
+        }
         // Hold the connection open and unanswered until the test ends.
         for _ in lines {}
     });

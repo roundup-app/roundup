@@ -7,7 +7,7 @@ use std::process::ExitCode;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use clap::{Arg, ArgAction, ArgMatches, Command};
-use contracts::{Actor, ActorKind, IdentifyParams};
+use contracts::{Actor, ActorKind};
 use rmcp::model::JsonObject;
 use rpc::RpcError;
 use serde_json::{Map, Value};
@@ -597,13 +597,7 @@ async fn connect(actor: &Actor) -> Result<rpc::Client, Failure> {
         let client = rpc::Client::connect(&socket)
             .await
             .map_err(|err| gone(&shown, err))?;
-        client
-            .request(
-                "daemon.identify",
-                IdentifyParams {
-                    actor: actor.clone(),
-                },
-            )
+        crate::machine::identify(&client, actor)
             .await
             .map_err(Failure::Rpc)?;
         Ok(client)

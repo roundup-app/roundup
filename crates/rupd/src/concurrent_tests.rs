@@ -198,11 +198,11 @@ async fn d9_connection_state_changes_precede_later_requests() {
     let (_dir, stream, mut entries, release) = fixture().await;
     let (read, mut write) = stream.into_split();
     let mut read = BufReader::new(read).lines();
-    frame(&mut write, json!({"method":"daemon.identify", "params":{"actor":{"kind":"user","id":"first","parent":null}}})).await;
+    frame(&mut write, json!({"method":"daemon.identify", "params":{"actor":{"kind":"ext","id":"first","parent":null}}})).await;
     frame(&mut write, json!({"method":"events.subscribe"})).await;
     send(&mut write, json!(1), "agent.stop").await;
     assert_eq!(entry(&mut entries).await, "agent.stop");
-    frame(&mut write, json!({"method":"daemon.identify", "params":{"actor":{"kind":"user","id":"second","parent":null}}})).await;
+    frame(&mut write, json!({"method":"daemon.identify", "params":{"actor":{"kind":"ext","id":"second","parent":null}}})).await;
     frame(
         &mut write,
         json!({"method":"daemon.identify", "params":{"actor":{"kind":"invalid","id":"bad"}}}),

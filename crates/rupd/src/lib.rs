@@ -5,6 +5,8 @@
 
 mod actions;
 mod attention;
+#[cfg(test)]
+mod attest_tests;
 mod auto;
 #[cfg(test)]
 mod auto_tests;
@@ -119,6 +121,8 @@ pub struct Daemon {
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
     restarting: tokio::sync::Mutex<()>,
+    /// EP1: the secret this start wrote to the App's stdout; unset when no App started it.
+    attest_secret: std::sync::OnceLock<Vec<u8>>,
     /// H7200b: handoffs whose caller ends after its reply.
     handoffs: parking_lot::Mutex<Vec<handoff::Pending>>,
     /// MC20: one report is checked, applied and marked at a time, so a repeat never races its twin.
@@ -208,6 +212,8 @@ pub(crate) fn orphans(
 #[derive(Clone)]
 pub struct Conn {
     actor: Actor,
+    /// EP1: set by `app.attest` with the start's secret; never cleared.
+    attested: bool,
     /// H21: the pid of the process on the other end, as the OS reports it.
     peer: Option<u32>,
     events: mpsc::UnboundedSender<Frame>,

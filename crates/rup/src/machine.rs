@@ -292,9 +292,15 @@ async fn serve_live(stream: UnixStream, link: Shared) {
 }
 
 /// MC22: a client of the live socket, or `None` for away: no relay, no bridge, or no answer to identify.
-pub async fn live_client(actor: &contracts::Actor) -> Option<rpc::Client> {
-    let socket = live_socket().ok()?;
-    let client = rpc::Client::connect(&socket).await.ok()?;
+/// A connection starts as the user and `daemon.identify` refuses that claim (EP2), so only a
+/// caller that is not the user identifies.
+pub(crate) async fn identify(
+    client: &rpc::Client,
+    actor: &contracts::Actor,
+) -> Result<(), rpc::RpcError> {
+    if actor.kind == contracts::ActorKind::User {
+        return Ok(());
+    }
     client
         .request(
             "daemon.identify",
@@ -303,7 +309,13 @@ pub async fn live_client(actor: &contracts::Actor) -> Option<rpc::Client> {
             },
         )
         .await
-        .ok()?;
+        .map(drop)
+}
+
+pub async fn live_client(actor: &contracts::Actor) -> Option<rpc::Client> {
+    let socket = live_socket().ok()?;
+    let client = rpc::Client::connect(&socket).await.ok()?;
+    identify(&client, actor).await.ok()?;
     Some(client)
 }
 

@@ -340,6 +340,7 @@ pub(crate) mod tests {
     async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, RpcError> {
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = Conn {
+            attested: false,
             actor: contracts::Actor::user(),
             peer: None,
             events,

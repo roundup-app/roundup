@@ -309,6 +309,7 @@ async fn a3308_a_restart_resends_nothing() {
 pub(crate) async fn as_door(daemon: &Daemon, home: &str, method: &str, params: Value) -> Value {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: home.into(),
@@ -414,6 +415,7 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
     assert_ne!(home, other);
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: home.clone(),

@@ -4,6 +4,7 @@ use super::*;
 async fn call_as(daemon: &Daemon, actor: Actor, params: Value) -> Result<Value, RpcError> {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor,
         peer: None,
         events,
@@ -68,6 +69,7 @@ async fn seeded(dir: &Path) -> Daemon {
 fn test_conn() -> Conn {
     let (events, _) = mpsc::unbounded_channel();
     Conn {
+        attested: false,
         actor: Actor::user(),
         peer: None,
         events,

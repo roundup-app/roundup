@@ -339,10 +339,14 @@ impl Run {
             .collect()
     }
 
-    async fn identify_sender(&self, kind: &str) {
+    async fn identify_sender(&mut self, kind: &str) {
         let (kind, id) = match kind {
             "daemon" => ("ext", "rupd"),
-            "user" => ("user", "you"),
+            // A connection cannot claim to be the user (EP2); a fresh one is.
+            "user" => {
+                self.sender = Client::connect(&self.daemon.socket).await.unwrap();
+                return;
+            }
             kind => (kind, "b50"),
         };
         self.sender

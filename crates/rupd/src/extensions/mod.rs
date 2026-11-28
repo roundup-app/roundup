@@ -411,6 +411,7 @@ impl Host {
                 let namespace = permission.trim_end_matches('s');
                 let method = format!("{namespace}.{function}");
                 let mut conn = Conn {
+                    attested: false,
                     actor: Actor {
                         kind: ActorKind::Ext,
                         id: format!("ext:{}", manifest.name),

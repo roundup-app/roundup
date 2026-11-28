@@ -501,3 +501,5 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Pad format Markdown (`padFormatMarkdown`) | none | — |
 | Code colours (`codeColours`, `languages`) | none | — |
 | Pad colour Tokens (`--pad-blue`, `--pad-green`, `--pad-amber`, `--pad-purple`, `--pad-highlight`, `--pad-highlight-ink`) | none | — |
+
+**Attested connection.** A connection to the Daemon that sent `app.attest` with the secret the Daemon wrote at its start, which only the App that started it holds (`scenarios/extension-panels.md`, EP1). A method behind `Gate::Attested` is `FORBIDDEN` on any other connection.
