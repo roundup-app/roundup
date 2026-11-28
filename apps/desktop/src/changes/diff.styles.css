@@ -6,6 +6,7 @@
   --diffs-line-height: var(--space-5);
   --diffs-gap-block: var(--space-2);
   --diffs-gap-inline: var(--space-2);
+  --diffs-bg: var(--diff-code-ground);
 }
 .diff-note { margin: 0; padding: var(--space-2); color: var(--text); background: var(--sunken); font: var(--text-small) var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
 
