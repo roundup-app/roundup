@@ -11,7 +11,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use contracts::Event;
 use indexmap::IndexMap;
-use rpc::{Client, OutputFrame, RpcError, code};
+use rpc::{OutputFrame, RpcError, code};
 use serde::Serialize;
 use serde_json::{Value, json};
 use tauri::ipc::{Channel, InvokeResponseBody};
@@ -324,8 +324,8 @@ impl AppState {
 
     /// LK6: `link.read` of `url` on the Project's Daemon as an Ext Actor, which has no Reach there.
     pub async fn link_read(&self, path: &str, url: &str) -> Result<Value, RpcError> {
-        let socket = self.access(path).await?.socket;
-        let client = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let Access { socket, secret, .. } = self.access(path).await?;
+        let client = secret.connect(&socket).await?;
         let ext = contracts::IdentifyParams {
             actor: contracts::Actor {
                 kind: contracts::ActorKind::Ext,
@@ -350,8 +350,15 @@ impl AppState {
         channel: Channel<Event>,
         params: Option<contracts::SubscribeParams>,
     ) -> Result<u64, RpcError> {
-        let Access { socket, run, .. } = self.access(path).await?;
-        let result = self.subscribe_run(path, channel, params, socket, run).await;
+        let Access {
+            socket,
+            secret,
+            run,
+            ..
+        } = self.access(path).await?;
+        let result = self
+            .subscribe_run(path, channel, params, (socket, secret), run)
+            .await;
         let connection = Command::Connection {
             run,
             result: result.clone().map(|_| ()),
@@ -365,10 +372,10 @@ impl AppState {
         path: &str,
         channel: Channel<Event>,
         params: Option<contracts::SubscribeParams>,
-        socket: PathBuf,
+        (socket, secret): (PathBuf, crate::daemon::Secret),
         run: u64,
     ) -> Result<u64, RpcError> {
-        let mut events = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let mut events = secret.connect(&socket).await?;
         let answer = self
             .bounded(
                 "events.subscribe",
@@ -404,8 +411,8 @@ impl AppState {
         id: &str,
         channel: Channel<InvokeResponseBody>,
     ) -> Result<u64, RpcError> {
-        let socket = self.access(path).await?.socket;
-        let mut client = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let Access { socket, secret, .. } = self.access(path).await?;
+        let mut client = secret.connect(&socket).await?;
         let mut frames = client
             .take_output()
             .ok_or_else(|| RpcError::internal("the output intake was already taken"))?;
@@ -469,8 +476,8 @@ impl AppState {
         channel: Channel<Value>,
         registration: String,
     ) -> Result<(), RpcError> {
-        let socket = self.access(path).await?.socket;
-        let mut client = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let Access { socket, secret, .. } = self.access(path).await?;
+        let mut client = secret.connect(&socket).await?;
         let mut requests = client
             .take_requests()
             .ok_or_else(|| RpcError::internal("the request intake was already taken"))?;

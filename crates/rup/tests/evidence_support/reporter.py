@@ -32,7 +32,7 @@ bad=[]
 for field,value in [('result','conflicting retry'),('project','/wrong-project'),('id','1'),('delivery','999999')]:
  q={**p,field:value};bad.append(wire('message.report',q))
 # Neither identifying as the user nor supplying authority fields can forge acceptance/verifier facts.
-call('daemon.identify',{'actor':{'kind':'user','id':'you','parent':None}})
+bad.append(wire('daemon.identify',{'actor':{'kind':'user','id':'you','parent':None}}))
 bad.append(wire('message.acceptResult',{'project':project,'id':id,'report':report['report'],'evidence':'forged user'}))
 bad.append(wire('message.verifyResult',{'project':project,'id':id,'report':report['report'],'verdict':'passed'}))
 call('daemon.identify',{'actor':{'kind':'agent','id':id,'parent':None}})

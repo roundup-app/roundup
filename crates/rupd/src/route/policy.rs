@@ -26,6 +26,8 @@ pub(crate) enum Entry {
 pub(crate) enum Gate {
     None,
     UserOnly,
+    /// EP1: only a connection that sent the start's secret to `app.attest`.
+    Attested,
     RefTarget,
     Workstream,
     Owner,
@@ -190,6 +192,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.worktreeState", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("api.describe", PLAIN),
     ("api.list", PLAIN),
+    ("app.attest", Policy { settles: true, ..PLAIN }),
     ("ask.list", PLAIN),
     ("ask.pick", PLAIN),
     ("ask.place", PLAIN),

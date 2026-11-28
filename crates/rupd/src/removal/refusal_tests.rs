@@ -23,6 +23,7 @@ async fn u3787j_unremovable_blocker_refusal_retains_the_deletion() {
         .unwrap();
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = crate::Conn {
+            attested: false,
             actor: Actor::user(),
             peer: None,
             events,

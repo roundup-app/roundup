@@ -6,6 +6,7 @@ async fn dv2_metadata_only() {
     let daemon = crate::test_daemon(dir.path()).unwrap();
     let (events, _) = tokio::sync::mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: contracts::Actor::user(),
         peer: None,
         events,
@@ -80,6 +81,7 @@ async fn u5558a_events_follow_committed_changes() {
     let daemon = crate::test_daemon(dir.path()).unwrap();
     let (events, _) = tokio::sync::mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: contracts::Actor::user(),
         peer: None,
         events,

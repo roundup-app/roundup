@@ -18,6 +18,7 @@ const SCRIPT: &str = r#"printf '\033]7501;state=working:msg=YnVpbGQ=\033\\'; ech
 
 struct Open {
     client: Client,
+    socket: std::path::PathBuf,
     daemon: Arc<rupd::Daemon>,
     server: tokio::task::JoinHandle<std::io::Result<()>>,
 }
@@ -57,6 +58,7 @@ impl World {
         let client = Client::connect(&socket).await.unwrap();
         Open {
             client,
+            socket,
             daemon,
             server,
         }
@@ -91,13 +93,17 @@ async fn refused(o: &Open, method: &str, params: Value) -> i64 {
     o.client.request(method, params).await.unwrap_err().code
 }
 
-async fn identify(o: &Open, kind: &str) {
-    call(
-        o,
-        "daemon.identify",
-        json!({"actor": {"kind": kind, "id": "someone", "parent": null}}),
-    )
-    .await;
+/// A connection that claims `kind`; the Open's own client stays the user (EP2).
+async fn claiming(o: &Open, kind: &str) -> Client {
+    let client = Client::connect(&o.socket).await.unwrap();
+    client
+        .request(
+            "daemon.identify",
+            json!({"actor": {"kind": kind, "id": "someone", "parent": null}}),
+        )
+        .await
+        .unwrap();
+    client
 }
 
 async fn until<F: std::future::Future<Output = bool>>(what: &str, mut ready: impl FnMut() -> F) {
@@ -201,7 +207,7 @@ async fn pg1_an_ext_or_agent_call_is_forbidden_and_changes_nothing() {
     let o = w.open().await;
     set(&o).await;
     for kind in ["agent", "ext"] {
-        identify(&o, kind).await;
+        let claimed = claiming(&o, kind).await;
         for (method, params) in [
             ("project.setProgram", json!({"argv": ["true"], "dir": ""})),
             ("project.clearProgram", Value::Null),
@@ -209,13 +215,12 @@ async fn pg1_an_ext_or_agent_call_is_forbidden_and_changes_nothing() {
             ("project.stopProgram", Value::Null),
         ] {
             assert_eq!(
-                refused(&o, method, params).await,
+                claimed.request(method, params).await.unwrap_err().code,
                 rpc::code::FORBIDDEN,
                 "{kind} {method}"
             );
         }
     }
-    identify(&o, "user").await;
     assert_eq!(
         call(&o, "project.get", Value::Null).await["program"],
         entry()

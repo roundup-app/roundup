@@ -120,7 +120,7 @@ async fn u2773c_todo_stale_base_is_refused() {
     other
         .request(
             "daemon.identify",
-            json!({"actor":{"kind":"user","id":"other","parent":null}}),
+            json!({"actor":{"kind":"ext","id":"other","parent":null}}),
         )
         .await
         .unwrap();
@@ -208,7 +208,7 @@ async fn u2773c_todo_stale_blockers_are_refused() {
     other
         .request(
             "daemon.identify",
-            json!({"actor":{"kind":"user","id":"other","parent":null}}),
+            json!({"actor":{"kind":"ext","id":"other","parent":null}}),
         )
         .await
         .unwrap();
