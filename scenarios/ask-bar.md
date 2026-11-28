@@ -4,7 +4,7 @@ Policy amendment — owner decision of 2026-11-05 (#6244, `scenarios/ui-project-
 
 Policy amendment — owner decision of 2026-11-02 (#5730): U504 defines one list of Project changes since the last visit under Ask. It replaces #4966's four-section accordion and section-unseen rules, and #4901's Earlier disclosure and Ask history presentation. U505 retains Sent-part acknowledgement, delivery, routing and recovery; acknowledged parts leave Overview. Full Made remains on demand through its existing Project menu action. U504's composition also governs U2539b and DV5/DV6 where they previously required Overview sections.
 
-Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, U504, U505, U506, U8046a, U8046b, U8046c, U8046d.
+Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, A8048, U504, U505, U506, U8046a, U8046b, U8046c, U8046d, U8047a, U8047b, U8047c, U8047d, U8047e, U8048a, U8048b, U8048c, U8048d.
 
 Source: the user's choices of 2026-10-15, recorded on the work Issues. Terms: Workstream, Door, Agent, Steer, Work order, Order title, Status, Kind, Adapter, Model, Effort, Rail, Reach (`GLOSSARY.md`). New terms, added to `GLOSSARY.md` by the PR that builds A40: **Ask** (one message the user sends from the Ask bar), **Ask part** (the span of an Ask that one Workstream takes), **Placement** (where an Ask part goes: `routed`, `new` or `unclear`) and **Placement call** (the Adapter's one-shot call that returns an Ask's parts and their Placements). Acceptance only; work ownership and dependencies live in GitHub Issues. No implementation is claimed by this specification.
 
@@ -43,7 +43,7 @@ Tests: `a39_the_placement_call_is_one_slim_request` (pinned real Claude against 
 - **Naming a Workstream skips the call.** A text that starts with `@<name>` and a space, where exactly one Workstream's name equals `<name>` ignoring case, gives one `routed` part holding the rest of the text, and no Placement call runs. This also holds for an Extension's Mode named by `<name>` when no Workstream has that name: the part is delivered to the Extension (EP19). When no Workstream or more than one has that name, the part is `unclear`, with the question `No Workstream is named <name>` or `<n> Workstreams are named <name>` and those Workstreams as candidates; still no call runs.
 - **Bounds.** A text that is empty after trimming, or over 32 768 bytes, is `INVALID_PARAMS` naming the bound, and nothing is stored.
 - **Kept.** Asks are stored in the Daemon's SQLite store, survive a Daemon restart, and are never deleted by a bound (P7). A part still `placing` at a restart becomes `unclear`, `roundup restarted before placing this`, and its call does not run again.
-- **Usage only when asked (P9).** A Placement call runs only for an `ask.send` that names no Workstream: never for a Message, an Agent's tool call, `ask.pick`, a timer or a restart.
+- **Usage only when asked (P9).** A Placement call runs only for an `ask.send` that names no Workstream: never for a Message, an Agent's tool call, `ask.pick`, a timer or a restart. The one other model call is A8048's guess, which the owner chose on 2026-11-27 for the empty field only.
 
 Tests: `a40_send_returns_at_once_and_the_parts_follow`, `a40_naming_a_workstream_makes_no_call` (aimock's request log stays empty), `a40_a_two_topic_message_becomes_two_parts`, `a40_asks_survive_a_restart_and_placing_becomes_unclear`, `a40_an_agent_cannot_call_the_ask_methods` (each of the three through `rup mcp` and as an Agent identity is `FORBIDDEN`), and `m5_every_app_action_has_a_tool_or_a_reason` with the three methods listed.
 
@@ -204,10 +204,83 @@ Scope (policy): `apps/desktop/src/ask/` (`AskBar.tsx`, `styles.css`, `projectPic
 
 Not wanted: a visible Ask field or button before ⌘/ (U6244c stands); a border inside the bar; a picker louder than the text; a Vitest test of looks.
 
+Policy amendment — owner decision of 2026-11-27 (#8047), on what follows Enter: "closes and selects or activates the pane that received the message and the project tab"; "while placing the ask view stays open showing it's being placed and a user can cancel it with a single X button click and esc just hides the ask but don't cancel it, when the ask gets placed the user gets a toaster like the regular notifications, clicking that toaster takes the user to the pane/project/agent where the ask got placed". The owner picked frames 6 and 7 of the draft:
+
+```
+Enter, @Workstream named
+└ bar closes → Project tab + that Door selected, no toast
+Enter, otherwise
+├ field empties; "Placing  <text>  [×]" under it
+├ ×   → placing stops; text back in the field, caret at its end
+├ Esc → bar hides; placing goes on
+└ placed → bar closes if open; toast
+           "Placed in Education / Loop control"
+           click → Project tab + Door selected
+```
+
+**Precedence.** As above: a design check that reads a decision here as a defect changes how it is drawn, never the decision. Every word shown is read from `copy.ts`. Contract change (rule 4, the Contract recipe of `.agents/builder.md`) for U8047b only: no new RPC method and no new type; `ask.pick` gains one case, and every caller changes in the same PR.
+
+**U8047a Enter on an `@Workstream` Ask closes the bar and selects its Door.** Given the Ask bar open and text that starts with `@<name>` naming one Workstream (A40's "Naming a Workstream skips the call"), when the user presses Enter, then the bar closes, the Project tab of that Workstream's Project and that Workstream's Door are selected once, with no Placing row and no toast. Test: `u8047a_an_at_named_enter_closes_and_selects_the_project_and_door`. The selection is the same App route as opening a row (U6271c), never a second selection path. Looks and motion: none (policy; U8046a's no-motion stands).
+
+**U8047b Enter on any other Ask keeps the bar open and shows Placing.** Given text that names no Workstream, when the user presses Enter, then the field empties and the Ask shows as one Placing row under it: the Ask's text on one line (cut with an ellipsis) and one × icon button (`IconButton`, `@lucide/solid`) with tooltip and accessible name "Stop placing". The row shows the part's `placing` state, never a Door. Tests:
+- **Row.** `u8047b_enter_empties_the_field_and_shows_one_placing_row`. The bar stays open, the draft is cleared only for the submitted revision (U504's "Ask timing and resolution"), and the row is there in the frame of Enter, before `ask.send` returns, then reconciles to the returned Ask without a duplicate.
+- **Stop.** `u8047b_the_x_stops_placing_and_restores_the_exact_text`. One click makes one `ask.pick {id, part, target: {kind: "drop"}}` call, the row leaves, the field holds the exact submitted text (newlines included) with the caret at its end and focus, and the Ask is `dropped`: nothing is delivered and no Door starts. A part that is no longer `placing` when the call lands is `CONFLICT` (A42) and the row follows the part's new state instead; the text is not restored then.
+- **Contract.** A42's pick gains a `placing` part: `{kind: "drop"}` makes it `dropped` and emits `ask.changed`; every other target on a `placing` part stays `CONFLICT`. A part already `dropped` when its Placement answer returns ignores the answer: it stays `dropped`, makes no `routed` or `new` part, starts no Workstream and delivers nothing. A Placement call still in flight is not waited for. Daemon tests, fake `claude` and no model: `a42_dropping_a_placing_part_delivers_nothing` and `a42_a_placement_answer_for_a_dropped_part_is_ignored` in `crates/agents/tests/asks.rs`; `a42_a_bad_pick_changes_nothing` gains the non-drop targets on a `placing` part. `ask.pick` stays a user method (M5, M2): an Agent's call is `FORBIDDEN`, as `a40_an_agent_cannot_call_the_ask_methods` holds.
+
+**U8047c Esc hides the bar and placing goes on.** Given the Placing row, when the user presses Esc, then the bar hides and focus returns as U6175a says, with no `ask.pick` call, and the Ask is still placed. ⌘/ opens the bar again and the Placing row shows if the part is still `placing`. Tests: `u8047c_esc_hides_with_no_stop_call` and `u8047c_the_shortcut_shows_the_placing_row_again`. U6175a ("Esc closes each floating surface and returns focus") stands for the Ask bar; this adds that hiding is not cancelling.
+
+**U8047d Placement ends with a toast and the bar closes.** Given a part that was `placing`, when `ask.changed` shows it `routed` or `new` (queued, typed or failed after), then the bar closes if open, and one toast shows through the App's shared Toast (U492), the same way its other notifications do: "Placed in <Project> / <Workstream>" with the Ask part's text under it. Clicking it selects that Project's tab and that Door, once, and dismisses it. Each placed part makes its own toast, replaced by identity so a repeated `ask.changed` adds none. A part that Placement leaves `unclear` shows a "Needs your pick" toast that opens U506's choices (assumed). The toast is not shown for an `@`-named Ask (U8047a), for a `dropped` part, or for an Ask the user stopped. The App never selects the Door on its own: only a click does. Tests: `u8047d_a_placed_event_shows_one_toast_whose_click_selects_the_project_and_door`, `u8047d_the_bar_closes_when_placement_ends`, `u8047d_an_unclear_part_toasts_needs_your_pick`.
+
+**U8047e the rendered flow for the critic.** Given the U26 harness with two open Projects, then at 1512 by 950 and at 388 px, dark and light: the bar with the Placing row, the bar hidden by Esc while placing, the bar reopened, the toast, and the Door after its click match frames 6 and 7. The × and the toast read at D6's target size, the toast is complete without sideways scroll, and D2, D5, D6 and every Check passing on `main` still pass. Run `just capture U8047e`; evidence under `artifacts/ux/U8047e/`, uncommitted. Policy; the critic judges looks against the draft frames, never a Vitest test.
+
+Amends by name: U504's "Ask timing and resolution" (Enter closes the bar for an `@`-named Ask, and keeps it open with the Placing row otherwise; the optimistic row is the Placing row), U505 (a `placing` part shows in the bar's Placing row and as its row, never twice), U6271c (opening lands on the Project tab and the Workstream's Door, also from the toast), U6175a (Esc on the Ask bar hides it while placing and cancels nothing) and A42 (`ask.pick` drop on a `placing` part).
+
+Scope (policy): `crates/agents` (the Ask module), `crates/contracts`, `contracts/generated/`, `apps/desktop/src/ask/` (`AskBar.tsx`, `AskRows.tsx`, `copy.ts`), `apps/desktop/src/state/asks.ts` and the App's toast (`ui/Toast.tsx`). It builds after #8046.
+
+Not wanted: a Placing row that stays after the toast; selecting a Door later without a click; a new RPC method; a Vitest test of looks.
+
 Checks on main (numbered references, not claims that this specification implements them):
 
 1. `apps/desktop/src/ask/u6271b_project_chip.test.tsx`, `u6271b_typing_pausing_then_sending_unchanged_text_makes_one_call`: one call per pause.
 2. `apps/desktop/src/ask/u504_ask_bar.test.tsx`, `u504_at_lists_workstreams_and_writes_the_name`: the lists.
 3. `scenarios/ui-project-root-overview.md`, U6244c; `scenarios/ask-bar-tokens.md`, U8045a to U8045e; `scenarios/ask-bar.md`, U504 (padding policy #2731) and U6271b.
+
+No implementation is delivered by this specification.
+
+Policy amendment — owner decision of 2026-11-27 (#8048), on the Ask bar: "we need ask to have the suggest for auto complete like claude code sometimes do - asks should be suggestable". The owner picked draft frames 1 and 2 and knowingly reverses A40's "Usage only when asked (P9)" for the empty-field guess only.
+
+```
+Empty:  │ █Review PR 8026's header sketch      [Tab] │  model's guess, grey
+Typing: │ fix the lo█gin bug in the Rail spec       │  earlier Ask, grey
+```
+
+**A8048 the next-Ask guess.** Contract change (rule 4, the Contract recipe of `.agents/builder.md`): one Daemon method, `ask.guess {}`, returns `{text}` or `{text: null}`; it is the user's, so M5 lists it with a reason (P9) and an Agent's call is `FORBIDDEN` (M2). `GLOSSARY.md` gains **Ask guess** (`ask::guess`) in the same PR, and every caller (the App's `rup` client and the generated `contracts/generated/`) changes with it. Given `ask.guess`, then:
+- **One cheap call.** It runs the Adapter's one-shot program once with the cheapest Model, as A39's Placement call does, over the five newest Asks' texts and every Workstream's name and Status Kind, and returns the one-line text it wrote. Test: `a8048_one_guess_call_per_open`.
+- **At most one in flight.** A second `ask.guess` while one runs shares its answer and starts no second call. Test: `a8048_a_second_request_shares_the_call_in_flight`.
+- **Only an empty field.** The App calls it once for each ⌘/ open with an empty field, never while the field holds text and never for a ⌘/ that restores a U2773 draft. Tests: `u8048b_one_guess_call_per_open_with_an_empty_field` and `u8048b_no_guess_call_while_typing_or_with_a_draft`.
+- **Failure is quiet.** A failed or empty call returns `{text: null}`, shows the placeholder and writes no error. Test: `a8048_a_failed_call_returns_no_text`.
+- **No per-keystroke call.** Typing starts no call. Test: `u8048b_no_guess_call_while_typing_or_with_a_draft`.
+All use a fake `claude` (`crates/agents/tests/asks.rs`).
+
+**U8048a earlier Asks complete the typed start.** Given the Ask bar with the field holding text, then grey ghost text after the caret completes it from the owner's earlier Asks of `ask.list`, newest first, matched on the typed start (case-insensitive); the ghost is the rest of that Ask's first line. No model call runs. Then:
+- **Matches.** Typing the start of an earlier Ask shows its rest as ghost text; the newest of two matches wins. Tests: `u8048a_the_start_of_an_earlier_ask_shows_its_rest` and `u8048a_the_newest_match_wins`.
+- **No ghost.** There is none for an exact match, for no match, for a `#` or `@` token being typed (U8045a), or while the caret is not at the end. Test: `u8048a_no_ghost_for_a_token_or_a_caret_before_the_end`.
+- **Not sent by Enter.** Enter sends only the typed text, never the ghost (U504). Test: `u8048a_enter_sends_only_the_typed_text`.
+
+**U8048b the empty field shows a guess.** Given the Ask bar open with an empty field, then the guess of A8048 shows in grey in place of the placeholder with a small "Tab" key mark at the right end; until it returns, and when it fails, the placeholder of U8046a shows. Typing drops the guess and the mark. Tests: `u8048b_the_guess_replaces_the_placeholder`, `u8048b_a_failed_guess_shows_the_placeholder`, `u8048b_typing_drops_the_guess`. The App never sends a guess: Enter on an empty field sends nothing. Test: `u8048b_enter_on_a_guess_sends_nothing`.
+
+**U8048c Tab takes the ghost.** Given a ghost (U8048a) or a guess (U8048b), then Tab writes it into the field as typed text with the caret at its end, and the text is the owner's to edit and send. With a `#` or `@` list open, Tab picks the highlighted row (U8045a) and takes no ghost. With neither, Tab keeps its focus behaviour. Amends U504 (Tab and Enter). Tests: `u8048c_tab_takes_the_ghost`, `u8048c_tab_takes_the_guess`, `u8048c_tab_with_a_list_open_picks_the_row`.
+
+**U8048d the rendered bar for the critic.** Given the U26 harness, then at 1512 by 950 and at 388 px, dark and light: the empty bar with a guess and its Tab mark, and the bar with typed text and ghost text match draft frames 1 and 2 with one border, the equal inset of U8046d, the ghost on the field's text baseline, in a Token grey and no sideways scroll; D2, D5, D6 and every Check passing on `main` still pass. Run `just capture U8048d`; evidence under `artifacts/ux/U8048d/`, uncommitted. Policy; the critic judges layout and looks, and no Vitest test checks them (rule 10).
+
+Scope: `apps/desktop/src/ask/` (`AskBar.tsx`, `copy.ts`), `apps/desktop/src/ui/Mentions.tsx`, the Daemon's ask module, `crates/contracts`, `contracts/generated/`, `crates/rupd` (registration) and the Claude Code adapter (`crates/agents/src/claude_code/`). It builds after #8046 (U8046a to U8046d).
+
+Not wanted: a model call per keystroke; ghost text that Enter sends without Tab; a Vitest test of looks; any change to A39's Placement call.
+
+Checks on main:
+
+1. `apps/desktop/src/ask/u504_ask_bar.test.tsx`, `u504_at_lists_workstreams_and_writes_the_name`: the lists.
+2. `crates/agents/tests/asks.rs`, `a41_the_door_gets_the_users_words_byte_for_byte`: Enter delivers the typed words only.
+3. `scenarios/ask-bar-tokens.md`, U8045a: Enter or Tab picks a list row.
 
 No implementation is delivered by this specification.
