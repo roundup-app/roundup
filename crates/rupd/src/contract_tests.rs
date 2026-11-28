@@ -65,6 +65,7 @@ async fn b5_the_user_sets_non_agent_routes_through_daemon_dispatch() {
 async fn send_note_from(daemon: &Daemon, from: &str, to: &str, body: &str) -> Value {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Ext,
             id: from.into(),
@@ -382,6 +383,7 @@ async fn u4593_selection_preserves_authority() {
     .unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -520,6 +522,7 @@ async fn m14_unknown_terminal_is_not_found_before_forbidden() {
     .unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -551,6 +554,7 @@ async fn m13_unknown_is_not_found_before_forbidden() {
     .unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -580,6 +584,7 @@ async fn m14_an_agent_cannot_set_a_route_to_itself() {
     db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -609,6 +614,7 @@ async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
     db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),
@@ -643,6 +649,7 @@ async fn m14_an_agent_cannot_replace_the_users_route() {
     db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1);").unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor::user(),
         peer: None,
         events,

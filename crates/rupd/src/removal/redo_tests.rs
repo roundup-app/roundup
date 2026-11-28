@@ -417,6 +417,7 @@ async fn u3787a_rail_redo_identity_and_authority_refusals_leave_every_participan
         let error = if conflict == "actor" || conflict == "agent" {
             let (events, _) = tokio::sync::mpsc::unbounded_channel();
             let mut conn = crate::Conn {
+                attested: false,
                 actor: Actor {
                     kind: if conflict == "agent" {
                         contracts::ActorKind::Agent

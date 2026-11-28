@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::machine;
 use contracts::bubble_rule;
-use contracts::{Actor, ActorKind, IdentifyParams, agent, terminal, workstream};
+use contracts::{Actor, ActorKind, agent, terminal, workstream};
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
     Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities,
@@ -615,17 +615,9 @@ impl Shim {
             let client = rpc::Client::connect(&self.socket)
                 .await
                 .map_err(|err| Gone::Unreachable(format!("no Daemon at {socket}: {err}")))?;
-            client
-                .request(
-                    "daemon.identify",
-                    IdentifyParams {
-                        actor: self.actor.clone(),
-                    },
-                )
-                .await
-                .map_err(|err| {
-                    Gone::Unreachable(format!("the Daemon at {socket} refused identify: {err}"))
-                })?;
+            crate::identify(&client, &self.actor).await.map_err(|err| {
+                Gone::Unreachable(format!("the Daemon at {socket} refused identify: {err}"))
+            })?;
             Ok(client)
         };
         tokio::time::timeout(CALL_TIMEOUT, handshake)

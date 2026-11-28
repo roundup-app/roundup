@@ -9,6 +9,7 @@ async fn u5502_publication_observation_names_only_committed_membership_changes()
     let mut observed = daemon.bus.subscribe();
     let (events, _) = tokio::sync::mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: contracts::Actor::user(),
         peer: None,
         events,

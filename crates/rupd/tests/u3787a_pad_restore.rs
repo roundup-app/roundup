@@ -10,9 +10,38 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use tokio::net::UnixListener;
 
+/// A connection starts as the user and cannot claim to be one (EP2), so the user and the identified
+/// Agent are two connections and a test says which one speaks.
+struct Who {
+    user: Client,
+    agent: Client,
+    as_user: std::cell::Cell<bool>,
+}
+impl Who {
+    async fn connect(socket: &std::path::Path) -> Self {
+        Self {
+            user: Client::connect(socket).await.unwrap(),
+            agent: Client::connect(socket).await.unwrap(),
+            as_user: std::cell::Cell::new(true),
+        }
+    }
+    async fn request(
+        &self,
+        method: &str,
+        params: impl serde::Serialize,
+    ) -> Result<Value, rpc::RpcError> {
+        let client = if self.as_user.get() {
+            &self.user
+        } else {
+            &self.agent
+        };
+        client.request(method, params).await
+    }
+}
+
 struct World {
     _dir: tempfile::TempDir,
-    client: Client,
+    client: Who,
     server: tokio::task::JoinHandle<std::io::Result<()>>,
 }
 impl Drop for World {
@@ -30,7 +59,7 @@ async fn world() -> World {
         daemon,
         watchers,
     ));
-    let client = Client::connect(&socket).await.unwrap();
+    let client = Who::connect(&socket).await;
     World {
         _dir: dir,
         client,
@@ -77,6 +106,7 @@ async fn deleted(w: &World, name: &str) -> (Value, Value) {
     (pad, receipt)
 }
 async fn identify(w: &World, id: &str) {
+    w.client.as_user.set(false);
     call(
         w,
         "daemon.identify",
@@ -85,12 +115,7 @@ async fn identify(w: &World, id: &str) {
     .await;
 }
 async fn user(w: &World) {
-    call(
-        w,
-        "daemon.identify",
-        json!({"actor":{"kind":"user","id":"you","parent":null}}),
-    )
-    .await;
+    w.client.as_user.set(true);
 }
 
 #[tokio::test]
@@ -121,7 +146,7 @@ async fn u3787a_restore_keeps_agent_created_pad_home_revision_after_reopen() {
         daemon,
         watchers,
     ));
-    w.client = Client::connect(&socket).await.unwrap();
+    w.client = Who::connect(&socket).await;
     let restored = call(&w, "pad.restore", deletion_id(&receipt)).await;
     assert_eq!(restored["pad"], original);
     assert_eq!(
@@ -641,7 +666,7 @@ async fn u3787a_redo_retains_the_acknowledged_creation_for_another_undo() {
         daemon,
         watchers,
     ));
-    w.client = Client::connect(&socket).await.unwrap();
+    w.client = Who::connect(&socket).await;
     assert_eq!(call(&w, "pad.list", Value::Null).await, json!([]));
     assert_eq!(
         call(&w, "pad.getDeletion", json!({"operation":"redo-one"})).await,

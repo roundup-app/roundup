@@ -161,6 +161,7 @@ async fn a4688a_agents_cannot_change_global_naming_preferences() {
     let daemon = daemon_in(root.path());
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: "1".into(),

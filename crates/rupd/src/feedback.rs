@@ -180,6 +180,7 @@ esac"#
     ) -> Result<Value, RpcError> {
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = Conn {
+            attested: false,
             actor,
             peer: None,
             events,

@@ -56,7 +56,8 @@ async fn u3078b_public_reports_cannot_forge_authority() {
     }
     let before = e.progress().await;
     // An unowned process cannot become the reporting Agent by setting --agent or daemon.identify.
-    e.client
+    let pretender = e.project.client().await;
+    pretender
         .request(
             "daemon.identify",
             json!({"actor":{"kind":"agent","id":e.report["author"]["id"],"parent":null}}),
@@ -64,20 +65,24 @@ async fn u3078b_public_reports_cannot_forge_authority() {
         .await
         .unwrap();
     assert_eq!(
-        e.client
+        pretender
             .request("message.report", e.request.clone())
             .await
             .unwrap_err()
             .code,
         rpc::code::FORBIDDEN
     );
-    e.client
-        .request(
-            "daemon.identify",
-            json!({"actor":{"kind":"user","id":"you","parent":null}}),
-        )
-        .await
-        .unwrap();
+    assert_eq!(
+        pretender
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":"user","id":"you","parent":null}}),
+            )
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::FORBIDDEN
+    );
     assert_eq!(e.progress().await, before);
     assert_eq!(before["results"][0]["acceptances"], json!([]));
     assert_eq!(before["results"][0]["observations"], json!([]));

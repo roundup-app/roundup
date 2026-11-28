@@ -526,6 +526,7 @@ mod tests {
         }
         let (send, _) = mpsc::unbounded_channel();
         let mut conn = Conn {
+            attested: false,
             actor: Actor {
                 kind: contracts::ActorKind::Agent,
                 id: agent,
@@ -675,6 +676,7 @@ mod tests {
     ) -> Result<Value, RpcError> {
         let (events, _) = mpsc::unbounded_channel();
         let mut conn = Conn {
+            attested: false,
             actor: Actor::user(),
             peer: None,
             events,

@@ -4,6 +4,7 @@ use crate::connection::handle;
 pub(crate) async fn ask(daemon: &Daemon, line: &str) -> Value {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor::user(),
         peer: None,
         events,
@@ -165,6 +166,7 @@ async fn r3696c_a_rail_tree_reply_written_directly_equals_the_value_route() {
     }
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor::user(),
         peer: None,
         events,
@@ -191,6 +193,7 @@ async fn r3696c_a_ping_written_directly_equals_the_value_route() {
     let (_dir, daemon) = daemon();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor::user(),
         peer: None,
         events,
@@ -523,6 +526,7 @@ async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
     };
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
+        attested: false,
         actor: Actor::user(),
         peer: None,
         events,

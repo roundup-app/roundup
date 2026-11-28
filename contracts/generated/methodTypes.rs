@@ -173,6 +173,7 @@
     Method { name: "link.read", params: "link_LinkUrl", result: "link_LinkContent" },
     Method { name: "shortcuts.export", params: "link_ShortcutFileExport", result: "null" },
     Method { name: "daemon.identify", params: "common_IdentifyParams", result: "null" },
+    Method { name: "app.attest", params: "common_AttestParams", result: "null" },
     Method { name: "events.subscribe", params: "common_SubscribeParams | null", result: "common_SubscribeResult" },
     Method { name: "provenance.history", params: "common_HistoryParams", result: "common_Touch[]" },
     Method { name: "provenance.touched", params: "common_TouchedParams", result: "common_Touch[]" },

@@ -551,7 +551,6 @@ pub async fn one_run(
 
 /// X14's bounded, isolated real-Daemon observation.
 pub mod flood {
-    use contracts::{Actor, ActorKind};
     use rpc::{Client, OutputFrame};
     use serde::{Deserialize, Serialize};
     use serde_json::{Value, json};
@@ -699,12 +698,6 @@ pub mod flood {
                 return Err::<(), Error>("two Rail markers must be below Bus capacity".into());
             }
             for identity in ["flood-paused-0", "flood-paused-1"] {
-                call(
-                    &client,
-                    "daemon.identify",
-                    json!({"actor":Actor{kind:ActorKind::User,id:identity.into(),parent:None}}),
-                )
-                .await?;
                 call(
                     &client,
                     "rail.rename",

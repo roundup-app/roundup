@@ -295,15 +295,7 @@ async fn serve_live(stream: UnixStream, link: Shared) {
 pub async fn live_client(actor: &contracts::Actor) -> Option<rpc::Client> {
     let socket = live_socket().ok()?;
     let client = rpc::Client::connect(&socket).await.ok()?;
-    client
-        .request(
-            "daemon.identify",
-            contracts::IdentifyParams {
-                actor: actor.clone(),
-            },
-        )
-        .await
-        .ok()?;
+    crate::identify(&client, actor).await.ok()?;
     Some(client)
 }
 

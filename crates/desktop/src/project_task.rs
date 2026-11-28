@@ -44,6 +44,7 @@ pub(crate) struct Access {
     /// This run's socket path (S5): `subscribe` reconnects here, not through `Config`, since a
     /// reopen's Daemon runs on its own path.
     pub socket: PathBuf,
+    pub secret: daemon::Secret,
     pub run: u64,
 }
 
@@ -180,6 +181,7 @@ struct Open {
     /// Ends the Daemon without closing its stdin, for `exit_for_update` (S5981a).
     leave: Option<daemon::Leave>,
     socket: OwnedSocket,
+    secret: daemon::Secret,
     /// Which start made this Daemon, so an earlier Daemon's exit never marks a later one exited.
     run: u64,
     subscription: Option<Pump>,
@@ -257,6 +259,7 @@ impl<R: Runtime> Supervisor<R> {
                     Phase::Open(open) => Ok(Access {
                         client: Arc::clone(&open.client),
                         socket: open.socket.path().to_path_buf(),
+                        secret: open.secret.clone(),
                         run: open.run,
                     }),
                     Phase::Exited => Err(exited()),
@@ -382,6 +385,7 @@ impl<R: Runtime> Supervisor<R> {
                     _stdin: started.stdin,
                     leave: Some(leave),
                     socket: started.socket,
+                    secret: started.secret,
                     run,
                     subscription: None,
                     outputs: HashMap::new(),
