@@ -16,7 +16,7 @@ afterAll(async () => {
 /** U7610d: ten fresh pages in a row, so one check run holds the ten-run margin. */
 const RUNS = 10;
 
-/** The longest stretch the page's main thread ran without yielding while the Changes list opened, in a fresh page. */
+/** The longest stretch the page's main thread ran without yielding while Changes opened on the big file, in a fresh page. */
 const longestBlock = async (engine: Browser) => {
   const context = await engine.newContext();
 
@@ -59,11 +59,8 @@ const longestBlock = async (engine: Browser) => {
 
     await page.click(".changes-icon");
     await page.waitForSelector(".changes-side .changes-tree [data-row]");
-    // U8005a: opening folds the Rail and the Bench; the beat draws the diff once that slide has settled, as a user's click follows it.
-    await page.waitForTimeout(500);
-    // The view opens on the Overview and draws no diff (U7679c): the beat chooses the module that holds the big file.
-    await page.click('.changes-side .changes-tree [data-row="module"]');
-    await page.waitForTimeout(500);
+    // U8010a: the view opens on the big file's code with no click, and U8005a folds the Rail and the Bench as it opens; the beat spans the slide and the whole draw.
+    await page.waitForTimeout(1000);
 
     return await beat.evaluate(gaps => gaps.longest);
   } finally {
