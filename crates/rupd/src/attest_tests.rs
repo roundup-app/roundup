@@ -5,6 +5,7 @@ fn conn() -> Conn {
     let (events, _) = mpsc::unbounded_channel();
     Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor::user(),
         peer: None,
         events,

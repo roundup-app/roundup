@@ -181,6 +181,7 @@ esac"#
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = Conn {
             attested: false,
+            settings_granted: false,
             actor,
             peer: None,
             events,

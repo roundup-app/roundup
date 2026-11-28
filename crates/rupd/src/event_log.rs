@@ -250,6 +250,7 @@ mod tests {
         let (events, mut replay) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = crate::Conn {
             attested: false,
+            settings_granted: false,
             actor: Actor::user(),
             peer: None,
             events,
@@ -294,6 +295,7 @@ mod tests {
         let (events, mut received) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = crate::Conn {
             attested: false,
+            settings_granted: false,
             actor: Actor::user(),
             peer: None,
             events,

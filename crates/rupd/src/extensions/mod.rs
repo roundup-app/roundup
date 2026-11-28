@@ -2,6 +2,7 @@
 //! process (`child.rs`); the host lists the actions its `register` declared, runs them by name,
 //! enforces `permissions` on the child's `$` calls and keeps a bad Extension from the Daemon.
 
+mod approvals;
 mod child;
 mod manifest;
 #[cfg(test)]
@@ -17,12 +18,14 @@ use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use contracts::action::{ActionArg, ActionRow, ArgType, ExtensionProblem, RunParams};
+use contracts::extension::{ApproveParams, Capability, ExtensionCapabilities};
 use contracts::{Actor, ActorKind, EventData};
 use rpc::{RpcError, code};
 use serde_json::{Map, Value, json};
 use tokio::sync::mpsc;
 
 use crate::{Conn, Daemon};
+use approvals::Approvals;
 use child::{Child, Started};
 use manifest::Manifest;
 
@@ -41,7 +44,9 @@ pub(crate) struct Host {
     timeout: Duration,
     started: AtomicBool,
     state: Mutex<State>,
-    /// `$.store`: kept across a reload, per Extension name.
+    /// EP5: what the owner approved, by folder.
+    approvals: Mutex<Approvals>,
+    /// `$.store`: kept across a reload, per Extension folder (EP6).
     store: Mutex<HashMap<String, Map<String, Value>>>,
     daemon: Mutex<Weak<Daemon>>,
     /// One scan at a time.
@@ -63,13 +68,20 @@ struct State {
 struct Loaded {
     fingerprint: String,
     name: String,
+    uses: Vec<Capability>,
+    granted: Vec<Capability>,
     declared: Vec<ActionRow>,
     live: Option<Arc<Child>>,
 }
 
 impl Host {
     pub(crate) fn new(dir: PathBuf) -> Self {
+        let approvals = dir
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .map(|parent| parent.join("extension-approvals.json"));
         Self {
+            approvals: Mutex::new(Approvals::load(approvals)),
             dir,
             node: "node".into(),
             timeout: CALL_TIMEOUT,
@@ -115,7 +127,7 @@ impl Host {
         use notify::Watcher;
         let mut watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                if event.is_ok() {
+                if event.is_ok_and(|event| !event.kind.is_access()) {
                     let _ = changes.send(());
                 }
             })
@@ -202,7 +214,11 @@ impl Host {
         print: String,
     ) {
         let (folder, manifest) = match manifest::read(&folder) {
-            Ok((folder, manifest)) => (folder, Arc::new(manifest)),
+            Ok((folder, mut manifest)) => {
+                manifest.dir.clone_from(&folder_name);
+                manifest.granted = self.granted(&folder_name, &manifest);
+                (folder, Arc::new(manifest))
+            }
             Err(cause) => {
                 self.problem(daemon, &folder_name, cause);
                 self.remember_failed(&folder_name, print);
@@ -228,6 +244,8 @@ impl Host {
                 Loaded {
                     fingerprint: print,
                     name: name.clone(),
+                    uses: manifest.uses.clone(),
+                    granted: manifest.granted.clone(),
                     declared: declared.clone(),
                     live: Some(Arc::clone(&child)),
                 },
@@ -263,6 +281,8 @@ impl Host {
                     Loaded {
                         fingerprint: print,
                         name: folder.into(),
+                        uses: Vec::new(),
+                        granted: Vec::new(),
                         declared: Vec::new(),
                         live: None,
                     },
@@ -280,7 +300,7 @@ impl Host {
     ) -> Result<(Started, (Vec<ActionRow>, Vec<String>)), String> {
         let _ = daemon;
         let module = folder.join(&manifest.module);
-        let started = match Child::start(&self.node, folder, &module) {
+        let started = match Child::start(&self.node, folder, &module, manifest.granted.clone()) {
             Ok(started) => started,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 return Err(NODE_MISSING.into());
@@ -368,6 +388,74 @@ impl Host {
         }
     }
 
+    /// EP5: `service` on declaration; the rest only while the owner's approval of this folder,
+    /// name and set still holds.
+    fn granted(&self, folder: &str, manifest: &Manifest) -> Vec<Capability> {
+        let approved = self
+            .approvals
+            .lock()
+            .holds(folder, &manifest.name, &manifest.uses);
+        manifest
+            .uses
+            .iter()
+            .copied()
+            .filter(|capability| approved || *capability == Capability::Service)
+            .collect()
+    }
+
+    /// EP5: the owner's approval of what the App's prompt showed. The Extension reloads, so its
+    /// `hello` states what it is now granted.
+    pub(crate) fn approve(&self, p: ApproveParams) -> Result<(), RpcError> {
+        let mut uses = p.uses;
+        uses.sort();
+        uses.dedup();
+        {
+            let mut state = self.state.lock();
+            let shown = state
+                .loaded
+                .get(&p.dir)
+                .is_some_and(|loaded| loaded.name == p.name && loaded.uses == uses);
+            if !shown {
+                return Err(RpcError::conflict(format!(
+                    "{} no longer asks for exactly these capabilities under this name; read extension.capabilities again",
+                    p.dir
+                )));
+            }
+            self.approvals
+                .lock()
+                .record(&p.dir, &p.name, &uses)
+                .map_err(RpcError::internal)?;
+            if let Some(loaded) = state.loaded.get_mut(&p.dir) {
+                loaded.fingerprint.clear();
+            }
+        }
+        if let Some(daemon) = self.daemon.lock().upgrade() {
+            tokio::spawn(async move { daemon.extensions.scan(&daemon).await });
+        }
+        Ok(())
+    }
+
+    /// EP5: each Extension's asked, granted and waiting capabilities.
+    pub(crate) fn capabilities(&self) -> Vec<ExtensionCapabilities> {
+        let state = self.state.lock();
+        state
+            .loaded
+            .iter()
+            .map(|(folder, loaded)| ExtensionCapabilities {
+                dir: folder.clone(),
+                name: loaded.name.clone(),
+                asked: loaded.uses.clone(),
+                granted: loaded.granted.clone(),
+                waiting: loaded
+                    .uses
+                    .iter()
+                    .copied()
+                    .filter(|capability| !loaded.granted.contains(capability))
+                    .collect(),
+            })
+            .collect()
+    }
+
     /// UA4: a `$.<permission>.<fn>` call of an Extension, refused unless the manifest declares it.
     async fn call(
         &self,
@@ -406,15 +494,16 @@ impl Host {
             "clock" if function == "now" => {
                 Ok(json!(u64::try_from(provenance::now_ms()).unwrap_or(0)))
             }
-            "store" => self.store_call(&manifest.name, function, params),
+            "store" => self.store_call(&manifest.dir, function, params),
             "agents" | "todos" | "pads" => {
                 let namespace = permission.trim_end_matches('s');
                 let method = format!("{namespace}.{function}");
                 let mut conn = Conn {
                     attested: false,
+                    settings_granted: manifest.granted.contains(&Capability::AgentsSettings),
                     actor: Actor {
                         kind: ActorKind::Ext,
-                        id: format!("ext:{}", manifest.name),
+                        id: format!("ext:{}", manifest.dir),
                         parent: None,
                     },
                     peer: None,

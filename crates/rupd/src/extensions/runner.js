@@ -87,12 +87,23 @@ async function run(id, name, args) {
   send({ t: "result", id, answer: answered ? answer : null, failure: failures[0] ?? null });
 }
 
-readline.createInterface({ input: process.stdin }).on("line", (line) => {
+let toldHello;
+
+// The host's first line; `register` gets it as its second argument.
+const hello = new Promise((resolve) => { toldHello = resolve; });
+
+const input = readline.createInterface({ input: process.stdin });
+
+input.on("close", () => toldHello(null));
+
+input.on("line", (line) => {
   let message;
 
   try { message = JSON.parse(line); } catch { return; }
 
-  if (message.t === "run") {
+  if (message.t === "hello") {
+    toldHello(message);
+  } else if (message.t === "run") {
     run(message.id, message.name, message.args).catch((error) =>
       send({ t: "result", id: message.id, answer: null, failure: cause(error) }));
   } else if (message.t === "callResult") {
@@ -111,7 +122,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     const module = await import(pathToFileURL(process.argv[process.argv.length - 1]).href);
 
     if (!(module.register instanceof Function)) throw new Error("the module exports no register function");
-    await module.register(on);
+    await module.register(on, await hello);
     send({ t: "registered", actions: entries.map((entry) => entry.spec) });
   } catch (error) {
     send({ t: "failed", cause: cause(error) });

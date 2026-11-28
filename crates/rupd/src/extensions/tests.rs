@@ -713,11 +713,15 @@ async fn ep4_the_sdk_ignores_unknown_frames_and_fields() {
         .unwrap();
     let mut stdin = child.stdin.take().unwrap();
     let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let hello = json!({"t":"hello","offers":["panel","later"],"granted":[],"components":["stack"]});
+    stdin
+        .write_all(format!("{hello}\n").as_bytes())
+        .await
+        .unwrap();
     let registered: Value =
         serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
     assert_eq!(registered["t"], "registered");
     for frame in [
-        json!({"t":"hello","offers":["panel","later"],"granted":[],"components":["stack"]}),
         json!({"t":"a-frame-from-the-future","x":1}),
         json!({"t":"stop","reason":"later"}),
         json!({"t":"run","id":7,"name":"user.a","args":{},"later":true}),

@@ -430,6 +430,7 @@ mod tests {
         let (events, _) = mpsc::unbounded_channel();
         let conn = Conn {
             attested: false,
+            settings_granted: false,
             actor: Actor::user(),
             peer: None,
             events,

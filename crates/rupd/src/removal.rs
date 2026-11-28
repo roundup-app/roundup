@@ -527,6 +527,7 @@ mod tests {
         let (send, _) = mpsc::unbounded_channel();
         let mut conn = Conn {
             attested: false,
+            settings_granted: false,
             actor: Actor {
                 kind: contracts::ActorKind::Agent,
                 id: agent,
@@ -677,6 +678,7 @@ mod tests {
         let (events, _) = mpsc::unbounded_channel();
         let mut conn = Conn {
             attested: false,
+            settings_granted: false,
             actor: Actor::user(),
             peer: None,
             events,

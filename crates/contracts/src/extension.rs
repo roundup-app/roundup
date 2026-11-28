@@ -15,8 +15,24 @@ pub const MAX_NOTE: u32 = 80;
 /// The most characters a label, heading or text of a component holds.
 pub const MAX_LABEL: u32 = 200;
 
+/// The element kinds roundup draws, as `hello.components` names them.
+pub const COMPONENTS: [&str; 7] = ["stack", "heading", "text", "row", "chip", "button", "input"];
+
 /// What an Extension declares it uses (`uses`) and roundup states it offers (`hello`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    Type,
+    JsonSchema,
+)]
 pub enum Capability {
     #[serde(rename = "panel")]
     Panel,
@@ -26,6 +42,25 @@ pub enum Capability {
     AgentsPlace,
     #[serde(rename = "agents.settings")]
     AgentsSettings,
+}
+
+/// EP5: what one Extension folder asked (`uses`), what the Daemon granted it and what waits for the owner.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ExtensionCapabilities {
+    pub dir: String,
+    pub name: String,
+    pub asked: Vec<Capability>,
+    pub granted: Vec<Capability>,
+    pub waiting: Vec<Capability>,
+}
+
+/// `extension.approve`'s params: what the owner's prompt showed, which must still be what the
+/// folder's manifest says.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ApproveParams {
+    pub dir: String,
+    pub name: String,
+    pub uses: Vec<Capability>,
 }
 
 /// How a chip reads.

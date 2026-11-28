@@ -310,6 +310,7 @@ pub(crate) async fn as_door(daemon: &Daemon, home: &str, method: &str, params: V
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: home.into(),
@@ -416,6 +417,7 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         attested: false,
+        settings_granted: false,
         actor: Actor {
             kind: ActorKind::Agent,
             id: home.clone(),

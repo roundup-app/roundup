@@ -110,6 +110,7 @@ mod tests {
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = Conn {
             attested: false,
+            settings_granted: false,
             actor: Actor::user(),
             peer: None,
             events,
