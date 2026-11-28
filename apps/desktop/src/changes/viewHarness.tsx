@@ -73,6 +73,7 @@ export const landed = async (changed: () => Listing | Promise<Listing>, answer: 
   mounted.app.handlers["agent.compareFile"] = ({ path }) => answer(path);
   await openChanges();
   await screen.findByRole("region", { name: copy.changes });
+  await new Promise(resolve => setTimeout(resolve));
 
   return mounted;
 };

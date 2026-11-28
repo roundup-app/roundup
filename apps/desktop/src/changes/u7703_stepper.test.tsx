@@ -172,7 +172,7 @@ it("u7703c_the_arrow_keys_step_a_focused_diagram_only", async () => {
   await count();
 
   // Focus elsewhere: a list row and the Overview's own text step nothing.
-  press("ArrowRight", moduleRow("pkg"));
+  press("ArrowRight", await waitFor(() => moduleRow("pkg")));
   press("ArrowRight", pane());
   expect(await count()).toContain(copy.stopCount(1, 3));
 

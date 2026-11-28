@@ -52,7 +52,8 @@ it("u5646a_equal_replies_keep_render_and_selection", async () => {
   expect(rendered()).toHaveLength(1);
   expect(document.activeElement).toBe(add);
   startNote();
-  expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
+  // waitFor saw the view's first render call; its note form draws once the view finishes drawing, a task later.
+  expect((await screen.findByRole("tab", { name: "Old" })).getAttribute("aria-selected")).toBe("true");
   expect(screen.getByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "1");
   expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
 });
@@ -159,7 +160,7 @@ it("u5646d_refresh_recovery_and_disposal", async () => {
   expect(processFile).toHaveBeenCalledTimes(1);
   expect(rendered()).toHaveLength(1);
   startNote();
-  expect(screen.getByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "2");
+  expect(await screen.findByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "2");
   expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
   const before = app.calls.filter(call => call.method === "agent.compareFile").length;
 

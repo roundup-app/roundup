@@ -23,7 +23,7 @@ const StripHead = (props: { toggle: { collapsed: boolean; onToggle: () => void }
 );
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
-export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; keyed?: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
+export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; keyed?: boolean; folding?: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
@@ -50,7 +50,7 @@ export const Layout = (props: {
   /** U6228: the collapsed Rail is slid out over the centre; it reserves no width. */
   railPeeking?: boolean;
   /** U6228g: how the Rail slides now: a click's drawer motion, a key's, or the reduced-motion fade. */
-  railSlide?: "click" | "key" | "fade" | undefined;
+  railSlide?: "click" | "key" | "fold" | "fade" | undefined;
   /** U6228h: the Rail's edge handle; absent, none shows. */
   railToggle?: { collapsed: boolean; onToggle: () => void } | undefined;
   railOpen?: boolean;
@@ -109,7 +109,8 @@ export const Layout = (props: {
 
   createEffect(() => [shownNow(), coveringNow()], () => {
     const drawer = windowElement?.querySelector('.drawer[data-open="true"]');
-    setShelfSliding(untrack(() => !drawer && mode() === "reserved" && placement().animated && placement().rendered));
+    // U8075: a Changes fold's close widens the centre at its start, so it holds no refit for the slide's end.
+    setShelfSliding(untrack(() => !drawer && mode() === "reserved" && placement().animated && placement().rendered && !(placement().folding && !placement().open)));
   }, { defer: true });
   createEffect(() => placement().sliding === false, stopped => { if (stopped) setShelfSliding(false); });
   onCleanup(() => placement().onSettle());
@@ -137,7 +138,7 @@ export const Layout = (props: {
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={String(mode() === "reserved" && placement().maximised === true)} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={shelfStateOf(placement())} data-shelf-peek={String(placement().covering === true)} data-shelf-mode={mode()} data-shelf-shown={String(placement().shown)} data-shelf-reserved={String(reserved())} data-shelf-key={String(placement().keyed === true)} data-shelf-animated={String(placement().animated)}>
+  <div class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={String(mode() === "reserved" && placement().maximised === true)} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={shelfStateOf(placement())} data-shelf-peek={String(placement().covering === true)} data-shelf-mode={mode()} data-shelf-shown={String(placement().shown)} data-shelf-reserved={String(reserved())} data-shelf-key={String(placement().keyed === true)} data-shelf-fold={String(placement().folding === true)} data-shelf-animated={String(placement().animated)}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>

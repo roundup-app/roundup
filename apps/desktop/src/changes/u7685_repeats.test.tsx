@@ -235,7 +235,6 @@ it("u7685e_scanning_partial_failed_and_not_asked_each_say_so_and_done_with_none_
  return 0; });
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   fireEvent.click(tree);
-  await vi.advanceTimersByTimeAsync(1);
   await vi.advanceTimersByTimeAsync(149);
   expect(screen.queryByText(copy.checkingRepeats)).toBeNull();
   await vi.advanceTimersByTimeAsync(1);

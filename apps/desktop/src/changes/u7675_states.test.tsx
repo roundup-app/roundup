@@ -316,6 +316,7 @@ it("u7678d_each_module_keeps_its_scroll_and_line_across_switches", async () => {
   const { connected } = await open(() => ({ files: MODS.map(each => ({ ...each, blob: revision })) }), path => multi(path, revision));
 
   await drawn();
+  await new Promise(resolve => setTimeout(resolve));
   press("]");
   press("]");
   await marks(at("new", 21));
@@ -373,6 +374,7 @@ it("u7675e_left_and_right_fold_a_folder", async () => {
 it("u7675e_tab_moves_from_the_list_to_the_diff", async () => {
   await open(() => ({ files: MODS.slice(0, 2) }), path => multi(path));
   await drawn();
+  await new Promise(resolve => setTimeout(resolve));
   press("]");
   await marks(at("old", 3));
   const row = moduleRow("a");
@@ -401,6 +403,7 @@ it("u7678d_bracket_keys_step_changes_across_a_modules_files", async () => {
   const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));
 
   await drawn("m/a.ts");
+  await new Promise(resolve => setTimeout(resolve));
   const tops: number[] = [];
 
   for (const change of CHANGES) {
