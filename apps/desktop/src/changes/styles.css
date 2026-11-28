@@ -222,10 +222,13 @@
 /* U8012c: the map stands where the scrollbar was; the tree's own bar is hidden so none stands beside it. */
 .changes-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-inline-end: var(--space-2); }
 .change-map { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: var(--space-2); display: flex; flex-direction: column; gap: calc(var(--space-1) / 2); padding: 0; margin: 0; }
-.change-map-block { flex: 0 1 0; min-block-size: var(--space-1); padding: 0; border: 0; border-radius: var(--radius-scrollbar); background: var(--scrollbar-thumb); cursor: pointer; }
-.change-map-block[data-viewed] { background: var(--grey); }
-.change-map-block[data-open] { background: var(--accent); }
-.change-map-block:not([data-open], [data-viewed]):hover { background: var(--text); }
+.change-map-block { position: relative; flex: 0 1 0; min-block-size: var(--space-1); border-radius: var(--radius-scrollbar); background: var(--scrollbar-thumb); }
+.change-map-block:has([data-viewed]) { background: var(--grey); }
+.change-map-block:has([data-open]) { background: var(--accent); }
+.change-map-block:not(:has([data-open], [data-viewed])):has(.change-map-hit:hover) { background: var(--text); }
+/* U8012c: the button is centred on its block and at least a control tall, so a sliver stays a target; the drawn mark is the block. */
+.change-map-hit { position: absolute; inset-inline: 0; inset-block-start: 50%; translate: 0 -50%; block-size: max(100%, var(--space-5)); padding: 0; border: 0; background: none; cursor: pointer; }
+.change-map-hit:hover { color: var(--text); }
 .changes-tree .changes-row { align-items: baseline; min-height: var(--space-5); padding: var(--space-1) var(--space-3); font: var(--text-small) var(--font-ui); text-align: start; }
 /* U8009a: a file row sits one indent step inside its module's name, which starts after the row padding, the mark and the gap: 8 + 12 + 4 px. */
 .changes-tree .changes-row[data-level="2"] { padding-inline-start: var(--space-6); }

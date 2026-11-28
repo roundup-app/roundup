@@ -532,8 +532,7 @@ const d6 = (page: Page): Measure => {
   for (const el of targets) {
     const style = page.style(el);
     // A switch's track is smaller than its hit area: a click anywhere on its label toggles it.
-    // U8012c: a change-map block is a sliver of its strip; a click anywhere on the strip lands on a block.
-    const hitBox = el.matches("[role=switch]") ? el.closest("label") ?? el : el.matches(".change-map-block") ? el.closest(".change-map") ?? el : el;
+    const hitBox = el.matches("[role=switch]") ? el.closest("label") ?? el : el;
     const height = Math.max(hitBox.getBoundingClientRect().height, px(page.resolve(style.height)) ?? 0, px(page.resolve(style.minHeight)) ?? 0);
 
     if (height > 0) measured += 1;
