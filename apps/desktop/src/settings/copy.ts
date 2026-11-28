@@ -142,7 +142,7 @@ export const copy = {
   /** @prose */
   noSettingsControl: (control: string, page: string) => `There is no control "${control}" on the ${page} page.`,
   settingsAgents: "Agents",
-  settingsProject: sharedCopy.project,
+  settingsProject: "Project",
   program: sharedCopy.program,
   workstreams: sharedCopy.workstreams,
   settingsTerminal: sharedCopy.terminal,
