@@ -99,6 +99,7 @@ for line in sys.stdin:
         wake_gate: Default::default(),
         sender: Default::default(),
         restarting: Default::default(),
+        attest_secret: Default::default(),
         handoffs: Default::default(),
         reports: Default::default(),
         queue: Default::default(),

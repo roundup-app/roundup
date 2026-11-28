@@ -116,10 +116,10 @@ fn agent(id: &str) -> Actor {
 
 async fn client_as(socket: &Path, actor: Actor) -> rpc::Client {
     let client = rpc::Client::connect(socket).await.unwrap();
-    client
-        .request("daemon.identify", IdentifyParams { actor })
-        .await
-        .unwrap();
+    let claim = IdentifyParams { actor };
+    if claim.actor.kind != ActorKind::User {
+        client.request("daemon.identify", claim).await.unwrap();
+    }
     client
 }
 

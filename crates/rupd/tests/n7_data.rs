@@ -185,7 +185,6 @@ mod x14_daemon_observer {
         server: tokio::task::JoinHandle<std::io::Result<()>>,
         dir: tempfile::TempDir,
         terminals: Vec<String>,
-        rail: String,
     }
 
     impl Fixture {
@@ -200,14 +199,7 @@ mod x14_daemon_observer {
             let listener = UnixListener::bind(&socket)?;
             let server = tokio::spawn(rupd::serve(listener, Arc::clone(&daemon), watchers));
             let client = timeout(BOUND, Client::connect(&socket)).await??;
-            let node = timeout(
-                BOUND,
-                client.request("rail.createWorkstream", json!({"name": "observer"})),
-            )
-            .await??;
-            let rail = node["id"].as_str().ok_or("Rail id is a string")?.to_owned();
             Ok(Self {
-                rail,
                 daemon,
                 client,
                 server,
@@ -224,12 +216,13 @@ mod x14_daemon_observer {
             self.call(
                 "daemon.identify",
                 json!({"actor": Actor {
-                    kind: ActorKind::User, id: identity.into(), parent: None,
+                    kind: ActorKind::Agent, id: identity.into(), parent: None,
                 }}),
             )
             .await?;
-            // A same-name rename emits only RailChanged, keeping one marker per Bus slot.
-            self.call("rail.rename", json!({"id": self.rail, "name": "observer"}))
+            // A connection cannot claim the user (EP2), so a marker is an Agent's own Workstream,
+            // which emits only RailChanged and keeps one marker per Bus slot.
+            self.call("rail.createWorkstream", json!({"name": identity}))
                 .await?;
             Ok(())
         }

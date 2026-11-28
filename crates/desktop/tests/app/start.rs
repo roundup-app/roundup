@@ -65,8 +65,10 @@ fn s1_a_daemon_that_accepts_connections_but_never_answers_ping_is_silent_past_th
     let fx = Fixture::new(SERVE_AND_WAIT);
     let listener = std::os::unix::net::UnixListener::bind(fx.real_daemon_socket()).unwrap();
     std::thread::spawn(move || {
-        let held: Vec<_> = listener.incoming().collect();
-        drop(held);
+        let mut held = Vec::new();
+        for stream in listener.incoming() {
+            held.push(stream);
+        }
     });
     let mut config = fx.config.clone();
     config.ready_bound = Duration::from_millis(300);

@@ -112,7 +112,7 @@ fn s6505a_a_command_to_an_ended_task_is_not_open() {
 fn s6505a_an_unconfirmed_project_stops_every_leave() {
     let fx = Fixture::new(
         "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\n\
-         printf 'rupd-bound\\n'\n\
+         printf 'rupd-bound abababababababababababababababababababababababababababababababab\\n'\n\
          cat > /dev/null\n\
          touch \"{dir}/stdin-closed-$(basename \"$1\")\"",
     );
