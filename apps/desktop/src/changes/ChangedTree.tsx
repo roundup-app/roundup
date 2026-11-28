@@ -1,6 +1,12 @@
 import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { Dynamic } from "@solidjs/web";
 import Check from "@lucide/solid/icons/check";
 import RotateCcw from "@lucide/solid/icons/rotate-ccw";
+import CircleAlert from "@lucide/solid/icons/circle-exclamation-point";
+import Flag from "@lucide/solid/icons/flag";
+import Copy from "@lucide/solid/icons/copy";
+import CornerDownRight from "@lucide/solid/icons/corner-down-right";
+import MessageSquare from "@lucide/solid/icons/message-square";
 import { createTreeController, TreeItem, type TreeItemData } from "@ui-sdk/solid/tree";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { AppTree } from "../ui/TreeView";
@@ -9,6 +15,7 @@ import { OVERVIEW, type Lens } from "./lens";
 import type { Grouped, ModuleGroup, NoiseKind } from "./modules";
 import { isNew, statusText } from "./paths";
 import { RiskMark } from "./RiskMark";
+import { Tip } from "../ui/Tip";
 import { countFor, groupTarget } from "./itemNotes";
 import type { ItemNote } from "./notes";
 
@@ -41,6 +48,11 @@ const titleOf = (item: ModuleGroup) => item.function ? copy.rowLabel(item.label 
 const readWords = (item: ModuleGroup | undefined, offered: boolean | undefined) => [item?.read?.added ? copy.fromReadback : "", item?.read?.stale ? copy.changedSinceReadback : "", item?.untraced && offered ? copy.readToSee : ""];
 
 type DotSignal = "finding" | "risk" | "repeat" | "moved" | "note";
+
+const signalIcons: Record<DotSignal, typeof Copy> = { risk: Flag, finding: CircleAlert, repeat: Copy, moved: CornerDownRight, note: MessageSquare } as const;
+
+/** U8034: a row's one mark, the icon of its most urgent signal; its tooltip and name are that signal's words. Clicking it falls through to the row, which opens the item. */
+const SignalMark = (props: { signal: DotSignal; words: string }) => <Tip kind="changing" text={props.words}>{trigger => <button {...trigger()} type="button" tabindex="-1" class="changes-row-icon" data-signal={props.signal} aria-label={props.words}><Dynamic component={signalIcons[props.signal]} aria-hidden="true" /></button>}</Tip>;
 
 /** U8009b: a module row named by its folder, not a flow or the readback's words. */
 const plainModule = (module: ModuleGroup) => module.flow === undefined && module.label === undefined;
@@ -143,12 +155,14 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
   });
 
   /** U8009a: the one dot's signal, the most urgent the module holds: a finding, a risk mark, a repeat, moved code, a note. */
-  const signalOf = (module: ModuleGroup): DotSignal | undefined => {
+  const signalOf = (module: ModuleGroup): { signal: DotSignal; words: string } | undefined => {
     const key = moduleKey(module.name);
 
-    const ranked: [number, DotSignal][] = [[findingsOf(key), "finding"], [module.risk ? 1 : 0, "risk"], [repeatsOf(key), "repeat"], [movedOf(key), "moved"], [notesOf(module), "note"]];
+    const ranked: [number, DotSignal, (count: number) => string][] = [[findingsOf(key), "finding", copy.findingsCount], [module.risk ? 1 : 0, "risk", () => ""], [repeatsOf(key), "repeat", copy.repeatsCount], [movedOf(key), "moved", copy.movedCount], [notesOf(module), "note", copy.noteCount]];
 
-    return ranked.find(([count]) => count > 0)?.[1];
+    const found = ranked.find(([count]) => count > 0);
+
+    return found && { signal: found[1], words: found[2](found[0]) };
   };
 
   /** Each file row's module key and path, by the file's tree value. */
@@ -194,7 +208,7 @@ export const ChangedTree = (props: { grouped: Grouped; lens: Lens; finding: bool
           <Show when={module().counted}><span class="changes-row-added" style={{ "inline-size": `${share(module().added)}%` }} /><span class="changes-row-removed" style={{ "inline-size": `${share(module().removed)}%` }} /></Show>
         </span>
         <span class="changes-row-slot">
-          <Show when={signalOf(module())}>{signal => <Show when={signal() === "risk" ? module().risk : undefined} fallback={<span class="changes-row-dot" data-signal={signal()} aria-hidden="true" />}>{risk => <RiskMark risk={risk()} />}</Show>}</Show>
+          <Show when={signalOf(module())}>{found => <Show when={found().signal === "risk" ? module().risk : undefined} fallback={<SignalMark signal={found().signal} words={found().words} />}>{risk => <RiskMark risk={risk()} />}</Show>}</Show>
         </span>
       </TreeItem>
       <Show when={open(moduleKey(module().name))}>
