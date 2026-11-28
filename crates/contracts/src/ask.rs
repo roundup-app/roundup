@@ -81,6 +81,10 @@ pub struct SendParams {
     #[serde(default)]
     #[specta(optional)]
     pub parts: Option<Vec<PlacedPart>>,
+    // U8045c: the open Projects and their trees, so `#Project` and `@Workstream` tokens in the text are read against them.
+    #[serde(default)]
+    #[specta(optional)]
+    pub projects: Option<Vec<ProjectTree>>,
 }
 
 /// U6271a: one checked span of an Ask with the Placement it received.

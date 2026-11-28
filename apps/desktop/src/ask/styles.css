@@ -554,18 +554,31 @@
   text-overflow: clip;
 }
 
-.ask-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  max-width: 100%;
+.ask-field {
+  position: relative;
 }
 
-.ask-chip-lead {
-  min-width: 0;
+.ask-tint {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  padding: var(--space-2);
+  border: var(--hairline-width) solid var(--hairline);
+  font: inherit;
+  visibility: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--grey);
+  pointer-events: none;
+}
+
+.ask-token {
+  visibility: visible;
+  color: var(--row-open-wash);
+  background: var(--row-open-wash);
+}
+
+.ask-field .ask-input {
+  position: relative;
+  background: none;
 }

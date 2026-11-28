@@ -328,3 +328,184 @@ async fn u6271a_send_stores_placed_parts_without_a_second_call() {
     assert_eq!(ask["parts"][1]["state"], "waiting");
     assert_eq!(h.count.load(Ordering::SeqCst), 0);
 }
+
+async fn tree_with(h: &Harness, name: &str) -> Value {
+    h.agents
+        .call(&h.ctx, "rail.createWorkstream", json!({"name":name}))
+        .await
+        .unwrap();
+    h.agents
+        .call(&h.ctx, "rail.tree", Value::Null)
+        .await
+        .unwrap()
+}
+
+async fn placed(
+    events: &mut tokio::sync::broadcast::Receiver<contracts::Event>,
+    id: &Value,
+) -> Value {
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        if let contracts::EventData::AskChanged { ask } = event.data {
+            let ask = serde_json::to_value(ask).unwrap();
+            if ask["id"] == *id && ask["parts"][0]["state"] != "placing" {
+                return ask;
+            }
+        }
+    }
+}
+
+async fn sent(h: &Harness, text: &str, projects: Value) -> Value {
+    let mut events = h.ctx.bus.subscribe();
+    let ask = h
+        .asks
+        .call(&h.ctx, "ask.send", json!({"text":text,"projects":projects}))
+        .await
+        .unwrap();
+
+    placed(&mut events, &ask["id"]).await
+}
+
+#[tokio::test]
+async fn u8045d_a_mid_text_at_name_makes_no_call() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let tree = tree_with(&h, "Loop").await;
+    let projects = json!([{"name":"Education","tree":tree},{"name":"Work","tree":[]}]);
+    let ask = sent(&h, "tell @loop to stop", projects).await;
+    assert_eq!(ask["parts"][0]["text"], "tell @loop to stop");
+    assert_eq!(ask["parts"][0]["placement"]["kind"], "routed");
+    assert_eq!(ask["parts"][0]["placement"]["project"], "Education");
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn u8045d_an_unknown_mid_text_at_name_asks_back() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let tree = tree_with(&h, "Loop").await;
+    let projects = json!([{"name":"Education","tree":tree},{"name":"Work","tree":[]}]);
+    let ask = sent(&h, "tell @nobody to stop", projects.clone()).await;
+    assert_eq!(ask["parts"][0]["state"], "waiting");
+    assert_eq!(
+        ask["parts"][0]["placement"]["question"],
+        "No Workstream is named nobody"
+    );
+    // Loop lives in Education only; `#Work` fixes the Project it is read in.
+    let ask = sent(&h, "#Work tell @loop to stop", projects).await;
+    assert_eq!(ask["parts"][0]["state"], "waiting");
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn u8045d_two_at_workstreams_offer_only_those_to_placement() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::open(dir.path());
+    tree_with(&h, "Loop").await;
+    tree_with(&h, "Docs").await;
+    let tree = tree_with(&h, "Other").await;
+    let projects = json!([{"name":"Education","tree":tree},{"name":"Work","tree":[]}]);
+    let (_, call) = tokio::join!(
+        h.asks.call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"ask @loop and @docs","projects":projects})
+        ),
+        async {
+            let call = h.calls.recv().await.unwrap();
+            let wire = serde_json::to_value(&call.request).unwrap();
+            call.answer.send(vec![]).unwrap();
+            wire
+        }
+    );
+    let mut names: Vec<_> = call["workstreams"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|each| each["name"].as_str().unwrap().to_owned())
+        .collect();
+    names.sort();
+    assert_eq!(names, ["Docs", "Loop"]);
+}
+
+#[tokio::test]
+async fn u8045d_hash_and_at_together_route_with_no_call() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let tree = tree_with(&h, "Loop").await;
+    let projects = json!([{"name":"Education","tree":tree},{"name":"Work","tree":[]}]);
+    let ask = sent(&h, "#education fix it, tell @Loop", projects).await;
+    assert_eq!(ask["parts"][0]["placement"]["kind"], "routed");
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn u8045c_one_hash_project_fixes_every_part() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::open(dir.path());
+    let tree = tree_with(&h, "Loop").await;
+    let projects = json!([{"name":"Education","tree":tree},{"name":"Work","tree":[]}]);
+    let mut events = h.ctx.bus.subscribe();
+    let (ask, call) = tokio::join!(
+        h.asks.call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"ship #Work docs","projects":projects})
+        ),
+        async {
+            let call = h.calls.recv().await.unwrap();
+            let wire = serde_json::to_value(&call.request).unwrap();
+            call.answer
+                .send(vec![AskPart {
+                    project: None,
+                    text: "ship #Work docs".into(),
+                    destination: Destination::New {
+                        title: "Docs".into(),
+                    },
+                }])
+                .unwrap();
+            wire
+        }
+    );
+    assert_eq!(call["projects"], json!(["Work"]));
+    assert_eq!(call["workstreams"], json!([]));
+    let ask = placed(&mut events, &ask.unwrap()["id"]).await;
+    assert_eq!(ask["parts"][0]["placement"]["project"], "Work");
+}
+
+#[tokio::test]
+async fn u8045c_two_hash_projects_each_part_takes_its_own() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::open(dir.path());
+    let projects = json!([{"name":"Education","tree":[]},{"name":"Work","tree":[]}]);
+    let part = |text: &str| AskPart {
+        project: None,
+        text: text.into(),
+        destination: Destination::New { title: text.into() },
+    };
+    let mut events = h.ctx.bus.subscribe();
+    let (ask, _) = tokio::join!(
+        h.asks.call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"#Education a b #work c","projects":projects})
+        ),
+        async {
+            let call = h.calls.recv().await.unwrap();
+            call.answer
+                .send(vec![part("#Education a"), part("b #work"), part("c")])
+                .unwrap();
+        }
+    );
+    let ask = placed(&mut events, &ask.unwrap()["id"]).await;
+    let projects: Vec<_> = (0..3)
+        .map(|i| ask["parts"][i]["placement"]["project"].clone())
+        .collect();
+    assert_eq!(
+        projects,
+        [json!("Education"), json!("Work"), json!("Education")]
+    );
+}
