@@ -514,7 +514,6 @@ li[aria-selected="true"] svg {
 .walk-fold code,
 .walk-item-title code {
   font-family: var(--font-mono); /* taste-skill-ignore: literal code uses the code face. */
-  font-size: 0.92em;
 }
 
 .walk-main {
