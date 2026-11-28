@@ -1,4 +1,4 @@
-//! EP3: every frame between the Daemon and an Extension, and the `Panel`. One definition writes the JSON
+//! EP3: every frame between rupd and an Extension, and the `Panel`. One definition writes the JSON
 //! schemas under `contracts/generated/extension/` (`schemas`) and, through specta, the App's
 //! catalogue types. The interface only grows: `tests/ext_accretion.rs` holds it to the snapshots in
 //! `contracts/extension/history/`.
@@ -123,7 +123,7 @@ pub struct CallError {
 pub enum StopReason {
     User,
     Reload,
-    Daemon,
+    Rupd,
 }
 
 /// Who pressed.
