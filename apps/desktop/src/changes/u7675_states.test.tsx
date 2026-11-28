@@ -403,6 +403,7 @@ it("u7678d_bracket_keys_step_changes_across_a_modules_files", async () => {
   const { app } = await open(() => ({ files: [file("m/a.ts"), file("m/b.ts")] }), path => multi(path));
 
   await drawn("m/a.ts");
+  await new Promise(resolve => setTimeout(resolve));
   const tops: number[] = [];
 
   for (const change of CHANGES) {
