@@ -7,7 +7,7 @@ import { mountRail, rowOf } from "../rail/railFixture";
 import { agent } from "../testing/nodes";
 import { copy } from "./copy";
 import { openChanges, saveNote, take } from "./noteHarness";
-import { chooseLens, closeButton, comparison, counted, gone, isOpen, landed, lensNow, moduleKeys, moduleRow, owning, pane, press, region, setUpView, showing, takeNoise, there, treeFocus } from "./viewHarness";
+import { chooseLens, closeButton, comparison, counted, gone, isOpen, landed, lensNow, moduleKeys, moduleRow, owning, pane, press, region, setUpView, showViewedRows, showing, takeNoise, there, treeFocus } from "./viewHarness";
 
 setUpView();
 
@@ -23,7 +23,11 @@ const LOGIC = [f("crates/a/src/x.rs"), f("crates/b/src/y.rs"), f("crates/c/src/z
 const SPLIT = [f("crates/a/src/x.rs"), f("crates/a/tests/x.rs"), f("crates/b/src/y.rs"), f("crates/c/tests/z.rs"), f("pnpm-lock.yaml")];
 
 /** What a module's row says to a screen reader: its name, its files and each word it shows. */
-const said = (name: string) => moduleRow(name).getAttribute("aria-label") ?? "";
+const said = (name: string) => {
+  showViewedRows();
+
+  return moduleRow(name).getAttribute("aria-label") ?? "";
+};
 
 const marker = () => within(region()).queryByRole("button", { name: copy.viewed });
 
@@ -91,6 +95,7 @@ it("u7680a_a_mark_blocks_nothing_and_makes_no_call", async () => {
 
   press("v");
   await showing("crates/b/src/y.rs");
+  showViewedRows();
   await choose("crates/a", "crates/a/src/x.rs");
   press("v");
   await waitFor(() => expect(said("crates/a")).not.toContain(copy.viewed));
@@ -110,7 +115,7 @@ it("u7680a_the_header_reads_n_of_m_viewed_then_all_m_viewed", async () => {
   await waitFor(() => expect(moduleKeys()).toEqual(["m:crates/b"]));
   screen.getByText(copy.viewedProgress(1, 2));
   press("Escape");
-  await waitFor(() => expect(moduleKeys()).toEqual(["m:crates/a", "m:crates/b"]));
+  await waitFor(() => expect(moduleKeys()).toEqual(["m:crates/b"]));
 
   press("v");
   await screen.findByText(copy.viewedProgress(2, 2));
@@ -343,6 +348,7 @@ it("u8010a_with_every_item_viewed_the_view_opens_the_first_item", async () => {
   await screen.findByText(copy.viewedProgress(3, 3));
 
   // Tests lists a and c, both viewed, and not the open b: it opens its first item.
+  showViewedRows();
   await choose("crates/b", "crates/b/src/y.rs");
   await chooseLens(copy.lenses.tests);
   await showing("crates/a/tests/x.rs");

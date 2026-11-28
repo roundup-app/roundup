@@ -24,10 +24,9 @@ export const copy = {
   lensLines: { flows: "One entry point and what it calls", modules: "Every changed folder, code and tests together", logic: "Code with its tests left out", tests: "Tests only" },
   /** U8009b: the folder of a module at the repository's top, shown before a name another row shares. */
   rootFolder: "./",
-  /** U7683c: the two items that follow the flows, the words under the call tree and the rows of a call. */
+  /** U7683c: the two items that follow the flows, and the words under a call. */
   unplaced: "Unplaced",
   notTraced: "Not traced",
-  callTree: "Call tree",
   /** @prose */
   unchangedCalls: (count: number) => `${count} unchanged ${count === 1 ? "call" : "calls"}`,
   /** @prose */
@@ -46,8 +45,6 @@ export const copy = {
   traceFailed: (language: string | undefined) => language === undefined ? "Couldn't trace calls" : `Couldn't trace ${language} calls`,
   /** @prose */
   changedSinceTraced: "Changed since traced",
-  /** U7695a: an item's changed functions and types: the disclosure's label and the list's name. */
-  functionsAndTypes: "Functions and types",
   languageName: (language: string) => language === "typescript" ? sharedCopy.typescript : `${language.slice(0, 1).toUpperCase()}${language.slice(1)}`,
   overview: sharedCopy.overview,
   /** U7680a: the button and the row's word, the header's count and U7680d's words. */
@@ -56,6 +53,8 @@ export const copy = {
   viewedProgress: (viewed: number, total: number) => viewed === total ? `All ${total} viewed` : `${viewed} of ${total} viewed`,
   /** @prose */
   changedSinceViewed: "Changed since you viewed it",
+  /** U8011b: the list header's toggle: its name and tooltip, pressed while the viewed items show. */
+  showViewed: "Show viewed items",
   findFile: "Find a file",
   /** @prose */
   noChangesIn: (lens: string) => `No changes in ${lens}`,
@@ -144,6 +143,8 @@ export const copy = {
     "Square brackets jump to the next or previous change.",
     /** @prose */
     "V marks the open item viewed and opens the next one.",
+    /** @prose */
+    "Space reads on: scroll, then mark viewed and open the next item.",
     /** @prose */
     "X shows more of the nearest hidden lines.",
     /** @prose */

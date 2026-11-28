@@ -1,0 +1,331 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": true,
+          "default": []
+        },
+        "t": {
+          "type": "string",
+          "const": "registered"
+        }
+      },
+      "required": [
+        "t"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string"
+        },
+        "params": {
+          "default": null
+        },
+        "t": {
+          "type": "string",
+          "const": "call"
+        }
+      },
+      "required": [
+        "t",
+        "id",
+        "path"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "answer": {
+          "default": null
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "t": {
+          "type": "string",
+          "const": "result"
+        }
+      },
+      "required": [
+        "t",
+        "id"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "cause": {
+          "type": "string",
+          "default": ""
+        },
+        "t": {
+          "type": "string",
+          "const": "failed"
+        }
+      },
+      "required": [
+        "t"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "ask": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "panel": {
+          "$ref": "#/$defs/Panel"
+        },
+        "t": {
+          "type": "string",
+          "const": "show"
+        }
+      },
+      "required": [
+        "t",
+        "ask",
+        "panel"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "t": {
+          "type": "string",
+          "const": "health"
+        }
+      },
+      "required": [
+        "t",
+        "note"
+      ]
+    }
+  ],
+  "$defs": {
+    "Panel": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "elements": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Element"
+          }
+        }
+      },
+      "required": [
+        "root",
+        "elements"
+      ]
+    },
+    "Element": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "kind": {
+              "type": "string",
+              "const": "stack"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "kind": {
+              "type": "string",
+              "const": "heading"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "kind": {
+              "type": "string",
+              "const": "text"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "since": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            },
+            "chip": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "kind": {
+              "type": "string",
+              "const": "row"
+            }
+          },
+          "required": [
+            "kind",
+            "title"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "tone": {
+              "$ref": "#/$defs/Tone"
+            },
+            "kind": {
+              "type": "string",
+              "const": "chip"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "tone"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "action": {
+              "$ref": "#/$defs/PanelAction"
+            },
+            "kind": {
+              "type": "string",
+              "const": "button"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "action"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "kind": {
+              "type": "string",
+              "const": "input"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "name"
+          ]
+        }
+      ]
+    },
+    "Tone": {
+      "type": "string",
+      "enum": [
+        "neutral",
+        "waiting",
+        "fault"
+      ]
+    },
+    "PanelAction": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "args": {
+          "default": null
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "title": "FromExtension",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

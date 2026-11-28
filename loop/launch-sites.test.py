@@ -9,7 +9,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
-INVENTORY = json.loads((ROOT / 'loop/launch-sites.json').read_text())
+INVENTORY = {**json.loads((ROOT / 'loop/launch-sites.json').read_text()),
+             **json.loads((ROOT / 'loop/launch-references.json').read_text())}
 
 
 class LaunchSites(unittest.TestCase):

@@ -53,8 +53,8 @@ export type ShelfFrame = {
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
   toggle: (source?: ActivationSource) => void;
-  /** U8005a: close the open Shelf without saving, as a view that needs the room asks; the user's own toggle brings it back. */
-  fold: (source?: ActivationSource) => void;
+  /** U8005a: close the open Shelf without saving, as a view that needs the room asks (`slides` false shows it at once, for a Project switch); the user's own toggle brings it back. */
+  fold: (source?: ActivationSource, slides?: boolean) => void;
   /** Bind the Shelf whose browser animations retain its content. */
   attach: (element: HTMLElement) => void;
   sliding: Accessor<boolean>;
@@ -112,6 +112,9 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     setAnimated(false);
     lifetime.settle();
   }, { defer: true });
+
+  // U8074: a finished slide leaves no `animated` behind, so a later Project switch changes no attribute from true.
+  createEffect(lifetime.sliding, (sliding) => { if (!sliding) setAnimated(false); }, { defer: true });
 
   const rendered = () => phase() !== "closed" || lifetime.exiting();
 
@@ -227,7 +230,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     tab,
     setTab: createSettled(setTab),
     toggle: createSettled(toggle),
-    fold: createSettled((source: ActivationSource = "pointer") => { if (open()) move("closed", !reducedMotion(), false, source); }),
+    fold: createSettled((source: ActivationSource = "pointer", slides = true) => { if (open()) move("closed", slides && !reducedMotion(), false, source); }),
     attach: setElement,
     sliding: lifetime.sliding,
     settle: lifetime.settle,

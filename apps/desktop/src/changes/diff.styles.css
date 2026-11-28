@@ -1,4 +1,4 @@
-/* U7674d: the diff's colours are Shiki's github-light in both App modes; only type and spacing come from App Tokens. */
+/* U8035: the diff's colours are Shiki's github-light or github-dark-default, as the App's theme is; only type and spacing come from App Tokens. */
 :host {
   --diffs-font-family: var(--font-mono);
   --diffs-header-font-family: var(--font-ui);
@@ -6,6 +6,7 @@
   --diffs-line-height: var(--space-5);
   --diffs-gap-block: var(--space-2);
   --diffs-gap-inline: var(--space-2);
+  --diffs-bg: var(--diff-code-ground);
 }
 .diff-note { margin: 0; padding: var(--space-2); color: var(--text); background: var(--sunken); font: var(--text-small) var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -28,6 +29,9 @@
 
 /* The App's chrome is non-selectable; diff text must opt into native selection. */
 [data-line] { user-select: text; }
+
+/* U8035: a plain file drops the sign but keeps its column, so the note button never covers the first character. */
+pre:not([data-indicators]) [data-line] { padding-inline-start: 2ch; }
 
 /* U7676a: the gutter + is Pierre's own button; only its look is ours. */
 [data-utility-button] { color: var(--text); cursor: pointer; }

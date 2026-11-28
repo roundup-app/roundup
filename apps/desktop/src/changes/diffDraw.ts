@@ -9,6 +9,7 @@ import type { Explaining } from "./explain";
 import type { Moved } from "./moves";
 import { sameRevisions } from "./fileState";
 import { sideName, sourceAt } from "./lines";
+import { isNew } from "./paths";
 import { hunkFunction, type Takes } from "./modules";
 import type { LineSelection } from "./lines";
 import type { LineNote } from "./notes";
@@ -72,8 +73,12 @@ export const annotate = (view: VirtualizedFileDiff<Annotated>, lines: readonly D
 /** U7676c: the notes whose comparison is not the open one; they stay in the batch and gather after the file's last line. */
 export const gatheredNotes = (value: FileComparison | undefined, notes: readonly LineNote[]) => value ? notes.filter(note => note.comparison.newPath === value.newPath && !shown(note, value)) : [];
 
-/** U7674d: the diff is light in both App modes. */
-const DIFF_THEME = "github-light";
+/** U8035: the code's theme is the App's, dark or light; a new or deleted file is plain code, with no sign and no line ground. */
+const diffLook = (value: FileComparison, dark: boolean) => {
+  const plain = value.status === "deleted" || isNew(value.status);
+
+  return { theme: dark ? "github-dark-default" : "github-light", diffIndicators: plain ? "none" : "classic", disableBackground: plain } as const;
+};
 
 let library: Promise<typeof import("@pierre/diffs")> | undefined;
 
@@ -202,6 +207,8 @@ type Hooks = {
   annotation: (metadata: Annotated) => HTMLElement;
   /** U7683d: a flow's section draws only the hunks with a changed line this takes. */
   only?: Takes | undefined;
+  /** U8035: the App is in its dark theme. */
+  dark: boolean;
 };
 
 /** Pierre's range as the App's selection: its side named for the App, its ends in line order whichever way it ran. */
@@ -235,8 +242,9 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   if (!hooks.current()) return undefined;
 
   const { VirtualizedFileDiff, Virtualizer, processFile, preloadHighlighter, getFiletypeFromFileName } = await (library ??= import("@pierre/diffs").then(module => {
-    // U7674d: the library ships no themes in this build; Pierre's own github-light, a Zed theme for Highlights, loads on first use.
-    module.registerCustomTheme(DIFF_THEME, () => import("@pierre/highlights/themes/github-light"), "zed");
+    // U8035: the library ships no themes in this build; Pierre's own github-light and github-dark-default, Zed themes for Highlights, load on first use.
+    module.registerCustomTheme("github-light", () => import("@pierre/highlights/themes/github-light"), "zed");
+    module.registerCustomTheme("github-dark-default", () => import("@pierre/highlights/themes/github-dark-default"), "zed");
 
     return module;
   }));
@@ -246,6 +254,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
 
   if (!hooks.current()) return undefined;
 
+  const look = diffLook(value, hooks.dark);
   const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
   const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
   await yielded();
@@ -313,7 +322,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
     renderAnnotation: ({ metadata }) => hooks.annotation(metadata),
     // U7677a: Pierre has no line decoration API, so each noted line carries the attribute the stylesheet keys on, again after each render.
     onPostRender: node => restamp(node),
-    theme: DIFF_THEME, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true, unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
+    ...look, lineDiffType: coarse ? "none" : "word-alt", overflow: "wrap", preferredHighlighter: "highlights", diffStyle: "unified", disableFileHeader: true, unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
   // U7610b: the first file opens with the list, so each step of a large rewrite yields to the page before the next.
   await yielded();
@@ -331,7 +340,7 @@ export const drawDiff = async (value: FileComparison, mount: HTMLElement, hooks:
   if (!hooks.current()) return undefined;
 
   // Pierre anchors a visible file of no height to its bottom, so a first render left waiting on the highlighter opened the diff at its last line.
-  await preloadHighlighter({ themes: [DIFF_THEME], langs: [...new Set([oldFile.name, newFile.name].map(getFiletypeFromFileName))], preferredHighlighter: "highlights" });
+  await preloadHighlighter({ themes: [look.theme], langs: [...new Set([oldFile.name, newFile.name].map(getFiletypeFromFileName))], preferredHighlighter: "highlights" });
 
   // U7610c: the reader's first render of the view is a task of its own.
   await yielded();

@@ -79,7 +79,8 @@ export default defineConfig({
   // U7696b: the move reader's Worker is built apart from the App; C9d reads its modules from a report beside the App's.
   worker: { plugins: () => [visualizer({ filename: "../../target/release-modules-worker.json", template: "raw-data" })] },
   build: { manifest: true, rolldownOptions: { output: { codeSplitting: { groups: [{ name: "solid", test: /\/node_modules\/(?:solid-js|@solidjs\/web)\// }] } } } },
-  plugins: [solid(), buildModules(),
+  // U7610b: the test servers leave off Solid's Chrome Performance panel tracks: they time every effect and memo run with performance.measure, which about doubled the longest block the responsiveness test reads.
+  plugins: [solid({ performanceTracks: process.env["VITEST"] === undefined }), buildModules(),
     // U7696b: the move reader's grammars are 1 MB or more each; shipped gzipped they keep the desktop dist under C9c's cap. The reader inflates them in its Worker. Its runtime stays plain: it loads by URL.
     compression({ include: /\.wasm$/, exclude: /web-tree-sitter/, algorithms: ["gzip"], deleteOriginalAssets: true }), visualizer({ filename: "../../target/release-modules.json", template: "raw-data" }), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",

@@ -215,3 +215,10 @@ export const setUpView = () => {
     if (plain) Object.defineProperty(Element.prototype, "scrollTop", plain); else Reflect.deleteProperty(Element.prototype, "scrollTop");
   });
 };
+
+/** U8011b: the viewed rows listed again: the list header's toggle, pressed once. */
+export const showViewedRows = () => {
+  const toggle = region().querySelector<HTMLElement>(".changes-viewed-toggle");
+
+  if (toggle?.getAttribute("aria-pressed") === "false") fireEvent.click(toggle);
+};
