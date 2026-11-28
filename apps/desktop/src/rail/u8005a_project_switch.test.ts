@@ -10,7 +10,7 @@ it("u8005a_a_project_switch_keeps_the_new_projects_folded_rail_folded", () => {
   const frame = { open: () => false, fold: vi.fn(), toggle: vi.fn() };
 
   createRoot(() => {
-    createChangesFold(open, { collapsed }, { set }, frame, () => "pointer", project);
+    createChangesFold(open, { collapsed }, { set, animatable: () => false }, frame, () => "pointer", project);
   });
 
   setOpen(true);

@@ -1,4 +1,4 @@
-import { railSliding } from "../rail/sliding";
+import { foldPending, railSliding } from "../rail/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { shelfSliding } from "../shelf/sliding";
 import { resizeDragging } from "./dragging";
@@ -8,11 +8,9 @@ export const layoutMoving = (): boolean => resizeDragging() || drawerSliding() |
 
 const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
 
-/** U7610b: resolves once the centre has stopped changing width. It looks a frame late, so a fold asked for in the frame that drew the caller has started by then; a test DOM slides at once. */
+/** U7610b: resolves once the centre has stopped changing width, a task after the caller asked, so a fold the same task queued is already pending. */
 export const layoutRested = async () => {
-  if (!("getAnimations" in Element.prototype)) return;
+  await new Promise(resolve => setTimeout(resolve));
 
-  await nextFrame();
-
-  while (layoutMoving()) await nextFrame();
+  while (layoutMoving() || foldPending()) await nextFrame();
 };
