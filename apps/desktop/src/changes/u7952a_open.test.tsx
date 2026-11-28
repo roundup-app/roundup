@@ -7,6 +7,7 @@ import { notices } from "../testing/notices";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { copy } from "./copy";
 import { treeRow } from "./noteHarness";
+import { comparison } from "./viewHarness";
 
 afterEach(cleanup);
 
@@ -17,6 +18,8 @@ const OWNED: OwnedChanges = { groups: [
 const openOwned = async () => {
   const { app } = await mountRail([agent("a", "idle", "ready")], [], () => null, () => false, { pane: true }, [], { name: "p", path: "/p" }, app => {
     app.handlers["agent.ownedChanges"] = () => OWNED;
+    app.handlers["agent.compareFile"] = ({ path }) => comparison(path);
+    app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   });
 
   fireEvent.click(await within(rowOf("a")).findByRole("button", { name: "1 changed file" }));

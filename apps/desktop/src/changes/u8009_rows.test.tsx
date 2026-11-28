@@ -83,7 +83,7 @@ it("u8034_a_rows_mark_is_one_control_whose_tooltip_and_name_say_its_most_urgent_
   mounted.app.handlers["agent.repeatScan"] = () => ({ spots: [REPEAT, { ...REPEAT, start: 5, end: 7 }], complete: true });
   await openChanges();
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
-  const row = moduleRow("crates/a");
+  const row = await waitFor(() => moduleRow("crates/a"));
 
   await waitFor(() => expect(row.querySelectorAll(".changes-row-slot button")).toHaveLength(1));
   const mark = within(row).getByRole("button", { name: copy.repeatsCount(2) });

@@ -22,6 +22,8 @@ export const openChanges = async () => {
   });
 
   action.run();
+  await screen.findByRole("region", { name: copy.changes });
+  await new Promise(resolve => setTimeout(resolve));
 };
 
 /** U8010: the view lands on the first item, so a test that reads the Overview chooses it by the header's icon, as a user does. */
