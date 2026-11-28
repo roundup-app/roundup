@@ -238,7 +238,9 @@
 .changes-row-added, .changes-row-removed { block-size: 100%; }
 .changes-row-added { background: var(--green-11); }
 .changes-row-removed { background: var(--red-11); }
-.changes-row-slot { flex: none; display: flex; align-items: center; justify-content: center; inline-size: var(--space-3); }
+.changes-row-slot { flex: none; position: relative; display: flex; align-items: center; justify-content: center; inline-size: var(--space-3); }
+.changes-row-slot:has(.changes-row-icon, .risk-mark) { cursor: pointer; }
+.changes-row-slot:has(.changes-row-icon, .risk-mark)::before { content: ""; position: absolute; inset-block: calc(var(--space-3) * -1); inset-inline: calc(var(--space-2) * -1); }
 .changes-row-icon { display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: none; color: var(--grey); cursor: pointer; }
 .changes-row-icon svg, .risk-mark svg { inline-size: var(--space-3); block-size: var(--space-3); }
 .changes-row-icon[data-signal="finding"] { color: var(--red); }

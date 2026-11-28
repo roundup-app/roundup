@@ -28,7 +28,7 @@ export function register(on) {
 
 ## Where Extensions run
 
-Each Extension is a child process of `rupd` running its `module` with the owner's `node`, started by the Extension host (`crates/rupd`, `src/extensions/`) after the Daemon serves its socket. Extensions are folders in `~/.roundup/extensions/`; a Project folder never loads code. `rupd` enforces `permissions` (`agents`, `todos`, `pads`, `bus`, `ui`, `store`, `clock`) on the child's calls. A load failure ends the new child only and raises one `extension.problem` (a Toast). Acceptance: `scenarios/user-actions.md`.
+Each Extension is a child process of `rupd` running its `module` with the owner's `node`, started by the Extension host (`crates/rupd`, `src/extensions/`) after the Daemon serves its socket. Extensions are folders in `~/.roundup/extensions/`; a Project folder never loads code. `rupd` enforces `permissions` (`agents`, `todos`, `pads`, `bus`, `ui`, `store`, `clock`) on the child's calls. The interface only grows: `contracts/generated/extension/` holds every frame, and an Extension or host ignores an event, frame or field it does not know. A load failure ends the new child only and raises one `extension.problem` (a Toast). Acceptance: `scenarios/user-actions.md`.
 
 ## User actions
 

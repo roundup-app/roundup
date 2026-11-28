@@ -9,7 +9,7 @@ import { flowName, groupFlows } from "./flows";
 import { groupLens } from "./lens";
 import { fileRanks, withRisks } from "./rank";
 import { openOverview, take } from "./noteHarness";
-import { at, chooseLens, counted, drawn, landed, marks, moduleRow, multi, openPaths, pane, press, region, setUpView, showing, slot, there } from "./viewHarness";
+import { at, chooseLens, counted, drawn, landed, marks, moduleRow, multi, openPaths, pane, press, region, setUpView, showViewedRows, showing, slot, there } from "./viewHarness";
 
 setUpView();
 
@@ -138,7 +138,7 @@ it("u7697a_keys_and_viewed_follow_the_ranked_order", async () => {
 
   // Viewed marks the module as on path order.
   fireEvent.click(within(there(slot())).getByRole("button", { name: copy.viewed }));
-  await waitFor(() => expect(moduleRow("crates/a").getAttribute("aria-label")).toContain(copy.viewed));
+  await waitFor(() => { showViewedRows(); expect(moduleRow("crates/a").getAttribute("aria-label")).toContain(copy.viewed); });
 });
 
 const FLOWS: Account = {

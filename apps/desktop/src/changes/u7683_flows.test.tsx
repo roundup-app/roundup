@@ -9,7 +9,7 @@ import { keepHunks } from "./diffDraw";
 import { answers, FLOW_FILES, flowComparison, LOAD, LOOKUP, OTHER, RUN, RUST, SHOUT, ALIAS, TYPES_ONLY, TYPESCRIPT } from "./flowFixture";
 import { flowName, groupFlows } from "./flows";
 import { openOverview, saveNote, take, treeRow } from "./noteHarness";
-import { tabNamed, chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showing, slot } from "./viewHarness";
+import { tabNamed, chooseLens, drawnIn, edited, landed, lensGroup, moduleKeys, moduleRow, openPaths, pane, press, region, section, setUpView, showViewedRows, showing, slot } from "./viewHarness";
 
 setUpView();
 
@@ -195,7 +195,7 @@ it("u7923a_a_hunk_outside_every_function_sits_under_unplaced_though_its_function
 
   // Viewed: Unplaced reads viewed once marked.
   press("v");
-  await waitFor(() => expect(moduleRow("~unplaced").getAttribute("aria-label")).toContain(copy.viewed));
+  await waitFor(() => { showViewedRows(); expect(moduleRow("~unplaced").getAttribute("aria-label")).toContain(copy.viewed); });
 });
 
 it("u7683d_a_flow_opens_its_sections_in_call_order_each_with_only_the_hunks_that_hold_its_function", async () => {
@@ -322,7 +322,7 @@ it("u7683g_marking_a_flow_viewed_opens_the_next_unviewed_flow_and_a_shared_file_
   press("v");
 
   // run and other list the same two files, so marking one marks both; the next unviewed item opens.
-  await waitFor(() => expect(said(RUN)).toContain(copy.viewed));
+  await waitFor(() => { showViewedRows(); expect(said(RUN)).toContain(copy.viewed); });
   expect(said(OTHER)).toContain(copy.viewed);
   await showing(ALIAS.path);
 });
