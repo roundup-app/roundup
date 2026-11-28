@@ -6,7 +6,7 @@ import type * as extension$Capability from "./Capability";
  *  folder's manifest says.
  */
 export type ApproveParams = {
-	folder: string,
+	dir: string,
 	name: string,
 	uses: extension$Capability.Capability[],
 };

@@ -167,7 +167,7 @@ impl Fx {
             .await
             .request(
                 "extension.approve",
-                json!({"folder": folder, "name": name, "uses": uses}),
+                json!({"dir": folder, "name": name, "uses": uses}),
             )
             .await
     }
@@ -221,7 +221,7 @@ async fn ep5_an_extension_asking_panel_is_granted_it_only_after_an_attested_appr
         .unwrap();
     assert_eq!(
         listed,
-        json!([{"folder": "hum", "name": "hum", "asked": ["panel"], "granted": [], "waiting": ["panel"]}])
+        json!([{"dir": "hum", "name": "hum", "asked": ["panel"], "granted": [], "waiting": ["panel"]}])
     );
     fx.approve("hum", "hum", &["panel"]).await.unwrap();
     fx.hello_granted("hum", &["panel"]).await;
@@ -244,7 +244,7 @@ async fn ep5_the_approval_call_on_an_unattested_connection_is_forbidden() {
         .await
         .request(
             "extension.approve",
-            json!({"folder": "hum", "name": "hum", "uses": ["panel"]}),
+            json!({"dir": "hum", "name": "hum", "uses": ["panel"]}),
         )
         .await
         .unwrap_err();
@@ -260,7 +260,7 @@ async fn ep5_the_approval_call_on_an_unattested_connection_is_forbidden() {
     let refused = claimed
         .request(
             "extension.approve",
-            json!({"folder": "hum", "name": "hum", "uses": ["panel"]}),
+            json!({"dir": "hum", "name": "hum", "uses": ["panel"]}),
         )
         .await
         .unwrap_err();
@@ -354,7 +354,7 @@ async fn ep6_a_second_folder_with_the_same_name_gets_its_own_store_actor_and_no_
         .as_array()
         .unwrap()
         .iter()
-        .find(|row| row["folder"] == "humtwo")
+        .find(|row| row["dir"] == "humtwo")
         .unwrap();
     assert_eq!(humtwo["granted"], json!([]));
 }

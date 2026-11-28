@@ -26,7 +26,7 @@ pub(super) struct Manifest {
     /// EP5: the capabilities the manifest asks for, in the order of `Capability`, once each.
     pub uses: Vec<Capability>,
     /// EP5: the folder, which keys `$.store` and the `ext:` Actor (EP6); set by the loader.
-    pub folder: String,
+    pub dir: String,
     /// EP5: what rupd granted; set by the loader from the owner's approvals.
     pub granted: Vec<Capability>,
 }
@@ -63,7 +63,7 @@ pub(super) fn read(path: &Path) -> Result<(std::path::PathBuf, Manifest), String
             module: file.into_owned(),
             permissions: NARROW.map(str::to_owned).to_vec(),
             uses: Vec::new(),
-            folder: String::new(),
+            dir: String::new(),
             granted: Vec::new(),
         };
         return Ok((path.parent().unwrap_or(path).to_path_buf(), manifest));
@@ -124,7 +124,7 @@ fn read_folder(folder: &Path) -> Result<Manifest, String> {
         module,
         permissions,
         uses: uses(&value, &at)?,
-        folder: String::new(),
+        dir: String::new(),
         granted: Vec::new(),
     })
 }

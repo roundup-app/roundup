@@ -127,7 +127,7 @@ impl Host {
         use notify::Watcher;
         let mut watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                if event.is_ok() {
+                if event.is_ok_and(|event| !event.kind.is_access()) {
                     let _ = changes.send(());
                 }
             })
@@ -140,7 +140,6 @@ impl Host {
 
     /// Loads what changed since the last scan: a new or saved Extension, a removed one.
     async fn scan(&self, daemon: &Arc<Daemon>) {
-        { use std::io::Write; let _ = writeln!(std::fs::OpenOptions::new().create(true).append(true).open("/tmp/dbg.log").unwrap(), "scan"); }
         let _one = self.scanning.lock().await;
         let mut folders = BTreeMap::new();
         for entry in std::fs::read_dir(&self.dir).into_iter().flatten().flatten() {
@@ -197,7 +196,6 @@ impl Host {
     }
 
     fn problem(&self, daemon: &Daemon, extension: &str, cause: String) {
-        { use std::io::Write; let _ = writeln!(std::fs::OpenOptions::new().create(true).append(true).open("/tmp/dbg.log").unwrap(), "problem {extension}: {cause}"); }
         daemon.bus.emit(
             Actor::daemon(),
             EventData::ExtensionProblem(ExtensionProblem {
@@ -217,7 +215,7 @@ impl Host {
     ) {
         let (folder, manifest) = match manifest::read(&folder) {
             Ok((folder, mut manifest)) => {
-                manifest.folder.clone_from(&folder_name);
+                manifest.dir.clone_from(&folder_name);
                 manifest.granted = self.granted(&folder_name, &manifest);
                 (folder, Arc::new(manifest))
             }
@@ -415,19 +413,19 @@ impl Host {
             let mut state = self.state.lock();
             let shown = state
                 .loaded
-                .get(&p.folder)
+                .get(&p.dir)
                 .is_some_and(|loaded| loaded.name == p.name && loaded.uses == uses);
             if !shown {
                 return Err(RpcError::conflict(format!(
                     "{} no longer asks for exactly these capabilities under this name; read extension.capabilities again",
-                    p.folder
+                    p.dir
                 )));
             }
             self.approvals
                 .lock()
-                .record(&p.folder, &p.name, &uses)
+                .record(&p.dir, &p.name, &uses)
                 .map_err(RpcError::internal)?;
-            if let Some(loaded) = state.loaded.get_mut(&p.folder) {
+            if let Some(loaded) = state.loaded.get_mut(&p.dir) {
                 loaded.fingerprint.clear();
             }
         }
@@ -444,7 +442,7 @@ impl Host {
             .loaded
             .iter()
             .map(|(folder, loaded)| ExtensionCapabilities {
-                folder: folder.clone(),
+                dir: folder.clone(),
                 name: loaded.name.clone(),
                 asked: loaded.uses.clone(),
                 granted: loaded.granted.clone(),
@@ -496,7 +494,7 @@ impl Host {
             "clock" if function == "now" => {
                 Ok(json!(u64::try_from(provenance::now_ms()).unwrap_or(0)))
             }
-            "store" => self.store_call(&manifest.folder, function, params),
+            "store" => self.store_call(&manifest.dir, function, params),
             "agents" | "todos" | "pads" => {
                 let namespace = permission.trim_end_matches('s');
                 let method = format!("{namespace}.{function}");
@@ -505,7 +503,7 @@ impl Host {
                     settings_granted: manifest.granted.contains(&Capability::AgentsSettings),
                     actor: Actor {
                         kind: ActorKind::Ext,
-                        id: format!("ext:{}", manifest.folder),
+                        id: format!("ext:{}", manifest.dir),
                         parent: None,
                     },
                     peer: None,

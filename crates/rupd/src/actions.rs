@@ -334,7 +334,7 @@ impl Daemon {
         p: contracts::extension::ApproveParams,
     ) -> Result<(), RpcError> {
         self.ctx(conn.actor.clone())
-            .touch(Verb::Wrote, &format!("extension:{}", p.folder))?;
+            .touch(Verb::Wrote, &format!("extension:{}", p.dir))?;
         self.extensions.approve(p)
     }
 

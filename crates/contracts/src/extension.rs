@@ -36,7 +36,7 @@ pub enum Capability {
 /// EP5: what one Extension folder asked (`uses`), what rupd granted it and what waits for the owner.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ExtensionCapabilities {
-    pub folder: String,
+    pub dir: String,
     pub name: String,
     pub asked: Vec<Capability>,
     pub granted: Vec<Capability>,
@@ -47,7 +47,7 @@ pub struct ExtensionCapabilities {
 /// folder's manifest says.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ApproveParams {
-    pub folder: String,
+    pub dir: String,
     pub name: String,
     pub uses: Vec<Capability>,
 }
