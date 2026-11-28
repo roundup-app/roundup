@@ -191,12 +191,14 @@ const createComparisonRead = (props: ReadProps) => {
     stopLoading = () => { current = false; };
   };
 
+  const waiting = createMemo(() => props.waiting === true);
+
   const params = () => compareParams(props.id, props.path, props.to ?? "tree", props.group);
 
   const worktree = createMemo(() => worktrees.read(props.id));
 
   // U7675b: a refresh reads again only while the entry's blob has not moved on: a changed blob waits for Reload.
-  createEffect(() => [worktree(), params(), props.waiting] as const, ([, next]) => {
+  createEffect(() => [worktree(), params(), waiting()] as const, ([, next]) => {
     const now = untrack(() => ({ blob: props.blob ?? null, painted: painted() }));
 
     if (now.painted.path === next.path && now.blob !== null && now.blob !== now.painted.blob) return;
@@ -405,7 +407,7 @@ export const DiffReader = (props: { waiting?: boolean | undefined; shared?: Shar
 
       if (next) moveTo(next.side, next.at[next.side]);
 
-      return next ? "moved" : loading() || (drawableOf(read(), hidden()) && rendered === undefined) ? "wait" : "none";
+      return next ? "moved" : loading() || props.waiting || (drawableOf(read(), hidden()) && rendered === undefined) ? "wait" : "none";
     },
   }));
 
@@ -420,7 +422,7 @@ export const DiffReader = (props: { waiting?: boolean | undefined; shared?: Shar
 
   const reload = () => { setShown(undefined); reread(); };
 
-  return <section class="diff-reader" aria-label={copy.diff} data-waiting={props.waiting || undefined}>
+  return <section class="diff-reader" aria-label={props.waiting ? undefined : copy.diff} data-waiting={props.waiting || undefined}>
     <header class="diff-header">
       <DiffIdentity read={read()} path={props.path} rank={props.rank} />
       <Show when={props.counts}>{counts => <p class="diff-counts">{copy.addedLines(counts().added)} {copy.removedLines(counts().removed)}</p>}</Show><Show when={props.explain?.offered() && drawableOf(read(), hidden())}><IconButton aria-label={copy.explainWords} onClick={() => explaining.ask("words")}><Icon name="read" /></IconButton><IconButton aria-label={copy.explainDiagram} onClick={() => explaining.ask("diagram")}><Icon name="workflow" /></IconButton></Show><Show when={props.onNote}>{note => <IconButton aria-label={copy.noteOn.file} onClick={event => note()(event.currentTarget)}><Icon name="note-plus" /></IconButton>}</Show>
@@ -428,8 +430,7 @@ export const DiffReader = (props: { waiting?: boolean | undefined; shared?: Shar
     <BlockedFailure message={failure() && `${copy.fileReadFailed(props.path)}: ${failure()}`} content={copy.fileReadFailed(props.path)} recover={loading() ? undefined : { run: retry }} />
     <StatusNote text={failure() || props.waiting ? null : notice()} />
     <Show when={updated()}><div class="mounted-line" role="status"><span>{copy.updatedFile(props.name)}</span> <IconButton aria-label={copy.reload} onClick={reload}><Icon name="rotate-cw" /></IconButton></div></Show>
-    <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><IconButton aria-label={hidden() === "large" ? copy.showAnyway : copy.showWhitespace} onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}><Icon name="down" /></IconButton></div></Show>
-    <Show when={props.waiting}><div class="diff-waiting" /></Show>
+    <Show when={hidden() === "whitespace" || hidden() === "large"}><div class="mounted-line"><IconButton aria-label={hidden() === "large" ? copy.showAnyway : copy.showWhitespace} onClick={() => setShown({ path: props.path, kind: hidden() === "large" ? "large" : "whitespace" })}><Icon name="down" /></IconButton></div></Show><Show when={props.waiting}><div class="diff-waiting" /></Show>
     <Show when={read()}>{value => <Show when={value().status !== null && drawsLines(value())}><div class="diff-content" tabindex="-1" ref={setHost} /></Show>}</Show>
     <Show when={read()}>{value => <Show when={value().status !== null && imageHidden(value()) === null ? imageSides(value()) : null} keyed>{sides => <ImagePane sides={sides} />}</Show>}</Show>
     <Unshown id={props.id} notes={props.notes} gathered={gathered()} read={read()} spots={props.spots ?? []} drawable={drawableOf(read(), hidden())} only={props.only} />
