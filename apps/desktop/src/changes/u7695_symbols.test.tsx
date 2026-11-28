@@ -39,28 +39,41 @@ const logicOpen = async (handler: Handler = params => params.language === "types
   return mounted;
 };
 
-const list = () => screen.queryByRole("list", { name: copy.functionsAndTypes });
+const callRows = () => [...region().querySelectorAll<HTMLElement>('[data-row="call"]')];
 
-const rows = () => within(there(list())).getAllByRole("listitem").map(row => row.textContent);
+/** U8032c: what each unfolded row says aloud. */
+const rows = () => callRows().map(row => row.getAttribute("aria-label"));
+
+const unfolded = () => waitFor(() => expect(callRows().length).toBeGreaterThan(0));
 
 /** An item opened, with its list open once its trace is done. */
 const listed = async (item: string) => {
   take(moduleRow(item));
-  fireEvent.click(await screen.findByRole("button", { name: copy.functionsAndTypes }));
+  await unfolded();
 };
 
 it("u7695a_a_logic_item_lists_its_changed_functions_and_types_with_their_kind", async () => {
   await logicOpen();
   take(moduleRow("apps/a"));
+  await unfolded();
+  expect(rows()).toEqual(["load, function", "run, function", "other, function, Removed", "Alias, type, Added"]);
 
-  // Closed at first: the count is all the item says.
-  fireEvent.click(await screen.findByRole("button", { name: copy.functionsAndTypes }));
-  expect(rows()).toEqual(["load function", "run function", "other function Removed", "Alias type Added"]);
-
-  // The list is no lens: the other lenses have none.
+  // The rows are no lens's: the other lenses have none.
   await chooseLens(copy.lenses.modules);
-  await waitFor(() => expect(screen.queryByRole("button", { name: copy.functionsAndTypes })).toBeNull());
-  expect(list()).toBeNull();
+  await waitFor(() => expect(callRows()).toEqual([]));
+});
+
+it("u8032c_the_open_logic_items_row_unfolds_into_its_changed_functions_with_marks", async () => {
+  await logicOpen();
+  take(moduleRow("apps/a"));
+  await unfolded();
+  expect(callRows().map(row => row.querySelector(".changes-row-status")?.textContent ?? "")).toEqual(["", "", "−", "+"]);
+
+  // The row says no word for its status; an item that is not open unfolds none.
+  expect(callRows().map(row => row.textContent)).toEqual(["load", "run", "other−", "Alias+"]);
+  take(moduleRow("crates/b"));
+  await showing("crates/b/src/lib.rs");
+  expect(callRows()).toEqual([]);
 });
 
 it("u7695b_a_language_with_no_server_and_the_changes_target_show_no_entry_and_no_words", async () => {
@@ -73,17 +86,17 @@ it("u7695b_a_language_with_no_server_and_the_changes_target_show_no_entry_and_no
   await showing("apps/a/src/load.ts");
 
   // The Changes target has no Worktree to trace: no list, no line, no request.
-  expect(screen.queryByRole("button", { name: copy.functionsAndTypes })).toBeNull();
+  expect(callRows()).toEqual([]);
   expect(seen).toEqual([]);
 
   // The Tree target traces TypeScript; Rust has no server: its item shows nothing.
   fireEvent.click(await screen.findByRole("radio", { name: copy.targetTree }));
   await waitFor(() => expect(seen).toEqual(["lookup", "typescript"]));
   take(moduleRow("apps/a"));
-  await screen.findByRole("button", { name: copy.functionsAndTypes });
+  await unfolded();
   take(moduleRow("crates/b"));
   await showing("crates/b/src/lib.rs");
-  expect(screen.queryByRole("button", { name: copy.functionsAndTypes })).toBeNull();
+  expect(callRows()).toEqual([]);
   expect(region().querySelector("[data-state]")).toBeNull();
 });
 
@@ -93,12 +106,12 @@ it("u7695b_rust_says_not_traced_and_trace_adds_its_entries", async () => {
   await showing("crates/b/src/lib.rs");
 
   screen.getByText(copy.languageNotTraced("Rust", 1));
-  expect(screen.queryByRole("button", { name: copy.functionsAndTypes })).toBeNull();
+  expect(callRows()).toEqual([]);
 
   // Trace makes the one Rust request; the entry replaces the line.
   fireEvent.click(within(region()).getByRole("button", { name: copy.trace }));
-  fireEvent.click(await screen.findByRole("button", { name: copy.functionsAndTypes }));
-  expect(rows()).toEqual([SHOUT.name + " function"]);
+  await unfolded();
+  expect(rows()).toEqual([SHOUT.name + ", function"]);
   expect(screen.queryByText(copy.languageNotTraced("Rust", 1))).toBeNull();
   expect(seen).toEqual(["lookup", "typescript", "rust"]);
 });
@@ -114,7 +127,7 @@ it("u7695b_a_failed_or_dimmed_trace_reads_in_the_item", async () => {
   // Retry asks again; the entries come.
   failing = false;
   fireEvent.click(within(region()).getByRole("button", { name: copy.retry }));
-  await screen.findByRole("button", { name: copy.functionsAndTypes });
+  await unfolded();
   expect(screen.queryByText(copy.traceFailed("TypeScript"))).toBeNull();
 
   // A write dims the list it was built from.
@@ -124,17 +137,19 @@ it("u7695b_a_failed_or_dimmed_trace_reads_in_the_item", async () => {
   await waitFor(() => expect(screen.queryByText(copy.changedSinceTraced)).toBeNull());
 });
 
-it("u7695c_choosing_a_name_focuses_its_first_changed_line_and_asks_for_no_trace", async () => {
+it("u8032c_choosing_an_unfolded_function_focuses_its_first_changed_line_and_hides_nothing", async () => {
   await logicOpen();
   await listed("apps/a");
 
   const asked = [...seen];
 
   // `run` spans 1 to 5: the first change in it begins at line 2, where `]` stops on the removed line. `other` is removed: its change is line 20 of the old side.
-  fireEvent.click(within(there(list())).getByRole("button", { name: RUN.name }));
+  const row = (name: string) => there(callRows().find(each => each.textContent?.startsWith(name)));
+
+  fireEvent.click(row(RUN.name));
   await showing(RUN.path);
   await marks(at("old", 2), RUN.path);
-  fireEvent.click(within(there(list())).getByRole("button", { name: OTHER.name }));
+  fireEvent.click(row(OTHER.name));
   await marks(at("old", 20), OTHER.path);
 
   // Choosing makes no request, and every file of the item stays in its scroll.

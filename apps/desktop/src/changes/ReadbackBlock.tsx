@@ -6,7 +6,6 @@ import { IconButton } from "../ui/IconButton";
 import { Select } from "../ui/Select";
 import { RiskMark } from "./RiskMark";
 import { copy } from "./copy";
-import { FlowTree } from "./FlowTree";
 import type { Lens } from "./lens";
 import type { ModuleGroup } from "./modules";
 import { failureCause, gapsFailure, gapsOf, type ReadbackState, type Stepper } from "./readback";
@@ -92,10 +91,9 @@ const FlowAccount = (props: { read: NonNullable<ModuleGroup["read"]> }) => <sect
 </section>;
 
 /** U7683e, U7688d, U7689: what sits above an item's scroll: a flow's explanation and its call tree, a module's own account, and on Not traced the way to a readback. */
-export const ItemAccount = (props: { item: ModuleGroup; lens: Lens; readback: ReadbackState; open: (section: string) => void }) => <>
+export const ItemAccount = (props: { item: ModuleGroup; lens: Lens; readback: ReadbackState }) => <>
   <Show when={props.item.risk}>{risk => <RiskMark risk={risk()} focusable />}</Show>
   <Show when={props.item.read}>{read => <Show when={read().notes.length > 0}><FlowAccount read={read()} /></Show>}</Show>
-  <Show when={props.item.flow}>{flow => <FlowTree flow={flow()} open={props.open} />}</Show>
   <Show when={props.item.untraced && props.readback.offered()}>
     <section class="readback"><p>{copy.readToSee}</p><ReadbackAction name={copy.readBack} icon="read" run={() => props.readback.start()} /></section>
   </Show>

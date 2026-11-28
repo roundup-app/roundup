@@ -293,8 +293,8 @@ const d2 = (page: Page): Measure =>
 
     const padPadding = padDepth > 0 ? (px(page.token("space-1") ?? "") ?? NaN) + padDepth * (px(page.token("tree-step") ?? page.token("space-5") ?? "") ?? NaN) : null;
 
-    // U7683e: a call in a flow's tree carries its depth in --flow-depth, one space step in for each level.
-    const flowPadding = el instanceof HTMLElement && el.matches(".flow-tree-rows .changes-row") ? (px(page.token("space-2") ?? "") ?? NaN) * (1 + Number(el.style.getPropertyValue("--flow-depth") || 0)) : null;
+    // U8032a: a call row under the open item carries its depth in --flow-depth, one space step in for each level below the item's own step.
+    const flowPadding = el instanceof HTMLElement && el.matches('.changes-tree .changes-row[data-row="call"]') ? (px(page.token("space-6") ?? "") ?? NaN) + (px(page.token("space-2") ?? "") ?? NaN) * Number(el.style.getPropertyValue("--flow-depth") || 0) : null;
 
     const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
     const chip = el.matches("kbd.key-chip");

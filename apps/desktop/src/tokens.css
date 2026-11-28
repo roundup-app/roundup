@@ -58,6 +58,7 @@
   --diff-text: #1f2328;
   --diff-grey: #59636e;
   --diff-ground: #f6f8fa;
+  --diff-code-ground: #ffffff;
   --diff-accent: #b23300;
   /* The accent at 55% for the bar and 6% for the tint, written as rgba because D5 reads a computed wash only in that form. */
   --note-bar-width: 2px;
