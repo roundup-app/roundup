@@ -104,7 +104,7 @@ roundup owns attention and coordination: which matter sits in the centre, who ma
 
 ## P16 The centre and the way to the next matter
 
-Everything the user sees is the matter in the centre or the way to choose the next one. A machine shows only as a chip or a status on an Agent. Signals from below reach the user only through the Door and the alerts the user turned on (P3). roundup's own window already passes: the shelf follows the Rail's selection. Customisation changes how a matter looks and what acts on it, never this Principle.
+Everything the user sees is the matter in the centre or the way to choose the next one. A machine shows only as a chip or a status on an Agent. Signals from below reach the user only through the Door and the alerts the user turned on (P3). roundup's own window already passes: the shelf follows the Rail's selection. Customisation changes how a matter looks and what acts on it, never this Principle. An Extension's panel is the centre of its own Mode on the Rail, never beside the centre: it shows when you select that Mode, and raises no alert, Toast, badge or count.
 
 - Gate: does a machine show anywhere but as a chip or a status on an Agent (a sidebar, a Rail level, a dispatch panel), or does a signal from below reach the user other than through the Door and the alerts the user turned on?
 - Observer: MC3 (no surface but the Agent's chip or status shows a machine) and MC4 (a missing machine layer raises no alert).
