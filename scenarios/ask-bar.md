@@ -4,7 +4,7 @@ Policy amendment — owner decision of 2026-11-05 (#6244, `scenarios/ui-project-
 
 Policy amendment — owner decision of 2026-11-02 (#5730): U504 defines one list of Project changes since the last visit under Ask. It replaces #4966's four-section accordion and section-unseen rules, and #4901's Earlier disclosure and Ask history presentation. U505 retains Sent-part acknowledgement, delivery, routing and recovery; acknowledged parts leave Overview. Full Made remains on demand through its existing Project menu action. U504's composition also governs U2539b and DV5/DV6 where they previously required Overview sections.
 
-Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, U504, U505, U506, U8046a, U8046b, U8046c, U8046d.
+Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, U504, U505, U506, U8046a, U8046b, U8046c, U8046d, U8047a, U8047b, U8047c, U8047d, U8047e.
 
 Source: the user's choices of 2026-10-15, recorded on the work Issues. Terms: Workstream, Door, Agent, Steer, Work order, Order title, Status, Kind, Adapter, Model, Effort, Rail, Reach (`GLOSSARY.md`). New terms, added to `GLOSSARY.md` by the PR that builds A40: **Ask** (one message the user sends from the Ask bar), **Ask part** (the span of an Ask that one Workstream takes), **Placement** (where an Ask part goes: `routed`, `new` or `unclear`) and **Placement call** (the Adapter's one-shot call that returns an Ask's parts and their Placements). Acceptance only; work ownership and dependencies live in GitHub Issues. No implementation is claimed by this specification.
 
@@ -203,6 +203,41 @@ Policy amendment — owner decision of 2026-11-27 (#8046), on the Ask bar: "this
 Scope (policy): `apps/desktop/src/ask/` (`AskBar.tsx`, `styles.css`, `projectPick.ts`, `copy.ts`). It builds after #8045 (`scenarios/ask-bar-tokens.md`), whose `#` and `@` tokens give the owner a way to fix the Project before the `Select` goes. No new RPC method and no contract change.
 
 Not wanted: a visible Ask field or button before ⌘/ (U6244c stands); a border inside the bar; a picker louder than the text; a Vitest test of looks.
+
+Policy amendment — owner decision of 2026-11-27 (#8047), on what follows Enter: "closes and selects or activates the pane that received the message and the project tab"; "while placing the ask view stays open showing it's being placed and a user can cancel it with a single X button click and esc just hides the ask but don't cancel it, when the ask gets placed the user gets a toaster like the regular notifications, clicking that toaster takes the user to the pane/project/agent where the ask got placed". The owner picked frames 6 and 7 of the draft:
+
+```
+Enter, @Workstream named
+└ bar closes → Project tab + that Door selected, no toast
+Enter, otherwise
+├ field empties; "Placing  <text>  [×]" under it
+├ ×   → placing stops; text back in the field, caret at its end
+├ Esc → bar hides; placing goes on
+└ placed → bar closes if open; toast
+           "Placed in Education / Loop control"
+           click → Project tab + Door selected
+```
+
+**Precedence.** As above: a design check that reads a decision here as a defect changes how it is drawn, never the decision. Every word shown is read from `copy.ts`. Contract change (rule 4, the Contract recipe of `.agents/builder.md`) for U8047b only: no new RPC method and no new type; `ask.pick` gains one case, and every caller changes in the same PR.
+
+**U8047a Enter on an `@Workstream` Ask closes the bar and selects its Door.** Given the Ask bar open and text that starts with `@<name>` naming one Workstream (A40's "Naming a Workstream skips the call"), when the user presses Enter, then the bar closes, the Project tab of that Workstream's Project and that Workstream's Door are selected once, with no Placing row and no toast. Test: `u8047a_an_at_named_enter_closes_and_selects_the_project_and_door`. The selection is the same App route as opening a row (U6271c), never a second selection path. Looks and motion: none (policy; U8046a's no-motion stands).
+
+**U8047b Enter on any other Ask keeps the bar open and shows Placing.** Given text that names no Workstream, when the user presses Enter, then the field empties and the Ask shows as one Placing row under it: the Ask's text on one line (cut with an ellipsis) and one × icon button (`IconButton`, `@lucide/solid`) with tooltip and accessible name "Stop placing". The row shows the part's `placing` state, never a Door. Tests:
+- **Row.** `u8047b_enter_empties_the_field_and_shows_one_placing_row`. The bar stays open, the draft is cleared only for the submitted revision (U504's "Ask timing and resolution"), and the row is there in the frame of Enter, before `ask.send` returns, then reconciles to the returned Ask without a duplicate.
+- **Stop.** `u8047b_the_x_stops_placing_and_restores_the_exact_text`. One click makes one `ask.pick {id, part, target: {kind: "drop"}}` call, the row leaves, the field holds the exact submitted text (newlines included) with the caret at its end and focus, and the Ask is `dropped`: nothing is delivered and no Door starts. A part that is no longer `placing` when the call lands is `CONFLICT` (A42) and the row follows the part's new state instead; the text is not restored then.
+- **Contract.** A42's pick gains a `placing` part: `{kind: "drop"}` makes it `dropped` and emits `ask.changed`; every other target on a `placing` part stays `CONFLICT`. A part already `dropped` when its Placement answer returns ignores the answer: it stays `dropped`, makes no `routed` or `new` part, starts no Workstream and delivers nothing. A Placement call still in flight is not waited for. Daemon tests, fake `claude` and no model: `a42_dropping_a_placing_part_delivers_nothing` and `a42_a_placement_answer_for_a_dropped_part_is_ignored` in `crates/agents/tests/asks.rs`; `a42_a_bad_pick_changes_nothing` gains the non-drop targets on a `placing` part. `ask.pick` stays a user method (M5, M2): an Agent's call is `FORBIDDEN`, as `a40_an_agent_cannot_call_the_ask_methods` holds.
+
+**U8047c Esc hides the bar and placing goes on.** Given the Placing row, when the user presses Esc, then the bar hides and focus returns as U6175a says, with no `ask.pick` call, and the Ask is still placed. ⌘/ opens the bar again and the Placing row shows if the part is still `placing`. Tests: `u8047c_esc_hides_with_no_stop_call` and `u8047c_the_shortcut_shows_the_placing_row_again`. U6175a ("Esc closes each floating surface and returns focus") stands for the Ask bar; this adds that hiding is not cancelling.
+
+**U8047d Placement ends with a toast and the bar closes.** Given a part that was `placing`, when `ask.changed` shows it `routed` or `new` (queued, typed or failed after), then the bar closes if open, and one toast shows through the App's shared Toast (U492), the same way its other notifications do: "Placed in <Project> / <Workstream>" with the Ask part's text under it. Clicking it selects that Project's tab and that Door, once, and dismisses it. Each placed part makes its own toast, replaced by identity so a repeated `ask.changed` adds none. A part that Placement leaves `unclear` shows a "Needs your pick" toast that opens U506's choices (assumed). The toast is not shown for an `@`-named Ask (U8047a), for a `dropped` part, or for an Ask the user stopped. The App never selects the Door on its own: only a click does. Tests: `u8047d_a_placed_event_shows_one_toast_whose_click_selects_the_project_and_door`, `u8047d_the_bar_closes_when_placement_ends`, `u8047d_an_unclear_part_toasts_needs_your_pick`.
+
+**U8047e the rendered flow for the critic.** Given the U26 harness with two open Projects, then at 1512 by 950 and at 388 px, dark and light: the bar with the Placing row, the bar hidden by Esc while placing, the bar reopened, the toast, and the Door after its click match frames 6 and 7. The × and the toast read at D6's target size, the toast is complete without sideways scroll, and D2, D5, D6 and every Check passing on `main` still pass. Run `just capture U8047e`; evidence under `artifacts/ux/U8047e/`, uncommitted. Policy; the critic judges looks against the draft frames, never a Vitest test.
+
+Amends by name: U504's "Ask timing and resolution" (Enter closes the bar for an `@`-named Ask, and keeps it open with the Placing row otherwise; the optimistic row is the Placing row), U505 (a `placing` part shows in the bar's Placing row and as its row, never twice), U6271c (opening lands on the Project tab and the Workstream's Door, also from the toast), U6175a (Esc on the Ask bar hides it while placing and cancels nothing) and A42 (`ask.pick` drop on a `placing` part).
+
+Scope (policy): `crates/agents` (the Ask module), `crates/contracts`, `contracts/generated/`, `apps/desktop/src/ask/` (`AskBar.tsx`, `AskRows.tsx`, `copy.ts`), `apps/desktop/src/state/asks.ts` and the App's toast (`ui/Toast.tsx`). It builds after #8046.
+
+Not wanted: a Placing row that stays after the toast; selecting a Door later without a click; a new RPC method; a Vitest test of looks.
 
 Checks on main (numbered references, not claims that this specification implements them):
 
