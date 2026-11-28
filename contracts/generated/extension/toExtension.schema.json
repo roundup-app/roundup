@@ -1,0 +1,244 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "offers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Capability"
+          }
+        },
+        "granted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Capability"
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "t": {
+          "type": "string",
+          "const": "hello"
+        }
+      },
+      "required": [
+        "t",
+        "offers",
+        "granted",
+        "components"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string"
+        },
+        "args": true,
+        "t": {
+          "type": "string",
+          "const": "run"
+        }
+      },
+      "required": [
+        "t",
+        "id",
+        "name",
+        "args"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "result": true,
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CallError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "t": {
+          "type": "string",
+          "const": "callResult"
+        }
+      },
+      "required": [
+        "t",
+        "id"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "ask": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "render": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "refused": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Refused"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "t": {
+          "type": "string",
+          "const": "shown"
+        }
+      },
+      "required": [
+        "t",
+        "ask"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "render": {
+          "type": "string"
+        },
+        "element": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "args": true,
+        "inputs": true,
+        "by": {
+          "$ref": "#/$defs/By"
+        },
+        "via": {
+          "$ref": "#/$defs/Via"
+        },
+        "t": {
+          "type": "string",
+          "const": "click"
+        }
+      },
+      "required": [
+        "t",
+        "id",
+        "render",
+        "element",
+        "action",
+        "args",
+        "inputs",
+        "by",
+        "via"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "$ref": "#/$defs/StopReason"
+        },
+        "t": {
+          "type": "string",
+          "const": "stop"
+        }
+      },
+      "required": [
+        "t",
+        "reason"
+      ]
+    }
+  ],
+  "$defs": {
+    "Capability": {
+      "type": "string",
+      "enum": [
+        "panel",
+        "service",
+        "agents.place",
+        "agents.settings"
+      ]
+    },
+    "CallError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "Refused": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "cause": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "cause"
+      ]
+    },
+    "By": {
+      "type": "string",
+      "enum": [
+        "user"
+      ]
+    },
+    "Via": {
+      "type": "string",
+      "enum": [
+        "app"
+      ]
+    },
+    "StopReason": {
+      "type": "string",
+      "enum": [
+        "user",
+        "reload",
+        "rupd"
+      ]
+    }
+  },
+  "title": "ToExtension",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

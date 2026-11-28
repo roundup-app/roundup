@@ -1,0 +1,619 @@
+{
+  "apps/desktop/src/app/u37_reopen.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/ask/dv5_real_daemon.test.tsx": {
+    "cleanup": "The shared fixture stops and waits for its Daemon and closes Vite before removing owned directories; this observer calls stop in afterAll or finally.",
+    "data": "Uses the audited realDaemonFixture with fresh Project and absolute run-owned App data; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/ask/dv5_rendered.test.ts": {
+    "cleanup": "The shared fixture stops and waits for its Daemon and closes Vite before removing owned directories; this observer calls stop in afterAll or finally.",
+    "data": "Uses the audited realDaemonFixture with fresh Project and absolute run-owned App data; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/header/u184_close.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/header/u185_exited.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/header/u475_browser.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/orders/q2_surfaces.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/shelf/u460_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/terminal/u59_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/terminal/u514_browser.test.ts": {
+    "cleanup": "The mouse observer awaits real.stop() in finally; the fixture waits for its Daemon to exit before removing its owned folders.",
+    "data": "Delegates to startRealDaemon, which supplies an absolute ROUNDUP_DATA_DIR in its owned temporary folder.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/a33_blocked_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/harness.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/realSeam.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u144_harness_route.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u144_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u149_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u159_workstream_todos.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u166_door_permission.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u176_agent_names.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u177_restarted_door.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u178_workstream_todos.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u194_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u198_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u346_pad_confirm.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u347_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u375_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u463_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/todos/u461_rendered.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/todos/u3720_real_daemon_owner.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "contracts/generated/extension/StopReason.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/r16/owner-read/metadata.py": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/src/claude_code/inbox.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/src/claude_code/mod.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/tests/inbox.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/tests/scenarios/orders.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/tests/scenarios/steer.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/contracts/src/common.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/contracts/src/extension.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/desktop/src/config.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/desktop/src/fork.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/desktop/src/daemon.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/inbox.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/lib.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/runtime.rs": {
+    "cleanup": "Owns no child process or child cleanup; the failure logger only writes a diagnostic.",
+    "data": "Owns no executable launch or App data; the rupd name appears only in the Message failure diagnostic.",
+    "kind": "reference"
+  },
+  "crates/messages/src/tests/b_hop_tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/perf/src/main.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/perf/src/n7_fixture.rs": {
+    "cleanup": "Owner tests keep seeded temporary folders alive through probe completion.",
+    "data": "Only N7 helper for seeded nested HOME/XDG and wrapper paths; real launches belong to measure/keystroke.",
+    "kind": "reference",
+    "sha256": "5b15993007be72629c267f443ca6db5d0aa1d3531abf3171a33bcb24165d1716"
+  },
+  "crates/perf/tests/cli.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/perf/tests/large_project.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/examples/r16_client.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/src/lib.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/tests/client.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/tests/reply.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/src/cli.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/src/main.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/a34.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/attachment.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/cli.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/resume_work.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/e2e.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/e2e/notes.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/e2e/wake.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/lk.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/m12.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/models.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/o12.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/signal.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Names the Daemon only in an expected log line; launches delegate to common/served.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/builtin.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/facts.rs": {
+    "cleanup": "No process or Daemon is launched; the file only names rupd in a log line.",
+    "data": "Unit observers use in-memory facts; no data directory is opened.",
+    "kind": "reference",
+    "sha256": "727d771c227290c7ce1c57af10229bf7cfb185a6aace115c63afbf34a158f6dd"
+  },
+  "crates/rupd/src/main.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/project_program.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/wake.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/workstream_door.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/b28_messages_failure.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/b50_note_inbox.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/ps8_terminal_list.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/b54_terminal_read_scope.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/order_steering.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/door_writes.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/ro3_overview_gate.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/order_base_changes.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/b6_cleanup_completion.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/door_terminals.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/d1_attached.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/dtc2_quiet_notes.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/dtc3_one_turn.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/dtc4_catch_up.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/schema_tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/store_migrations.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/sweep_rupd_harness.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/workstream_measurement.rs": {
+    "cleanup": "Shared Rupd handle kills and waits on Drop before caller-owned TempDirs drop; reopen explicitly kills and waits before relaunch.",
+    "data": "Delegates launches to support/rupd_harness.rs with an explicit absolute caller-owned TempDir, retained across reopen.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/connection.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/route/mod.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "tools/method-policy/guard.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Greps committed rupd sources for method-name comparisons; no Daemon launch.",
+    "kind": "reference"
+  },
+  "tools/typed-calls/guard.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Greps committed rupd sources for method-name calls; no Daemon launch.",
+    "kind": "reference"
+  },
+  "tools/contracts/test_addition.py": {
+    "cleanup": "Temporary checkout is removed on success and failure; no Daemon launch.",
+    "data": "Edits copied sources in a temporary directory; names rupd files only.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/pads/u3732_real_daemon_agent_owner.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/launch_choices.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir; Run drops the Daemon before its Project TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs; it supplies a canonical absolute ROUNDUP_DATA_DIR in a fresh owned TempDir and removes inherited App data redirection.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/decision_removal.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/u7951a_restart_bounds_first_prompt.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/a5335b_restart_resumes_no_finished_child.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/door_actions.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/child_run.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/perf/src/idle_native.rs": {
+    "cleanup": "Owns and reaps native sampling commands; App and Daemon cleanup belongs to app::run and launch::finish.",
+    "data": "Connects to the App-owned Daemon socket; executable hashing and process inventory only reference rupd. Launch isolation belongs to app::run.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/pads/u3787a_restore.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/app/u3787f_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/extensions/tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "spikes/rex-client/src/bin/spike/measure.rs": {
+    "cleanup": "Destroys the Rex sessions and closes streams; the shared Server guard stops its owned Rex child and the spike removes its temporary directory.",
+    "data": "Names rupd when comparing in-process Terminals measurements with Rex; delegates Rex and fake-agent launches to the audited spike harness. Starts no real rupd.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/dcl2_workstream_state.rs": {
+    "cleanup": "The shared rupd harness's Drop stops the Daemon before the owned data directory closes.",
+    "data": "Absolute caller-owned TempDir override through the shared harness; no later environment override.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/z6395b_agent_catch_up.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs; it supplies a canonical absolute ROUNDUP_DATA_DIR in a fresh owned TempDir and removes inherited App data redirection.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/amg3_memory_guard_note.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "tools/retired-words.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Names committed rupd source paths as retired-word allowances; no Daemon launch.",
+    "kind": "reference"
+  },
+  "crates/rup/src/machine.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/machine.rs": {
+    "cleanup": "Serves the test Daemon in process and kills the relay it starts.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/bridge.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/bridge.rs": {
+    "cleanup": "Serves the fake Daemon in process and kills the relay it starts.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/handoff.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/h7200_handoff.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/mc73_ssh_hosts.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u7499b_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/st_start_settings.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir; Run drops the Daemon before its tempdir.",
+    "data": "Calls the audited support/rupd_harness.rs with an explicit ROUNDUP_DATA_DIR in the test TempDir; no fallback data resolver.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/ep1_attested.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs with an explicit ROUNDUP_DATA_DIR in the test TempDir; no fallback data resolver.",
+    "kind": "reference"
+  }
+}
